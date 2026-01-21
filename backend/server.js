@@ -1285,9 +1285,21 @@ io.on('connection', (socket) => {
 
 // Error handler
 app.use((err, req, res, next) => {
-  console.error(err);
+  console.error('Express error:', err);
   res.status(500).send('Server Error');
 });
 
+// Global error handlers to prevent crashes
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Listening on 0.0.0.0:${PORT}`);
+});
