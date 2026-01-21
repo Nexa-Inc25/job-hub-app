@@ -2,12 +2,14 @@ const fs = require('fs');
 const path = require('path');
 
 // Try to load canvas and pdfjs - these may fail on some platforms
+let canvasModule = null;
 let createCanvas = null;
 let pdfjsLib = null;
 let pdfExtractionAvailable = false;
 
 try {
-  createCanvas = require('canvas').createCanvas;
+  canvasModule = require('canvas');
+  createCanvas = canvasModule.createCanvas;
   pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = '';
   pdfExtractionAvailable = true;
@@ -15,6 +17,27 @@ try {
 } catch (err) {
   console.warn('PDF extraction libraries not available:', err.message);
   console.warn('PDF image extraction will be disabled');
+}
+
+// Canvas factory for pdfjs-dist compatibility
+class NodeCanvasFactory {
+  create(width, height) {
+    const canvas = createCanvas(width, height);
+    const context = canvas.getContext('2d');
+    return { canvas, context };
+  }
+  
+  reset(canvasAndContext, width, height) {
+    canvasAndContext.canvas.width = width;
+    canvasAndContext.canvas.height = height;
+  }
+  
+  destroy(canvasAndContext) {
+    canvasAndContext.canvas.width = 0;
+    canvasAndContext.canvas.height = 0;
+    canvasAndContext.canvas = null;
+    canvasAndContext.context = null;
+  }
 }
 
 /**
@@ -37,8 +60,10 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
     
-    const canvas = createCanvas(viewport.width, viewport.height);
-    const context = canvas.getContext('2d');
+    // Use canvas factory for pdfjs compatibility
+    const canvasFactory = new NodeCanvasFactory();
+    const canvasAndContext = canvasFactory.create(viewport.width, viewport.height);
+    const { canvas, context } = canvasAndContext;
     
     // Fill with white background
     context.fillStyle = 'white';
@@ -46,12 +71,16 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
     
     await page.render({
       canvasContext: context,
-      viewport: viewport
+      viewport: viewport,
+      canvasFactory: canvasFactory
     }).promise;
     
     // Save as JPEG
     const buffer = canvas.toBuffer('image/jpeg', { quality: 0.85 });
     fs.writeFileSync(outputPath, buffer);
+    
+    // Cleanup
+    canvasFactory.destroy(canvasAndContext);
     
     return true;
   } catch (err) {
