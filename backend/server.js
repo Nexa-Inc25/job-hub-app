@@ -286,6 +286,20 @@ app.get('/api/files/:key(*)', authenticateUser, async (req, res) => {
 // Get list of available master templates
 app.get('/api/admin/templates', authenticateUser, async (req, res) => {
   try {
+    // If R2 is configured, list templates from R2
+    if (r2Storage.isR2Configured()) {
+      const r2Files = await r2Storage.listFiles('templates/');
+      const templates = r2Files.map(f => ({
+        name: f.Key.replace('templates/', ''),
+        url: `/api/files/${f.Key}`,
+        r2Key: f.Key,
+        size: f.Size,
+        lastModified: f.LastModified
+      }));
+      return res.json({ templates });
+    }
+    
+    // Fallback to local filesystem
     const templatesDir = path.join(__dirname, 'templates', 'master');
     if (!fs.existsSync(templatesDir)) {
       return res.json({ templates: [] });
