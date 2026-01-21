@@ -45,7 +45,7 @@ const Calendar = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isAdmin] = useState(getAdminStatus); // Initialize synchronously
+  const [isAdmin] = useState(() => getAdminStatus()); // Initialize synchronously
   const [viewAll, setViewAll] = useState(true); // Admin toggle to view all scheduled jobs
 
   const fetchCalendarData = useCallback(async () => {

@@ -145,9 +145,9 @@ app.post('/api/signup', async (req, res) => {
     }
     const user = new User({ email, password, name: name || email.split('@')[0] });
     await user.save();
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ userId: user._id, isAdmin: user.isAdmin || false }, process.env.JWT_SECRET, { expiresIn: '24h' });
     console.log('User created successfully:', user._id);
-    res.status(201).json({ token, userId: user._id });
+    res.status(201).json({ token, userId: user._id, isAdmin: user.isAdmin || false });
   } catch (err) {
     console.error('Signup error:', err.message);
     res.status(500).json({ error: 'Server error during signup', details: err.message });

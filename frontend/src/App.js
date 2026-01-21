@@ -22,13 +22,12 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/" element={<Dashboard />} />
-          <Route path="/job/:id" element={<Jobhub />} />
           <Route path="/jobs/:id" element={<JobFileSystem />} />
+          <Route path="/jobs/:id/files" element={<JobFileSystem />} />
+          <Route path="/jobs/:id/details" element={<WorkOrderDetails />} />
           <Route path="/create-wo" element={<CreateWorkOrder />} />
           <Route path="/emergency-wo" element={<EmergencyWO />} />
           <Route path="/forms" element={<Forms />} />
-          <Route path="/job/:id/details" element={<WorkOrderDetails />} />
-          <Route path="/job/:id/files" element={<JobFileSystem />} />
           <Route path="/admin/templates" element={<TemplateManager />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="*" element={<div>404 - Not Found</div>} />

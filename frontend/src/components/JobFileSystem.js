@@ -128,7 +128,7 @@ const JobFileSystem = () => {
 
   const handleJobChange = (event, newValue) => {
     if (newValue) {
-      navigate(`/job/${newValue._id}/files`);
+      navigate(`/jobs/${newValue._id}/files`);
     }
   };
 
@@ -369,21 +369,28 @@ const JobFileSystem = () => {
   // Get the correct URL for a document
   const getDocUrl = (doc) => {
     if (!doc) return '';
+    // Use the API base URL from environment or default to relative path
+    const apiBase = process.env.REACT_APP_API_URL || '';
+    
     // If it's a template, use the template URL
     if (doc.url?.startsWith('/templates/')) {
-      return `http://localhost:5000${doc.url}`;
+      return `${apiBase}${doc.url}`;
     }
     // If it's an uploaded file
     if (doc.url?.startsWith('/uploads/')) {
-      return `http://localhost:5000${doc.url}`;
+      return `${apiBase}${doc.url}`;
     }
     // If it has a path but no proper URL
     if (doc.path) {
       const filename = doc.path.split('/').pop();
       if (doc.path.includes('templates')) {
-        return `http://localhost:5000/templates/master/${encodeURIComponent(doc.name)}`;
+        return `${apiBase}/templates/master/${encodeURIComponent(doc.name)}`;
       }
-      return `http://localhost:5000/uploads/${filename}`;
+      return `${apiBase}/uploads/${filename}`;
+    }
+    // If it's an R2 key, use the files endpoint
+    if (doc.r2Key) {
+      return `${apiBase}/api/files/${doc.r2Key}`;
     }
     return doc.url || '';
   };

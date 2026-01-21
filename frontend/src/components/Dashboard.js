@@ -113,17 +113,21 @@ const Dashboard = () => {
   };
 
   const statusColors = {
-    pending: 'warning',
-    in_progress: 'info',
-    completed: 'success',
-    urgent: 'error',
+    'pending': 'warning',
+    'pre-field': 'info',
+    'in-progress': 'primary',
+    'completed': 'success',
+    'billed': 'secondary',
+    'invoiced': 'default',
   };
 
   const statusIcons = {
-    pending: <ScheduleIcon />,
-    in_progress: <DescriptionIcon />,
-    completed: <CheckCircleIcon />,
-    urgent: <ErrorIcon />,
+    'pending': <ScheduleIcon />,
+    'pre-field': <DescriptionIcon />,
+    'in-progress': <DescriptionIcon />,
+    'completed': <CheckCircleIcon />,
+    'billed': <CheckCircleIcon />,
+    'invoiced': <CheckCircleIcon />,
   };
 
   const fetchJobs = useCallback(async () => {
@@ -259,14 +263,14 @@ const Dashboard = () => {
 
   const handleViewFiles = () => {
     if (selectedJobId) {
-      navigate(`/job/${selectedJobId}/files`);
+      navigate(`/jobs/${selectedJobId}/files`);
     }
     handleJobMenuClose();
   };
 
   const handleViewDetails = () => {
     if (selectedJobId) {
-      navigate(`/job/${selectedJobId}`);
+      navigate(`/jobs/${selectedJobId}`);
     }
     handleJobMenuClose();
   };
@@ -671,7 +675,7 @@ const Dashboard = () => {
                     <Button
                       size="small"
                       component={Link}
-                      to={`/job/${job._id}`}
+                      to={`/jobs/${job._id}`}
                       sx={{ borderRadius: 1 }}
                     >
                       View Details
