@@ -170,24 +170,42 @@ app.post('/api/login', async (req, res) => {
 // Admin: Upload master template forms (PG&E forms, etc.) - MUST be before /api/jobs middleware
 app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('templates', 20), async (req, res) => {
   try {
-    console.log('Template upload request received');
-    console.log('Files:', req.files?.map(f => f.originalname));
+    console.log('=== Template Upload Request ===');
+    console.log('User:', req.userId, 'isAdmin:', req.isAdmin);
+    console.log('R2 configured:', r2Storage.isR2Configured());
+    console.log('Files received:', req.files?.length || 0);
+    console.log('File names:', req.files?.map(f => f.originalname));
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No files uploaded' });
+    }
     
     const uploaded = [];
     
     // Upload to R2 if configured, otherwise local
     if (r2Storage.isR2Configured()) {
+      console.log('Uploading to R2...');
       for (const file of req.files) {
-        const result = await r2Storage.uploadTemplate(file.path, file.originalname);
-        uploaded.push({
-          name: file.originalname,
-          url: result.key,
-          r2Key: result.key
-        });
-        // Clean up local temp file
-        fs.unlinkSync(file.path);
+        try {
+          console.log(`Uploading ${file.originalname} to R2...`);
+          const result = await r2Storage.uploadTemplate(file.path, file.originalname);
+          console.log(`Upload result for ${file.originalname}:`, result);
+          uploaded.push({
+            name: file.originalname,
+            url: result.key,
+            r2Key: result.key
+          });
+          // Clean up local temp file
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadErr) {
+          console.error(`Error uploading ${file.originalname}:`, uploadErr);
+          throw uploadErr;
+        }
       }
     } else {
+      console.log('R2 not configured, using local storage...');
       const templatesDir = path.join(__dirname, 'templates', 'master');
       if (!fs.existsSync(templatesDir)) {
         fs.mkdirSync(templatesDir, { recursive: true });
@@ -204,11 +222,12 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
       }
     }
     
-    console.log('Master templates uploaded:', uploaded.map(u => u.name));
+    console.log('Templates uploaded successfully:', uploaded.map(u => u.name));
     res.json({ message: 'Templates uploaded successfully', templates: uploaded });
   } catch (err) {
-    console.error('Template upload error:', err);
-    res.status(500).json({ error: 'Template upload failed' });
+    console.error('Template upload error:', err.message);
+    console.error('Stack:', err.stack);
+    res.status(500).json({ error: 'Template upload failed: ' + err.message });
   }
 });
 
