@@ -1,17 +1,38 @@
 const fs = require('fs');
 const path = require('path');
-const { createCanvas } = require('canvas');
 
-// Use require for pdfjs-dist legacy build (CommonJS compatible)
-const pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+// Try to load canvas and pdfjs - these may fail on some platforms
+let createCanvas = null;
+let pdfjsLib = null;
+let pdfExtractionAvailable = false;
 
-// Disable worker for Node.js environment
-pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+try {
+  createCanvas = require('canvas').createCanvas;
+  pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
+  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  pdfExtractionAvailable = true;
+  console.log('PDF extraction libraries loaded successfully');
+} catch (err) {
+  console.warn('PDF extraction libraries not available:', err.message);
+  console.warn('PDF image extraction will be disabled');
+}
+
+/**
+ * Check if PDF extraction is available
+ */
+function isExtractionAvailable() {
+  return pdfExtractionAvailable;
+}
 
 /**
  * Render a specific PDF page to an image file
  */
 async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
+  if (!pdfExtractionAvailable) {
+    console.warn('PDF extraction not available - skipping page render');
+    return false;
+  }
+  
   try {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
@@ -223,6 +244,13 @@ async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
     summary: ''
   };
   
+  // Check if extraction libraries are available
+  if (!pdfExtractionAvailable) {
+    console.warn('PDF extraction not available - canvas/pdfjs not loaded');
+    result.summary = 'PDF extraction unavailable on this server';
+    return result;
+  }
+  
   try {
     console.log('=== Starting asset extraction ===');
     console.log('PDF:', pdfPath);
@@ -296,6 +324,7 @@ async function identifyDrawingsAndMaps(pdfText, openai, totalPages) {
 }
 
 module.exports = {
+  isExtractionAvailable,
   extractImagesFromPdf,
   identifyDrawingsAndMaps,
   convertPagesToImages,
