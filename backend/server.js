@@ -15,7 +15,11 @@ const Job = require('./models/Job');
 const apiRoutes = require('./routes/api');
 const pdfImageExtractor = require('./utils/pdfImageExtractor');
 const pdfUtils = require('./utils/pdfUtils');
+const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
+
+// Log R2 configuration status
+console.log('R2 Storage configured:', r2Storage.isR2Configured());
 
 const app = express();
 const server = http.createServer(app);
@@ -59,9 +63,11 @@ app.get('/api/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    r2: r2Storage.isR2Configured() ? 'configured' : 'not configured'
   });
 });
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -167,20 +173,35 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
     console.log('Template upload request received');
     console.log('Files:', req.files?.map(f => f.originalname));
     
-    const templatesDir = path.join(__dirname, 'templates', 'master');
-    if (!fs.existsSync(templatesDir)) {
-      fs.mkdirSync(templatesDir, { recursive: true });
-    }
-    
     const uploaded = [];
-    for (const file of req.files) {
-      const destPath = path.join(templatesDir, file.originalname);
-      fs.renameSync(file.path, destPath);
-      uploaded.push({
-        name: file.originalname,
-        path: destPath,
-        url: `/templates/master/${encodeURIComponent(file.originalname)}`
-      });
+    
+    // Upload to R2 if configured, otherwise local
+    if (r2Storage.isR2Configured()) {
+      for (const file of req.files) {
+        const result = await r2Storage.uploadTemplate(file.path, file.originalname);
+        uploaded.push({
+          name: file.originalname,
+          url: result.key,
+          r2Key: result.key
+        });
+        // Clean up local temp file
+        fs.unlinkSync(file.path);
+      }
+    } else {
+      const templatesDir = path.join(__dirname, 'templates', 'master');
+      if (!fs.existsSync(templatesDir)) {
+        fs.mkdirSync(templatesDir, { recursive: true });
+      }
+      
+      for (const file of req.files) {
+        const destPath = path.join(templatesDir, file.originalname);
+        fs.renameSync(file.path, destPath);
+        uploaded.push({
+          name: file.originalname,
+          path: destPath,
+          url: `/templates/master/${encodeURIComponent(file.originalname)}`
+        });
+      }
     }
     
     console.log('Master templates uploaded:', uploaded.map(u => u.name));
@@ -188,6 +209,31 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
   } catch (err) {
     console.error('Template upload error:', err);
     res.status(500).json({ error: 'Template upload failed' });
+  }
+});
+
+// Get signed URL for R2 file access
+app.get('/api/files/:key(*)', authenticateUser, async (req, res) => {
+  try {
+    const fileKey = req.params.key;
+    
+    if (r2Storage.isR2Configured()) {
+      const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
+      if (signedUrl) {
+        return res.json({ url: signedUrl });
+      }
+    }
+    
+    // Fallback to local file
+    const localPath = path.join(__dirname, 'uploads', fileKey);
+    if (fs.existsSync(localPath)) {
+      return res.sendFile(localPath);
+    }
+    
+    res.status(404).json({ error: 'File not found' });
+  } catch (err) {
+    console.error('Error getting file:', err);
+    res.status(500).json({ error: 'Failed to get file' });
   }
 });
 
