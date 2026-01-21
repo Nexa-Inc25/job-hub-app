@@ -467,10 +467,8 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
 });
 
 // Protect jobs route - this applies to all /api/jobs/* routes defined below
-app.use('/api/jobs', authenticateUser);
-
-// Existing routes (protected now)
-app.get('/api/jobs', async (req, res) => {
+// All /api/jobs routes require authentication
+app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
     const { search } = req.query;
     // Always filter by authenticated user for data isolation
@@ -814,7 +812,7 @@ app.get('/api/jobs/search/:pmNumber', authenticateUser, async (req, res) => {
   }
 });
 
-app.get('/api/jobs/:id', async (req, res) => {
+app.get('/api/jobs/:id', authenticateUser, async (req, res) => {
   try {
     console.log('Getting job by ID:', req.params.id);
     console.log('User ID from token:', req.userId, 'isAdmin:', req.isAdmin);
