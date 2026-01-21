@@ -95,6 +95,8 @@ const Login = () => {
 
           <form onSubmit={handleSubmit}>
             <TextField
+              id="login-email"
+              name="email"
               fullWidth
               label="Email Address"
               type="email"
@@ -105,6 +107,8 @@ const Login = () => {
               autoComplete="email"
             />
             <TextField
+              id="login-password"
+              name="password"
               fullWidth
               label="Password"
               type={showPassword ? 'text' : 'password'}
