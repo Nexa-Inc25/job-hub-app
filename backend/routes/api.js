@@ -28,16 +28,26 @@ const upload = multer({ storage });
 // POST AI extract
 router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
   try {
-    console.log('AI extract request received');
+    console.log('=== AI Extract Request ===');
+    console.log('Uploads directory:', uploadsDir);
+    console.log('Uploads dir exists:', fs.existsSync(uploadsDir));
     console.log('File info:', req.file);
     console.log('File path:', req.file?.path);
     console.log('User authenticated:', Boolean(req.userId));
     console.log('OpenAI key available:', Boolean(process.env.OPENAI_API_KEY));
+    console.log('OpenAI key prefix:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...');
 
     if (!req.file) {
       console.log('No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
+    
+    // Verify file exists
+    if (!fs.existsSync(req.file.path)) {
+      console.error('Uploaded file does not exist at path:', req.file.path);
+      return res.status(500).json({ error: 'File upload failed - file not found' });
+    }
+    console.log('File exists, size:', fs.statSync(req.file.path).size);
 
     const prompt = req.body.prompt || `You are an expert at extracting work order information from PG&E and utility maintenance documents.
 
