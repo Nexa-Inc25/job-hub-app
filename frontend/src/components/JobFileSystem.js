@@ -156,7 +156,7 @@ const JobFileSystem = () => {
       const token = localStorage.getItem('token');
       const folderName = selectedFolder.parentFolder || selectedFolder.name;
       await api.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        headers: { Authorization: `Bearer ${token}` },
       });
       // Refresh job data
       const response = await api.get(`/api/jobs/${id}`, {

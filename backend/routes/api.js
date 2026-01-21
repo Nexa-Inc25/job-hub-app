@@ -138,7 +138,9 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     if (job.folders[0].documents?.[0]) {
-      const text = await getPdfUtils().getPdfText(job.folders[0].documents[0]);
+      const doc = job.folders[0].documents[0];
+      const docPath = doc.path || doc.url;
+      const text = await getPdfUtils().getPdfText(docPath);
       const chunks = getPdfUtils().getTextChunks(text);
       const store = getPdfUtils().getVectorStore(chunks);
       const chain = getPdfUtils().getConversationalChain(store);

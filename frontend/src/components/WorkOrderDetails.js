@@ -71,7 +71,7 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
     Array.from(e.target.files).forEach(file => formData.append('photos', file));
     try {
       await api.post(`/api/jobs/${jobId}/photos`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        headers: { Authorization: `Bearer ${token}` },
       });
       onJobUpdate();
     } catch (err) {

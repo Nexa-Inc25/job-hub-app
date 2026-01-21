@@ -90,7 +90,6 @@ const CreateWorkOrder = ({ token }) => {
       const response = await api.post('/api/ai/extract', formData, {
         headers: {
           Authorization: `Bearer ${localToken}`,
-          'Content-Type': 'multipart/form-data',
         },
       });
       console.log('AI extraction successful:', response.data);
