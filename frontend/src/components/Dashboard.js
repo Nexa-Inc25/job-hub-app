@@ -508,6 +508,8 @@ const Dashboard = () => {
       <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 1 }}>
         <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
           <TextField
+            id="search"
+            name="search"
             fullWidth
             variant="outlined"
             placeholder="Search work orders by title, description, or client..."
@@ -760,8 +762,11 @@ const Dashboard = () => {
             })()}
             
             <FormControl fullWidth>
-              <InputLabel>Assign To</InputLabel>
+              <InputLabel id="assignTo-label">Assign To</InputLabel>
               <Select
+                id="assignTo"
+                name="assignTo"
+                labelId="assignTo-label"
                 value={assignmentData.assignedTo}
                 label="Assign To"
                 onChange={(e) => setAssignmentData({ ...assignmentData, assignedTo: e.target.value })}
@@ -778,6 +783,8 @@ const Dashboard = () => {
             </FormControl>
             
             <TextField
+              id="crewScheduledDate"
+              name="crewScheduledDate"
               label="Crew Scheduled Date"
               type="date"
               value={assignmentData.crewScheduledDate}
@@ -788,6 +795,8 @@ const Dashboard = () => {
             />
             
             <TextField
+              id="crewScheduledEndDate"
+              name="crewScheduledEndDate"
               label="End Date (Optional - for multi-day jobs)"
               type="date"
               value={assignmentData.crewScheduledEndDate}
@@ -797,6 +806,8 @@ const Dashboard = () => {
             />
             
             <TextField
+              id="assignmentNotes"
+              name="assignmentNotes"
               label="Assignment Notes"
               multiline
               rows={3}

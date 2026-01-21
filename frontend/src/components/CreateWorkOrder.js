@@ -187,6 +187,8 @@ const CreateWorkOrder = ({ token }) => {
             <Grid container spacing={2}>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="pmNumber"
+                  name="pmNumber"
                   fullWidth
                   label="PM Number"
                   value={pmNumber}
@@ -196,6 +198,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="notificationNumber"
+                  name="notificationNumber"
                   fullWidth
                   label="Notification Number"
                   value={notificationNumber}
@@ -205,6 +209,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="woNumber"
+                  name="woNumber"
                   fullWidth
                   label="WO Number"
                   value={woNumber}
@@ -213,6 +219,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="orderType"
+                  name="orderType"
                   fullWidth
                   label="Order Type"
                   value={orderType}
@@ -222,6 +230,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12}>
                 <TextField
+                  id="address"
+                  name="address"
                   fullWidth
                   label="Address"
                   value={address}
@@ -230,6 +240,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="city"
+                  name="city"
                   fullWidth
                   label="City"
                   value={city}
@@ -238,6 +250,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="client"
+                  name="client"
                   fullWidth
                   label="Client"
                   value={client}
@@ -246,6 +260,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12}>
                 <TextField
+                  id="projectName"
+                  name="projectName"
                   fullWidth
                   label="Project Name"
                   value={projectName}
@@ -254,6 +270,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="division"
+                  name="division"
                   fullWidth
                   select
                   label="Division"
@@ -269,6 +287,8 @@ const CreateWorkOrder = ({ token }) => {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <TextField
+                  id="matCode"
+                  name="matCode"
                   fullWidth
                   label="MAT Code"
                   value={matCode}
