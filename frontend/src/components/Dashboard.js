@@ -1,7 +1,7 @@
 // src/components/Dashboard.js
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import {
   Container,
   Typography,
@@ -98,7 +98,7 @@ const Dashboard = () => {
   const fetchForemen = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('/api/users/foremen', {
+      const response = await api.get('/api/users/foremen', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setForemen(response.data);
@@ -131,7 +131,7 @@ const Dashboard = () => {
       setLoading(true);
       const token = localStorage.getItem('token');
       const url = search ? `/api/jobs?search=${encodeURIComponent(search)}` : '/api/jobs';
-      const response = await axios.get(url, {
+      const response = await api.get(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJobs(response.data);
@@ -231,7 +231,7 @@ const Dashboard = () => {
       const token = localStorage.getItem('token');
       console.log('Deleting job:', selectedJobId);
       
-      const response = await axios.delete(`/api/jobs/${selectedJobId}`, {
+      const response = await api.delete(`/api/jobs/${selectedJobId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -299,7 +299,7 @@ const Dashboard = () => {
   const handleAssignJob = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`/api/jobs/${selectedJobId}/assign`, assignmentData, {
+      await api.put(`/api/jobs/${selectedJobId}/assign`, assignmentData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

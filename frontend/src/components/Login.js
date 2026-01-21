@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import api from '../api';
 import { useNavigate, Link } from 'react-router-dom';
 import {
   Box,
@@ -36,7 +36,7 @@ const Login = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await axios.post('/api/login', { email, password });
+      const response = await api.post('/api/login', { email, password });
       localStorage.setItem('token', response.data.token);
       if (response.data.isAdmin) {
         localStorage.setItem('isAdmin', 'true');

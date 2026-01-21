@@ -1,7 +1,7 @@
 // src/components/JobFileSystem.js
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import {
   Box,
   Typography,
@@ -86,7 +86,7 @@ const JobFileSystem = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const response = await axios.get('/api/user/me', {
+        const response = await api.get('/api/user/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setIsAdmin(response.data.isAdmin || false);
@@ -106,7 +106,7 @@ const JobFileSystem = () => {
         return;
       }
       try {
-        const response = await axios.get('/api/jobs', {
+        const response = await api.get('/api/jobs', {
           headers: { Authorization: `Bearer ${token}` },
         });
         setJobs(response.data);
@@ -155,11 +155,11 @@ const JobFileSystem = () => {
     try {
       const token = localStorage.getItem('token');
       const folderName = selectedFolder.parentFolder || selectedFolder.name;
-      await axios.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
+      await api.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
       // Refresh job data
-      const response = await axios.get(`/api/jobs/${id}`, {
+      const response = await api.get(`/api/jobs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setJob(response.data);
@@ -206,12 +206,12 @@ const JobFileSystem = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`/api/jobs/${id}/photos`, formData, {
+      await api.post(`/api/jobs/${id}/photos`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
       
       // Refresh job data
-      const response = await axios.get(`/api/jobs/${id}`, {
+      const response = await api.get(`/api/jobs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setJob(response.data);
@@ -256,12 +256,12 @@ const JobFileSystem = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`/api/jobs/${id}/prefield-photos`, formData, {
+      await api.post(`/api/jobs/${id}/prefield-photos`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
       
       // Refresh job data
-      const response = await axios.get(`/api/jobs/${id}`, {
+      const response = await api.get(`/api/jobs/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setJob(response.data);
@@ -319,7 +319,7 @@ const JobFileSystem = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`/api/jobs/${job._id}/documents/${contextDoc._id}`, {
+      await api.delete(`/api/jobs/${job._id}/documents/${contextDoc._id}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: {
           folderName: selectedFolder?.parentFolder || selectedFolder?.name,
@@ -328,7 +328,7 @@ const JobFileSystem = () => {
       });
 
       // Refresh job data
-      const response = await axios.get(`/api/jobs/${job._id}`, {
+      const response = await api.get(`/api/jobs/${job._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJob(response.data);
@@ -394,7 +394,7 @@ const JobFileSystem = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.post(`/api/jobs/${job._id}/folders`, {
+      await api.post(`/api/jobs/${job._id}/folders`, {
         folderName: newFolderName.trim(),
         parentFolder: isSubfolder ? newFolderParent : null,
         isSubfolder
@@ -403,7 +403,7 @@ const JobFileSystem = () => {
       });
       
       // Refresh job data
-      const response = await axios.get(`/api/jobs/${job._id}`, {
+      const response = await api.get(`/api/jobs/${job._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJob(response.data);
@@ -427,13 +427,13 @@ const JobFileSystem = () => {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`/api/jobs/${job._id}/folders/${encodeURIComponent(folderName)}`, {
+      await api.delete(`/api/jobs/${job._id}/folders/${encodeURIComponent(folderName)}`, {
         headers: { Authorization: `Bearer ${token}` },
         data: { parentFolder }
       });
       
       // Refresh job data
-      const response = await axios.get(`/api/jobs/${job._id}`, {
+      const response = await api.get(`/api/jobs/${job._id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJob(response.data);
@@ -465,7 +465,7 @@ const JobFileSystem = () => {
   const handleSaveEditedPdf = async (base64Data, documentName) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.post(`/api/jobs/${id}/save-edited-pdf`, {
+      const response = await api.post(`/api/jobs/${id}/save-edited-pdf`, {
         pdfData: base64Data,
         originalName: documentName,
         folderName: selectedFolder?.parentFolder || selectedFolder?.name,
@@ -477,7 +477,7 @@ const JobFileSystem = () => {
       console.log('PDF saved:', response.data);
       
       // Refresh job data to show the new document
-      const jobResponse = await axios.get(`/api/jobs/${id}`, {
+      const jobResponse = await api.get(`/api/jobs/${id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setJob(jobResponse.data);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import { Box, TextField, Button, Typography } from '@mui/material';
 
 function EmergencyWO() {
@@ -11,7 +11,7 @@ function EmergencyWO() {
     e.preventDefault();
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/api/jobs/emergency', { woNumber }, { headers: { Authorization: `Bearer ${token}` } });
+      await api.post('/api/jobs/emergency', { woNumber }, { headers: { Authorization: `Bearer ${token}` } });
       navigate('/dashboard');
     } catch (err) {
       console.error(err);

@@ -1,7 +1,7 @@
 // src/components/JobHub.js
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import { pdfjs } from 'react-pdf'; // Import pdfjs
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -12,7 +12,7 @@ const JobHub = () => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    axios.get(`/api/jobs/${id}`, {
+    api.get(`/api/jobs/${id}`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(res => setJob(res.data))
       .catch(err => console.error(err));

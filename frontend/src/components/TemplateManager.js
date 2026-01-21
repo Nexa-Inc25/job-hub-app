@@ -1,6 +1,6 @@
 // src/components/TemplateManager.js
 import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../api';
 import {
   Box,
   Typography,
@@ -66,7 +66,7 @@ const TemplateManager = () => {
   const fetchTemplates = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/api/admin/templates', {
+      const response = await api.get('/api/admin/templates', {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTemplates(response.data.templates || []);
@@ -106,7 +106,7 @@ const TemplateManager = () => {
 
     try {
       console.log('Sending upload request...');
-      const response = await axios.post('/api/admin/templates', formData, {
+      const response = await api.post('/api/admin/templates', formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'

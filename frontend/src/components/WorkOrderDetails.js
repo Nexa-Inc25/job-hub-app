@@ -4,7 +4,7 @@ import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { TreeView, TreeItem } from '@mui/x-tree-view';
-import axios from 'axios';
+import api from '../api';
 import PDFEditor from './PDFEditor';
 
 pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
@@ -24,7 +24,7 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
-        const response = await axios.get(`/api/jobs/${jobId}`, {
+        const response = await api.get(`/api/jobs/${jobId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setFolders(response.data.folders);
@@ -57,7 +57,7 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
 
   const handleBidSubmit = async () => {
     try {
-      await axios.post(`/api/jobs/${jobId}/bid`, { bidAmount, preFieldNotes }, {
+      await api.post(`/api/jobs/${jobId}/bid`, { bidAmount, preFieldNotes }, {
         headers: { Authorization: `Bearer ${token}` },
       });
       onJobUpdate(); // Refresh parent
@@ -70,7 +70,7 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
     const formData = new FormData();
     Array.from(e.target.files).forEach(file => formData.append('photos', file));
     try {
-      await axios.post(`/api/jobs/${jobId}/photos`, formData, {
+      await api.post(`/api/jobs/${jobId}/photos`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
       });
       onJobUpdate();
@@ -81,7 +81,7 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
 
   const handleSubmitJob = async () => {
     try {
-      await axios.post(`/api/jobs/${jobId}/complete`, {}, {
+      await api.post(`/api/jobs/${jobId}/complete`, {}, {
         headers: { Authorization: `Bearer ${token}` },
       });
       onJobUpdate();

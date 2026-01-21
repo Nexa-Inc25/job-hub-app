@@ -22,7 +22,7 @@ import {
   Today as TodayIcon,
   Work as WorkIcon
 } from '@mui/icons-material';
-import axios from 'axios';
+import api from '../api';
 
 // Helper to get admin status from token synchronously
 const getAdminStatus = () => {
@@ -59,7 +59,7 @@ const Calendar = () => {
       // If admin and viewAll is true, fetch all scheduled jobs
       const viewAllParam = isAdmin && viewAll ? '&viewAll=true' : '';
       
-      const response = await axios.get(`/api/calendar?month=${month}&year=${year}${viewAllParam}`, {
+      const response = await api.get(`/api/calendar?month=${month}&year=${year}${viewAllParam}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

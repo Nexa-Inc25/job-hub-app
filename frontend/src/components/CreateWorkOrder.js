@@ -1,7 +1,7 @@
 // src/components/CreateWorkOrder.js
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../api';
 import {
   Box,
   Container,
@@ -68,7 +68,7 @@ const CreateWorkOrder = ({ token }) => {
 
     // Verify token is still valid
     try {
-      await axios.get('/api/jobs', {
+      await api.get('/api/jobs', {
         headers: { Authorization: `Bearer ${localToken}` }
       });
     } catch (tokenErr) {
@@ -88,7 +88,7 @@ const CreateWorkOrder = ({ token }) => {
       setExtracting(true);
       setError('');
       console.log('Starting AI extraction...');
-      const response = await axios.post('/api/ai/extract', formData, {
+      const response = await api.post('/api/ai/extract', formData, {
         headers: {
           Authorization: `Bearer ${localToken}`,
           'Content-Type': 'multipart/form-data',
@@ -186,7 +186,7 @@ const CreateWorkOrder = ({ token }) => {
     jobFormData.append('matCode', matCode);
 
     try {
-      const jobRes = await axios.post('/api/jobs', jobFormData, {
+      const jobRes = await api.post('/api/jobs', jobFormData, {
         headers: { Authorization: `Bearer ${localToken}` }
       });
       console.log('Job created:', jobRes.data);
