@@ -44,10 +44,13 @@ console.log('R2 Storage configured:', r2Storage.isR2Configured());
 const app = express();
 const server = http.createServer(app);
 
-// Production CORS - allow frontend URL from env or localhost for dev
+// CORS - whitelist allowed origins for security
 const allowedOrigins = [
+  'https://job-hub-app.vercel.app',
+  'https://job-hub-app-git-main.vercel.app',
+  process.env.FRONTEND_URL,
   'http://localhost:3000',
-  process.env.FRONTEND_URL
+  'http://localhost:5173'
 ].filter(Boolean);
 
 console.log('Allowed CORS origins:', allowedOrigins);
@@ -58,15 +61,6 @@ const io = socketIo(server, {
     methods: ["GET", "POST"]
   }
 });
-
-// CORS - whitelist allowed origins for security
-const allowedOrigins = [
-  'https://job-hub-app.vercel.app',
-  'https://job-hub-app-git-main.vercel.app',
-  process.env.FRONTEND_URL,
-  'http://localhost:3000',
-  'http://localhost:5173'
-].filter(Boolean);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
