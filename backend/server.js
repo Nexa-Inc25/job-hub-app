@@ -26,6 +26,8 @@ const allowedOrigins = [
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
+console.log('Allowed CORS origins:', allowedOrigins);
+
 const io = socketIo(server, {
   cors: {
     origin: allowedOrigins,
@@ -35,11 +37,18 @@ const io = socketIo(server, {
 
 app.use(cors({ 
   origin: function(origin, callback) {
+    console.log('CORS request from origin:', origin);
     // Allow requests with no origin (mobile apps, curl, etc)
     if (!origin) return callback(null, true);
+    // Check if origin matches allowed origins
     if (allowedOrigins.includes(origin)) {
       return callback(null, true);
     }
+    // Also allow any vercel.app subdomain for preview deployments
+    if (origin && origin.includes('vercel.app')) {
+      return callback(null, true);
+    }
+    console.log('CORS rejected for origin:', origin);
     return callback(new Error('Not allowed by CORS'), false);
   },
   credentials: true
