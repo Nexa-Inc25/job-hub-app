@@ -197,52 +197,54 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
       maps: []
     };
     
-    // 1. Extract embedded images (photos) from PDF
-    console.log('Extracting embedded images...');
-    const embeddedImages = await getPdfImageExtractor().extractImagesFromPdf(pdfPath, photosDir);
-    extractedAssets.photos = embeddedImages.map(img => ({
-      ...img,
-      url: `/uploads/job_${jobId}/photos/${img.name}`
-    }));
+    // 1. Analyze PDF pages by content (position-independent)
+    console.log('Analyzing PDF pages by content...');
+    const pageAnalysis = await getPdfImageExtractor().analyzePagesByContent(pdfPath);
+    console.log('Page analysis result:', pageAnalysis);
     
-    // 2. Use AI to identify pages with drawings/maps
-    if (process.env.OPENAI_API_KEY) {
-      console.log('Using AI to identify drawings and maps...');
-      const pdfText = await getPdfUtils().getPdfText(pdfPath);
-      
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const pageAnalysis = await getPdfImageExtractor().identifyDrawingsAndMaps(pdfText, openai);
-      
-      console.log('Page analysis:', pageAnalysis);
-      
-      // 3. Convert identified pages to images
-      if (pageAnalysis.constructionDrawings?.length > 0) {
-        console.log('Converting drawing pages:', pageAnalysis.constructionDrawings);
-        const drawings = await getPdfImageExtractor().convertPagesToImages(
-          pdfPath, 
-          pageAnalysis.constructionDrawings, 
-          drawingsDir, 
-          'drawing'
-        );
-        extractedAssets.drawings = drawings.map(d => ({
-          ...d,
-          url: `/uploads/job_${jobId}/drawings/${d.name}`
-        }));
-      }
-      
-      if (pageAnalysis.circuitMaps?.length > 0) {
-        console.log('Converting map pages:', pageAnalysis.circuitMaps);
-        const maps = await getPdfImageExtractor().convertPagesToImages(
-          pdfPath, 
-          pageAnalysis.circuitMaps, 
-          mapsDir, 
-          'map'
-        );
-        extractedAssets.maps = maps.map(m => ({
-          ...m,
-          url: `/uploads/job_${jobId}/maps/${m.name}`
-        }));
-      }
+    // 2. Convert identified drawings to images
+    if (pageAnalysis.drawings?.length > 0) {
+      console.log('Converting drawing pages:', pageAnalysis.drawings);
+      const drawings = await getPdfImageExtractor().convertPagesToImages(
+        pdfPath, 
+        pageAnalysis.drawings, 
+        drawingsDir, 
+        'drawing'
+      );
+      extractedAssets.drawings = drawings.map(d => ({
+        ...d,
+        url: `/uploads/job_${jobId}/drawings/${d.name}`
+      }));
+    }
+    
+    // 3. Convert identified maps to images
+    if (pageAnalysis.maps?.length > 0) {
+      console.log('Converting map pages:', pageAnalysis.maps);
+      const maps = await getPdfImageExtractor().convertPagesToImages(
+        pdfPath, 
+        pageAnalysis.maps, 
+        mapsDir, 
+        'map'
+      );
+      extractedAssets.maps = maps.map(m => ({
+        ...m,
+        url: `/uploads/job_${jobId}/maps/${m.name}`
+      }));
+    }
+    
+    // 4. Convert identified photos to images
+    if (pageAnalysis.photos?.length > 0) {
+      console.log('Converting photo pages:', pageAnalysis.photos);
+      const photos = await getPdfImageExtractor().convertPagesToImages(
+        pdfPath, 
+        pageAnalysis.photos, 
+        photosDir, 
+        'photo'
+      );
+      extractedAssets.photos = photos.map(p => ({
+        ...p,
+        url: `/uploads/job_${jobId}/photos/${p.name}`
+      }));
     }
     
     // 4. Update job with extracted assets

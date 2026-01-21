@@ -290,9 +290,14 @@ app.get('/api/files/:key(*)', authenticateUser, async (req, res) => {
 // Get list of available master templates
 app.get('/api/admin/templates', authenticateUser, async (req, res) => {
   try {
+    console.log('=== Listing Templates ===');
+    console.log('R2 configured:', r2Storage.isR2Configured());
+    
     // If R2 is configured, list templates from R2
     if (r2Storage.isR2Configured()) {
+      console.log('Listing templates from R2...');
       const r2Files = await r2Storage.listFiles('templates/');
+      console.log('R2 files found:', r2Files.length, r2Files.map(f => f.Key));
       const templates = r2Files.map(f => ({
         name: f.Key.replace('templates/', ''),
         url: `/api/files/${f.Key}`,
@@ -300,16 +305,20 @@ app.get('/api/admin/templates', authenticateUser, async (req, res) => {
         size: f.Size,
         lastModified: f.LastModified
       }));
+      console.log('Returning templates:', templates.length);
       return res.json({ templates });
     }
     
     // Fallback to local filesystem
+    console.log('R2 not configured, checking local filesystem...');
     const templatesDir = path.join(__dirname, 'templates', 'master');
     if (!fs.existsSync(templatesDir)) {
+      console.log('Templates dir does not exist:', templatesDir);
       return res.json({ templates: [] });
     }
     
     const files = fs.readdirSync(templatesDir);
+    console.log('Local files found:', files);
     const templates = files.map(f => ({
       name: f,
       url: `/templates/master/${encodeURIComponent(f)}`
