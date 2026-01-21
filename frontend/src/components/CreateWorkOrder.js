@@ -25,7 +25,6 @@ import {
   Save as SaveIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
-  AutoAwesome as AutoAwesomeIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
 
@@ -237,19 +236,12 @@ const CreateWorkOrder = ({ token }) => {
 
       <Container maxWidth="md" sx={{ py: 4 }}>
         <Paper sx={{ p: 4, borderRadius: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-            <AutoAwesomeIcon sx={{ mr: 1, color: 'primary.main' }} />
-            <Typography variant="h5" fontWeight={600}>
-              AI-Powered Work Order Creation
-            </Typography>
-          </Box>
-          
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Upload a PDF and our AI will automatically extract work order details. You can review and edit before saving.
+          <Typography variant="h5" fontWeight={600} sx={{ mb: 3 }}>
+            New Work Order
           </Typography>
 
           {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-          {success && <Alert severity="success" sx={{ mb: 3 }}>✅ Work order created successfully! Redirecting...</Alert>}
+          {success && <Alert severity="success" sx={{ mb: 3 }}>Work order created successfully! Redirecting...</Alert>}
 
           <form onSubmit={handleSubmit}>
             {/* File Upload */}
@@ -277,16 +269,16 @@ const CreateWorkOrder = ({ token }) => {
               {extracting ? (
                 <Box>
                   <CircularProgress size={40} sx={{ mb: 1 }} />
-                  <Typography>Extracting data with AI...</Typography>
+                  <Typography>Processing file...</Typography>
                 </Box>
               ) : (
                 <Box>
                   <CloudUploadIcon sx={{ fontSize: 48, color: file ? 'success.main' : 'text.secondary', mb: 1 }} />
                   <Typography variant="h6" color={file ? 'success.main' : 'text.secondary'}>
-                    {file ? file.name : 'Click to upload PDF'}
+                    {file ? file.name : 'Upload Job Package (PDF)'}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {file ? 'Click to change file' : 'AI will extract work order details automatically'}
+                    {file ? 'Click to change file' : 'Click or drag to upload'}
                   </Typography>
                 </Box>
               )}
