@@ -108,8 +108,7 @@ const TemplateManager = () => {
       console.log('Sending upload request...');
       const response = await api.post('/api/admin/templates', formData, {
         headers: { 
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data'
+          Authorization: `Bearer ${token}`
         }
       });
       console.log('Upload response:', response.data);

@@ -153,24 +153,8 @@ const Dashboard = () => {
   }, [navigate, search]);
 
   const filterJobs = useCallback(() => {
+    // Backend already handles search filtering, only apply status filter client-side
     let filtered = jobs;
-
-    // Apply search filter - match all fields that backend searches
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(job =>
-        job.title?.toLowerCase().includes(searchLower) ||
-        job.description?.toLowerCase().includes(searchLower) ||
-        job.client?.toLowerCase().includes(searchLower) ||
-        job.pmNumber?.toLowerCase().includes(searchLower) ||
-        job.woNumber?.toLowerCase().includes(searchLower) ||
-        job.notificationNumber?.toLowerCase().includes(searchLower) ||
-        job.address?.toLowerCase().includes(searchLower) ||
-        job.city?.toLowerCase().includes(searchLower) ||
-        job.projectName?.toLowerCase().includes(searchLower) ||
-        job.orderType?.toLowerCase().includes(searchLower)
-      );
-    }
 
     // Apply status filter
     if (filter !== 'all') {
@@ -178,7 +162,7 @@ const Dashboard = () => {
     }
 
     setFilteredJobs(filtered);
-  }, [jobs, search, filter]);
+  }, [jobs, filter]);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -360,11 +344,12 @@ const Dashboard = () => {
   };
 
   const getJobStats = () => {
-    const total = jobs.length;
-    const pending = jobs.filter(job => job.status === 'pending').length;
-    const inProgress = jobs.filter(job => job.status === 'in-progress').length;
-    const completed = jobs.filter(job => job.status === 'completed').length;
-    const preField = jobs.filter(job => job.status === 'pre-field').length;
+    // Calculate stats from filteredJobs to match displayed results
+    const total = filteredJobs.length;
+    const pending = filteredJobs.filter(job => job.status === 'pending').length;
+    const inProgress = filteredJobs.filter(job => job.status === 'in-progress').length;
+    const completed = filteredJobs.filter(job => job.status === 'completed').length;
+    const preField = filteredJobs.filter(job => job.status === 'pre-field').length;
 
     return { total, pending, inProgress, completed, preField };
   };

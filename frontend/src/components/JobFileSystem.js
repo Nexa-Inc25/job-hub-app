@@ -207,7 +207,7 @@ const JobFileSystem = () => {
     try {
       const token = localStorage.getItem('token');
       await api.post(`/api/jobs/${id}/photos`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        headers: { Authorization: `Bearer ${token}` },
       });
       
       // Refresh job data
@@ -257,7 +257,7 @@ const JobFileSystem = () => {
     try {
       const token = localStorage.getItem('token');
       await api.post(`/api/jobs/${id}/prefield-photos`, formData, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' },
+        headers: { Authorization: `Bearer ${token}` },
       });
       
       // Refresh job data
