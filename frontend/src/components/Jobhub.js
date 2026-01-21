@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import api from '../api';
 import { pdfjs } from 'react-pdf'; // Import pdfjs
 
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const JobHub = () => {
   const { id } = useParams();

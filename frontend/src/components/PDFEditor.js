@@ -3,7 +3,7 @@ import React from 'react';
 import { Typography } from '@mui/material'; // Added import
 import { pdfjs } from 'react-pdf'; // Import pdfjs
 
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 const PDFEditor = ({ pdfUrl }) => {
   // Example logic (remove unused pdfBytes or use it)
