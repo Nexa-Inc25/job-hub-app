@@ -3,21 +3,27 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('fs');
 const path = require('path');
 
-// Initialize S3 client for Cloudflare R2
-const s3Client = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
-});
-
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'job-hub-uploads';
 
-// Check if R2 is configured
+// Check if R2 is configured - define this first
 function isR2Configured() {
   return !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY);
+}
+
+// Only initialize S3 client if R2 is configured (prevents crash on undefined env vars)
+let s3Client = null;
+if (isR2Configured()) {
+  s3Client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    },
+  });
+  console.log('R2 S3Client initialized successfully');
+} else {
+  console.log('R2 not configured - using local storage fallback');
 }
 
 // Upload a file to R2
