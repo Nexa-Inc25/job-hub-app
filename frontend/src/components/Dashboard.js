@@ -362,11 +362,11 @@ const Dashboard = () => {
   const getJobStats = () => {
     const total = jobs.length;
     const pending = jobs.filter(job => job.status === 'pending').length;
-    const inProgress = jobs.filter(job => job.status === 'in_progress').length;
+    const inProgress = jobs.filter(job => job.status === 'in-progress').length;
     const completed = jobs.filter(job => job.status === 'completed').length;
-    const urgent = jobs.filter(job => job.status === 'urgent').length;
+    const preField = jobs.filter(job => job.status === 'pre-field').length;
 
-    return { total, pending, inProgress, completed, urgent };
+    return { total, pending, inProgress, completed, preField };
   };
 
   const stats = getJobStats();
@@ -506,13 +506,13 @@ const Dashboard = () => {
               <Box display="flex" alignItems="center" justifyContent="space-between">
                 <Box>
                   <Typography color="text.secondary" gutterBottom>
-                    Urgent
+                    Pre-Field
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="error.main">
-                    {stats.urgent}
+                  <Typography variant="h4" fontWeight="bold" color="info.main">
+                    {stats.preField}
                   </Typography>
                 </Box>
-                <ErrorIcon sx={{ fontSize: 40, color: 'error.main', opacity: 0.7 }} />
+                <FolderIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
               </Box>
             </CardContent>
           </Card>
@@ -554,9 +554,9 @@ const Dashboard = () => {
           >
             <MenuItem onClick={() => { setFilter('all'); handleMenuClose(); }}>All Status</MenuItem>
             <MenuItem onClick={() => { setFilter('pending'); handleMenuClose(); }}>Pending</MenuItem>
-            <MenuItem onClick={() => { setFilter('in_progress'); handleMenuClose(); }}>In Progress</MenuItem>
+            <MenuItem onClick={() => { setFilter('pre-field'); handleMenuClose(); }}>Pre-Field</MenuItem>
+            <MenuItem onClick={() => { setFilter('in-progress'); handleMenuClose(); }}>In Progress</MenuItem>
             <MenuItem onClick={() => { setFilter('completed'); handleMenuClose(); }}>Completed</MenuItem>
-            <MenuItem onClick={() => { setFilter('urgent'); handleMenuClose(); }}>Urgent</MenuItem>
           </Menu>
         </Box>
       </Paper>
@@ -683,7 +683,7 @@ const Dashboard = () => {
                     <Button
                       size="small"
                       component={Link}
-                      to={`/job/${job._id}/files`}
+                      to={`/jobs/${job._id}`}
                       sx={{ borderRadius: 1 }}
                     >
                       Files
