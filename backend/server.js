@@ -55,8 +55,14 @@ app.use(cors({
     console.log('CORS rejected for origin:', origin);
     return callback(new Error('Not allowed by CORS'), false);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
+  exposedHeaders: ['Content-Length', 'Content-Type']
 }));
+
+// Handle preflight requests explicitly
+app.options('*', cors());
 
 // Health check endpoint for Railway
 app.get('/api/health', (req, res) => {
