@@ -39,7 +39,8 @@ const io = socketIo(server, {
   }
 });
 
-app.use(cors({ 
+// CORS configuration
+const corsOptions = {
   origin: function(origin, callback) {
     console.log('CORS request from origin:', origin);
     // Allow requests with no origin (mobile apps, curl, etc)
@@ -58,11 +59,16 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'Content-Type']
-}));
+  exposedHeaders: ['Content-Length', 'Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204
+};
 
-// Handle preflight requests explicitly
-app.options('*', cors());
+// Enable CORS for all routes
+app.use(cors(corsOptions));
+
+// Handle preflight requests explicitly with same options
+app.options('*', cors(corsOptions));
 
 // Health check endpoint for Railway
 app.get('/api/health', (req, res) => {
