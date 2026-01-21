@@ -727,6 +727,25 @@ async function extractAssetsInBackground(jobId, pdfPath) {
   }
 }
 
+// Search jobs by PM number - MUST be before /api/jobs/:id to prevent route shadowing
+app.get('/api/jobs/search/:pmNumber', authenticateUser, async (req, res) => {
+  try {
+    const { pmNumber } = req.params;
+    const jobs = await Job.find({
+      userId: req.userId,
+      $or: [
+        { pmNumber: { $regex: pmNumber, $options: 'i' } },
+        { woNumber: { $regex: pmNumber, $options: 'i' } },
+        { notificationNumber: { $regex: pmNumber, $options: 'i' } }
+      ]
+    });
+    res.json(jobs);
+  } catch (err) {
+    console.error('Search error:', err);
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 app.get('/api/jobs/:id', async (req, res) => {
   try {
     console.log('Getting job by ID:', req.params.id);
@@ -1059,7 +1078,8 @@ app.post('/api/jobs/:id/folders', authenticateUser, async (req, res) => {
       return res.status(400).json({ error: 'Folder name is required' });
     }
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // Admins can access any job
+    const job = await Job.findById(id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -1117,7 +1137,8 @@ app.delete('/api/jobs/:id/folders/:folderName', authenticateUser, async (req, re
       return res.status(403).json({ error: 'Admin access required to delete folders' });
     }
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // Admins can access any job
+    const job = await Job.findById(id);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -1264,25 +1285,6 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
   } catch (err) {
     console.error('Status update error:', err);
     res.status(500).json({ error: 'Status update failed', details: err.message });
-  }
-});
-
-// Search jobs by PM number
-app.get('/api/jobs/search/:pmNumber', authenticateUser, async (req, res) => {
-  try {
-    const { pmNumber } = req.params;
-    const jobs = await Job.find({
-      userId: req.userId,
-      $or: [
-        { pmNumber: { $regex: pmNumber, $options: 'i' } },
-        { woNumber: { $regex: pmNumber, $options: 'i' } },
-        { notificationNumber: { $regex: pmNumber, $options: 'i' } }
-      ]
-    });
-    res.json(jobs);
-  } catch (err) {
-    console.error('Search error:', err);
-    res.status(500).json({ error: 'Search failed' });
   }
 });
 
