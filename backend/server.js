@@ -1,5 +1,9 @@
 require('dotenv').config();
 
+console.log('=== Server starting ===');
+console.log('Node version:', process.version);
+console.log('Memory usage:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -15,6 +19,8 @@ const Job = require('./models/Job');
 const apiRoutes = require('./routes/api');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
+
+console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
 // Lazy load heavy PDF modules only when needed
 let pdfImageExtractor = null;
