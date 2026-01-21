@@ -13,10 +13,24 @@ const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Job = require('./models/Job');
 const apiRoutes = require('./routes/api');
-const pdfImageExtractor = require('./utils/pdfImageExtractor');
-const pdfUtils = require('./utils/pdfUtils');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
+
+// Lazy load heavy PDF modules only when needed
+let pdfImageExtractor = null;
+let pdfUtils = null;
+function getPdfImageExtractor() {
+  if (!pdfImageExtractor) {
+    pdfImageExtractor = require('./utils/pdfImageExtractor');
+  }
+  return pdfImageExtractor;
+}
+function getPdfUtils() {
+  if (!pdfUtils) {
+    pdfUtils = require('./utils/pdfUtils');
+  }
+  return pdfUtils;
+}
 
 // Log R2 configuration status
 console.log('R2 Storage configured:', r2Storage.isR2Configured());
@@ -604,11 +618,11 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       return;
     }
     
-    // Use the extractAllAssets helper function
+    // Use the extractAllAssets helper function (lazy loaded)
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const uploadsDir = path.join(__dirname, 'uploads');
     
-    const extractedAssets = await pdfImageExtractor.extractAllAssets(pdfPath, jobId, uploadsDir, openai);
+    const extractedAssets = await getPdfImageExtractor().extractAllAssets(pdfPath, jobId, uploadsDir, openai);
     
     // Add URLs to extracted assets
     extractedAssets.photos = extractedAssets.photos.map(p => ({
