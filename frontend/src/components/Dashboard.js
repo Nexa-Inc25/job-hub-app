@@ -192,9 +192,10 @@ const Dashboard = () => {
     setSelectedJobId(jobId);
   };
 
-  const handleJobMenuClose = (clearSelection = true) => {
+  const handleJobMenuClose = () => {
     setJobMenuAnchor(null);
-    if (clearSelection) {
+    // Only clear selection if dialog is not open
+    if (!assignDialogOpen) {
       setSelectedJobId(null);
     }
   };
@@ -270,7 +271,8 @@ const Dashboard = () => {
       assignmentNotes: job?.assignmentNotes || ''
     });
     setAssignDialogOpen(true);
-    handleJobMenuClose(false); // Don't clear selectedJobId - we need it for the assignment
+    // Close menu but keep selectedJobId (dialog is now open so handleJobMenuClose won't clear it)
+    setJobMenuAnchor(null);
   };
 
   const handleCloseAssignDialog = () => {
