@@ -558,6 +558,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
     });
     
     // If a PDF was uploaded, add it to the Field As Built folder (the job package)
+    // NOTE: Don't delete local file here - background extraction needs it
     if (req.file?.path) {
       const aciFolder = job.folders.find(f => f.name === 'ACI');
       if (aciFolder) {
@@ -566,7 +567,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
           let docUrl = `/uploads/${path.basename(req.file.path)}`;
           let r2Key = null;
           
-          // Upload to R2 if configured
+          // Upload to R2 if configured (but keep local copy for background extraction)
           if (r2Storage.isR2Configured()) {
             try {
               const result = await r2Storage.uploadJobFile(
@@ -577,10 +578,8 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
               );
               docUrl = `/api/files/${result.key}`;
               r2Key = result.key;
-              // Clean up local file
-              if (fs.existsSync(req.file.path)) {
-                fs.unlinkSync(req.file.path);
-              }
+              // DON'T delete local file here - background extraction needs it
+              // It will be cleaned up after extraction completes
             } catch (uploadErr) {
               console.error('Failed to upload job package to R2:', uploadErr.message);
             }
@@ -788,8 +787,26 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       maps: extractedAssets.maps.length
     });
     
+    // Clean up local PDF file after extraction is complete
+    if (fs.existsSync(pdfPath)) {
+      try {
+        fs.unlinkSync(pdfPath);
+        console.log('Cleaned up local PDF:', pdfPath);
+      } catch (cleanupErr) {
+        console.warn('Failed to cleanup local PDF:', cleanupErr.message);
+      }
+    }
+    
   } catch (err) {
     console.error('Background asset extraction failed:', err);
+    // Still try to clean up local file on error
+    if (fs.existsSync(pdfPath)) {
+      try {
+        fs.unlinkSync(pdfPath);
+      } catch (cleanupErr) {
+        // Ignore cleanup errors
+      }
+    }
   }
 }
 
