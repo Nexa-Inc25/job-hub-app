@@ -52,11 +52,17 @@ function isExtractionAvailable() {
  */
 async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
   if (!pdfExtractionAvailable) {
-    console.warn('PDF extraction not available - skipping page render');
+    console.warn('PDF extraction not available - skipping page render for page', pageNum);
+    return false;
+  }
+  
+  if (!createCanvas) {
+    console.error('createCanvas is not available');
     return false;
   }
   
   try {
+    console.log(`Rendering page ${pageNum} to ${outputPath}...`);
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
     
