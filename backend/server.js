@@ -39,36 +39,31 @@ const io = socketIo(server, {
   }
 });
 
-// CORS configuration
-const corsOptions = {
-  origin: function(origin, callback) {
-    console.log('CORS request from origin:', origin);
-    // Allow requests with no origin (mobile apps, curl, etc)
-    if (!origin) return callback(null, true);
-    // Check if origin matches allowed origins
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-    // Also allow any vercel.app subdomain for preview deployments
-    if (origin && origin.includes('vercel.app')) {
-      return callback(null, true);
-    }
-    console.log('CORS rejected for origin:', origin);
-    return callback(new Error('Not allowed by CORS'), false);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
-  exposedHeaders: ['Content-Length', 'Content-Type'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
-
-// Enable CORS for all routes
-app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly with same options
-app.options('*', cors(corsOptions));
+// Simple CORS - allow all origins for now (can restrict later)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  console.log('CORS middleware - Origin:', origin, 'Method:', req.method);
+  
+  // Allow the requesting origin
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+  
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  
+  // Handle preflight
+  if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS preflight request');
+    return res.status(204).end();
+  }
+  
+  next();
+});
 
 // Health check endpoint for Railway
 app.get('/api/health', (req, res) => {
