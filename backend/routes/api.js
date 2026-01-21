@@ -5,6 +5,7 @@ const fs = require('fs');
 const router = express.Router();
 const Job = require('../models/Job');
 const OpenAI = require('openai');
+const r2Storage = require('../utils/storage');
 
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
 let pdfUtils = null;
@@ -202,6 +203,42 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     const pageAnalysis = await getPdfImageExtractor().analyzePagesByContent(pdfPath);
     console.log('Page analysis result:', pageAnalysis);
     
+    // Helper to upload extracted images to R2
+    async function uploadExtractedImages(images, folder) {
+      const uploaded = [];
+      for (const img of images) {
+        if (r2Storage.isR2Configured() && fs.existsSync(img.path)) {
+          try {
+            const result = await r2Storage.uploadJobFile(
+              img.path, 
+              jobId.toString(), 
+              folder, 
+              img.name
+            );
+            uploaded.push({
+              ...img,
+              url: `/api/files/${result.key}`,
+              r2Key: result.key
+            });
+            // Clean up local file after upload
+            fs.unlinkSync(img.path);
+          } catch (uploadErr) {
+            console.error(`Failed to upload ${img.name}:`, uploadErr.message);
+            uploaded.push({
+              ...img,
+              url: `/uploads/job_${jobId}/${folder}/${img.name}`
+            });
+          }
+        } else {
+          uploaded.push({
+            ...img,
+            url: `/uploads/job_${jobId}/${folder}/${img.name}`
+          });
+        }
+      }
+      return uploaded;
+    }
+    
     // 2. Convert identified drawings to images
     if (pageAnalysis.drawings?.length > 0) {
       console.log('Converting drawing pages:', pageAnalysis.drawings);
@@ -211,10 +248,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
         drawingsDir, 
         'drawing'
       );
-      extractedAssets.drawings = drawings.map(d => ({
-        ...d,
-        url: `/uploads/job_${jobId}/drawings/${d.name}`
-      }));
+      extractedAssets.drawings = await uploadExtractedImages(drawings, 'drawings');
     }
     
     // 3. Convert identified maps to images
@@ -226,10 +260,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
         mapsDir, 
         'map'
       );
-      extractedAssets.maps = maps.map(m => ({
-        ...m,
-        url: `/uploads/job_${jobId}/maps/${m.name}`
-      }));
+      extractedAssets.maps = await uploadExtractedImages(maps, 'maps');
     }
     
     // 4. Convert identified photos to images
@@ -241,10 +272,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
         photosDir, 
         'photo'
       );
-      extractedAssets.photos = photos.map(p => ({
-        ...p,
-        url: `/uploads/job_${jobId}/photos/${p.name}`
-      }));
+      extractedAssets.photos = await uploadExtractedImages(photos, 'photos');
     }
     
     // 4. Update job with extracted assets
