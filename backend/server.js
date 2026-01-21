@@ -687,6 +687,8 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
 // Background function to extract assets from job package PDF
 async function extractAssetsInBackground(jobId, pdfPath) {
   console.log('Starting background asset extraction for job:', jobId);
+  console.log('PDF path:', pdfPath);
+  console.log('PDF exists:', fs.existsSync(pdfPath));
   
   try {
     const job = await Job.findById(jobId);
@@ -695,11 +697,25 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       return;
     }
     
+    // Check if extraction is available
+    const extractor = getPdfImageExtractor();
+    console.log('Extraction available:', extractor.isExtractionAvailable());
+    
+    if (!extractor.isExtractionAvailable()) {
+      console.error('PDF extraction not available - canvas libraries may not be loaded');
+      return;
+    }
+    
     // Use the extractAllAssets helper function (lazy loaded)
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const uploadsDir = path.join(__dirname, 'uploads');
     
-    const extractedAssets = await getPdfImageExtractor().extractAllAssets(pdfPath, jobId, uploadsDir, openai);
+    const extractedAssets = await extractor.extractAllAssets(pdfPath, jobId, uploadsDir, openai);
+    console.log('Extracted assets:', {
+      photos: extractedAssets.photos?.length || 0,
+      drawings: extractedAssets.drawings?.length || 0,
+      maps: extractedAssets.maps?.length || 0
+    });
     
     // Upload extracted assets to R2 and update URLs
     async function uploadAssetsToR2(assets, folder) {
