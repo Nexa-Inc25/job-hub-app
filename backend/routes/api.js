@@ -3,10 +3,24 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const router = express.Router();
-const pdfUtils = require('../utils/pdfUtils');
-const pdfImageExtractor = require('../utils/pdfImageExtractor');
 const Job = require('../models/Job');
 const OpenAI = require('openai');
+
+// Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
+let pdfUtils = null;
+let pdfImageExtractor = null;
+function getPdfUtils() {
+  if (!pdfUtils) {
+    pdfUtils = require('../utils/pdfUtils');
+  }
+  return pdfUtils;
+}
+function getPdfImageExtractor() {
+  if (!pdfImageExtractor) {
+    pdfImageExtractor = require('../utils/pdfImageExtractor');
+  }
+  return pdfImageExtractor;
+}
 
 // Ensure uploads directory exists (use absolute path relative to backend folder)
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -79,7 +93,7 @@ VALIDATION RULES:
 EXAMPLE OUTPUT:
 {"pmNumber":"35611981","notificationNumber":"126940062","address":"2PN/O 105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","projectName":"STS-+TRAN_CORR_REPL","orderType":"E460","woNumber":"35611981"}`;
 
-    const result = await pdfUtils.extractWithAI(req.file.path, prompt);
+    const result = await getPdfUtils().extractWithAI(req.file.path, prompt);
     console.log('AI extraction completed successfully');
 
     let structured = null;
@@ -124,10 +138,10 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     if (job.folders[0].documents?.[0]) {
-      const text = await pdfUtils.getPdfText(job.folders[0].documents[0]);
-      const chunks = pdfUtils.getTextChunks(text);
-      const store = pdfUtils.getVectorStore(chunks);
-      const chain = pdfUtils.getConversationalChain(store);
+      const text = await getPdfUtils().getPdfText(job.folders[0].documents[0]);
+      const chunks = getPdfUtils().getTextChunks(text);
+      const store = getPdfUtils().getVectorStore(chunks);
+      const chain = getPdfUtils().getConversationalChain(store);
       const answer = chain.ask(query);
       res.json({ answer });
     } else {
@@ -183,7 +197,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     
     // 1. Extract embedded images (photos) from PDF
     console.log('Extracting embedded images...');
-    const embeddedImages = await pdfImageExtractor.extractImagesFromPdf(pdfPath, photosDir);
+    const embeddedImages = await getPdfImageExtractor().extractImagesFromPdf(pdfPath, photosDir);
     extractedAssets.photos = embeddedImages.map(img => ({
       ...img,
       url: `/uploads/job_${jobId}/photos/${img.name}`
@@ -192,17 +206,17 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     // 2. Use AI to identify pages with drawings/maps
     if (process.env.OPENAI_API_KEY) {
       console.log('Using AI to identify drawings and maps...');
-      const pdfText = await pdfUtils.getPdfText(pdfPath);
+      const pdfText = await getPdfUtils().getPdfText(pdfPath);
       
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      const pageAnalysis = await pdfImageExtractor.identifyDrawingsAndMaps(pdfText, openai);
+      const pageAnalysis = await getPdfImageExtractor().identifyDrawingsAndMaps(pdfText, openai);
       
       console.log('Page analysis:', pageAnalysis);
       
       // 3. Convert identified pages to images
       if (pageAnalysis.constructionDrawings?.length > 0) {
         console.log('Converting drawing pages:', pageAnalysis.constructionDrawings);
-        const drawings = await pdfImageExtractor.convertPagesToImages(
+        const drawings = await getPdfImageExtractor().convertPagesToImages(
           pdfPath, 
           pageAnalysis.constructionDrawings, 
           drawingsDir, 
@@ -216,7 +230,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
       
       if (pageAnalysis.circuitMaps?.length > 0) {
         console.log('Converting map pages:', pageAnalysis.circuitMaps);
-        const maps = await pdfImageExtractor.convertPagesToImages(
+        const maps = await getPdfImageExtractor().convertPagesToImages(
           pdfPath, 
           pageAnalysis.circuitMaps, 
           mapsDir, 
