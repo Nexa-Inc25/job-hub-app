@@ -565,10 +565,34 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       if (aciFolder) {
         const fieldAsBuiltFolder = aciFolder.subfolders.find(sf => sf.name === 'Field As Built');
         if (fieldAsBuiltFolder) {
+          let docUrl = `/uploads/${path.basename(req.file.path)}`;
+          let r2Key = null;
+          
+          // Upload to R2 if configured
+          if (r2Storage.isR2Configured()) {
+            try {
+              const result = await r2Storage.uploadJobFile(
+                req.file.path,
+                job._id.toString(),
+                'job-package',
+                req.file.originalname || 'Job_Package.pdf'
+              );
+              docUrl = `/api/files/${result.key}`;
+              r2Key = result.key;
+              // Clean up local file
+              if (fs.existsSync(req.file.path)) {
+                fs.unlinkSync(req.file.path);
+              }
+            } catch (uploadErr) {
+              console.error('Failed to upload job package to R2:', uploadErr.message);
+            }
+          }
+          
           fieldAsBuiltFolder.documents.push({
             name: req.file.originalname || 'Job Package.pdf',
             path: req.file.path,
-            url: `/uploads/${path.basename(req.file.path)}`,
+            url: docUrl,
+            r2Key: r2Key,
             type: 'pdf',
             uploadDate: new Date(),
             uploadedBy: req.userId
@@ -657,19 +681,30 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     
     const extractedAssets = await getPdfImageExtractor().extractAllAssets(pdfPath, jobId, uploadsDir, openai);
     
-    // Add URLs to extracted assets
-    extractedAssets.photos = extractedAssets.photos.map(p => ({
-      ...p,
-      url: `/uploads/job_${jobId}/photos/${p.name}`
-    }));
-    extractedAssets.drawings = extractedAssets.drawings.map(d => ({
-      ...d,
-      url: `/uploads/job_${jobId}/drawings/${d.name}`
-    }));
-    extractedAssets.maps = extractedAssets.maps.map(m => ({
-      ...m,
-      url: `/uploads/job_${jobId}/maps/${m.name}`
-    }));
+    // Upload extracted assets to R2 and update URLs
+    async function uploadAssetsToR2(assets, folder) {
+      const uploaded = [];
+      for (const asset of assets) {
+        let url = `/uploads/job_${jobId}/${folder}/${asset.name}`;
+        let r2Key = null;
+        if (r2Storage.isR2Configured() && asset.path && fs.existsSync(asset.path)) {
+          try {
+            const result = await r2Storage.uploadJobFile(asset.path, jobId, folder, asset.name);
+            url = `/api/files/${result.key}`;
+            r2Key = result.key;
+            fs.unlinkSync(asset.path);
+          } catch (err) {
+            console.error(`Failed to upload ${asset.name}:`, err.message);
+          }
+        }
+        uploaded.push({ ...asset, url, r2Key });
+      }
+      return uploaded;
+    }
+    
+    extractedAssets.photos = await uploadAssetsToR2(extractedAssets.photos, 'photos');
+    extractedAssets.drawings = await uploadAssetsToR2(extractedAssets.drawings, 'drawings');
+    extractedAssets.maps = await uploadAssetsToR2(extractedAssets.maps, 'maps');
     
     // Update job with extracted assets
     const aciFolder = job.folders.find(f => f.name === 'ACI');
@@ -855,6 +890,25 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     // Save the file
     fs.writeFileSync(filePath, pdfBuffer);
     
+    let docUrl = `/uploads/${newFilename}`;
+    let r2Key = null;
+    
+    // Upload to R2 if configured
+    if (r2Storage.isR2Configured()) {
+      try {
+        const folderPath = subfolderName ? `${folderName}/${subfolderName}` : folderName;
+        const result = await r2Storage.uploadJobFile(filePath, id, folderPath, newFilename);
+        docUrl = `/api/files/${result.key}`;
+        r2Key = result.key;
+        // Clean up local file
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (uploadErr) {
+        console.error('Failed to upload edited PDF to R2:', uploadErr.message);
+      }
+    }
+    
     // Add to the appropriate folder in the job
     const folder = job.folders.find(f => f.name === folderName);
     if (folder) {
@@ -871,8 +925,8 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       if (targetDocuments) {
         targetDocuments.push({
           name: newFilename,
-          path: filePath,
-          url: `/uploads/${newFilename}`,
+          url: docUrl,
+          r2Key: r2Key,
           type: 'pdf',
           isTemplate: false,
           isCompleted: true,
@@ -890,7 +944,7 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     res.json({ 
       message: 'PDF saved successfully', 
       filename: newFilename,
-      url: `/uploads/${newFilename}`
+      url: docUrl
     });
   } catch (err) {
     console.error('Error saving edited PDF:', err);
@@ -951,15 +1005,35 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
       targetDocuments = folder.documents;
     }
     
-    // Add uploaded files
-    const uploadedDocs = req.files.map(file => ({
-      name: file.originalname,
-      path: file.path,
-      url: `/uploads/${path.basename(file.path)}`,
-      type: file.mimetype.includes('pdf') ? 'pdf' : file.mimetype.includes('image') ? 'image' : 'other',
-      uploadDate: new Date(),
-      uploadedBy: req.userId
-    }));
+    // Upload files to R2 and create document records
+    const uploadedDocs = [];
+    for (const file of req.files) {
+      let docUrl = `/uploads/${path.basename(file.path)}`;
+      let r2Key = null;
+      
+      if (r2Storage.isR2Configured()) {
+        try {
+          const folderPath = subfolder ? `${folderName}/${subfolder}` : folderName;
+          const result = await r2Storage.uploadJobFile(file.path, id, folderPath, file.originalname);
+          docUrl = `/api/files/${result.key}`;
+          r2Key = result.key;
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadErr) {
+          console.error('Failed to upload to R2:', uploadErr.message);
+        }
+      }
+      
+      uploadedDocs.push({
+        name: file.originalname,
+        url: docUrl,
+        r2Key: r2Key,
+        type: file.mimetype.includes('pdf') ? 'pdf' : file.mimetype.includes('image') ? 'image' : 'other',
+        uploadDate: new Date(),
+        uploadedBy: req.userId
+      });
+    }
     
     targetDocuments.push(...uploadedDocs);
     await job.save();
@@ -993,29 +1067,48 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       return res.status(404).json({ error: 'Photos folder not found' });
     }
     
-    // Generate proper filenames and rename files
-    // Use base timestamp + index to ensure unique filenames even in batch uploads
+    // Generate proper filenames and upload to R2
     const baseTimestamp = Date.now();
     const uploadedPhotos = [];
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
       const ext = path.extname(file.originalname) || '.jpg';
-      const uniqueTimestamp = `${baseTimestamp}_${i.toString().padStart(3, '0')}`; // e.g., 1234567890_000, 1234567890_001
+      const uniqueTimestamp = `${baseTimestamp}_${i.toString().padStart(3, '0')}`;
       const division = job.division || 'DA';
       const pmNumber = job.pmNumber || 'NOPM';
       const notification = job.notificationNumber || 'NONOTIF';
       const matCode = job.matCode || '2AA';
       
       const newFilename = `${division}_${pmNumber}_${notification}_${matCode}_Photo_${uniqueTimestamp}${ext}`;
-      const newPath = path.join(__dirname, 'uploads', newFilename);
       
-      // Rename the file
-      fs.renameSync(file.path, newPath);
+      let docUrl = `/uploads/${newFilename}`;
+      let r2Key = null;
+      
+      // Upload to R2 if configured
+      if (r2Storage.isR2Configured()) {
+        try {
+          const result = await r2Storage.uploadJobFile(file.path, id, 'photos', newFilename);
+          docUrl = `/api/files/${result.key}`;
+          r2Key = result.key;
+          // Clean up local file
+          if (fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
+          }
+        } catch (uploadErr) {
+          console.error('Failed to upload photo to R2:', uploadErr.message);
+          // Fallback to local
+          const newPath = path.join(__dirname, 'uploads', newFilename);
+          fs.renameSync(file.path, newPath);
+        }
+      } else {
+        const newPath = path.join(__dirname, 'uploads', newFilename);
+        fs.renameSync(file.path, newPath);
+      }
       
       uploadedPhotos.push({
         name: newFilename,
-        path: newPath,
-        url: `/uploads/${newFilename}`,
+        url: docUrl,
+        r2Key: r2Key,
         type: 'image',
         uploadDate: new Date(),
         uploadedBy: req.userId
