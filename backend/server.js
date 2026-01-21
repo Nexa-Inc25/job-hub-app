@@ -598,15 +598,36 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       }
     }
     
-    // Load master templates and organize them into folders
+    // Load master templates from R2 and organize them into folders
     try {
-      const masterTemplatesDir = path.join(__dirname, 'templates', 'master');
-      if (fs.existsSync(masterTemplatesDir)) {
-        const templateFiles = fs.readdirSync(masterTemplatesDir);
-        
+      let templateFiles = [];
+      
+      // Get templates from R2 if configured
+      if (r2Storage.isR2Configured()) {
+        const r2Templates = await r2Storage.listFiles('templates/');
+        templateFiles = r2Templates.map(f => ({
+          name: f.Key.replace('templates/', ''),
+          url: `/api/files/${f.Key}`,
+          r2Key: f.Key
+        })).filter(f => f.name); // Filter out empty names
+        console.log('Found', templateFiles.length, 'templates in R2');
+      } else {
+        // Fallback to local filesystem
+        const masterTemplatesDir = path.join(__dirname, 'templates', 'master');
+        if (fs.existsSync(masterTemplatesDir)) {
+          const files = fs.readdirSync(masterTemplatesDir);
+          templateFiles = files.map(filename => ({
+            name: filename,
+            url: `/templates/master/${encodeURIComponent(filename)}`,
+            r2Key: null
+          }));
+        }
+      }
+      
+      if (templateFiles.length > 0) {
         // Separate CWC from other templates
-        const cwcTemplate = templateFiles.find(f => f.toLowerCase().includes('cwc'));
-        const generalForms = templateFiles.filter(f => !f.toLowerCase().includes('cwc'));
+        const cwcTemplate = templateFiles.find(f => f.name.toLowerCase().includes('cwc'));
+        const generalForms = templateFiles.filter(f => !f.name.toLowerCase().includes('cwc'));
         
         const aciFolder = job.folders.find(f => f.name === 'ACI');
         if (aciFolder) {
@@ -614,9 +635,9 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
           const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
           if (preFieldFolder && cwcTemplate) {
             preFieldFolder.documents = [{
-              name: cwcTemplate,
-              path: path.join(masterTemplatesDir, cwcTemplate),
-              url: `/templates/master/${encodeURIComponent(cwcTemplate)}`,
+              name: cwcTemplate.name,
+              url: cwcTemplate.url,
+              r2Key: cwcTemplate.r2Key,
               type: 'template',
               isTemplate: true,
               uploadDate: new Date()
@@ -626,10 +647,10 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
           // Add all other templates to General Forms
           const generalFormsFolder = aciFolder.subfolders.find(sf => sf.name === 'General Forms');
           if (generalFormsFolder && generalForms.length > 0) {
-            generalFormsFolder.documents = generalForms.map(filename => ({
-              name: filename,
-              path: path.join(masterTemplatesDir, filename),
-              url: `/templates/master/${encodeURIComponent(filename)}`,
+            generalFormsFolder.documents = generalForms.map(t => ({
+              name: t.name,
+              url: t.url,
+              r2Key: t.r2Key,
               type: 'template',
               isTemplate: true,
               uploadDate: new Date()
@@ -637,7 +658,9 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
           }
         }
         
-        console.log('Added CWC to Pre-Field Documents,', generalForms.length, 'templates to General Forms');
+        console.log('Added templates:', cwcTemplate ? 'CWC to Pre-Field,' : '', generalForms.length, 'to General Forms');
+      } else {
+        console.log('No templates found in R2 or local storage');
       }
     } catch (templateErr) {
       console.error('Error adding templates to job:', templateErr);
