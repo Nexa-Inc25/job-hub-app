@@ -6,38 +6,45 @@ let canvasModule = null;
 let createCanvas = null;
 let pdfjsLib = null;
 let pdfExtractionAvailable = false;
+let NodeCanvasFactory = null;
 
 try {
   canvasModule = require('canvas');
   createCanvas = canvasModule.createCanvas;
   pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
   pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  
+  // Canvas factory for pdfjs-dist compatibility with node-canvas
+  // Must be defined after createCanvas is available
+  NodeCanvasFactory = class {
+    create(width, height) {
+      if (!createCanvas) {
+        throw new Error('createCanvas not available');
+      }
+      const canvas = createCanvas(width, height);
+      return { canvas, context: canvas.getContext('2d') };
+    }
+    
+    reset(canvasAndContext, width, height) {
+      canvasAndContext.canvas.width = width;
+      canvasAndContext.canvas.height = height;
+    }
+    
+    destroy(canvasAndContext) {
+      if (canvasAndContext.canvas) {
+        canvasAndContext.canvas.width = 0;
+        canvasAndContext.canvas.height = 0;
+      }
+      canvasAndContext.canvas = null;
+      canvasAndContext.context = null;
+    }
+  };
+  
   pdfExtractionAvailable = true;
   console.log('PDF extraction libraries loaded successfully');
 } catch (err) {
   console.warn('PDF extraction libraries not available:', err.message);
   console.warn('PDF image extraction will be disabled');
-}
-
-// Canvas factory for pdfjs-dist compatibility
-class NodeCanvasFactory {
-  create(width, height) {
-    const canvas = createCanvas(width, height);
-    const context = canvas.getContext('2d');
-    return { canvas, context };
-  }
-  
-  reset(canvasAndContext, width, height) {
-    canvasAndContext.canvas.width = width;
-    canvasAndContext.canvas.height = height;
-  }
-  
-  destroy(canvasAndContext) {
-    canvasAndContext.canvas.width = 0;
-    canvasAndContext.canvas.height = 0;
-    canvasAndContext.canvas = null;
-    canvasAndContext.context = null;
-  }
 }
 
 /**
@@ -62,32 +69,30 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
   }
   
   try {
-    console.log(`Rendering page ${pageNum} to ${outputPath}...`);
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
     
-    // Use canvas factory for pdfjs compatibility
-    const canvasFactory = new NodeCanvasFactory();
-    const canvasAndContext = canvasFactory.create(viewport.width, viewport.height);
-    const { canvas, context } = canvasAndContext;
+    // Create canvas directly using node-canvas
+    const canvas = createCanvas(Math.floor(viewport.width), Math.floor(viewport.height));
+    const context = canvas.getContext('2d');
     
     // Fill with white background
     context.fillStyle = 'white';
-    context.fillRect(0, 0, viewport.width, viewport.height);
+    context.fillRect(0, 0, canvas.width, canvas.height);
     
-    await page.render({
+    // Render the page - pass canvas directly for node-canvas compatibility
+    const renderContext = {
       canvasContext: context,
-      viewport: viewport,
-      canvasFactory: canvasFactory
-    }).promise;
+      viewport: viewport
+    };
+    
+    await page.render(renderContext).promise;
     
     // Save as JPEG
     const buffer = canvas.toBuffer('image/jpeg', { quality: 0.85 });
     fs.writeFileSync(outputPath, buffer);
     
-    // Cleanup
-    canvasFactory.destroy(canvasAndContext);
-    
+    console.log(`  Rendered page ${pageNum}`);
     return true;
   } catch (err) {
     console.error(`Error rendering page ${pageNum}:`, err.message);
@@ -114,7 +119,15 @@ async function analyzePagesByContent(pdfPath) {
   
   try {
     const data = new Uint8Array(fs.readFileSync(pdfPath));
-    const pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+    const loadingOptions = { 
+      data, 
+      useSystemFonts: true,
+      verbosity: 0  // Suppress warnings
+    };
+    if (NodeCanvasFactory) {
+      loadingOptions.canvasFactory = new NodeCanvasFactory();
+    }
+    const pdf = await pdfjsLib.getDocument(loadingOptions).promise;
     result.totalPages = pdf.numPages;
     
     console.log(`Analyzing ${pdf.numPages} pages for content types (position-independent)...`);
@@ -233,7 +246,15 @@ async function convertPagesToImages(pdfPath, pageNumbers, outputDir, prefix = 'p
   try {
     console.log(`Converting ${pageNumbers.length} pages to images (${prefix})...`);
     const data = new Uint8Array(fs.readFileSync(pdfPath));
-    const pdf = await pdfjsLib.getDocument({ data, useSystemFonts: true }).promise;
+    const loadingOptions = { 
+      data, 
+      useSystemFonts: true,
+      verbosity: 0
+    };
+    if (NodeCanvasFactory) {
+      loadingOptions.canvasFactory = new NodeCanvasFactory();
+    }
+    const pdf = await pdfjsLib.getDocument(loadingOptions).promise;
     
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
