@@ -44,7 +44,6 @@ const CreateWorkOrder = ({ token }) => {
   const [matCode, setMatCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [extracting, setExtracting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [localToken, setLocalToken] = useState(token || '');
 
@@ -55,105 +54,11 @@ const CreateWorkOrder = ({ token }) => {
     }
   }, [localToken]);
 
-  const handleFileChange = async (e) => {
+  const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
-    setFile(selectedFile);
     if (!selectedFile) return;
-
-    if (!localToken) {
-      setError('Authentication required - please log in to use AI PDF extraction');
-      return;
-    }
-
-    // Verify token is still valid
-    try {
-      await api.get('/api/jobs', {
-        headers: { Authorization: `Bearer ${localToken}` }
-      });
-    } catch (tokenErr) {
-      if (tokenErr.response?.status === 401) {
-        setError('Your session has expired - please log in again');
-        localStorage.removeItem('token');
-        setLocalToken('');
-        return;
-      }
-    }
-
-    // Upload to AI extraction endpoint
-    const formData = new FormData();
-    formData.append('pdf', selectedFile);
-
-    try {
-      setExtracting(true);
-      setError('');
-      console.log('Starting AI extraction...');
-      const response = await api.post('/api/ai/extract', formData, {
-        headers: {
-          Authorization: `Bearer ${localToken}`,
-        },
-      });
-      console.log('AI extraction successful:', response.data);
-
-      const extractedData = response.data.extractedInfo || response.data.extractedData;
-      const structured = response.data.structured;
-
-      let extractedWO = '';
-      let extractedAddr = '';
-      let extractedClient = '';
-      let extractedPm = '';
-      let extractedNotification = '';
-      let extractedCity = '';
-      let extractedProjectName = '';
-      let extractedOrderType = '';
-
-      if (structured) {
-        extractedWO = structured.woNumber || '';
-        extractedAddr = structured.address || '';
-        extractedClient = structured.client || '';
-        extractedPm = structured.pmNumber || '';
-        extractedNotification = structured.notificationNumber || '';
-        if (structured.city) extractedCity = structured.city;
-        if (structured.projectName) extractedProjectName = structured.projectName;
-        if (structured.orderType) extractedOrderType = structured.orderType;
-      } else if (typeof extractedData === 'string') {
-        const text = extractedData.toLowerCase();
-        const woMatch = text.match(/(?:wo|work order)[:\s#-]*([a-z0-9-]+)/i);
-        if (woMatch) extractedWO = woMatch[1];
-        const addrMatch = text.match(/(?:address|location)[:\s]*([^\n]+)/i);
-        if (addrMatch) extractedAddr = addrMatch[1].trim();
-        const clientMatch = text.match(/(?:client|customer|company)[:\s]*([^\n]+)/i);
-        if (clientMatch) extractedClient = clientMatch[1].trim();
-        const pmMatch = text.match(/(?:pm|pm number|pm#)[:\s#-]*([a-z0-9-]+)/i);
-        if (pmMatch) extractedPm = pmMatch[1];
-        const notifMatch = text.match(/(?:notification|notif)[:\s#-]*(\d+)/i);
-        if (notifMatch) extractedNotification = notifMatch[1];
-        const cityMatch = text.match(/(?:city)[:\s-]*([^\n,]+)/i);
-        if (cityMatch) extractedCity = cityMatch[1].trim();
-        const projectMatch = text.match(/(?:project name|project)[:\s-]*([^\n]+)/i);
-        if (projectMatch) extractedProjectName = projectMatch[1].trim();
-        const orderTypeMatch = text.match(/(?:order type)[:\s-]*([a-z0-9-]+)/i);
-        if (orderTypeMatch) extractedOrderType = orderTypeMatch[1];
-      }
-
-      setWoNumber(extractedWO || '');
-      setPmNumber(extractedPm || '');
-      setNotificationNumber(extractedNotification || '');
-      setAddress(extractedAddr || '');
-      setClient(extractedClient || '');
-      setCity(extractedCity || '');
-      setProjectName(extractedProjectName || '');
-      setOrderType(extractedOrderType || '');
-
-    } catch (err) {
-      console.error('Extraction error:', err);
-      if (err.response?.status === 401) {
-        setError('Authentication required - please log in');
-      } else {
-        setError('AI extraction failed - you can fill in the form manually');
-      }
-    } finally {
-      setExtracting(false);
-    }
+    setFile(selectedFile);
+    setError('');
   };
 
   const handleSubmit = async (e) => {
@@ -265,22 +170,15 @@ const CreateWorkOrder = ({ token }) => {
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
               />
-              {extracting ? (
                 <Box>
-                  <CircularProgress size={40} sx={{ mb: 1 }} />
-                  <Typography>Processing file...</Typography>
-                </Box>
-              ) : (
-                <Box>
-                  <CloudUploadIcon sx={{ fontSize: 48, color: file ? 'success.main' : 'text.secondary', mb: 1 }} />
-                  <Typography variant="h6" color={file ? 'success.main' : 'text.secondary'}>
-                    {file ? file.name : 'Upload Job Package (PDF)'}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {file ? 'Click to change file' : 'Click or drag to upload'}
-                  </Typography>
-                </Box>
-              )}
+                <CloudUploadIcon sx={{ fontSize: 48, color: file ? 'success.main' : 'text.secondary', mb: 1 }} />
+                <Typography variant="h6" color={file ? 'success.main' : 'text.secondary'}>
+                  {file ? file.name : 'Upload Job Package (PDF)'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {file ? 'Click to change file' : 'Click or drag to upload'}
+                </Typography>
+              </Box>
             </Paper>
 
             <Divider sx={{ my: 3 }} />
