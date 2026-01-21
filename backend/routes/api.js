@@ -1,0 +1,382 @@
+const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const router = express.Router();
+const pdfUtils = require('../utils/pdfUtils');
+const pdfImageExtractor = require('../utils/pdfImageExtractor');
+const Job = require('../models/Job');
+const OpenAI = require('openai');
+
+// Ensure uploads directory exists (use absolute path relative to backend folder)
+const uploadsDir = path.join(__dirname, '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Multer setup for file uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+const upload = multer({ storage });
+
+// POST AI extract
+router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
+  try {
+    console.log('AI extract request received');
+    console.log('File info:', req.file);
+    console.log('File path:', req.file?.path);
+    console.log('User authenticated:', Boolean(req.userId));
+    console.log('OpenAI key available:', Boolean(process.env.OPENAI_API_KEY));
+
+    if (!req.file) {
+      console.log('No file uploaded');
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const prompt = req.body.prompt || `You are an expert at extracting work order information from PG&E and utility maintenance documents.
+
+REQUIRED EXTRACTION (return as JSON object):
+- pmNumber: PM Order Number (e.g., "35611981" from "PM Order Number:35611981")
+- notificationNumber: Notification number (e.g., "126940062")
+- woNumber: Work order number (often same as PM number, or separate WO#)
+- address: Street address (e.g., "2PN/O 105 HIGHLAND AV")
+- city: City name (e.g., "LOS GATOS")
+- client: Company name (e.g., "PG&E")
+- projectName: Project name (e.g., "STS-+TRAN_CORR_REPL")
+- orderType: Order type code (e.g., "E460")
+
+LOOK FOR THESE PATTERNS:
+- "PM Order Number:" followed by digits
+- "Notification:" followed by digits
+- "Address:" followed by street
+- "City:" followed by city name
+- "Project name:" followed by project description
+- "Order Type:" followed by code
+- Look in "Face Sheet" or header sections
+
+VALIDATION RULES:
+- Extract numbers without leading zeros if present
+- Keep address as street only, city separate
+- Use empty string "" for any missing fields
+- Return ONLY valid JSON, no markdown or explanation
+
+EXAMPLE OUTPUT:
+{"pmNumber":"35611981","notificationNumber":"126940062","address":"2PN/O 105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","projectName":"STS-+TRAN_CORR_REPL","orderType":"E460","woNumber":"35611981"}`;
+
+    const result = await pdfUtils.extractWithAI(req.file.path, prompt);
+    console.log('AI extraction completed successfully');
+
+    let structured = null;
+    try {
+      const jsonMatch = typeof result.extractedInfo === 'string'
+        ? result.extractedInfo.match(/```json\s*([\s\S]*?)```/i) || result.extractedInfo.match(/\{[\s\S]*\}/)
+        : null;
+      if (jsonMatch) {
+        structured = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      }
+    } catch (parseErr) {
+      structured = null;
+    }
+
+    res.json({
+      success: true,
+      extractedData: result.extractedInfo,
+      structured,
+      rawText: result.rawText,
+      usage: result.usage,
+      model: result.model
+    });
+  } catch (err) {
+    console.error('AI extract error:', err);
+    console.error('Error stack:', err.stack);
+    console.error('Error message:', err.message);
+    res.status(500).json({
+      error: 'AI extraction failed',
+      details: err.message,
+      success: false
+    });
+  }
+});
+
+// GET query docs
+router.get('/jobs/:jobId/ask', async (req, res) => {
+  try {
+    const { query } = req.query;
+    // Verify user owns this job
+    const job = await Job.findOne({ _id: req.params.jobId, userId: req.userId });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    if (job.folders[0].documents?.[0]) {
+      const text = await pdfUtils.getPdfText(job.folders[0].documents[0]);
+      const chunks = pdfUtils.getTextChunks(text);
+      const store = pdfUtils.getVectorStore(chunks);
+      const chain = pdfUtils.getConversationalChain(store);
+      const answer = chain.ask(query);
+      res.json({ answer });
+    } else {
+      res.json({ answer: 'No documents' });
+    }
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST - Extract images, drawings, and maps from job package PDF
+router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    // Verify user owns this job
+    const job = await Job.findOne({ _id: jobId, userId: req.userId });
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Get the PDF path - either from upload or from existing job document
+    let pdfPath = req.file?.path;
+    
+    if (!pdfPath && req.body.documentUrl) {
+      // Use existing document
+      pdfPath = path.join(__dirname, '..', req.body.documentUrl.replace(/^\//, ''));
+    }
+    
+    if (!pdfPath || !fs.existsSync(pdfPath)) {
+      return res.status(400).json({ error: 'No PDF file provided or file not found' });
+    }
+    
+    console.log('Extracting assets from:', pdfPath);
+    
+    // Create output directories for extracted assets
+    const jobUploadsDir = path.join(__dirname, '..', 'uploads', `job_${jobId}`);
+    const photosDir = path.join(jobUploadsDir, 'photos');
+    const drawingsDir = path.join(jobUploadsDir, 'drawings');
+    const mapsDir = path.join(jobUploadsDir, 'maps');
+    
+    [photosDir, drawingsDir, mapsDir].forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    });
+    
+    const extractedAssets = {
+      photos: [],
+      drawings: [],
+      maps: []
+    };
+    
+    // 1. Extract embedded images (photos) from PDF
+    console.log('Extracting embedded images...');
+    const embeddedImages = await pdfImageExtractor.extractImagesFromPdf(pdfPath, photosDir);
+    extractedAssets.photos = embeddedImages.map(img => ({
+      ...img,
+      url: `/uploads/job_${jobId}/photos/${img.name}`
+    }));
+    
+    // 2. Use AI to identify pages with drawings/maps
+    if (process.env.OPENAI_API_KEY) {
+      console.log('Using AI to identify drawings and maps...');
+      const pdfText = await pdfUtils.getPdfText(pdfPath);
+      
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const pageAnalysis = await pdfImageExtractor.identifyDrawingsAndMaps(pdfText, openai);
+      
+      console.log('Page analysis:', pageAnalysis);
+      
+      // 3. Convert identified pages to images
+      if (pageAnalysis.constructionDrawings?.length > 0) {
+        console.log('Converting drawing pages:', pageAnalysis.constructionDrawings);
+        const drawings = await pdfImageExtractor.convertPagesToImages(
+          pdfPath, 
+          pageAnalysis.constructionDrawings, 
+          drawingsDir, 
+          'drawing'
+        );
+        extractedAssets.drawings = drawings.map(d => ({
+          ...d,
+          url: `/uploads/job_${jobId}/drawings/${d.name}`
+        }));
+      }
+      
+      if (pageAnalysis.circuitMaps?.length > 0) {
+        console.log('Converting map pages:', pageAnalysis.circuitMaps);
+        const maps = await pdfImageExtractor.convertPagesToImages(
+          pdfPath, 
+          pageAnalysis.circuitMaps, 
+          mapsDir, 
+          'map'
+        );
+        extractedAssets.maps = maps.map(m => ({
+          ...m,
+          url: `/uploads/job_${jobId}/maps/${m.name}`
+        }));
+      }
+    }
+    
+    // 4. Update job with extracted assets
+    const aciFolder = job.folders.find(f => f.name === 'ACI');
+    if (aciFolder) {
+      const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
+      if (preFieldFolder) {
+        // Ensure nested subfolders exist
+        if (!preFieldFolder.subfolders) preFieldFolder.subfolders = [];
+        
+        // Find or create Job Photos subfolder
+        let jobPhotosFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Job Photos');
+        if (!jobPhotosFolder) {
+          jobPhotosFolder = { name: 'Job Photos', documents: [], subfolders: [] };
+          preFieldFolder.subfolders.push(jobPhotosFolder);
+        }
+        
+        // Find or create Construction Drawings subfolder
+        let drawingsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Drawings');
+        if (!drawingsFolder) {
+          drawingsFolder = { name: 'Construction Drawings', documents: [], subfolders: [] };
+          preFieldFolder.subfolders.push(drawingsFolder);
+        }
+        
+        // Find or create Circuit Maps subfolder
+        let mapsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Circuit Maps');
+        if (!mapsFolder) {
+          mapsFolder = { name: 'Circuit Maps', documents: [], subfolders: [] };
+          preFieldFolder.subfolders.push(mapsFolder);
+        }
+        
+        // Add extracted photos
+        extractedAssets.photos.forEach(photo => {
+          jobPhotosFolder.documents.push({
+            name: photo.name,
+            path: photo.path,
+            url: photo.url,
+            type: 'image',
+            extractedFrom: path.basename(pdfPath),
+            uploadDate: new Date()
+          });
+        });
+        
+        // Add extracted drawings
+        extractedAssets.drawings.forEach(drawing => {
+          drawingsFolder.documents.push({
+            name: drawing.name,
+            path: drawing.path,
+            url: drawing.url,
+            type: 'drawing',
+            pageNumber: drawing.pageNumber,
+            extractedFrom: path.basename(pdfPath),
+            uploadDate: new Date()
+          });
+        });
+        
+        // Add extracted maps
+        extractedAssets.maps.forEach(map => {
+          mapsFolder.documents.push({
+            name: map.name,
+            path: map.path,
+            url: map.url,
+            type: 'map',
+            pageNumber: map.pageNumber,
+            extractedFrom: path.basename(pdfPath),
+            uploadDate: new Date()
+          });
+        });
+      }
+    }
+    
+    job.aiExtractionComplete = true;
+    job.aiExtractedAssets = [
+      ...extractedAssets.photos.map(p => ({ type: 'photo', name: p.name, url: p.url, extractedAt: new Date() })),
+      ...extractedAssets.drawings.map(d => ({ type: 'drawing', name: d.name, url: d.url, extractedAt: new Date() })),
+      ...extractedAssets.maps.map(m => ({ type: 'map', name: m.name, url: m.url, extractedAt: new Date() }))
+    ];
+    
+    await job.save();
+    
+    console.log('Asset extraction complete:', {
+      photos: extractedAssets.photos.length,
+      drawings: extractedAssets.drawings.length,
+      maps: extractedAssets.maps.length
+    });
+    
+    res.json({
+      success: true,
+      message: 'Assets extracted successfully',
+      extractedAssets,
+      summary: {
+        photosCount: extractedAssets.photos.length,
+        drawingsCount: extractedAssets.drawings.length,
+        mapsCount: extractedAssets.maps.length
+      }
+    });
+    
+  } catch (err) {
+    console.error('Asset extraction error:', err);
+    res.status(500).json({ error: 'Asset extraction failed', details: err.message });
+  }
+});
+
+// POST - Upload photos to Pre-Field Documents/Job Photos
+router.post('/jobs/:jobId/prefield-photos', upload.array('photos', 20), async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    // Verify user owns this job
+    const job = await Job.findOne({ _id: jobId, userId: req.userId });
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'No photos uploaded' });
+    }
+    
+    const uploadedPhotos = [];
+    const aciFolder = job.folders.find(f => f.name === 'ACI');
+    
+    if (aciFolder) {
+      const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
+      if (preFieldFolder) {
+        // Ensure Job Photos subfolder exists
+        if (!preFieldFolder.subfolders) preFieldFolder.subfolders = [];
+        let jobPhotosFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Job Photos');
+        if (!jobPhotosFolder) {
+          jobPhotosFolder = { name: 'Job Photos', documents: [], subfolders: [] };
+          preFieldFolder.subfolders.push(jobPhotosFolder);
+        }
+        
+        const baseTimestamp = Date.now();
+        req.files.forEach((file, index) => {
+          const photoDoc = {
+            name: file.originalname || `photo_${baseTimestamp}_${index}.jpg`,
+            path: file.path,
+            url: `/uploads/${path.basename(file.path)}`,
+            type: 'image',
+            uploadDate: new Date(),
+            uploadedBy: req.userId
+          };
+          jobPhotosFolder.documents.push(photoDoc);
+          uploadedPhotos.push(photoDoc);
+        });
+      }
+    }
+    
+    await job.save();
+    
+    res.json({
+      success: true,
+      message: `${uploadedPhotos.length} photos uploaded to Pre-Field Documents`,
+      photos: uploadedPhotos
+    });
+    
+  } catch (err) {
+    console.error('Pre-field photo upload error:', err);
+    res.status(500).json({ error: 'Photo upload failed', details: err.message });
+  }
+});
+
+module.exports = router;

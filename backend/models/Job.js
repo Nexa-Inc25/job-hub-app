@@ -1,0 +1,89 @@
+const mongoose = require('mongoose');
+
+// Document schema for files stored in folders
+const documentSchema = new mongoose.Schema({
+  name: String,
+  path: String,
+  url: String,
+  type: { type: String, enum: ['pdf', 'image', 'template', 'drawing', 'map', 'other'], default: 'other' },
+  uploadDate: { type: Date, default: Date.now },
+  uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  isTemplate: { type: Boolean, default: false },
+  isCompleted: { type: Boolean, default: false },
+  completedDate: Date,
+  completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // For AI-extracted content
+  extractedFrom: String, // Original PDF this was extracted from
+  pageNumber: Number // Page number in original PDF
+});
+
+// Recursive subfolder schema to support nested folders
+const subfolderSchema = new mongoose.Schema({
+  name: String,
+  documents: [documentSchema],
+  subfolders: [] // Will be populated with same schema structure
+});
+
+// Allow recursive nesting
+subfolderSchema.add({ subfolders: [subfolderSchema] });
+
+// Main folder schema (parent folders like ACI, UTC)
+const folderSchema = new mongoose.Schema({
+  name: String,
+  documents: [documentSchema],
+  subfolders: [subfolderSchema]
+});
+
+const jobSchema = new mongoose.Schema({
+  title: String,
+  description: String,
+  woNumber: String,
+  pmNumber: String,
+  notificationNumber: String,
+  address: String,
+  city: String,
+  client: String,
+  projectName: String,
+  orderType: String,
+  division: { type: String, default: 'DA' },
+  matCode: String,
+  status: { type: String, enum: ['pending', 'pre-field', 'in-progress', 'completed', 'billed', 'invoiced'], default: 'pending' },
+  priority: { type: String, enum: ['low', 'medium', 'high', 'emergency'], default: 'medium' },
+  // Due date from job package - when work must be completed by
+  dueDate: Date,
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  folders: [folderSchema],
+  isEmergency: { type: Boolean, default: false },
+  // Crew Assignment/Scheduling (set by GF)
+  assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },  // Which foreman/crew
+  assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },  // Who assigned it (GF)
+  assignedDate: Date,                                                  // When it was assigned
+  crewScheduledDate: Date,                                             // When crew is scheduled to work
+  crewScheduledEndDate: Date,                                          // End date for multi-day jobs
+  assignmentNotes: String,                                             // Special instructions
+  // GF Pre-field data
+  bidAmount: Number,
+  bidNotes: String,
+  crewSize: Number,
+  // Completion tracking
+  completedDate: Date,
+  completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  billedDate: Date,
+  invoicedDate: Date,
+  // AI extraction tracking
+  aiExtractionComplete: { type: Boolean, default: false },
+  aiExtractedAssets: [{
+    type: { type: String, enum: ['photo', 'drawing', 'map', 'document'] },
+    name: String,
+    url: String,
+    extractedAt: Date
+  }]
+}, { timestamps: true });
+
+// Indexes for searching
+jobSchema.index({ pmNumber: 1 });
+jobSchema.index({ woNumber: 1 });
+jobSchema.index({ notificationNumber: 1 });
+jobSchema.index({ assignedTo: 1, crewScheduledDate: 1 }); // For calendar queries
+
+module.exports = mongoose.model('Job', jobSchema);
