@@ -372,31 +372,41 @@ const JobFileSystem = () => {
     // Use the API base URL from environment or default to relative path
     const apiBase = process.env.REACT_APP_API_URL || '';
     
+    let resultUrl = '';
+    
     // If it's a template, use the template URL
     if (doc.url?.startsWith('/templates/')) {
-      return `${apiBase}${doc.url}`;
+      resultUrl = `${apiBase}${doc.url}`;
     }
     // If it's an uploaded file
-    if (doc.url?.startsWith('/uploads/')) {
-      return `${apiBase}${doc.url}`;
+    else if (doc.url?.startsWith('/uploads/')) {
+      resultUrl = `${apiBase}${doc.url}`;
     }
     // If URL starts with /api/, prepend API base
-    if (doc.url?.startsWith('/api/')) {
-      return `${apiBase}${doc.url}`;
+    else if (doc.url?.startsWith('/api/')) {
+      resultUrl = `${apiBase}${doc.url}`;
     }
     // If it has a path but no proper URL
-    if (doc.path) {
+    else if (doc.path) {
       const filename = doc.path.split('/').pop();
       if (doc.path.includes('templates')) {
-        return `${apiBase}/templates/master/${encodeURIComponent(doc.name)}`;
+        resultUrl = `${apiBase}/templates/master/${encodeURIComponent(doc.name)}`;
+      } else {
+        resultUrl = `${apiBase}/uploads/${filename}`;
       }
-      return `${apiBase}/uploads/${filename}`;
     }
     // If it's an R2 key, use the files endpoint
-    if (doc.r2Key) {
-      return `${apiBase}/api/files/${doc.r2Key}`;
+    else if (doc.r2Key) {
+      resultUrl = `${apiBase}/api/files/${doc.r2Key}`;
     }
-    return doc.url || '';
+    else {
+      resultUrl = doc.url || '';
+    }
+    
+    // Debug logging
+    console.log('getDocUrl:', { docName: doc.name, docUrl: doc.url, r2Key: doc.r2Key, apiBase, resultUrl });
+    
+    return resultUrl;
   };
 
   // Admin: Create new folder
