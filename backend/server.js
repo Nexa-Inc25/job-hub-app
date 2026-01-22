@@ -860,6 +860,18 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       ...extractedAssets.maps.map(m => ({ type: 'map', name: m.name, url: m.url, extractedAt: new Date() }))
     ];
     
+    // Log folder structure before saving
+    const aciFolder = job.folders.find(f => f.name === 'ACI');
+    const preFieldFolder = aciFolder?.subfolders?.find(sf => sf.name === 'Pre-Field Documents');
+    const jobPhotosFolder = preFieldFolder?.subfolders?.find(sf => sf.name === 'Job Photos');
+    console.log('Folder structure before save:', {
+      hasACI: !!aciFolder,
+      hasPreField: !!preFieldFolder,
+      hasJobPhotos: !!jobPhotosFolder,
+      jobPhotosDocCount: jobPhotosFolder?.documents?.length || 0,
+      firstPhotoUrl: jobPhotosFolder?.documents?.[0]?.url
+    });
+    
     await job.save();
     
     console.log('Background asset extraction complete for job:', jobId, {
