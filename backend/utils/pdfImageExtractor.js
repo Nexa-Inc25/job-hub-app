@@ -191,7 +191,7 @@ async function analyzePagesByContent(pdfPath) {
       
       // === MAP DETECTION ===
       // Maps have specific map-related keywords
-      const hasMapKeywords = /circuit map|distribution map|location map|area map|cirmap|vicinity map/i.test(text);
+      const hasMapKeywords = /circuit map|distribution map|location map|area map|cirmap|vicinity map|site map|google map|street map|aerial|satellite|bird.?s?.?eye|overhead view|project location|job location|work location|map view|gis|parcel map|plat map|survey map|topographic|topo map/i.test(text);
       
       // === PHOTO DETECTION ===
       // Photos have picture-related keywords or are in field notes sections
@@ -205,11 +205,16 @@ async function analyzePagesByContent(pdfPath) {
       const hasMultipleImages = imageCount > 5; // Photo collage (multiple images on one page)
       const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
+      // === ADDITIONAL MAP INDICATORS ===
+      // Pages with street/location references and images are likely maps
+      const hasLocationIndicators = /street|road|ave|avenue|blvd|boulevard|highway|hwy|interstate|freeway|county|city of|state of|latitude|longitude|coordinates|north|south|east|west|scale:|feet|meters|miles/i.test(text);
+      const looksLikeMap = hasImages && hasLocationIndicators && textLength < 500 && !hasPhotoKeywords && !hasFieldNotes;
+      
       // Priority 1: Explicit keywords ONLY for drawings/maps (most reliable)
       // Only pages with EXPLICIT drawing keywords are drawings
       if (hasDrawingKeywords) {
         result.drawings.push(pageNum);
-      } else if (hasMapKeywords) {
+      } else if (hasMapKeywords || looksLikeMap) {
         result.maps.push(pageNum);
       }
       // Priority 2: Everything else with images = PHOTOS
