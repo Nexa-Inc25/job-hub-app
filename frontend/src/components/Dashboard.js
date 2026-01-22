@@ -674,7 +674,7 @@ const Dashboard = () => {
                     <Button
                       size="small"
                       component={Link}
-                      to={`/jobs/${job._id}`}
+                      to={`/jobs/${job._id}/files`}
                       sx={{ borderRadius: 1 }}
                     >
                       Files

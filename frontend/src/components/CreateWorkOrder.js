@@ -100,7 +100,7 @@ const CreateWorkOrder = ({ token }) => {
         navigate('/dashboard');
       }, 2000);
     } catch (err) {
-      setError(err.response?.data?.msg || 'Server error - check backend logs');
+      setError(err.response?.data?.error || err.response?.data?.msg || 'Server error - check backend logs');
       console.error('Job creation error:', err);
     } finally {
       setLoading(false);
