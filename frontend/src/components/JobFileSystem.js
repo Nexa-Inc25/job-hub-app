@@ -175,14 +175,20 @@ const JobFileSystem = () => {
     const formData = new FormData();
     Array.from(files).forEach((file) => formData.append('files', file));
     
-    // If this is a subfolder, include the subfolder name
-    if (selectedFolder.parentFolder) {
+    // If this is a subfolder, include the subfolder path
+    // For nested subfolders (grandParentFolder exists), use the full path
+    if (selectedFolder.grandParentFolder) {
+      // Nested subfolder: e.g., ACI > Pre-Field Documents > Job Photos
+      formData.append('subfolder', `${selectedFolder.parentFolder}/${selectedFolder.name}`);
+    } else if (selectedFolder.parentFolder) {
+      // Direct subfolder: e.g., ACI > Photos
       formData.append('subfolder', selectedFolder.name);
     }
 
     try {
       const token = localStorage.getItem('token');
-      const folderName = selectedFolder.parentFolder || selectedFolder.name;
+      // Use grandParentFolder for nested subfolders, parentFolder for direct subfolders, or folder name for top-level
+      const folderName = selectedFolder.grandParentFolder || selectedFolder.parentFolder || selectedFolder.name;
       await api.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -193,22 +199,37 @@ const JobFileSystem = () => {
       setJob(response.data);
       
       // Re-select the folder to show updated documents
-      if (selectedFolder.parentFolder) {
+      if (selectedFolder.grandParentFolder) {
+        // Nested subfolder: e.g., ACI > Pre-Field Documents > Job Photos
+        const grandParentFolder = response.data.folders?.find((f) => f.name === selectedFolder.grandParentFolder);
+        const parentSubfolder = grandParentFolder?.subfolders?.find((sf) => sf.name === selectedFolder.parentFolder);
+        const updatedNestedSubfolder = parentSubfolder?.subfolders?.find((nsf) => nsf.name === selectedFolder.name);
+        if (updatedNestedSubfolder) {
+          setSelectedFolder({ 
+            ...updatedNestedSubfolder, 
+            parentFolder: selectedFolder.parentFolder,
+            grandParentFolder: selectedFolder.grandParentFolder
+          });
+        } else {
+          console.warn('Could not find updated nested subfolder, keeping current selection');
+          setSelectedFolder(prev => ({ ...prev, documents: [] }));
+        }
+      } else if (selectedFolder.parentFolder) {
+        // Direct subfolder: e.g., ACI > Photos
         const parentFolder = response.data.folders?.find((f) => f.name === selectedFolder.parentFolder);
         const updatedSubfolder = parentFolder?.subfolders?.find((sf) => sf.name === selectedFolder.name);
         if (updatedSubfolder) {
           setSelectedFolder({ ...updatedSubfolder, parentFolder: selectedFolder.parentFolder });
         } else {
-          // Fallback: keep current folder but refresh documents from response
           console.warn('Could not find updated subfolder, keeping current selection');
           setSelectedFolder(prev => ({ ...prev, documents: [] }));
         }
       } else {
+        // Top-level folder
         const updatedFolder = response.data.folders?.find((f) => f.name === selectedFolder.name);
         if (updatedFolder) {
           setSelectedFolder(updatedFolder);
         } else {
-          // Fallback: keep current folder but refresh documents from response
           console.warn('Could not find updated folder, keeping current selection');
           setSelectedFolder(prev => ({ ...prev, documents: [] }));
         }

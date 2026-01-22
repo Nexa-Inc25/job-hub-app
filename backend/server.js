@@ -1102,13 +1102,20 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     }
     
     // Determine where to add documents
+    // Supports nested subfolders with path like "Pre-Field Documents/Job Photos"
     let targetDocuments;
     if (subfolder) {
-      const subfolderObj = folder.subfolders.find(sf => sf.name === subfolder);
-      if (!subfolderObj) {
-        return res.status(404).json({ error: 'Subfolder not found' });
+      const subfolderParts = subfolder.split('/');
+      let currentFolder = folder;
+      
+      for (const part of subfolderParts) {
+        const subfolderObj = currentFolder.subfolders?.find(sf => sf.name === part);
+        if (!subfolderObj) {
+          return res.status(404).json({ error: `Subfolder not found: ${part}` });
+        }
+        currentFolder = subfolderObj;
       }
-      targetDocuments = subfolderObj.documents;
+      targetDocuments = currentFolder.documents;
     } else {
       targetDocuments = folder.documents;
     }
