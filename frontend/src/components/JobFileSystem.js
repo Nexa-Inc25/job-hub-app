@@ -126,6 +126,33 @@ const JobFileSystem = () => {
     fetchJobs();
   }, [id]);
 
+  // Poll for extraction completion if not yet complete
+  useEffect(() => {
+    if (!job || job.aiExtractionComplete) return;
+    
+    const pollInterval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await api.get(`/api/jobs/${job._id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const updatedJob = response.data;
+        
+        if (updatedJob.aiExtractionComplete) {
+          console.log('Extraction complete, refreshing job data');
+          setJob(updatedJob);
+          // Update jobs list too
+          setJobs(prev => prev.map(j => j._id === updatedJob._id ? updatedJob : j));
+          clearInterval(pollInterval);
+        }
+      } catch (err) {
+        console.error('Error polling for extraction:', err);
+      }
+    }, 3000); // Poll every 3 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, [job?._id, job?.aiExtractionComplete]);
+
   const handleJobChange = (event, newValue) => {
     if (newValue) {
       navigate(`/jobs/${newValue._id}/files`);
