@@ -192,7 +192,10 @@ async function analyzePagesByContent(pdfPath) {
       
       // === MAP DETECTION ===
       // Only detect pages with these EXACT document type labels
-      const hasMapKeywords = /adhoc|circuit map change sheet|circuit map|cirmap/i.test(text);
+      // Must appear near start of page (first 200 chars) to be a title, not just a reference
+      const first200Chars = text.substring(0, 200).toLowerCase();
+      const hasMapKeywords = /adhoc|circuit map change sheet|cirmap/.test(first200Chars) || 
+                             (first200Chars.includes('circuit map') && !first200Chars.includes('circuit map:'));
       
       // === PHOTO DETECTION ===
       // Photos have picture-related keywords or are in field notes sections
@@ -213,8 +216,8 @@ async function analyzePagesByContent(pdfPath) {
         result.drawings.push(pageNum);
       } else if (hasMapKeywords) {
         // Log what keyword matched
-        const matchedKeyword = text.match(/adhoc|circuit map change sheet|circuit map|cirmap/i)?.[0];
-        console.log(`  Page ${pageNum} -> MAP (matched: "${matchedKeyword}" in: ${text.substring(0, 150).replace(/\n/g, ' ')})`);
+        const matchedKeyword = first200Chars.match(/adhoc|circuit map change sheet|circuit map|cirmap/)?.[0];
+        console.log(`  Page ${pageNum} -> MAP (matched: "${matchedKeyword}" in first 200 chars: ${first200Chars.substring(0, 100).replace(/\n/g, ' ')})`);
         result.maps.push(pageNum);
       }
       // Priority 2: Everything else with images = PHOTOS
