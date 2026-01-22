@@ -292,9 +292,12 @@ app.get('/api/files/signed/:key(*)', authenticateUser, async (req, res) => {
 app.get('/api/files/:key(*)', async (req, res) => {
   try {
     const fileKey = req.params.key;
+    console.log('File request - key:', fileKey);
     
     if (r2Storage.isR2Configured()) {
+      console.log('R2 configured, getting signed URL...');
       const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
+      console.log('Signed URL result:', signedUrl ? 'got URL' : 'no URL');
       if (signedUrl) {
         // Redirect to signed URL for direct file access (works with <img src>, etc.)
         return res.redirect(signedUrl);
@@ -303,11 +306,13 @@ app.get('/api/files/:key(*)', async (req, res) => {
     
     // Fallback to local file
     const localPath = path.join(__dirname, 'uploads', fileKey);
+    console.log('Checking local path:', localPath, 'exists:', fs.existsSync(localPath));
     if (fs.existsSync(localPath)) {
       return res.sendFile(localPath);
     }
     
-    res.status(404).json({ error: 'File not found' });
+    console.log('File not found:', fileKey);
+    res.status(404).json({ error: 'File not found', key: fileKey });
   } catch (err) {
     console.error('Error getting file:', err);
     res.status(500).json({ error: 'Failed to get file' });
