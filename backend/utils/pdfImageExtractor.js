@@ -74,13 +74,17 @@ async function categorizePageWithVision(imageBase64, pageNum) {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const prompt = `Categorize this PDF page from a utility/construction job package. Look at the VISUAL content:
+    const prompt = `Analyze this PG&E utility job package PDF page. Categorize as ONE of:
 
-- SKETCH: Construction sketches, pole diagrams, before/after layouts, hand-drawn or CAD drawings with dimensions, technical diagrams
-- MAP: Circuit maps, distribution maps, location maps, ADHOC maps, circuit map change sheets, overhead view maps with utility lines
-- PHOTO: Real-world photographs of poles, equipment, job sites, field conditions
-- FORM: Checklists, text documents, data sheets, tables, permits, tickets
+MAP: Circuit Map Change Sheet (CMCS) - has title "Circuit Map Change Sheet (CMCS)", legend with INSTALL (pink/purple triangle) / REMOVE symbols, pole numbers (like T73332), schematic lines, demand kVA notes, utility circuit diagrams
 
+SKETCH: Construction sketch - overhead/trench diagrams, pole layouts, conductors, "CONSTRUCTION SKETCH" title, dimensions, before/after layouts, technical drawings with measurements
+
+PHOTO: Real-world photographs of poles, equipment, job sites, field conditions, actual photos (not diagrams)
+
+FORM: Text-heavy checklists, request forms, tickets, permits, tables with checkboxes, USA dig tickets
+
+Look for: PG&E logo, title blocks, symbols/arrows, pole diagrams, circuit lines.
 Respond with ONLY one word: SKETCH, MAP, PHOTO, or FORM`;
 
     const response = await openai.chat.completions.create({
@@ -268,11 +272,9 @@ async function analyzePagesByContent(pdfPath) {
       const hasDrawingKeywords = /construction sketch|pole sheet drawing|plan view drawing/i.test(text);
       
       // === MAP DETECTION ===
-      // Only detect pages with these EXACT document type labels
-      // Must appear near start of page (first 200 chars) to be a title, not just a reference
-      const first200Chars = text.substring(0, 200).toLowerCase();
-      const hasMapKeywords = /adhoc|circuit map change sheet|cirmap/.test(first200Chars) || 
-                             (first200Chars.includes('circuit map') && !first200Chars.includes('circuit map:'));
+      // Detect CMCS and circuit map pages - check full text for these specific patterns
+      const hasMapKeywords = /cmcs|circuit map change sheet|adhoc|cirmap/i.test(text) || 
+                             (/circuit map/i.test(text) && !/circuit map:/i.test(text));
       
       // === PHOTO DETECTION ===
       // Photos have picture-related keywords or are in field notes sections
@@ -282,17 +284,15 @@ async function analyzePagesByContent(pdfPath) {
       // === CATEGORIZE BASED ON CONTENT ===
       const hasImages = imageCount > 0;
       const isImageOnly = imageCount > 0 && textLength < 50;  // Pure image, almost no text
-      const isImageHeavy = imageCount > 0 && textLength < 150; // Image with minimal text
-      const hasMultipleImages = imageCount > 5; // Photo collage (multiple images on one page)
+      const isImageHeavy = imageCount > 0 && textLength < 500; // Image with minimal text (increased for CMCS pages)
       const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
-      // Priority 1: Explicit keywords ONLY for drawings/maps (most reliable)
-      // Only pages with EXPLICIT drawing/map keywords are categorized as such
+      // Priority 1: Explicit keywords for drawings/maps
       if (hasDrawingKeywords) {
         console.log(`  Page ${pageNum} -> DRAWING (text match)`);
         result.drawings.push(pageNum);
       } else if (hasMapKeywords) {
-        const matchedKeyword = first200Chars.match(/adhoc|circuit map change sheet|circuit map|cirmap/)?.[0];
+        const matchedKeyword = text.match(/cmcs|circuit map change sheet|adhoc|circuit map|cirmap/i)?.[0];
         console.log(`  Page ${pageNum} -> MAP (text match: "${matchedKeyword}")`);
         result.maps.push(pageNum);
       }
@@ -300,11 +300,12 @@ async function analyzePagesByContent(pdfPath) {
       else if (hasPhotoKeywords || hasFieldNotes || isConfidentialOnly) {
         result.photos.push(pageNum);
       }
-      // Priority 3: Image-heavy pages need vision analysis
-      // Mark for vision check instead of defaulting to photos
+      // Priority 3: Image-heavy pages with low text need vision analysis
+      // These are likely diagrams (CMCS, sketches) that don't have extractable title text
       else if (hasImages && (isImageOnly || isImageHeavy || textLength === 0)) {
         // Store for vision analysis
         page.needsVision = true;
+        console.log(`  Page ${pageNum} -> Queued for vision (${imageCount} images, ${textLength} chars)`);
       }
     }
     
