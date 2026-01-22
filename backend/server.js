@@ -262,8 +262,34 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
   }
 });
 
-// Get file from R2 - redirects to signed URL for direct access (images, PDFs, etc.)
-app.get('/api/files/:key(*)', authenticateUser, async (req, res) => {
+// Get signed URL for a file (authenticated endpoint - returns JSON with signed URL)
+app.get('/api/files/signed/:key(*)', authenticateUser, async (req, res) => {
+  try {
+    const fileKey = req.params.key;
+    
+    if (r2Storage.isR2Configured()) {
+      const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
+      if (signedUrl) {
+        return res.json({ url: signedUrl });
+      }
+    }
+    
+    // Fallback to local file URL
+    const localPath = path.join(__dirname, 'uploads', fileKey);
+    if (fs.existsSync(localPath)) {
+      return res.json({ url: `/uploads/${fileKey}` });
+    }
+    
+    res.status(404).json({ error: 'File not found' });
+  } catch (err) {
+    console.error('Error getting signed URL:', err);
+    res.status(500).json({ error: 'Failed to get signed URL' });
+  }
+});
+
+// Get file from R2 - redirects to signed URL (NO AUTH - for direct <img> loading)
+// Security: R2 signed URLs are time-limited and file-specific
+app.get('/api/files/:key(*)', async (req, res) => {
   try {
     const fileKey = req.params.key;
     
@@ -778,6 +804,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             name: photo.name,
             path: photo.path,
             url: photo.url,
+            r2Key: photo.r2Key,
             type: 'image',
             extractedFrom: path.basename(pdfPath),
             uploadDate: new Date()
@@ -790,6 +817,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             name: drawing.name,
             path: drawing.path,
             url: drawing.url,
+            r2Key: drawing.r2Key,
             type: 'drawing',
             pageNumber: drawing.pageNumber,
             extractedFrom: path.basename(pdfPath),
@@ -803,6 +831,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             name: map.name,
             path: map.path,
             url: map.url,
+            r2Key: map.r2Key,
             type: 'map',
             pageNumber: map.pageNumber,
             extractedFrom: path.basename(pdfPath),
