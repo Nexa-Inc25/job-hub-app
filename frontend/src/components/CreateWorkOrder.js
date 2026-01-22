@@ -54,11 +54,44 @@ const CreateWorkOrder = ({ token }) => {
     }
   }, [localToken]);
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
     setFile(selectedFile);
     setError('');
+    
+    // Trigger AI extraction to autofill form fields
+    if (selectedFile && localToken) {
+      setLoading(true);
+      try {
+        console.log('Starting AI extraction...');
+        const formData = new FormData();
+        formData.append('pdf', selectedFile);
+        
+        const response = await api.post('/api/ai/extract', formData, {
+          headers: { Authorization: `Bearer ${localToken}` }
+        });
+        
+        console.log('AI extraction successful:', response.data);
+        
+        if (response.data.success && response.data.structured) {
+          const data = response.data.structured;
+          if (data.pmNumber) setPmNumber(data.pmNumber);
+          if (data.woNumber) setWoNumber(data.woNumber);
+          if (data.notificationNumber) setNotificationNumber(data.notificationNumber);
+          if (data.address) setAddress(data.address);
+          if (data.city) setCity(data.city);
+          if (data.client) setClient(data.client);
+          if (data.projectName) setProjectName(data.projectName);
+          if (data.orderType) setOrderType(data.orderType);
+        }
+      } catch (err) {
+        console.error('AI extraction error:', err);
+        // Don't show error - extraction is optional, user can fill manually
+      } finally {
+        setLoading(false);
+      }
+    }
   };
 
   const handleSubmit = async (e) => {
