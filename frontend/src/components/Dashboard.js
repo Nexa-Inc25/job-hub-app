@@ -36,7 +36,7 @@ import {
   Schedule as ScheduleIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
-  Error as ErrorIcon,
+  // Error as ErrorIcon, // Currently unused
   Person as PersonIcon,
   Upload as UploadIcon,
   Assessment as AssessmentIcon,

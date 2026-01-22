@@ -151,6 +151,7 @@ const JobFileSystem = () => {
     }, 3000); // Poll every 3 seconds
     
     return () => clearInterval(pollInterval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?._id, job?.aiExtractionComplete]);
 
   const handleJobChange = (event, newValue) => {
@@ -1165,4 +1166,4 @@ const JobFileSystem = () => {
   );
 };
 
-export default JobFileSystem;// Force redeploy Wed Jan 21 20:49:17 PST 2026
+export default JobFileSystem;
