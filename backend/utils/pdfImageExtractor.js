@@ -187,12 +187,12 @@ async function analyzePagesByContent(pdfPath) {
       }
       
       // === DRAWING DETECTION ===
-      // Drawings have specific keywords indicating technical drawings
-      const hasDrawingKeywords = /pole sheet drawing|plan view|construction drawing|construction sketch|schematic|diagram|top view.*services|include services with addresses/i.test(text);
+      // Only detect pages with these EXACT document type labels
+      const hasDrawingKeywords = /construction sketch|pole sheet drawing|plan view drawing/i.test(text);
       
       // === MAP DETECTION ===
-      // Maps have specific map-related keywords
-      const hasMapKeywords = /circuit map|circuit map change sheet|distribution map|location map|area map|cirmap|vicinity map|site map|google map|street map|aerial|satellite|bird.?s?.?eye|overhead view|project location|job location|work location|map view|gis|parcel map|plat map|survey map|topographic|topo map|adhoc/i.test(text);
+      // Only detect pages with these EXACT document type labels
+      const hasMapKeywords = /adhoc|circuit map change sheet|circuit map|cirmap/i.test(text);
       
       // === PHOTO DETECTION ===
       // Photos have picture-related keywords or are in field notes sections
