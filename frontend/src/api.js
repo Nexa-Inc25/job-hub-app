@@ -1,8 +1,9 @@
 import axios from 'axios';
 
-// Create axios instance with base URL from environment
+// Create axios instance with base URL
+// Use Railway URL directly since Vercel proxy doesn't work reliably
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || '',
+  baseURL: process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app',
 });
 
 // Add auth token to all requests
