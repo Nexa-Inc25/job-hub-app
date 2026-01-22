@@ -575,7 +575,7 @@ const JobFileSystem = () => {
             <TreeView
               defaultCollapseIcon={<ExpandMoreIcon />}
               defaultExpandIcon={<ChevronRightIcon />}
-              defaultExpanded={job.folders.map(f => f.name)}
+              defaultExpanded={['root', ...job.folders.map(f => f.name)]}
             >
               {/* Root: WO Number */}
               <TreeItem

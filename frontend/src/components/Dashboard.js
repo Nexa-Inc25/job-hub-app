@@ -264,8 +264,10 @@ const Dashboard = () => {
   const handleOpenAssignDialog = () => {
     fetchForemen();
     const job = jobs.find(j => j._id === selectedJobId);
+    // Handle assignedTo being either a populated object or a string ID
+    const assignedToId = job?.assignedTo?._id || job?.assignedTo || '';
     setAssignmentData({
-      assignedTo: job?.assignedTo || '',
+      assignedTo: assignedToId,
       crewScheduledDate: job?.crewScheduledDate ? job.crewScheduledDate.split('T')[0] : '',
       crewScheduledEndDate: job?.crewScheduledEndDate ? job.crewScheduledEndDate.split('T')[0] : '',
       assignmentNotes: job?.assignmentNotes || ''
