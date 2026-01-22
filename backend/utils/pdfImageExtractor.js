@@ -276,6 +276,11 @@ async function analyzePagesByContent(pdfPath) {
       const hasMapKeywords = /cmcs|circuit map change sheet|adhoc|cirmap/i.test(text) || 
                              (/circuit map/i.test(text) && !/circuit map:/i.test(text));
       
+      // Debug: Log pages that have potential map/sketch indicators
+      if (hasMapKeywords || hasDrawingKeywords) {
+        console.log(`  Page ${pageNum}: hasMap=${hasMapKeywords}, hasDrawing=${hasDrawingKeywords}, textLen=${textLength}, snippet="${text.substring(0, 100).replace(/\n/g, ' ')}"`);
+      }
+      
       // === PHOTO DETECTION ===
       // Photos have picture-related keywords or are in field notes sections
       const hasPhotoKeywords = /picture|full pole|photos:|field photo|pictures:/i.test(text);
@@ -307,17 +312,21 @@ async function analyzePagesByContent(pdfPath) {
         page.needsVision = true;
         console.log(`  Page ${pageNum} -> Queued for vision (${imageCount} images, ${textLength} chars)`);
       }
+      // Log uncategorized pages with images but too much text
+      else if (hasImages && textLength >= 500) {
+        console.log(`  Page ${pageNum} -> Skipped (has images but ${textLength} chars text - may need review)`);
+      }
     }
     
     // Vision pass: Use AI to categorize image-heavy pages without text clues
     const visionCandidates = pageData.filter(p => p.needsVision);
     if (visionCandidates.length > 0 && process.env.OPENAI_API_KEY) {
-      console.log(`Using vision to categorize ${visionCandidates.length} image-heavy pages...`);
+      const pageNums = visionCandidates.map(p => p.pageNum);
+      console.log(`Using vision to categorize ${visionCandidates.length} image-heavy pages: [${pageNums.join(', ')}]`);
       
-      // Limit vision calls to save costs (max 10 pages)
-      const toAnalyze = visionCandidates.slice(0, 10);
-      
-      for (const page of toAnalyze) {
+      // Analyze ALL vision candidates (removed limit - CMCS/sketches could be anywhere)
+      // Cost is ~$0.01-0.02 per page with gpt-4o-mini
+      for (const page of visionCandidates) {
         const base64 = await renderPageToBase64(pdf, page.pageNum, 1.0);
         if (base64) {
           const category = await categorizePageWithVision(base64, page.pageNum);
@@ -328,16 +337,11 @@ async function analyzePagesByContent(pdfPath) {
           } else if (category === 'PHOTO') {
             result.photos.push(page.pageNum);
           }
-          // FORM and OTHER are ignored
+          // FORM and OTHER are ignored (already in forms list or truly other)
         } else {
           // Fallback to photo if vision fails
           result.photos.push(page.pageNum);
         }
-      }
-      
-      // Any remaining candidates beyond limit go to photos
-      for (const page of visionCandidates.slice(10)) {
-        result.photos.push(page.pageNum);
       }
     } else if (visionCandidates.length > 0) {
       // No OpenAI key, default all to photos
