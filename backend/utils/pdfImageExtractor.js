@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const OpenAI = require('openai');
 
 // Try to load canvas and pdfjs - these may fail on some platforms
 let canvasModule = null;
@@ -58,6 +59,82 @@ try {
  */
 function isExtractionAvailable() {
   return pdfExtractionAvailable;
+}
+
+/**
+ * Use OpenAI Vision to categorize a page image
+ * Returns: 'SKETCH', 'MAP', 'PHOTO', 'FORM', or 'OTHER'
+ */
+async function categorizePageWithVision(imageBase64, pageNum) {
+  if (!process.env.OPENAI_API_KEY) {
+    console.log(`  Vision fallback skipped for page ${pageNum}: No OpenAI key`);
+    return null;
+  }
+  
+  try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const prompt = `Categorize this PDF page from a utility/construction job package. Look at the VISUAL content:
+
+- SKETCH: Construction sketches, pole diagrams, before/after layouts, hand-drawn or CAD drawings with dimensions, technical diagrams
+- MAP: Circuit maps, distribution maps, location maps, ADHOC maps, circuit map change sheets, overhead view maps with utility lines
+- PHOTO: Real-world photographs of poles, equipment, job sites, field conditions
+- FORM: Checklists, text documents, data sheets, tables, permits, tickets
+
+Respond with ONLY one word: SKETCH, MAP, PHOTO, or FORM`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Cost-effective vision model
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
+          ]
+        }
+      ],
+      max_tokens: 10
+    });
+    
+    const category = response.choices[0].message.content.trim().toUpperCase();
+    console.log(`  Vision categorized page ${pageNum} as: ${category}`);
+    return category;
+  } catch (err) {
+    console.error(`  Vision error for page ${pageNum}:`, err.message);
+    return null;
+  }
+}
+
+/**
+ * Render a page to base64 JPEG for vision analysis
+ */
+async function renderPageToBase64(pdf, pageNum, scale = 1.5) {
+  if (!pdfExtractionAvailable || !createCanvas || !NodeCanvasFactory) {
+    return null;
+  }
+  
+  try {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale });
+    
+    const canvasFactory = new NodeCanvasFactory();
+    const canvasAndContext = canvasFactory.create(viewport.width, viewport.height);
+    
+    await page.render({
+      canvasContext: canvasAndContext.context,
+      viewport,
+      canvasFactory
+    }).promise;
+    
+    const buffer = canvasAndContext.canvas.toBuffer('image/jpeg', { quality: 0.7 });
+    canvasFactory.destroy(canvasAndContext);
+    
+    return buffer.toString('base64');
+  } catch (err) {
+    console.error(`Error rendering page ${pageNum} to base64:`, err.message);
+    return null;
+  }
 }
 
 /**
@@ -212,23 +289,60 @@ async function analyzePagesByContent(pdfPath) {
       // Priority 1: Explicit keywords ONLY for drawings/maps (most reliable)
       // Only pages with EXPLICIT drawing/map keywords are categorized as such
       if (hasDrawingKeywords) {
-        console.log(`  Page ${pageNum} -> DRAWING (matched: ${text.substring(0, 100).replace(/\n/g, ' ')})`);
+        console.log(`  Page ${pageNum} -> DRAWING (text match)`);
         result.drawings.push(pageNum);
       } else if (hasMapKeywords) {
-        // Log what keyword matched
         const matchedKeyword = first200Chars.match(/adhoc|circuit map change sheet|circuit map|cirmap/)?.[0];
-        console.log(`  Page ${pageNum} -> MAP (matched: "${matchedKeyword}" in first 200 chars: ${first200Chars.substring(0, 100).replace(/\n/g, ' ')})`);
+        console.log(`  Page ${pageNum} -> MAP (text match: "${matchedKeyword}")`);
         result.maps.push(pageNum);
       }
-      // Priority 2: Everything else with images = PHOTOS
-      // This includes: photo keywords, field notes, confidential watermarks,
-      // image-only pages, and image-heavy pages
+      // Priority 2: Photo keywords or field notes
       else if (hasPhotoKeywords || hasFieldNotes || isConfidentialOnly) {
         result.photos.push(pageNum);
       }
-      // All other image pages without explicit drawing keywords = PHOTOS
+      // Priority 3: Image-heavy pages need vision analysis
+      // Mark for vision check instead of defaulting to photos
       else if (hasImages && (isImageOnly || isImageHeavy || textLength === 0)) {
-        result.photos.push(pageNum);
+        // Store for vision analysis
+        page.needsVision = true;
+      }
+    }
+    
+    // Vision pass: Use AI to categorize image-heavy pages without text clues
+    const visionCandidates = pageData.filter(p => p.needsVision);
+    if (visionCandidates.length > 0 && process.env.OPENAI_API_KEY) {
+      console.log(`Using vision to categorize ${visionCandidates.length} image-heavy pages...`);
+      
+      // Limit vision calls to save costs (max 10 pages)
+      const toAnalyze = visionCandidates.slice(0, 10);
+      
+      for (const page of toAnalyze) {
+        const base64 = await renderPageToBase64(pdf, page.pageNum, 1.0);
+        if (base64) {
+          const category = await categorizePageWithVision(base64, page.pageNum);
+          if (category === 'SKETCH') {
+            result.drawings.push(page.pageNum);
+          } else if (category === 'MAP') {
+            result.maps.push(page.pageNum);
+          } else if (category === 'PHOTO') {
+            result.photos.push(page.pageNum);
+          }
+          // FORM and OTHER are ignored
+        } else {
+          // Fallback to photo if vision fails
+          result.photos.push(page.pageNum);
+        }
+      }
+      
+      // Any remaining candidates beyond limit go to photos
+      for (const page of visionCandidates.slice(10)) {
+        result.photos.push(page.pageNum);
+      }
+    } else if (visionCandidates.length > 0) {
+      // No OpenAI key, default all to photos
+      console.log(`No OpenAI key for vision, defaulting ${visionCandidates.length} pages to photos`);
+      for (const page of visionCandidates) {
+        result.photos.push(page.pageNum);
       }
     }
     
