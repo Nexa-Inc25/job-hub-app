@@ -262,7 +262,7 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
   }
 });
 
-// Get signed URL for R2 file access
+// Get file from R2 - redirects to signed URL for direct access (images, PDFs, etc.)
 app.get('/api/files/:key(*)', authenticateUser, async (req, res) => {
   try {
     const fileKey = req.params.key;
@@ -270,7 +270,8 @@ app.get('/api/files/:key(*)', authenticateUser, async (req, res) => {
     if (r2Storage.isR2Configured()) {
       const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
       if (signedUrl) {
-        return res.json({ url: signedUrl });
+        // Redirect to signed URL for direct file access (works with <img src>, etc.)
+        return res.redirect(signedUrl);
       }
     }
     
