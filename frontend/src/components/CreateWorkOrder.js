@@ -54,26 +54,26 @@ const CreateWorkOrder = ({ token }) => {
     }
   }, [localToken]);
 
+  const [extracting, setExtracting] = useState(false);
+  
   const handleFileChange = async (e) => {
     const selectedFile = e.target.files[0];
     if (!selectedFile) return;
     setFile(selectedFile);
     setError('');
     
-    // Trigger AI extraction to autofill form fields
+    // Trigger AI extraction to autofill form fields (non-blocking)
     if (selectedFile && localToken) {
-      setLoading(true);
-      try {
-        console.log('Starting AI extraction...');
+      setExtracting(true);
+      // Don't await - let it run in background
+      api.post('/api/ai/extract', (() => {
         const formData = new FormData();
         formData.append('pdf', selectedFile);
-        
-        const response = await api.post('/api/ai/extract', formData, {
-          headers: { Authorization: `Bearer ${localToken}` }
-        });
-        
+        return formData;
+      })(), {
+        headers: { Authorization: `Bearer ${localToken}` }
+      }).then(response => {
         console.log('AI extraction successful:', response.data);
-        
         if (response.data.success && response.data.structured) {
           const data = response.data.structured;
           if (data.pmNumber) setPmNumber(data.pmNumber);
@@ -85,12 +85,12 @@ const CreateWorkOrder = ({ token }) => {
           if (data.projectName) setProjectName(data.projectName);
           if (data.orderType) setOrderType(data.orderType);
         }
-      } catch (err) {
+      }).catch(err => {
         console.error('AI extraction error:', err);
         // Don't show error - extraction is optional, user can fill manually
-      } finally {
-        setLoading(false);
-      }
+      }).finally(() => {
+        setExtracting(false);
+      });
     }
   };
 
@@ -120,6 +120,8 @@ const CreateWorkOrder = ({ token }) => {
     jobFormData.append('orderType', orderType);
     jobFormData.append('division', division);
     jobFormData.append('matCode', matCode);
+    // Skip AI text extraction since we already did it on file select
+    jobFormData.append('skipAiExtract', 'true');
 
     try {
       const jobRes = await api.post('/api/jobs', jobFormData, {
@@ -209,8 +211,9 @@ const CreateWorkOrder = ({ token }) => {
                   {file ? file.name : 'Upload Job Package (PDF)'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {file ? 'Click to change file' : 'Click or drag to upload'}
+                  {extracting ? 'Extracting job details...' : (file ? 'Click to change file' : 'Click or drag to upload')}
                 </Typography>
+                {extracting && <CircularProgress size={20} sx={{ mt: 1 }} />}
               </Box>
             </Paper>
 
