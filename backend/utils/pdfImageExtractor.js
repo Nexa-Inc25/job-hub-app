@@ -178,7 +178,8 @@ async function analyzePagesByContent(pdfPath) {
       
       // === FORM DETECTION (EXCLUDE these pages) ===
       // Forms have specific headers/titles - these are data sheets, not visual content
-      const isFormPage = /face sheet|crew material|equipment information|checklist|feedback to estimating|tag sheet|totals as of|crew instruction|sign.?off|billing|progress billing|paving form|environmental release|best management|job package checklist|utility standard|contractor work checklist|no parking sign|tree trimming|usa ticket/i.test(text);
+      // USA dig/ticket documents have addresses but are NOT maps
+      const isFormPage = /face sheet|crew material|equipment information|checklist|feedback to estimating|tag sheet|totals as of|crew instruction|sign.?off|billing|progress billing|paving form|environmental release|best management|job package checklist|utility standard|contractor work checklist|no parking sign|tree trimming|usa ticket|usa north|underground service alert|dig alert|call before you dig|one call|811|excavation notice|locate request|utility locate/i.test(text);
       
       if (isFormPage) {
         result.forms.push(pageNum);
@@ -205,16 +206,11 @@ async function analyzePagesByContent(pdfPath) {
       const hasMultipleImages = imageCount > 5; // Photo collage (multiple images on one page)
       const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
-      // === ADDITIONAL MAP INDICATORS ===
-      // Pages with street/location references and images are likely maps
-      const hasLocationIndicators = /street|road|ave|avenue|blvd|boulevard|highway|hwy|interstate|freeway|county|city of|state of|latitude|longitude|coordinates|north|south|east|west|scale:|feet|meters|miles/i.test(text);
-      const looksLikeMap = hasImages && hasLocationIndicators && textLength < 500 && !hasPhotoKeywords && !hasFieldNotes;
-      
       // Priority 1: Explicit keywords ONLY for drawings/maps (most reliable)
-      // Only pages with EXPLICIT drawing keywords are drawings
+      // Only pages with EXPLICIT drawing/map keywords are categorized as such
       if (hasDrawingKeywords) {
         result.drawings.push(pageNum);
-      } else if (hasMapKeywords || looksLikeMap) {
+      } else if (hasMapKeywords) {
         result.maps.push(pageNum);
       }
       // Priority 2: Everything else with images = PHOTOS
