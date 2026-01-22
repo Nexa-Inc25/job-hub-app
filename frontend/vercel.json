@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "${REACT_APP_API_URL}/api/:path*"
+      "destination": "https://job-hub-app-production.up.railway.app/api/:path*"
     }
   ],
   "headers": [
