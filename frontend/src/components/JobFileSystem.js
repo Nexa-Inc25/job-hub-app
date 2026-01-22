@@ -380,6 +380,10 @@ const JobFileSystem = () => {
     if (doc.url?.startsWith('/uploads/')) {
       return `${apiBase}${doc.url}`;
     }
+    // If URL starts with /api/, prepend API base
+    if (doc.url?.startsWith('/api/')) {
+      return `${apiBase}${doc.url}`;
+    }
     // If it has a path but no proper URL
     if (doc.path) {
       const filename = doc.path.split('/').pop();
@@ -1053,7 +1057,7 @@ const JobFileSystem = () => {
           <DialogContent sx={{ p: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'black', minHeight: '60vh' }}>
             {viewingImage && (
               <img
-                src={viewingImage.url?.startsWith('/') ? viewingImage.url : `/${viewingImage.url}`}
+                src={getDocUrl(viewingImage)}
                 alt={viewingImage.name}
                 style={{
                   maxWidth: '100%',
@@ -1061,7 +1065,7 @@ const JobFileSystem = () => {
                   objectFit: 'contain',
                 }}
                 onError={(e) => {
-                  console.error('Image failed to load:', viewingImage.url);
+                  console.error('Image failed to load:', getDocUrl(viewingImage));
                   e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="50%" y="50%" text-anchor="middle" fill="white">Failed to load image</text></svg>';
                 }}
               />
