@@ -209,8 +209,12 @@ async function analyzePagesByContent(pdfPath) {
       // Priority 1: Explicit keywords ONLY for drawings/maps (most reliable)
       // Only pages with EXPLICIT drawing/map keywords are categorized as such
       if (hasDrawingKeywords) {
+        console.log(`  Page ${pageNum} -> DRAWING (matched: ${text.substring(0, 100).replace(/\n/g, ' ')})`);
         result.drawings.push(pageNum);
       } else if (hasMapKeywords) {
+        // Log what keyword matched
+        const matchedKeyword = text.match(/adhoc|circuit map change sheet|circuit map|cirmap/i)?.[0];
+        console.log(`  Page ${pageNum} -> MAP (matched: "${matchedKeyword}" in: ${text.substring(0, 150).replace(/\n/g, ' ')})`);
         result.maps.push(pageNum);
       }
       // Priority 2: Everything else with images = PHOTOS
