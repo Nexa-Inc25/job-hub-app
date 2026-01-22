@@ -287,20 +287,27 @@ app.get('/api/files/signed/:key(*)', authenticateUser, async (req, res) => {
   }
 });
 
-// Get file from R2 - redirects to signed URL (NO AUTH - for direct <img> loading)
-// Security: R2 signed URLs are time-limited and file-specific
+// Get file from R2 - streams file directly (NO AUTH - for direct <img> loading)
+// Security: Files are only accessible if you know the exact path
 app.get('/api/files/:key(*)', async (req, res) => {
   try {
     const fileKey = req.params.key;
     console.log('File request - key:', fileKey);
     
     if (r2Storage.isR2Configured()) {
-      console.log('R2 configured, getting signed URL...');
-      const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
-      console.log('Signed URL result:', signedUrl ? 'got URL' : 'no URL');
-      if (signedUrl) {
-        // Redirect to signed URL for direct file access (works with <img src>, etc.)
-        return res.redirect(signedUrl);
+      console.log('R2 configured, streaming file...');
+      const fileData = await r2Storage.getFileStream(fileKey);
+      
+      if (fileData && fileData.stream) {
+        console.log('File found, streaming with content-type:', fileData.contentType);
+        res.setHeader('Content-Type', fileData.contentType || 'application/octet-stream');
+        if (fileData.contentLength) {
+          res.setHeader('Content-Length', fileData.contentLength);
+        }
+        // Enable caching for images
+        res.setHeader('Cache-Control', 'public, max-age=3600');
+        fileData.stream.pipe(res);
+        return;
       }
     }
     

@@ -101,6 +101,33 @@ async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
   }
 }
 
+// Get file stream directly from R2 (for proxying through backend)
+async function getFileStream(r2Key) {
+  if (!isR2Configured()) {
+    return null;
+  }
+
+  try {
+    const command = new GetObjectCommand({
+      Bucket: BUCKET_NAME,
+      Key: r2Key,
+    });
+
+    const response = await s3Client.send(command);
+    return {
+      stream: response.Body,
+      contentType: response.ContentType,
+      contentLength: response.ContentLength,
+    };
+  } catch (error) {
+    if (error.name === 'NoSuchKey') {
+      return null;
+    }
+    console.error('R2 get file error:', error);
+    throw error;
+  }
+}
+
 // Delete a file from R2
 async function deleteFile(r2Key) {
   if (!isR2Configured()) {
@@ -178,6 +205,7 @@ module.exports = {
   uploadFile,
   uploadBuffer,
   getSignedDownloadUrl,
+  getFileStream,
   deleteFile,
   listFiles,
   uploadTemplate,
