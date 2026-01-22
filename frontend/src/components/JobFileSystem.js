@@ -396,8 +396,8 @@ const JobFileSystem = () => {
   // Get the correct URL for a document
   const getDocUrl = (doc) => {
     if (!doc) return '';
-    // Use the API base URL from environment or default to relative path
-    const apiBase = process.env.REACT_APP_API_URL || '';
+    // Use Railway backend URL directly for file access (Vercel proxy doesn't work for file streaming)
+    const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
     
     let resultUrl = '';
     
