@@ -16,27 +16,33 @@ try {
   
   // Canvas factory for pdfjs-dist compatibility with node-canvas
   // Must be defined after createCanvas is available
+  // This factory must provide create, reset, and destroy methods
   NodeCanvasFactory = class {
     create(width, height) {
       if (!createCanvas) {
         throw new Error('createCanvas not available');
       }
       const canvas = createCanvas(width, height);
-      return { canvas, context: canvas.getContext('2d') };
+      const context = canvas.getContext('2d');
+      return { canvas, context };
     }
     
     reset(canvasAndContext, width, height) {
       canvasAndContext.canvas.width = width;
       canvasAndContext.canvas.height = height;
+      // Re-get the context after resizing (important for pdfjs-dist)
+      canvasAndContext.context = canvasAndContext.canvas.getContext('2d');
     }
     
     destroy(canvasAndContext) {
-      if (canvasAndContext.canvas) {
+      if (canvasAndContext && canvasAndContext.canvas) {
         canvasAndContext.canvas.width = 0;
         canvasAndContext.canvas.height = 0;
       }
-      canvasAndContext.canvas = null;
-      canvasAndContext.context = null;
+      if (canvasAndContext) {
+        canvasAndContext.canvas = null;
+        canvasAndContext.context = null;
+      }
     }
   };
   
@@ -63,8 +69,8 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
     return false;
   }
   
-  if (!createCanvas) {
-    console.error('createCanvas is not available');
+  if (!createCanvas || !NodeCanvasFactory) {
+    console.error('createCanvas or NodeCanvasFactory is not available');
     return false;
   }
   
@@ -72,18 +78,22 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale });
     
-    // Create canvas directly using node-canvas
-    const canvas = createCanvas(Math.floor(viewport.width), Math.floor(viewport.height));
-    const context = canvas.getContext('2d');
+    // Create canvas using the factory for pdfjs-dist compatibility
+    const canvasFactory = new NodeCanvasFactory();
+    const { canvas, context } = canvasFactory.create(
+      Math.floor(viewport.width), 
+      Math.floor(viewport.height)
+    );
     
     // Fill with white background
     context.fillStyle = 'white';
     context.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Render the page - pass canvas directly for node-canvas compatibility
+    // Render the page - MUST pass canvasFactory in renderContext for pdfjs-dist Node.js
     const renderContext = {
       canvasContext: context,
-      viewport: viewport
+      viewport: viewport,
+      canvasFactory: canvasFactory
     };
     
     await page.render(renderContext).promise;
@@ -92,7 +102,7 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
     const buffer = canvas.toBuffer('image/jpeg', { quality: 0.85 });
     fs.writeFileSync(outputPath, buffer);
     
-    console.log(`  Rendered page ${pageNum}`);
+    console.log(`  Rendered page ${pageNum} to ${outputPath}`);
     return true;
   } catch (err) {
     console.error(`Error rendering page ${pageNum}:`, err.message);
