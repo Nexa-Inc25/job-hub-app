@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { pdfjs } from 'react-pdf';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import Dashboard from './components/Dashboard';
@@ -12,6 +13,9 @@ import JobFileSystem from './components/JobFileSystem';
 import TemplateManager from './components/TemplateManager';
 import Calendar from './components/Calendar';
 import { ThemeProvider } from './ThemeContext';
+
+// Set PDF.js worker globally - use non-ESM build for CRA compatibility
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 function App() {
   return (

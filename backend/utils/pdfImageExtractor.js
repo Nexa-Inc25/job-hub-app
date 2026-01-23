@@ -83,10 +83,16 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
     
     const prompt = `Analyze these ${pagesWithImages.length} PG&E utility PDF page images. For each page, categorize as:
 
-- MAP: Circuit Map Change Sheet (CMCS) - has INSTALL/REMOVE symbols (pink triangles), pole numbers, schematics, demand kVA
-- SKETCH: Construction sketch - overhead/trench diagrams, pole layouts, dimensions, technical drawings
-- PHOTO: Real-world photographs of poles, equipment, job sites
-- FORM: Checklists, request forms, tickets, permits, tables
+- MAP: Circuit Map Change Sheet (CMCS), ADHOC maps - look for INSTALL/REMOVE symbols (pink triangles), pole numbers, circuit schematics, demand kVA, "ILS Event No.", line diagrams
+- SKETCH: Construction drawings - TRENCH DETAIL, overhead diagrams, pole layouts with dimensions, "Clear Fields" annotations, technical construction drawings
+- PHOTO: Real-world photographs of utility poles, equipment, job sites, field conditions
+- FORM: Checklists (CWC), request forms, USA dig tickets, permits, tables with data entry fields
+
+Key clues:
+- Pink/red triangles with "INSTALL"/"REMOVE" = MAP
+- Hand-drawn or CAD diagrams with measurements = SKETCH  
+- Camera photos of real objects = PHOTO
+- Fillable boxes, checkboxes, signatures = FORM
 
 Respond with JSON array: [{"page": 1, "category": "PHOTO"}, {"page": 2, "category": "MAP"}, ...]
 Where page number corresponds to the order of images (1 = first image, 2 = second, etc.)`;

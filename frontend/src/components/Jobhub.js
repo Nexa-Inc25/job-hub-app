@@ -2,10 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
-import { pdfjs } from 'react-pdf'; // Import pdfjs
-
-// Use non-ESM build for CRA compatibility
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 const JobHub = () => {
   const { id } = useParams();

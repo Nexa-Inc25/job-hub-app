@@ -5,7 +5,10 @@ const documentSchema = new mongoose.Schema({
   name: String,
   path: String,
   url: String,
+  r2Key: String, // R2 storage key
   type: { type: String, enum: ['pdf', 'image', 'template', 'drawing', 'map', 'other'], default: 'other' },
+  // AI-assigned category for extracted content
+  category: { type: String, enum: ['SKETCH', 'MAP', 'FORM', 'PHOTO', null], default: null },
   uploadDate: { type: Date, default: Date.now },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isTemplate: { type: Boolean, default: false },

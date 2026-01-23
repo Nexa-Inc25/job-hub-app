@@ -1,10 +1,6 @@
 // src/components/PDFEditor.js
 import React from 'react';
-import { Typography } from '@mui/material'; // Added import
-import { pdfjs } from 'react-pdf'; // Import pdfjs
-
-// Use non-ESM build for CRA compatibility
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+import { Typography } from '@mui/material';
 
 const PDFEditor = ({ pdfUrl }) => {
   // Example logic (remove unused pdfBytes or use it)
