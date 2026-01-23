@@ -335,27 +335,29 @@ async function analyzePagesByContent(pdfPath) {
       const isImageHeavy = imageCount > 0 && textLength < 2000; // Increased threshold - CMCS pages can have 500-1500 chars
       const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
+      // Debug: log every page's categorization decision
+      console.log(`  Page ${pageNum}: images=${imageCount}, textLen=${textLength}, isForm=${isFormPage}`);
+      
       // Priority 1: Explicit keywords for drawings/maps (these are reliable)
       if (hasDrawingKeywords) {
-        console.log(`  Page ${pageNum} -> DRAWING (text match)`);
+        console.log(`    -> DRAWING (text match)`);
         result.drawings.push(pageNum);
       } else if (hasMapKeywords) {
         const matchedKeyword = text.match(/cmcs|circuit map change sheet|adhoc|circuit map|cirmap/i)?.[0];
-        console.log(`  Page ${pageNum} -> MAP (text match: "${matchedKeyword}")`);
+        console.log(`    -> MAP (text match: "${matchedKeyword}")`);
         result.maps.push(pageNum);
       }
-      // Priority 2: Pure image pages with "Confidential" watermark only - these are definitely photos
-      else if (isConfidentialOnly && isImageOnly) {
-        console.log(`  Page ${pageNum} -> PHOTO (confidential watermark only, pure image)`);
-        result.photos.push(pageNum);
-      }
-      // Priority 3: Any page with images needs vision analysis to verify category
+      // Priority 2: Any page with images needs vision analysis to verify category
       // Photo keywords like "photos:" or "pictures:" can appear in FORMS as labels
-      // So we need vision to verify if it's actually a photo or a form
+      // Even "confidential only" pages need vision check if they have images
       else if (hasImages) {
         // Store for vision analysis
         page.needsVision = true;
-        console.log(`  Page ${pageNum} -> Queued for vision (${imageCount} images, ${textLength} chars)`);
+        console.log(`    -> Queued for vision (${imageCount} images, ${textLength} chars)`);
+      }
+      // No images and no keywords = skip this page (likely a text-only form or blank)
+      else {
+        console.log(`    -> Skipped (no images, no keywords)`);
       }
     }
     
