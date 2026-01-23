@@ -98,18 +98,26 @@ const JobFileSystem = () => {
 
   useEffect(() => {
     const fetchJobData = async () => {
+      console.log('JobFileSystem: Fetching job with ID:', id);
       const token = localStorage.getItem('token');
       if (!token) {
         setError('No authentication token found. Please log in.');
         setLoading(false);
         return;
       }
+      if (!id) {
+        setError('No job ID provided');
+        setLoading(false);
+        return;
+      }
       try {
         // Fetch the specific job by ID (includes folders) and job list (for switcher)
+        console.log('JobFileSystem: Making API calls...');
         const [jobResponse, jobsListResponse] = await Promise.all([
           api.get(`/api/jobs/${id}`),
           api.get('/api/jobs')
         ]);
+        console.log('JobFileSystem: API calls successful', { job: jobResponse.data, jobsCount: jobsListResponse.data.length });
         
         setJob(jobResponse.data);
         setJobs(jobsListResponse.data);
