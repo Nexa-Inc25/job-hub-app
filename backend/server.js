@@ -304,8 +304,13 @@ app.get('/api/files/:key(*)', async (req, res) => {
         if (fileData.contentLength) {
           res.setHeader('Content-Length', fileData.contentLength);
         }
-        // Enable caching for images
+        // Enable caching
         res.setHeader('Cache-Control', 'public, max-age=3600');
+        // Allow embedding in iframes (for PDF viewer)
+        res.setHeader('Content-Disposition', 'inline');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        // CORS headers for cross-origin requests
+        res.setHeader('Access-Control-Allow-Origin', '*');
         fileData.stream.pipe(res);
         return;
       }
@@ -768,7 +773,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             url = `/api/files/${result.key}`;
             r2Key = result.key;
             fs.unlinkSync(asset.path);
-          } catch (err) {
+  } catch (err) {
             console.error(`Failed to upload ${asset.name}:`, err.message);
           }
         }
