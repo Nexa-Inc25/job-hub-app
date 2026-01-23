@@ -34,11 +34,14 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
       }
     };
     fetchJobDetails();
+  }, [jobId]);
 
+  // Separate cleanup effect for blob URL to avoid refetching job data on every doc open
+  useEffect(() => {
     return () => {
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     };
-  }, [jobId, pdfBlobUrl]); // token no longer needed - api adds it automatically
+  }, [pdfBlobUrl]);
 
   const handleDocClick = async (folderName, doc) => {
     try {
