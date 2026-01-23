@@ -1,5 +1,6 @@
 // src/components/WorkOrderDetails.js
 import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -9,9 +10,11 @@ import PDFEditor from './PDFEditor';
 
 // PDF.js worker is set globally in App.js
 
-// ... rest of the file remains the same
-
-const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
+const WorkOrderDetails = ({ jobId: propJobId, token: propToken, userRole, onJobUpdate }) => {
+  // Support both route params and props for flexibility
+  const { id: routeJobId } = useParams();
+  const jobId = propJobId || routeJobId;
+  const token = propToken || localStorage.getItem('token');
   const [numPages, setNumPages] = useState(null);
   const [pageNumber, setPageNumber] = useState(1);
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);

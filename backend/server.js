@@ -755,8 +755,8 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     if (!extractor.isExtractionAvailable()) {
       console.error('PDF extraction not available - canvas libraries may not be loaded');
       // Mark extraction as complete (failed) so clients don't hang
+      // Don't set aiExtractionStarted since extraction never actually started
       job.aiExtractionComplete = true;
-      job.aiExtractionStarted = new Date();
       job.aiExtractionEnded = new Date();
       job.aiProcessingTimeMs = 0;
       await job.save();
