@@ -91,5 +91,6 @@ jobSchema.index({ pmNumber: 1 });
 jobSchema.index({ woNumber: 1 });
 jobSchema.index({ notificationNumber: 1 });
 jobSchema.index({ assignedTo: 1, crewScheduledDate: 1 }); // For calendar queries
+jobSchema.index({ userId: 1, createdAt: -1 }); // For dashboard listing (fast user-specific sorted queries)
 
 module.exports = mongoose.model('Job', jobSchema);

@@ -537,7 +537,11 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
       };
     }
 
-    const jobs = await Job.find(query).sort({ createdAt: -1 });
+    // Only fetch fields needed for dashboard listing - exclude large nested folders/documents
+    const jobs = await Job.find(query)
+      .select('-folders') // Exclude folders array which contains all documents
+      .sort({ createdAt: -1 })
+      .lean(); // Use lean() for faster read-only queries
     res.json(jobs);
   } catch (err) {
     console.error('Error fetching jobs:', err);
