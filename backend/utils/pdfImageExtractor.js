@@ -403,8 +403,13 @@ async function analyzePagesByContent(pdfPath) {
             result.maps.push(page.pageNum);
           } else if (category === 'PHOTO') {
             result.photos.push(page.pageNum);
+          } else if (category === 'FORM') {
+            // FORM pages are excluded - don't add to any extraction list
+            result.forms.push(page.pageNum);
+            console.log(`  Skipping FORM page ${page.pageNum}`);
           } else {
-            // Default uncategorized to photo
+            // Only default to photo if we got no category at all
+            console.log(`  Unknown category "${category}" for page ${page.pageNum}, defaulting to photo`);
             result.photos.push(page.pageNum);
           }
         }
