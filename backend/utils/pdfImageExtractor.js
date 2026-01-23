@@ -81,20 +81,19 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages. BE STRICT - most pages are FORM.
+    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages. BE VERY STRICT - 90% of pages are FORM.
 
-FORM (most common): ANY page with structured text, labels, tables, checkboxes, fillable fields, headers, signatures, permits, checklists, data sheets, USA tickets, crew instructions, billing, tag sheets, traffic control plans, lane closure diagrams, barricade layouts. If you see form fields, labels like "Date:", "Name:", checkboxes, structured tables, or standardized diagrams with legends = FORM.
+FORM (default - use when unsure): ANY page with text labels, tables, checkboxes, headers, signatures, permits, checklists, USA tickets, traffic control plans/diagrams, lane closures, barricades, road work signs, detour arrows, legends, title blocks. Traffic control diagrams are ALWAYS FORM. Any standardized diagram with arrows, icons, or legends = FORM.
 
-MAP: ONLY if it's a Circuit Map Change Sheet (CMCS) or ADHOC map with "ILS Event No.", "GIS Tag No.", pink INSTALL/REMOVE triangles, pole connection diagrams. Must be primarily a technical diagram with minimal form fields.
+MAP: ONLY Circuit Map Change Sheet (CMCS) or ADHOC with "ILS Event No.", "GIS Tag No.", pink triangles, pole schematics. Very rare.
 
-SKETCH: ONLY if it's a hand-drawn or CAD construction drawing showing TRENCH DETAIL, pole layouts with dimensions, "Clear Fields" label, plan view. Must be primarily a technical drawing, NOT a form that references drawings.
+SKETCH: ONLY hand-drawn construction drawings with "TRENCH DETAIL", pole dimensions, "Clear Fields". NOT traffic control. NOT standardized diagrams. Very rare.
 
-PHOTO: ONLY actual photographs - real camera images of poles, equipment, job sites, field conditions. NOT scanned documents or forms with embedded images.
+PHOTO: ONLY real camera photographs of physical job sites/equipment. NOT diagrams or documents.
 
-IMPORTANT: If a page has BOTH form elements (labels, tables, checkboxes) AND a diagram/image, it's a FORM, not a sketch or map.
+When in doubt = FORM. Traffic control = FORM. Diagrams with legends = FORM.
 
-Respond JSON only: [{"page":1,"category":"FORM"},{"page":2,"category":"MAP"}...]
-Page numbers = image order (1=first, 2=second, etc.)`;
+JSON only: [{"page":1,"category":"FORM"}...]`;
 
     // Build message with all images
     const imageContents = pagesWithImages.map(p => ({
