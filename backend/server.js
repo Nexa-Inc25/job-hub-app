@@ -1025,7 +1025,9 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       docName = 'FilledForm';
     }
     
-    const newFilename = `${pmNumber}_${docName}.pdf`;
+    // Add timestamp to ensure cache busting when same doc is edited multiple times
+    const timestamp = Date.now();
+    const newFilename = `${pmNumber}_${docName}_${timestamp}.pdf`;
     const filePath = path.join(__dirname, 'uploads', newFilename);
     
     // Save the file
