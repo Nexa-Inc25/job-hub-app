@@ -19,6 +19,7 @@ const Job = require('./models/Job');
 const apiRoutes = require('./routes/api');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
+const sharp = require('sharp');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -1218,12 +1219,32 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
     const uploadedPhotos = [];
     for (let i = 0; i < req.files.length; i++) {
       const file = req.files[i];
-      const ext = path.extname(file.originalname) || '.jpg';
+      let ext = path.extname(file.originalname).toLowerCase() || '.jpg';
       const uniqueTimestamp = `${baseTimestamp}_${i.toString().padStart(3, '0')}`;
       const division = job.division || 'DA';
       const pmNumber = job.pmNumber || 'NOPM';
       const notification = job.notificationNumber || 'NONOTIF';
       const matCode = job.matCode || '2AA';
+      
+      let fileToUpload = file.path;
+      let tempConvertedFile = null;
+      
+      // Convert HEIC/HEIF to JPG (browsers can't display HEIC)
+      if (ext === '.heic' || ext === '.heif') {
+        console.log('Converting HEIC/HEIF to JPG:', file.originalname);
+        try {
+          tempConvertedFile = file.path + '.jpg';
+          await sharp(file.path)
+            .jpeg({ quality: 90 })
+            .toFile(tempConvertedFile);
+          fileToUpload = tempConvertedFile;
+          ext = '.jpg';
+          console.log('HEIC converted successfully');
+        } catch (convertErr) {
+          console.error('Failed to convert HEIC:', convertErr.message);
+          // Continue with original file
+        }
+      }
       
       const newFilename = `${division}_${pmNumber}_${notification}_${matCode}_Photo_${uniqueTimestamp}${ext}`;
       
@@ -1234,25 +1255,28 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       console.log('Manual photo upload - R2 configured:', r2Storage.isR2Configured());
       if (r2Storage.isR2Configured()) {
         try {
-          console.log('Uploading photo to R2:', file.path, '->', `jobs/${id}/photos/${newFilename}`);
-          const result = await r2Storage.uploadJobFile(file.path, id, 'photos', newFilename);
+          console.log('Uploading photo to R2:', fileToUpload, '->', `jobs/${id}/photos/${newFilename}`);
+          const result = await r2Storage.uploadJobFile(fileToUpload, id, 'photos', newFilename);
           docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
           console.log('Photo uploaded to R2 successfully:', r2Key, '-> URL:', docUrl);
-          // Clean up local file
+          // Clean up local files
           if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
+          }
+          if (tempConvertedFile && fs.existsSync(tempConvertedFile)) {
+            fs.unlinkSync(tempConvertedFile);
           }
         } catch (uploadErr) {
           console.error('Failed to upload photo to R2:', uploadErr.message);
           // Fallback to local
           const newPath = path.join(__dirname, 'uploads', newFilename);
-          fs.renameSync(file.path, newPath);
+          fs.renameSync(fileToUpload, newPath);
         }
       } else {
         console.log('R2 not configured, saving locally');
         const newPath = path.join(__dirname, 'uploads', newFilename);
-        fs.renameSync(file.path, newPath);
+        fs.renameSync(fileToUpload, newPath);
       }
       
       uploadedPhotos.push({
