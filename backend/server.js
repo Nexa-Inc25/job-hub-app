@@ -20,6 +20,7 @@ const apiRoutes = require('./routes/api');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
 const sharp = require('sharp');
+const heicConvert = require('heic-convert');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -1234,12 +1235,16 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
         console.log('Converting HEIC/HEIF to JPG:', file.originalname);
         try {
           tempConvertedFile = file.path + '.jpg';
-          await sharp(file.path)
-            .jpeg({ quality: 90 })
-            .toFile(tempConvertedFile);
+          const inputBuffer = fs.readFileSync(file.path);
+          const outputBuffer = await heicConvert({
+            buffer: inputBuffer,
+            format: 'JPEG',
+            quality: 0.9
+          });
+          fs.writeFileSync(tempConvertedFile, Buffer.from(outputBuffer));
           fileToUpload = tempConvertedFile;
           ext = '.jpg';
-          console.log('HEIC converted successfully');
+          console.log('HEIC converted successfully to JPG');
         } catch (convertErr) {
           console.error('Failed to convert HEIC:', convertErr.message);
           // Continue with original file
