@@ -1231,11 +1231,14 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       let r2Key = null;
       
       // Upload to R2 if configured
+      console.log('Manual photo upload - R2 configured:', r2Storage.isR2Configured());
       if (r2Storage.isR2Configured()) {
         try {
+          console.log('Uploading photo to R2:', file.path, '->', `jobs/${id}/photos/${newFilename}`);
           const result = await r2Storage.uploadJobFile(file.path, id, 'photos', newFilename);
           docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
+          console.log('Photo uploaded to R2 successfully:', r2Key, '-> URL:', docUrl);
           // Clean up local file
           if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
@@ -1247,6 +1250,7 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
           fs.renameSync(file.path, newPath);
         }
       } else {
+        console.log('R2 not configured, saving locally');
         const newPath = path.join(__dirname, 'uploads', newFilename);
         fs.renameSync(file.path, newPath);
       }
