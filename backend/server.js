@@ -514,6 +514,7 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
 // All /api/jobs routes require authentication
 app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
+    console.log('GET /api/jobs - userId:', req.userId);
     const { search } = req.query;
     // Always filter by authenticated user for data isolation
     let query = { userId: req.userId };
@@ -542,6 +543,7 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
       .select('-folders') // Exclude folders array which contains all documents
       .sort({ createdAt: -1 })
       .lean(); // Use lean() for faster read-only queries
+    console.log('GET /api/jobs - returning', jobs.length, 'jobs');
     res.json(jobs);
   } catch (err) {
     console.error('Error fetching jobs:', err);
