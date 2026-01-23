@@ -65,57 +65,84 @@ function isExtractionAvailable() {
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Use OpenAI Vision to categorize a page image
- * Returns: 'SKETCH', 'MAP', 'PHOTO', 'FORM', or 'OTHER'
+ * Batch categorize multiple pages with vision in a single API call
+ * Returns: Map of pageNum -> category
  */
-async function categorizePageWithVision(imageBase64, pageNum, retryCount = 0) {
-  if (!process.env.OPENAI_API_KEY) {
-    console.log(`  Vision fallback skipped for page ${pageNum}: No OpenAI key`);
-    return null;
+async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
+  const results = new Map();
+  
+  if (!process.env.OPENAI_API_KEY || pagesWithImages.length === 0) {
+    return results;
   }
+  
+  const pageNums = pagesWithImages.map(p => p.pageNum);
+  console.log(`  Vision batch analyzing pages: [${pageNums.join(', ')}]`);
   
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const prompt = `Analyze this PG&E utility job package PDF page. Categorize as ONE of:
+    const prompt = `Analyze these ${pagesWithImages.length} PG&E utility PDF page images. For each page, categorize as:
 
-MAP: Circuit Map Change Sheet (CMCS) - has title "Circuit Map Change Sheet (CMCS)", legend with INSTALL (pink/purple triangle) / REMOVE symbols, pole numbers (like T73332), schematic lines, demand kVA notes, utility circuit diagrams
+- MAP: Circuit Map Change Sheet (CMCS) - has INSTALL/REMOVE symbols (pink triangles), pole numbers, schematics, demand kVA
+- SKETCH: Construction sketch - overhead/trench diagrams, pole layouts, dimensions, technical drawings
+- PHOTO: Real-world photographs of poles, equipment, job sites
+- FORM: Checklists, request forms, tickets, permits, tables
 
-SKETCH: Construction sketch - overhead/trench diagrams, pole layouts, conductors, "CONSTRUCTION SKETCH" title, dimensions, before/after layouts, technical drawings with measurements
+Respond with JSON array: [{"page": 1, "category": "PHOTO"}, {"page": 2, "category": "MAP"}, ...]
+Where page number corresponds to the order of images (1 = first image, 2 = second, etc.)`;
 
-PHOTO: Real-world photographs of poles, equipment, job sites, field conditions, actual photos (not diagrams)
-
-FORM: Text-heavy checklists, request forms, tickets, permits, tables with checkboxes, USA dig tickets
-
-Look for: PG&E logo, title blocks, symbols/arrows, pole diagrams, circuit lines.
-Respond with ONLY one word: SKETCH, MAP, PHOTO, or FORM`;
+    // Build message with all images
+    const imageContents = pagesWithImages.map(p => ({
+      type: 'image_url',
+      image_url: { url: `data:image/jpeg;base64,${p.base64}`, detail: 'low' } // low detail to reduce tokens
+    }));
 
     const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // Cost-effective vision model
+      model: 'gpt-4o-mini',
       messages: [
         {
           role: 'user',
           content: [
             { type: 'text', text: prompt },
-            { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
+            ...imageContents
           ]
         }
       ],
-      max_tokens: 10
+      max_tokens: 200
     });
     
-    const category = response.choices[0].message.content.trim().toUpperCase();
-    console.log(`  Vision categorized page ${pageNum} as: ${category}`);
-    return category;
-  } catch (err) {
-    // Handle rate limit with retry
-    if (err.message?.includes('429') && retryCount < 3) {
-      console.log(`  Rate limited on page ${pageNum}, waiting 1s and retrying...`);
-      await delay(1000);
-      return categorizePageWithVision(imageBase64, pageNum, retryCount + 1);
+    // Parse JSON response
+    const responseText = response.choices[0].message.content.trim();
+    try {
+      // Extract JSON array from response (might have markdown)
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        parsed.forEach(item => {
+          const idx = item.page - 1; // Convert 1-based to 0-based
+          if (idx >= 0 && idx < pagesWithImages.length) {
+            const actualPageNum = pagesWithImages[idx].pageNum;
+            const category = (item.category || '').toUpperCase();
+            results.set(actualPageNum, category);
+            console.log(`  Vision: page ${actualPageNum} -> ${category}`);
+          }
+        });
+      }
+    } catch (parseErr) {
+      console.error('  Failed to parse vision response:', responseText);
     }
-    console.error(`  Vision error for page ${pageNum}:`, err.message);
-    return null;
+    
+    return results;
+  } catch (err) {
+    // Handle rate limit with exponential backoff
+    if (err.message?.includes('429') && retryCount < 5) {
+      const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 30000) + Math.random() * 1000;
+      console.log(`  Rate limited, waiting ${(backoffMs/1000).toFixed(1)}s and retrying (attempt ${retryCount + 1}/5)...`);
+      await delay(backoffMs);
+      return categorizePagesWithVisionBatch(pagesWithImages, retryCount + 1);
+    }
+    console.error(`  Vision batch error:`, err.message);
+    return results;
   }
 }
 
@@ -334,36 +361,49 @@ async function analyzePagesByContent(pdfPath) {
     }
     
     // Vision pass: Use AI to categorize image-heavy pages without text clues
+    // Process in batches of 5 to reduce API calls and avoid rate limits
     const visionCandidates = pageData.filter(p => p.needsVision);
     if (visionCandidates.length > 0 && process.env.OPENAI_API_KEY) {
       const pageNums = visionCandidates.map(p => p.pageNum);
       console.log(`Using vision to categorize ${visionCandidates.length} image-heavy pages: [${pageNums.join(', ')}]`);
       
-      // Analyze ALL vision candidates (removed limit - CMCS/sketches could be anywhere)
-      // Cost is ~$0.01-0.02 per page with gpt-4o-mini
-      // Add delay between calls to avoid rate limiting
-      for (let i = 0; i < visionCandidates.length; i++) {
-        const page = visionCandidates[i];
+      // Render all pages to base64 first
+      const pagesWithImages = [];
+      for (const page of visionCandidates) {
+        const base64 = await renderPageToBase64(pdf, page.pageNum, 0.8); // Lower scale to reduce tokens
+        if (base64) {
+          pagesWithImages.push({ pageNum: page.pageNum, base64 });
+        } else {
+          // Fallback to photo if render fails
+          result.photos.push(page.pageNum);
+        }
+      }
+      
+      // Process in batches of 5 pages per API call
+      const BATCH_SIZE = 5;
+      for (let i = 0; i < pagesWithImages.length; i += BATCH_SIZE) {
+        const batch = pagesWithImages.slice(i, i + BATCH_SIZE);
         
-        // Add 300ms delay between calls to avoid rate limits (except first)
+        // Add delay between batches to avoid rate limits
         if (i > 0) {
-          await delay(300);
+          await delay(2000); // 2 second delay between batches
         }
         
-        const base64 = await renderPageToBase64(pdf, page.pageNum, 1.0);
-        if (base64) {
-          const category = await categorizePageWithVision(base64, page.pageNum);
+        const batchResults = await categorizePagesWithVisionBatch(batch);
+        
+        // Process results
+        for (const page of batch) {
+          const category = batchResults.get(page.pageNum);
           if (category === 'SKETCH') {
             result.drawings.push(page.pageNum);
           } else if (category === 'MAP') {
             result.maps.push(page.pageNum);
           } else if (category === 'PHOTO') {
             result.photos.push(page.pageNum);
+          } else {
+            // Default uncategorized to photo
+            result.photos.push(page.pageNum);
           }
-          // FORM and OTHER are ignored (already in forms list or truly other)
-        } else {
-          // Fallback to photo if vision fails
-          result.photos.push(page.pageNum);
         }
       }
     } else if (visionCandidates.length > 0) {
