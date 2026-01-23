@@ -335,7 +335,7 @@ async function analyzePagesByContent(pdfPath) {
       const isImageHeavy = imageCount > 0 && textLength < 2000; // Increased threshold - CMCS pages can have 500-1500 chars
       const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
-      // Priority 1: Explicit keywords for drawings/maps
+      // Priority 1: Explicit keywords for drawings/maps (these are reliable)
       if (hasDrawingKeywords) {
         console.log(`  Page ${pageNum} -> DRAWING (text match)`);
         result.drawings.push(pageNum);
@@ -344,12 +344,14 @@ async function analyzePagesByContent(pdfPath) {
         console.log(`  Page ${pageNum} -> MAP (text match: "${matchedKeyword}")`);
         result.maps.push(pageNum);
       }
-      // Priority 2: Photo keywords or field notes
-      else if (hasPhotoKeywords || hasFieldNotes || isConfidentialOnly) {
+      // Priority 2: Pure image pages with "Confidential" watermark only - these are definitely photos
+      else if (isConfidentialOnly && isImageOnly) {
+        console.log(`  Page ${pageNum} -> PHOTO (confidential watermark only, pure image)`);
         result.photos.push(pageNum);
       }
       // Priority 3: Any page with images needs vision analysis to verify category
-      // Don't auto-classify as photo just because it has text - could be a form
+      // Photo keywords like "photos:" or "pictures:" can appear in FORMS as labels
+      // So we need vision to verify if it's actually a photo or a form
       else if (hasImages) {
         // Store for vision analysis
         page.needsVision = true;
