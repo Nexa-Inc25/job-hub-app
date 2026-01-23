@@ -778,7 +778,9 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             console.error(`Failed to upload ${asset.name}:`, err.message);
           }
         }
-        uploaded.push({ ...asset, url, r2Key });
+        // Don't include stale local path when using R2
+        const { path: localPath, ...assetWithoutPath } = asset;
+        uploaded.push({ ...assetWithoutPath, url, r2Key });
       }
       return uploaded;
     }
@@ -818,43 +820,46 @@ async function extractAssetsInBackground(jobId, pdfPath) {
         
         // Add extracted photos
         extractedAssets.photos.forEach(photo => {
-          jobPhotosFolder.documents.push({
+          const doc = {
             name: photo.name,
-            path: photo.path,
             url: photo.url,
-            r2Key: photo.r2Key,
             type: 'image',
             extractedFrom: path.basename(pdfPath),
             uploadDate: new Date()
-          });
+          };
+          if (photo.r2Key) doc.r2Key = photo.r2Key;
+          if (photo.path) doc.path = photo.path;
+          jobPhotosFolder.documents.push(doc);
         });
         
         // Add extracted drawings
         extractedAssets.drawings.forEach(drawing => {
-          drawingsFolder.documents.push({
+          const doc = {
             name: drawing.name,
-            path: drawing.path,
             url: drawing.url,
-            r2Key: drawing.r2Key,
             type: 'drawing',
             pageNumber: drawing.pageNumber,
             extractedFrom: path.basename(pdfPath),
             uploadDate: new Date()
-          });
+          };
+          if (drawing.r2Key) doc.r2Key = drawing.r2Key;
+          if (drawing.path) doc.path = drawing.path;
+          drawingsFolder.documents.push(doc);
         });
         
         // Add extracted maps
         extractedAssets.maps.forEach(map => {
-          mapsFolder.documents.push({
+          const doc = {
             name: map.name,
-            path: map.path,
             url: map.url,
-            r2Key: map.r2Key,
             type: 'map',
             pageNumber: map.pageNumber,
             extractedFrom: path.basename(pdfPath),
             uploadDate: new Date()
-          });
+          };
+          if (map.r2Key) doc.r2Key = map.r2Key;
+          if (map.path) doc.path = map.path;
+          mapsFolder.documents.push(doc);
         });
       }
     }

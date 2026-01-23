@@ -66,13 +66,10 @@ const CreateWorkOrder = ({ token }) => {
     if (selectedFile && localToken) {
       setExtracting(true);
       // Don't await - let it run in background
-      api.post('/api/ai/extract', (() => {
-        const formData = new FormData();
-        formData.append('pdf', selectedFile);
-        return formData;
-      })(), {
-        headers: { Authorization: `Bearer ${localToken}` }
-      }).then(response => {
+      // api module automatically adds Authorization header
+      const formData = new FormData();
+      formData.append('pdf', selectedFile);
+      api.post('/api/ai/extract', formData).then(response => {
         console.log('AI extraction successful:', response.data);
         if (response.data.success && response.data.structured) {
           const data = response.data.structured;
@@ -124,9 +121,8 @@ const CreateWorkOrder = ({ token }) => {
     jobFormData.append('skipAiExtract', 'true');
 
     try {
-      const jobRes = await api.post('/api/jobs', jobFormData, {
-        headers: { Authorization: `Bearer ${localToken}` }
-      });
+      // api module automatically adds Authorization header
+      const jobRes = await api.post('/api/jobs', jobFormData);
       console.log('Job created:', jobRes.data);
       setSuccess(true);
       

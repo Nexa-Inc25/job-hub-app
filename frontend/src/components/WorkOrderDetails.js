@@ -25,9 +25,8 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
   useEffect(() => {
     const fetchJobDetails = async () => {
       try {
-        const response = await api.get(`/api/jobs/${jobId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // api module automatically adds Authorization header
+        const response = await api.get(`/api/jobs/${jobId}`);
         setFolders(response.data.folders);
         setJobStatus(response.data.status);
         // TODO: Fetch existing bid/notes if any
@@ -40,7 +39,7 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
     return () => {
       if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
     };
-  }, [jobId, token, pdfBlobUrl]); // Added pdfBlobUrl to deps
+  }, [jobId, pdfBlobUrl]); // token no longer needed - api adds it automatically
 
   const handleDocClick = async (folderName, doc) => {
     try {
@@ -58,8 +57,11 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
 
   const handleBidSubmit = async () => {
     try {
-      await api.post(`/api/jobs/${jobId}/bid`, { bidAmount, preFieldNotes }, {
-        headers: { Authorization: `Bearer ${token}` },
+      // Use the /status endpoint with status='pre-field' and bid info
+      await api.put(`/api/jobs/${jobId}/status`, { 
+        status: 'pre-field',
+        bidAmount: parseFloat(bidAmount),
+        bidNotes: preFieldNotes 
       });
       onJobUpdate(); // Refresh parent
     } catch (err) {
@@ -71,9 +73,8 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
     const formData = new FormData();
     Array.from(e.target.files).forEach(file => formData.append('photos', file));
     try {
-      await api.post(`/api/jobs/${jobId}/photos`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // api module automatically adds Authorization header
+      await api.post(`/api/jobs/${jobId}/photos`, formData);
       onJobUpdate();
     } catch (err) {
       console.error('Photo upload failed:', err);
@@ -82,9 +83,8 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
 
   const handleSubmitJob = async () => {
     try {
-      await api.post(`/api/jobs/${jobId}/complete`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      // Use the /status endpoint to mark job as completed
+      await api.put(`/api/jobs/${jobId}/status`, { status: 'completed' });
       onJobUpdate();
     } catch (err) {
       console.error('Job submission failed:', err);
