@@ -60,8 +60,7 @@ const utilitySchema = new mongoose.Schema({
   
 }, { timestamps: true });
 
-// Indexes
-utilitySchema.index({ slug: 1 });
+// Indexes (slug already has unique:true which creates an index)
 utilitySchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('Utility', utilitySchema);

@@ -56,8 +56,7 @@ const companySchema = new mongoose.Schema({
   
 }, { timestamps: true });
 
-// Indexes
-companySchema.index({ slug: 1 });
+// Indexes (slug already has unique:true which creates an index)
 companySchema.index({ isActive: 1 });
 companySchema.index({ 'utilities': 1 });
 
