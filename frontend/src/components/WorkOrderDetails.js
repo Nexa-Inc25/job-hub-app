@@ -48,8 +48,14 @@ const WorkOrderDetails = ({ jobId: propJobId, token: propToken, userRole, onJobU
 
   const handleDocClick = async (folderName, doc) => {
     try {
+      // Get fresh token on each call to avoid stale/null token issues
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        alert('Please log in to view documents.');
+        return;
+      }
       const response = await fetch(doc.url, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${currentToken}` },
       });
       if (!response.ok) throw new Error('Failed to load document');
       const blob = await response.blob();

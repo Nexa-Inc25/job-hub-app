@@ -1565,9 +1565,16 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
     const { id } = req.params;
     const { status, bidAmount, bidNotes, crewSize, crewScheduledDate } = req.body;
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // Allow job creator OR assigned foreman/crew to update status
+    const job = await Job.findOne({
+      _id: id,
+      $or: [
+        { userId: req.userId },
+        { assignedTo: req.userId }
+      ]
+    });
     if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
+      return res.status(404).json({ error: 'Job not found or not authorized' });
     }
     
     if (status) job.status = status;
