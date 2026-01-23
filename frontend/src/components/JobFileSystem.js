@@ -118,10 +118,15 @@ const JobFileSystem = () => {
           setSelectedFolder(jobResponse.data.folders[0]); // Select first folder by default
         }
       } catch (err) {
+        console.error('Error fetching job data:', err);
         if (err.response?.status === 404) {
           setError('Job not found');
+        } else if (err.response?.status === 401) {
+          setError('Session expired. Please log in again.');
+          localStorage.removeItem('token');
+          navigate('/login');
         } else {
-          setError(err.response?.data?.error || 'Failed to fetch job data');
+          setError(err.response?.data?.error || err.message || 'Failed to fetch job data');
         }
       } finally {
         setLoading(false);
