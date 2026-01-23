@@ -311,10 +311,10 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
           preFieldFolder.subfolders.push(jobPhotosFolder);
         }
         
-        // Find or create Construction Drawings subfolder
-        let drawingsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Drawings');
+        // Find or create Construction Sketches subfolder
+        let drawingsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Sketches');
         if (!drawingsFolder) {
-          drawingsFolder = { name: 'Construction Drawings', documents: [], subfolders: [] };
+          drawingsFolder = { name: 'Construction Sketches', documents: [], subfolders: [] };
           preFieldFolder.subfolders.push(drawingsFolder);
         }
         

@@ -583,7 +583,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
               documents: [],
               subfolders: [
                 { name: 'Job Photos', documents: [] },
-                { name: 'Construction Drawings', documents: [] },
+                { name: 'Construction Sketches', documents: [] },
                 { name: 'Circuit Maps', documents: [] }
               ]
             },
@@ -815,10 +815,10 @@ async function extractAssetsInBackground(jobId, pdfPath) {
           preFieldFolder.subfolders.push(jobPhotosFolder);
         }
         
-        // Find or create Construction Drawings subfolder
-        let drawingsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Drawings');
+        // Find or create Construction Sketches subfolder
+        let drawingsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Sketches');
         if (!drawingsFolder) {
-          drawingsFolder = { name: 'Construction Drawings', documents: [], subfolders: [] };
+          drawingsFolder = { name: 'Construction Sketches', documents: [], subfolders: [] };
           preFieldFolder.subfolders.push(drawingsFolder);
         }
         
