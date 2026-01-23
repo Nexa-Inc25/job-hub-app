@@ -790,8 +790,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             url = r2Storage.getPublicUrl(result.key);
             r2Key = result.key;
             fs.unlinkSync(asset.path);
-
-  } catch (err) {
+          } catch (err) {
             console.error(`Failed to upload ${asset.name}:`, err.message);
           }
         }

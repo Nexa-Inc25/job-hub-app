@@ -52,7 +52,8 @@ const CreateWorkOrder = ({ token }) => {
     if (storedToken && !localToken) {
       setLocalToken(storedToken);
     }
-  }, [localToken]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Run only once on mount
 
   const [extracting, setExtracting] = useState(false);
   
