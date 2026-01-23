@@ -6,6 +6,10 @@
     {
       "source": "/api/:path*",
       "destination": "https://job-hub-app-production.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ],
   "headers": [
