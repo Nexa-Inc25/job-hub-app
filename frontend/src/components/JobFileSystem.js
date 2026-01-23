@@ -421,8 +421,12 @@ const JobFileSystem = () => {
     
     let resultUrl = '';
     
+    // If URL is already a full URL (e.g., direct R2/Cloudflare worker URL), use as-is
+    if (doc.url?.startsWith('http://') || doc.url?.startsWith('https://')) {
+      resultUrl = doc.url;
+    }
     // If it's a template, use the template URL
-    if (doc.url?.startsWith('/templates/')) {
+    else if (doc.url?.startsWith('/templates/')) {
       resultUrl = `${apiBase}${doc.url}`;
     }
     // If it's an uploaded file
