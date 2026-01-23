@@ -348,17 +348,12 @@ async function analyzePagesByContent(pdfPath) {
       else if (hasPhotoKeywords || hasFieldNotes || isConfidentialOnly) {
         result.photos.push(pageNum);
       }
-      // Priority 3: Image-heavy pages with low text need vision analysis
-      // These are likely diagrams (CMCS, sketches) that don't have extractable title text
-      else if (hasImages && (isImageOnly || isImageHeavy || textLength === 0)) {
+      // Priority 3: Any page with images needs vision analysis to verify category
+      // Don't auto-classify as photo just because it has text - could be a form
+      else if (hasImages) {
         // Store for vision analysis
         page.needsVision = true;
         console.log(`  Page ${pageNum} -> Queued for vision (${imageCount} images, ${textLength} chars)`);
-      }
-      // Pages with images but too much text (>2000 chars) - add to photos
-      else if (hasImages && textLength >= 2000) {
-        console.log(`  Page ${pageNum} -> PHOTO (has images, ${textLength} chars - likely form with images)`);
-        result.photos.push(pageNum);
       }
     }
     
