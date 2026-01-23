@@ -33,11 +33,34 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  
+  // === MULTI-TENANT FIELDS (optional for backwards compatibility) ===
+  // Which company this user belongs to
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+  
+  // User type: contractor employee vs utility employee
+  userType: {
+    type: String,
+    enum: ['contractor', 'utility'],
+    default: 'contractor'
+  },
+  
+  // For utility employees - which utility they work for
+  utilityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Utility' },
+  
+  // Profile info
+  phone: String,
+  avatar: String,  // URL to profile picture
+  
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+// Indexes
+userSchema.index({ companyId: 1 });
+userSchema.index({ utilityId: 1, userType: 1 });
 
 // Password hashing middleware
 userSchema.pre('save', async function(next) {

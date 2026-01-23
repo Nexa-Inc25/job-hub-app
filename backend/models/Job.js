@@ -69,6 +69,26 @@ const jobSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   folders: [folderSchema],
   isEmergency: { type: Boolean, default: false },
+  
+  // === MULTI-TENANT FIELDS (optional for backwards compatibility) ===
+  // Which company owns this job
+  companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },
+  // Which utility this job is for
+  utilityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Utility' },
+  
+  // === UTILITY VISIBILITY (Phase 2 - utility dashboard) ===
+  // Can the utility see this job in their dashboard?
+  utilityVisible: { type: Boolean, default: false },
+  // Utility's view of this job's status
+  utilityStatus: { 
+    type: String, 
+    enum: ['not_submitted', 'submitted', 'under_review', 'approved', 'rejected', 'revision_requested', null], 
+    default: null 
+  },
+  utilitySubmittedDate: Date,
+  utilityReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  utilityReviewedDate: Date,
+  utilityNotes: String,  // Notes from utility reviewer
   // Crew Assignment/Scheduling (set by GF)
   assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },  // Which foreman/crew
   assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },  // Who assigned it (GF)
@@ -104,5 +124,8 @@ jobSchema.index({ woNumber: 1 });
 jobSchema.index({ notificationNumber: 1 });
 jobSchema.index({ assignedTo: 1, crewScheduledDate: 1 }); // For calendar queries
 jobSchema.index({ userId: 1, createdAt: -1 }); // For dashboard listing (fast user-specific sorted queries)
+// Multi-tenant indexes
+jobSchema.index({ companyId: 1, createdAt: -1 }); // Company dashboard
+jobSchema.index({ utilityId: 1, utilityVisible: 1, createdAt: -1 }); // Utility dashboard
 
 module.exports = mongoose.model('Job', jobSchema);

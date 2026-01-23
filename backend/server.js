@@ -16,6 +16,8 @@ const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Job = require('./models/Job');
+const Utility = require('./models/Utility');
+const Company = require('./models/Company');
 const apiRoutes = require('./routes/api');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
@@ -123,8 +125,14 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // MongoDB Connection
+const { runMigration } = require('./utils/migration');
+
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected successfully'))
+  .then(async () => {
+    console.log('MongoDB connected successfully');
+    // Run migration to set up default utility/company for existing data
+    await runMigration();
+  })
   .catch(err => console.error('MongoDB connection failed:', err));
 
 // Authentication Middleware
@@ -1393,6 +1401,224 @@ app.get('/api/admin/pending-approvals', authenticateUser, async (req, res) => {
   } catch (err) {
     console.error('Error fetching pending approvals:', err);
     res.status(500).json({ error: 'Failed to fetch pending approvals' });
+  }
+});
+
+// ========================================
+// UTILITY & COMPANY MANAGEMENT ENDPOINTS
+// ========================================
+
+// Get all utilities (public - for signup dropdown)
+app.get('/api/utilities', async (req, res) => {
+  try {
+    const utilities = await Utility.find({ isActive: true })
+      .select('name slug shortName region')
+      .lean();
+    res.json(utilities);
+  } catch (err) {
+    console.error('Error fetching utilities:', err);
+    res.status(500).json({ error: 'Failed to fetch utilities' });
+  }
+});
+
+// Get utility by slug
+app.get('/api/utilities/:slug', async (req, res) => {
+  try {
+    const utility = await Utility.findOne({ slug: req.params.slug, isActive: true });
+    if (!utility) {
+      return res.status(404).json({ error: 'Utility not found' });
+    }
+    res.json(utility);
+  } catch (err) {
+    console.error('Error fetching utility:', err);
+    res.status(500).json({ error: 'Failed to fetch utility' });
+  }
+});
+
+// Create utility (admin only)
+app.post('/api/admin/utilities', authenticateUser, async (req, res) => {
+  try {
+    if (!req.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const utility = new Utility(req.body);
+    await utility.save();
+    
+    console.log('Created utility:', utility.name);
+    res.status(201).json(utility);
+  } catch (err) {
+    console.error('Error creating utility:', err);
+    res.status(500).json({ error: 'Failed to create utility', details: err.message });
+  }
+});
+
+// Get current user's company
+app.get('/api/company', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(404).json({ error: 'No company associated with this user' });
+    }
+    
+    const company = await Company.findById(user.companyId)
+      .populate('utilities', 'name slug shortName')
+      .populate('defaultUtility', 'name slug shortName');
+    
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    res.json(company);
+  } catch (err) {
+    console.error('Error fetching company:', err);
+    res.status(500).json({ error: 'Failed to fetch company' });
+  }
+});
+
+// Update company settings (company admin only)
+app.put('/api/company', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(404).json({ error: 'No company associated with this user' });
+    }
+    
+    // Check if user is company admin or system admin
+    if (!user.isAdmin && user.role !== 'pm' && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only company admins can update company settings' });
+    }
+    
+    const company = await Company.findById(user.companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    // Update allowed fields
+    const allowedFields = ['name', 'phone', 'address', 'city', 'state', 'zip', 'settings', 'defaultUtility'];
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        company[field] = req.body[field];
+      }
+    });
+    
+    await company.save();
+    
+    console.log('Updated company:', company.name);
+    res.json(company);
+  } catch (err) {
+    console.error('Error updating company:', err);
+    res.status(500).json({ error: 'Failed to update company', details: err.message });
+  }
+});
+
+// Create new company (for new contractor signup)
+app.post('/api/companies', async (req, res) => {
+  try {
+    const { companyName, utilitySlug } = req.body;
+    
+    if (!companyName) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+    
+    // Find the utility (default to PG&E if not specified)
+    const utility = await Utility.findOne({ slug: utilitySlug || 'pge' });
+    
+    const company = new Company({
+      name: companyName,
+      utilities: utility ? [utility._id] : [],
+      defaultUtility: utility?._id,
+      subscription: {
+        plan: 'free',
+        seats: 5,
+        status: 'trialing'
+      }
+    });
+    
+    await company.save();
+    
+    console.log('Created company:', company.name);
+    res.status(201).json(company);
+  } catch (err) {
+    console.error('Error creating company:', err);
+    res.status(500).json({ error: 'Failed to create company', details: err.message });
+  }
+});
+
+// Get company users (company admin only)
+app.get('/api/company/users', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(404).json({ error: 'No company associated with this user' });
+    }
+    
+    // Check if user can view company users
+    if (!user.isAdmin && !['gf', 'pm', 'admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    const users = await User.find({ companyId: user.companyId })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json(users);
+  } catch (err) {
+    console.error('Error fetching company users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Invite user to company (company admin only)
+app.post('/api/company/invite', authenticateUser, async (req, res) => {
+  try {
+    const { email, name, role } = req.body;
+    
+    const inviter = await User.findById(req.userId);
+    if (!inviter?.companyId) {
+      return res.status(404).json({ error: 'No company associated with this user' });
+    }
+    
+    // Check if user can invite
+    if (!inviter.isAdmin && !['gf', 'pm', 'admin'].includes(inviter.role)) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+    
+    // Generate temporary password (user will reset on first login)
+    const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+    
+    const validRoles = ['crew', 'foreman', 'gf', 'pm'];
+    const userRole = validRoles.includes(role) ? role : 'crew';
+    
+    const newUser = new User({
+      email,
+      password: tempPassword,
+      name: name || email.split('@')[0],
+      role: userRole,
+      companyId: inviter.companyId,
+      isAdmin: ['gf', 'pm'].includes(userRole),
+      canApprove: ['gf', 'pm'].includes(userRole)
+    });
+    
+    await newUser.save();
+    
+    // TODO: Send invitation email with temp password
+    
+    console.log('Invited user:', email, 'to company:', inviter.companyId);
+    res.status(201).json({ 
+      message: 'User invited successfully',
+      user: { email: newUser.email, name: newUser.name, role: newUser.role },
+      tempPassword // Remove this in production - send via email instead
+    });
+  } catch (err) {
+    console.error('Error inviting user:', err);
+    res.status(500).json({ error: 'Failed to invite user', details: err.message });
   }
 });
 
