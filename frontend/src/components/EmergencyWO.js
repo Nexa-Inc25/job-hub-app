@@ -10,11 +10,12 @@ function EmergencyWO() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const token = localStorage.getItem('token');
-      await api.post('/api/jobs/emergency', { woNumber }, { headers: { Authorization: `Bearer ${token}` } });
+      // api module automatically adds Authorization header
+      await api.post('/api/jobs/emergency', { woNumber });
       navigate('/dashboard');
     } catch (err) {
-      console.error(err);
+      console.error('Emergency WO creation failed:', err);
+      alert('Failed to create emergency work order. Please try again.');
     }
   };
 

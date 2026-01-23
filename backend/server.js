@@ -603,6 +603,62 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
   }
 });
 
+// Create Emergency Work Order (minimal info, high priority)
+app.post('/api/jobs/emergency', authenticateUser, async (req, res) => {
+  try {
+    const { woNumber, pmNumber, address, description } = req.body;
+    
+    if (!woNumber) {
+      return res.status(400).json({ error: 'WO Number is required for emergency work orders' });
+    }
+    
+    // Get user's company and default utility
+    const user = await User.findById(req.userId);
+    
+    // Create emergency job with minimal required fields
+    const job = new Job({
+      title: `EMERGENCY - ${woNumber}`,
+      description: description || 'Emergency Work Order',
+      woNumber,
+      pmNumber: pmNumber || '',
+      address: address || '',
+      priority: 'emergency',
+      isEmergency: true,
+      status: 'pending',
+      userId: req.userId,
+      companyId: user?.companyId,
+      utilityId: user?.companyId ? (await Company.findById(user.companyId))?.defaultUtility : undefined,
+      folders: [
+        {
+          name: 'ACI',
+          documents: [],
+          subfolders: [
+            { name: 'Pre-Field Documents', documents: [], subfolders: [] },
+            { name: 'Field As Built', documents: [], subfolders: [] },
+            { name: 'Job Photos', documents: [], subfolders: [] }
+          ]
+        },
+        {
+          name: 'UTC',
+          documents: [],
+          subfolders: [
+            { name: 'Dispatch Documents', documents: [] },
+            { name: 'Pre-Field Docs', documents: [] }
+          ]
+        }
+      ]
+    });
+    
+    await job.save();
+    
+    console.log('Emergency WO created:', job._id, 'WO#:', woNumber);
+    res.status(201).json(job);
+  } catch (err) {
+    console.error('Error creating emergency WO:', err);
+    res.status(500).json({ error: 'Failed to create emergency work order', details: err.message });
+  }
+});
+
 app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) => {
   try {
     const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode } = req.body;
