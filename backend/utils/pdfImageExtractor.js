@@ -148,8 +148,9 @@ Where page number corresponds to the order of images (1 = first image, 2 = secon
 
 /**
  * Render a page to base64 JPEG for vision analysis
+ * Uses low resolution and quality to minimize tokens
  */
-async function renderPageToBase64(pdf, pageNum, scale = 1.5) {
+async function renderPageToBase64(pdf, pageNum, scale = 0.5) {
   if (!pdfExtractionAvailable || !createCanvas || !NodeCanvasFactory) {
     return null;
   }
@@ -167,7 +168,8 @@ async function renderPageToBase64(pdf, pageNum, scale = 1.5) {
       canvasFactory
     }).promise;
     
-    const buffer = canvasAndContext.canvas.toBuffer('image/jpeg', { quality: 0.7 });
+    // Low quality to reduce base64 size and token usage
+    const buffer = canvasAndContext.canvas.toBuffer('image/jpeg', { quality: 0.5 });
     canvasFactory.destroy(canvasAndContext);
     
     return buffer.toString('base64');
@@ -379,14 +381,15 @@ async function analyzePagesByContent(pdfPath) {
         }
       }
       
-      // Process in batches of 5 pages per API call
-      const BATCH_SIZE = 5;
+      // Process in batches of 3 pages per API call (smaller to stay under TPM limit)
+      const BATCH_SIZE = 3;
       for (let i = 0; i < pagesWithImages.length; i += BATCH_SIZE) {
         const batch = pagesWithImages.slice(i, i + BATCH_SIZE);
         
-        // Add delay between batches to avoid rate limits
+        // Add longer delay between batches to avoid rate limits (5 seconds)
         if (i > 0) {
-          await delay(2000); // 2 second delay between batches
+          console.log(`  Waiting 5s before next batch to avoid rate limits...`);
+          await delay(5000);
         }
         
         const batchResults = await categorizePagesWithVisionBatch(batch);
