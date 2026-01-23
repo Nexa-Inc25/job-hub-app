@@ -312,9 +312,10 @@ async function analyzePagesByContent(pdfPath) {
         page.needsVision = true;
         console.log(`  Page ${pageNum} -> Queued for vision (${imageCount} images, ${textLength} chars)`);
       }
-      // Log uncategorized pages with images but too much text
+      // Pages with images but too much text - still add to photos but log for review
       else if (hasImages && textLength >= 500) {
-        console.log(`  Page ${pageNum} -> Skipped (has images but ${textLength} chars text - may need review)`);
+        console.log(`  Page ${pageNum} -> PHOTO (has images, ${textLength} chars text - may contain diagram)`);
+        result.photos.push(pageNum);
       }
     }
     
