@@ -289,7 +289,7 @@ async function analyzePagesByContent(pdfPath) {
       // === CATEGORIZE BASED ON CONTENT ===
       const hasImages = imageCount > 0;
       const isImageOnly = imageCount > 0 && textLength < 50;  // Pure image, almost no text
-      const isImageHeavy = imageCount > 0 && textLength < 500; // Image with minimal text (increased for CMCS pages)
+      const isImageHeavy = imageCount > 0 && textLength < 2000; // Increased threshold - CMCS pages can have 500-1500 chars
       const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
       // Priority 1: Explicit keywords for drawings/maps
@@ -312,9 +312,9 @@ async function analyzePagesByContent(pdfPath) {
         page.needsVision = true;
         console.log(`  Page ${pageNum} -> Queued for vision (${imageCount} images, ${textLength} chars)`);
       }
-      // Pages with images but too much text - still add to photos but log for review
-      else if (hasImages && textLength >= 500) {
-        console.log(`  Page ${pageNum} -> PHOTO (has images, ${textLength} chars text - may contain diagram)`);
+      // Pages with images but too much text (>2000 chars) - add to photos
+      else if (hasImages && textLength >= 2000) {
+        console.log(`  Page ${pageNum} -> PHOTO (has images, ${textLength} chars - likely form with images)`);
         result.photos.push(pageNum);
       }
     }
