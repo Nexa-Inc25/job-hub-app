@@ -97,7 +97,7 @@ const JobFileSystem = () => {
   }, []);
 
   useEffect(() => {
-    const fetchJobs = async () => {
+    const fetchJobData = async () => {
       const token = localStorage.getItem('token');
       if (!token) {
         setError('No authentication token found. Please log in.');
@@ -105,23 +105,29 @@ const JobFileSystem = () => {
         return;
       }
       try {
-        // api module automatically adds Authorization header
-        const response = await api.get('/api/jobs');
-        setJobs(response.data);
-        const currentJob = response.data.find((j) => j._id === id);
-        if (currentJob) {
-          setJob(currentJob);
-          setSelectedFolder(currentJob.folders[0]); // Select first folder by default
-        } else {
-          setError('Job not found');
+        // Fetch the specific job by ID (includes folders) and job list (for switcher)
+        const [jobResponse, jobsListResponse] = await Promise.all([
+          api.get(`/api/jobs/${id}`),
+          api.get('/api/jobs')
+        ]);
+        
+        setJob(jobResponse.data);
+        setJobs(jobsListResponse.data);
+        
+        if (jobResponse.data.folders?.length > 0) {
+          setSelectedFolder(jobResponse.data.folders[0]); // Select first folder by default
         }
       } catch (err) {
-        setError(err.response?.data?.error || 'Failed to fetch jobs');
+        if (err.response?.status === 404) {
+          setError('Job not found');
+        } else {
+          setError(err.response?.data?.error || 'Failed to fetch job data');
+        }
       } finally {
         setLoading(false);
       }
     };
-    fetchJobs();
+    fetchJobData();
   }, [id]);
 
   // Poll for extraction completion if not yet complete
