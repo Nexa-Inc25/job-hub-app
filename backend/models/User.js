@@ -20,10 +20,16 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['user', 'foreman', 'admin'],
-    default: 'user'
+    enum: ['crew', 'foreman', 'gf', 'pm', 'admin'],
+    default: 'crew'
   },
+  // Computed admin check - gf, pm, and admin roles can approve documents
   isAdmin: {
+    type: Boolean,
+    default: false
+  },
+  // Can this user approve draft documents?
+  canApprove: {
     type: Boolean,
     default: false
   },

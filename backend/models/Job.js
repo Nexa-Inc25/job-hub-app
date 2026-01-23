@@ -15,6 +15,18 @@ const documentSchema = new mongoose.Schema({
   isCompleted: { type: Boolean, default: false },
   completedDate: Date,
   completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  // Document approval workflow
+  approvalStatus: { 
+    type: String, 
+    enum: ['draft', 'pending_approval', 'approved', 'rejected', null], 
+    default: null 
+  },
+  // Draft documents have a different name until approved
+  draftName: String,  // e.g., "DRAFT_46357356_CWC_1705123456789.pdf"
+  finalName: String,  // e.g., "46357356_CWC.pdf" - set when approved
+  approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  approvedDate: Date,
+  rejectionReason: String,
   // For AI-extracted content
   extractedFrom: String, // Original PDF this was extracted from
   pageNumber: Number // Page number in original PDF

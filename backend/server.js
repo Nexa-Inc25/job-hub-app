@@ -152,6 +152,7 @@ const requireAdmin = (req, res, next) => {
 };
 
 // Signup Endpoint
+// Roles: crew (default), foreman, gf (general foreman), pm (project manager), admin
 app.post('/api/signup', async (req, res) => {
   try {
     // Check database connection first
@@ -159,8 +160,8 @@ app.post('/api/signup', async (req, res) => {
       return res.status(503).json({ error: 'Database unavailable. Please try again later.' });
     }
     
-    const { email, password, name } = req.body;
-    console.log('Signup attempt for:', email);
+    const { email, password, name, role } = req.body;
+    console.log('Signup attempt for:', email, 'role:', role || 'crew');
     
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
@@ -169,11 +170,40 @@ app.post('/api/signup', async (req, res) => {
     if (existingUser) {
       return res.status(400).json({ error: 'User already exists with this email' });
     }
-    const user = new User({ email, password, name: name || email.split('@')[0] });
+    
+    // Validate role
+    const validRoles = ['crew', 'foreman', 'gf', 'pm', 'admin'];
+    const userRole = validRoles.includes(role) ? role : 'crew';
+    
+    // Determine permissions based on role
+    const isAdmin = ['gf', 'pm', 'admin'].includes(userRole);
+    const canApprove = ['gf', 'pm', 'admin'].includes(userRole);
+    
+    const user = new User({ 
+      email, 
+      password, 
+      name: name || email.split('@')[0],
+      role: userRole,
+      isAdmin,
+      canApprove
+    });
     await user.save();
-    const token = jwt.sign({ userId: user._id, isAdmin: user.isAdmin || false }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    console.log('User created successfully:', user._id);
-    res.status(201).json({ token, userId: user._id, isAdmin: user.isAdmin || false });
+    
+    const token = jwt.sign({ 
+      userId: user._id, 
+      isAdmin: user.isAdmin || false,
+      role: user.role,
+      canApprove: user.canApprove || false
+    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    
+    console.log('User created successfully:', user._id, 'role:', userRole);
+    res.status(201).json({ 
+      token, 
+      userId: user._id, 
+      isAdmin: user.isAdmin || false,
+      role: user.role,
+      canApprove: user.canApprove || false
+    });
   } catch (err) {
     console.error('Signup error:', err.message);
     res.status(500).json({ error: 'Server error during signup', details: err.message });
@@ -192,8 +222,20 @@ app.post('/api/login', async (req, res) => {
     if (!user || !(await user.comparePassword(password))) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const token = jwt.sign({ userId: user._id, isAdmin: user.isAdmin }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    res.json({ token, userId: user._id, isAdmin: user.isAdmin, role: user.role, name: user.name });
+    const token = jwt.sign({ 
+      userId: user._id, 
+      isAdmin: user.isAdmin,
+      role: user.role,
+      canApprove: user.canApprove || false
+    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    res.json({ 
+      token, 
+      userId: user._id, 
+      isAdmin: user.isAdmin, 
+      role: user.role, 
+      canApprove: user.canApprove || false,
+      name: user.name 
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error during login' });
@@ -995,23 +1037,35 @@ app.get('/api/jobs/:id', authenticateUser, async (req, res) => {
   }
 });
 
-// Save edited PDF to job folder with proper naming convention
-// Format: [PM#]_[DocumentName].pdf
+// Save edited PDF to job folder - saves as DRAFT pending approval
+// Format: DRAFT_[PM#]_[DocumentName]_[timestamp].pdf
+// Final approved format: [PM#]_[DocumentName].pdf
 app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params;
     const { pdfData, originalName, folderName, subfolderName } = req.body;
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
-    if (!job) {
+    // Allow job creator, assigned user, or admin to save edits
+    const job = await Job.findOne({ 
+      _id: id,
+      $or: [
+        { userId: req.userId },
+        { assignedTo: req.userId }
+      ]
+    });
+    if (!job && !req.isAdmin) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    const jobToUpdate = job || await Job.findById(id);
+    if (!jobToUpdate) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
     // Decode base64 PDF data
     const pdfBuffer = Buffer.from(pdfData, 'base64');
     
-    // Generate proper filename: [PM#]_[DocumentName].pdf
-    const pmNumber = job.pmNumber || 'NOPM';
+    // Generate proper filename
+    const pmNumber = jobToUpdate.pmNumber || 'NOPM';
     
     // Clean up original name - keep it readable but remove .pdf extension
     let docName = originalName
@@ -1025,9 +1079,18 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       docName = 'FilledForm';
     }
     
+    // Check if user can approve (GF, PM, Admin) - their saves are auto-approved
+    const user = await User.findById(req.userId);
+    const canAutoApprove = user && (user.canApprove || user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
+    
     // Add timestamp to ensure cache busting when same doc is edited multiple times
     const timestamp = Date.now();
-    const newFilename = `${pmNumber}_${docName}_${timestamp}.pdf`;
+    
+    // DRAFT filename for non-approvers, final filename for approvers
+    const draftFilename = `DRAFT_${pmNumber}_${docName}_${timestamp}.pdf`;
+    const finalFilename = `${pmNumber}_${docName}.pdf`;
+    const newFilename = canAutoApprove ? finalFilename : draftFilename;
+    
     const filePath = path.join(__dirname, 'uploads', newFilename);
     
     // Save the file
@@ -1053,7 +1116,7 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     }
     
     // Add to the appropriate folder in the job
-    const folder = job.folders.find(f => f.name === folderName);
+    const folder = jobToUpdate.folders.find(f => f.name === folderName);
     if (folder) {
       let targetDocuments;
       if (subfolderName) {
@@ -1072,26 +1135,264 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
           r2Key: r2Key,
           type: 'pdf',
           isTemplate: false,
-          isCompleted: true,
-          completedDate: new Date(),
-          completedBy: req.userId,
+          isCompleted: canAutoApprove,
+          completedDate: canAutoApprove ? new Date() : null,
+          completedBy: canAutoApprove ? req.userId : null,
           uploadDate: new Date(),
-          uploadedBy: req.userId
+          uploadedBy: req.userId,
+          // Approval workflow fields
+          approvalStatus: canAutoApprove ? 'approved' : 'pending_approval',
+          draftName: canAutoApprove ? null : draftFilename,
+          finalName: finalFilename,
+          approvedBy: canAutoApprove ? req.userId : null,
+          approvedDate: canAutoApprove ? new Date() : null
         });
       }
     }
     
-    await job.save();
+    await jobToUpdate.save();
     
-    console.log('Edited PDF saved:', newFilename);
+    const statusMsg = canAutoApprove ? 'approved' : 'pending approval';
+    console.log(`Edited PDF saved (${statusMsg}):`, newFilename);
     res.json({ 
-      message: 'PDF saved successfully', 
+      message: `PDF saved successfully (${statusMsg})`, 
       filename: newFilename,
-      url: docUrl
+      url: docUrl,
+      approvalStatus: canAutoApprove ? 'approved' : 'pending_approval',
+      needsApproval: !canAutoApprove
     });
   } catch (err) {
     console.error('Error saving edited PDF:', err);
     res.status(500).json({ error: 'Failed to save PDF', details: err.message });
+  }
+});
+
+// Approve a draft document (GF, PM, Admin only)
+// Renames from DRAFT_xxx.pdf to final PG&E format
+app.post('/api/jobs/:jobId/documents/:docId/approve', authenticateUser, async (req, res) => {
+  try {
+    const { jobId, docId } = req.params;
+    
+    // Check if user can approve
+    const user = await User.findById(req.userId);
+    const canApprove = user && (user.canApprove || user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
+    
+    if (!canApprove) {
+      return res.status(403).json({ error: 'You do not have permission to approve documents' });
+    }
+    
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Find the document in any folder/subfolder
+    let foundDoc = null;
+    let foundFolder = null;
+    let foundSubfolder = null;
+    
+    for (const folder of job.folders) {
+      // Check folder documents
+      const docInFolder = folder.documents.find(d => d._id.toString() === docId);
+      if (docInFolder) {
+        foundDoc = docInFolder;
+        foundFolder = folder;
+        break;
+      }
+      
+      // Check subfolders
+      for (const subfolder of folder.subfolders || []) {
+        const docInSubfolder = subfolder.documents.find(d => d._id.toString() === docId);
+        if (docInSubfolder) {
+          foundDoc = docInSubfolder;
+          foundFolder = folder;
+          foundSubfolder = subfolder;
+          break;
+        }
+        
+        // Check nested subfolders
+        for (const nestedSubfolder of subfolder.subfolders || []) {
+          const docInNested = nestedSubfolder.documents.find(d => d._id.toString() === docId);
+          if (docInNested) {
+            foundDoc = docInNested;
+            foundFolder = folder;
+            foundSubfolder = nestedSubfolder;
+            break;
+          }
+        }
+        if (foundDoc) break;
+      }
+      if (foundDoc) break;
+    }
+    
+    if (!foundDoc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    
+    if (foundDoc.approvalStatus === 'approved') {
+      return res.status(400).json({ error: 'Document is already approved' });
+    }
+    
+    // Rename file in R2 from DRAFT to final name
+    const finalName = foundDoc.finalName || foundDoc.name.replace(/^DRAFT_/, '').replace(/_\d{13}\.pdf$/, '.pdf');
+    
+    if (r2Storage.isR2Configured() && foundDoc.r2Key) {
+      try {
+        // Get the old file
+        const oldKey = foundDoc.r2Key;
+        const newKey = oldKey.replace(foundDoc.name, finalName);
+        
+        // Copy to new key and delete old
+        await r2Storage.copyFile(oldKey, newKey);
+        await r2Storage.deleteFile(oldKey);
+        
+        foundDoc.r2Key = newKey;
+        foundDoc.url = r2Storage.getPublicUrl(newKey);
+      } catch (renameErr) {
+        console.error('Failed to rename file in R2:', renameErr.message);
+        // Continue anyway - update the database even if rename fails
+      }
+    }
+    
+    // Update document status
+    foundDoc.name = finalName;
+    foundDoc.approvalStatus = 'approved';
+    foundDoc.approvedBy = req.userId;
+    foundDoc.approvedDate = new Date();
+    foundDoc.isCompleted = true;
+    foundDoc.completedDate = new Date();
+    foundDoc.completedBy = req.userId;
+    
+    await job.save();
+    
+    console.log(`Document approved: ${finalName} by user ${req.userId}`);
+    res.json({ 
+      message: 'Document approved successfully',
+      document: {
+        id: foundDoc._id,
+        name: finalName,
+        url: foundDoc.url,
+        approvalStatus: 'approved'
+      }
+    });
+  } catch (err) {
+    console.error('Error approving document:', err);
+    res.status(500).json({ error: 'Failed to approve document', details: err.message });
+  }
+});
+
+// Reject a draft document (GF, PM, Admin only)
+app.post('/api/jobs/:jobId/documents/:docId/reject', authenticateUser, async (req, res) => {
+  try {
+    const { jobId, docId } = req.params;
+    const { reason } = req.body;
+    
+    // Check if user can approve/reject
+    const user = await User.findById(req.userId);
+    const canApprove = user && (user.canApprove || user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
+    
+    if (!canApprove) {
+      return res.status(403).json({ error: 'You do not have permission to reject documents' });
+    }
+    
+    const job = await Job.findById(jobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Find the document (same logic as approve)
+    let foundDoc = null;
+    for (const folder of job.folders) {
+      const docInFolder = folder.documents.find(d => d._id.toString() === docId);
+      if (docInFolder) { foundDoc = docInFolder; break; }
+      
+      for (const subfolder of folder.subfolders || []) {
+        const docInSubfolder = subfolder.documents.find(d => d._id.toString() === docId);
+        if (docInSubfolder) { foundDoc = docInSubfolder; break; }
+      }
+      if (foundDoc) break;
+    }
+    
+    if (!foundDoc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+    
+    // Update document status
+    foundDoc.approvalStatus = 'rejected';
+    foundDoc.rejectionReason = reason || 'No reason provided';
+    
+    await job.save();
+    
+    console.log(`Document rejected: ${foundDoc.name} by user ${req.userId}`);
+    res.json({ 
+      message: 'Document rejected',
+      document: {
+        id: foundDoc._id,
+        name: foundDoc.name,
+        approvalStatus: 'rejected',
+        rejectionReason: foundDoc.rejectionReason
+      }
+    });
+  } catch (err) {
+    console.error('Error rejecting document:', err);
+    res.status(500).json({ error: 'Failed to reject document', details: err.message });
+  }
+});
+
+// Get all documents pending approval (Admin dashboard)
+app.get('/api/admin/pending-approvals', authenticateUser, async (req, res) => {
+  try {
+    // Check if user can approve
+    const user = await User.findById(req.userId);
+    const canApprove = user && (user.canApprove || user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
+    
+    if (!canApprove) {
+      return res.status(403).json({ error: 'You do not have permission to view pending approvals' });
+    }
+    
+    // Find all jobs with pending documents
+    const jobs = await Job.find({}).select('pmNumber woNumber address folders').lean();
+    
+    const pendingDocs = [];
+    for (const job of jobs) {
+      for (const folder of job.folders || []) {
+        // Check folder documents
+        for (const doc of folder.documents || []) {
+          if (doc.approvalStatus === 'pending_approval') {
+            pendingDocs.push({
+              jobId: job._id,
+              pmNumber: job.pmNumber,
+              woNumber: job.woNumber,
+              address: job.address,
+              folderName: folder.name,
+              document: doc
+            });
+          }
+        }
+        
+        // Check subfolders
+        for (const subfolder of folder.subfolders || []) {
+          for (const doc of subfolder.documents || []) {
+            if (doc.approvalStatus === 'pending_approval') {
+              pendingDocs.push({
+                jobId: job._id,
+                pmNumber: job.pmNumber,
+                woNumber: job.woNumber,
+                address: job.address,
+                folderName: `${folder.name} > ${subfolder.name}`,
+                document: doc
+              });
+            }
+          }
+        }
+      }
+    }
+    
+    console.log(`Found ${pendingDocs.length} documents pending approval`);
+    res.json({ pendingDocuments: pendingDocs, count: pendingDocs.length });
+  } catch (err) {
+    console.error('Error fetching pending approvals:', err);
+    res.status(500).json({ error: 'Failed to fetch pending approvals' });
   }
 });
 

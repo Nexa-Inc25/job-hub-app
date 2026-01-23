@@ -211,6 +211,34 @@ async function uploadExtractedImage(buffer, jobId, category, fileName) {
   return uploadBuffer(buffer, r2Key, 'image/jpeg');
 }
 
+// Copy a file from one R2 key to another (for renaming)
+async function copyFile(sourceKey, destKey) {
+  if (!isR2Configured()) {
+    throw new Error('R2 storage not configured');
+  }
+  
+  // Get the source file
+  const getCommand = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: sourceKey
+  });
+  
+  const sourceObject = await s3Client.send(getCommand);
+  
+  // Upload to new key
+  const putCommand = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: destKey,
+    Body: sourceObject.Body,
+    ContentType: sourceObject.ContentType
+  });
+  
+  await s3Client.send(putCommand);
+  
+  console.log(`Copied R2 file: ${sourceKey} -> ${destKey}`);
+  return { sourceKey, destKey };
+}
+
 module.exports = {
   isR2Configured,
   uploadFile,
@@ -218,6 +246,7 @@ module.exports = {
   getSignedDownloadUrl,
   getFileStream,
   deleteFile,
+  copyFile,
   listFiles,
   uploadTemplate,
   uploadJobFile,
