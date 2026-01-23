@@ -86,9 +86,8 @@ const JobFileSystem = () => {
       const token = localStorage.getItem('token');
       if (!token) return;
       try {
-        const response = await api.get('/api/user/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        // api module automatically adds Authorization header
+        const response = await api.get('/api/user/me');
         setIsAdmin(response.data.isAdmin || false);
       } catch (err) {
         console.log('Could not fetch user info');
@@ -106,9 +105,8 @@ const JobFileSystem = () => {
         return;
       }
       try {
-        const response = await api.get('/api/jobs', {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        // api module automatically adds Authorization header
+        const response = await api.get('/api/jobs');
         setJobs(response.data);
         const currentJob = response.data.find((j) => j._id === id);
         if (currentJob) {

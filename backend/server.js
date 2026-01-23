@@ -742,17 +742,24 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       return;
     }
     
-    // Track extraction start time
-    job.aiExtractionStarted = new Date();
-    
     // Check if extraction is available
     const extractor = getPdfImageExtractor();
     console.log('Extraction available:', extractor.isExtractionAvailable());
     
     if (!extractor.isExtractionAvailable()) {
       console.error('PDF extraction not available - canvas libraries may not be loaded');
+      // Mark extraction as complete (failed) so clients don't hang
+      job.aiExtractionComplete = true;
+      job.aiExtractionStarted = new Date();
+      job.aiExtractionEnded = new Date();
+      job.aiProcessingTimeMs = 0;
+      await job.save();
       return;
     }
+    
+    // Track extraction start time
+    job.aiExtractionStarted = new Date();
+    await job.save(); // Save so clients can see extraction started
     
     // Use the extractAllAssets helper function (lazy loaded)
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });

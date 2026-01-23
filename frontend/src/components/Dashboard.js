@@ -97,10 +97,8 @@ const Dashboard = () => {
   // Fetch foremen list for assignment
   const fetchForemen = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await api.get('/api/users/foremen', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // api module automatically adds Authorization header
+      const response = await api.get('/api/users/foremen');
       setForemen(response.data);
     } catch (err) {
       console.error('Error fetching foremen:', err);
@@ -133,11 +131,9 @@ const Dashboard = () => {
   const fetchJobs = useCallback(async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
       const url = search ? `/api/jobs?search=${encodeURIComponent(search)}` : '/api/jobs';
-      const response = await api.get(url, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // api module automatically adds Authorization header
+      const response = await api.get(url);
       setJobs(response.data);
       setError('');
     } catch (err) {
