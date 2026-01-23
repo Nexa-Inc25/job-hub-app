@@ -173,6 +173,19 @@ const Dashboard = () => {
     fetchJobs();
   }, [navigate, fetchJobs]);
 
+  // Poll for extraction status on jobs that are still processing
+  useEffect(() => {
+    const jobsExtracting = jobs.filter(j => j.aiExtractionStarted && !j.aiExtractionComplete);
+    if (jobsExtracting.length === 0) return;
+    
+    console.log(`Polling: ${jobsExtracting.length} job(s) still extracting...`);
+    const pollInterval = setInterval(() => {
+      fetchJobs();
+    }, 10000); // Poll every 10 seconds
+    
+    return () => clearInterval(pollInterval);
+  }, [jobs, fetchJobs]);
+
   useEffect(() => {
     filterJobs();
   }, [filterJobs]);
@@ -658,6 +671,22 @@ const Dashboard = () => {
                         </Typography>
                       )}
                     </Box>
+                    
+                    {/* AI Extraction Status */}
+                    {job.aiExtractionStarted && !job.aiExtractionComplete && (
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <ScheduleIcon fontSize="small" sx={{ animation: 'spin 2s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />
+                          Extracting assets...
+                        </Typography>
+                        <LinearProgress sx={{ mt: 0.5, borderRadius: 1 }} />
+                      </Box>
+                    )}
+                    {job.aiExtractionComplete && job.aiProcessingTimeMs && (
+                      <Typography variant="caption" color="success.main" sx={{ mt: 1, display: 'block' }}>
+                        ✓ Extracted in {(job.aiProcessingTimeMs / 1000).toFixed(1)}s
+                      </Typography>
+                    )}
                   </CardContent>
 
                   <Divider />

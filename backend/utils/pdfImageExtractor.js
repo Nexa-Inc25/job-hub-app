@@ -81,21 +81,15 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const prompt = `Analyze these ${pagesWithImages.length} PG&E utility PDF page images. For each page, categorize as:
+    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages:
 
-- MAP: Circuit Map Change Sheet (CMCS), ADHOC maps - look for INSTALL/REMOVE symbols (pink triangles), pole numbers, circuit schematics, demand kVA, "ILS Event No.", line diagrams
-- SKETCH: Construction drawings - TRENCH DETAIL, overhead diagrams, pole layouts with dimensions, "Clear Fields" annotations, technical construction drawings
-- PHOTO: Real-world photographs of utility poles, equipment, job sites, field conditions
-- FORM: Checklists (CWC), request forms, USA dig tickets, permits, tables with data entry fields
+MAP: Circuit Map Change Sheet, ADHOC - "ILS Event No.", "GIS Tag No.", pink INSTALL/REMOVE triangles, pole schematics, demand kVA
+SKETCH: Construction drawings - TRENCH DETAIL, pole layouts, dimensions, "Clear Fields", CAD diagrams
+PHOTO: Real photographs of poles, equipment, job sites, field conditions
+FORM: Checklists (CWC), permits, USA tickets - checkboxes, fillable fields, signature lines, tables
 
-Key clues:
-- Pink/red triangles with "INSTALL"/"REMOVE" = MAP
-- Hand-drawn or CAD diagrams with measurements = SKETCH  
-- Camera photos of real objects = PHOTO
-- Fillable boxes, checkboxes, signatures = FORM
-
-Respond with JSON array: [{"page": 1, "category": "PHOTO"}, {"page": 2, "category": "MAP"}, ...]
-Where page number corresponds to the order of images (1 = first image, 2 = second, etc.)`;
+Respond JSON only: [{"page":1,"category":"MAP"},{"page":2,"category":"PHOTO"}...]
+Page numbers = image order (1=first, 2=second, etc.)`;
 
     // Build message with all images
     const imageContents = pagesWithImages.map(p => ({
@@ -140,9 +134,9 @@ Where page number corresponds to the order of images (1 = first image, 2 = secon
     
     return results;
   } catch (err) {
-    // Handle rate limit with exponential backoff
+    // Handle rate limit with exponential backoff (base 2s + jitter)
     if (err.message?.includes('429') && retryCount < 5) {
-      const backoffMs = Math.min(1000 * Math.pow(2, retryCount), 30000) + Math.random() * 1000;
+      const backoffMs = Math.min(2000 * Math.pow(2, retryCount), 60000) + Math.random() * 2000;
       console.log(`  Rate limited, waiting ${(backoffMs/1000).toFixed(1)}s and retrying (attempt ${retryCount + 1}/5)...`);
       await delay(backoffMs);
       return categorizePagesWithVisionBatch(pagesWithImages, retryCount + 1);
@@ -387,15 +381,15 @@ async function analyzePagesByContent(pdfPath) {
         }
       }
       
-      // Process in batches of 3 pages per API call (smaller to stay under TPM limit)
-      const BATCH_SIZE = 3;
+      // Process in batches of 8 pages per API call (larger batches = fewer calls = less rate limiting)
+      const BATCH_SIZE = 8;
       for (let i = 0; i < pagesWithImages.length; i += BATCH_SIZE) {
         const batch = pagesWithImages.slice(i, i + BATCH_SIZE);
         
-        // Add longer delay between batches to avoid rate limits (5 seconds)
+        // Add delay between batches to avoid rate limits (3 seconds)
         if (i > 0) {
-          console.log(`  Waiting 5s before next batch to avoid rate limits...`);
-          await delay(5000);
+          console.log(`  Waiting 3s before next batch (${Math.floor(i/BATCH_SIZE)+1}/${Math.ceil(pagesWithImages.length/BATCH_SIZE)})...`);
+          await delay(3000);
         }
         
         const batchResults = await categorizePagesWithVisionBatch(batch);

@@ -730,6 +730,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
 
 // Background function to extract assets from job package PDF
 async function extractAssetsInBackground(jobId, pdfPath) {
+  const startTime = Date.now();
   console.log('Starting background asset extraction for job:', jobId);
   console.log('PDF path:', pdfPath);
   console.log('PDF exists:', fs.existsSync(pdfPath));
@@ -740,6 +741,9 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       console.log('Job not found for asset extraction:', jobId);
       return;
     }
+    
+    // Track extraction start time
+    job.aiExtractionStarted = new Date();
     
     // Check if extraction is available
     const extractor = getPdfImageExtractor();
@@ -774,7 +778,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
             r2Key = result.key;
             fs.unlinkSync(asset.path);
 
-          } catch (err) {
+  } catch (err) {
             console.error(`Failed to upload ${asset.name}:`, err.message);
           }
         }
@@ -865,6 +869,10 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     }
     
     job.aiExtractionComplete = true;
+    job.aiExtractionEnded = new Date();
+    job.aiProcessingTimeMs = Date.now() - startTime;
+    console.log(`AI extraction completed in ${(job.aiProcessingTimeMs / 1000).toFixed(1)}s`);
+    
     job.aiExtractedAssets = [
       ...extractedAssets.photos.map(p => ({ type: 'photo', name: p.name, url: p.url, extractedAt: new Date() })),
       ...extractedAssets.drawings.map(d => ({ type: 'drawing', name: d.name, url: d.url, extractedAt: new Date() })),

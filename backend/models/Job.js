@@ -75,6 +75,9 @@ const jobSchema = new mongoose.Schema({
   invoicedDate: Date,
   // AI extraction tracking
   aiExtractionComplete: { type: Boolean, default: false },
+  aiExtractionStarted: Date,
+  aiExtractionEnded: Date,
+  aiProcessingTimeMs: Number, // Track extraction duration for performance monitoring
   aiExtractedAssets: [{
     type: { type: String, enum: ['photo', 'drawing', 'map', 'document'] },
     name: String,
