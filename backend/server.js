@@ -344,7 +344,7 @@ app.get('/api/admin/templates', authenticateUser, async (req, res) => {
       console.log('R2 files found:', r2Files.length, r2Files.map(f => f.Key));
       const templates = r2Files.map(f => ({
         name: f.Key.replace('templates/', ''),
-        url: `/api/files/${f.Key}`,
+        url: r2Storage.getPublicUrl(f.Key),
         r2Key: f.Key,
         size: f.Size,
         lastModified: f.LastModified
@@ -620,7 +620,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
                 'job-package',
                 req.file.originalname || 'Job_Package.pdf'
               );
-              docUrl = `/api/files/${result.key}`;
+              docUrl = r2Storage.getPublicUrl(result.key);
               r2Key = result.key;
               // DON'T delete local file here - background extraction needs it
               // It will be cleaned up after extraction completes
@@ -651,7 +651,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
         const r2Templates = await r2Storage.listFiles('templates/');
         templateFiles = r2Templates.map(f => ({
           name: f.Key.replace('templates/', ''),
-          url: `/api/files/${f.Key}`,
+          url: r2Storage.getPublicUrl(f.Key),
           r2Key: f.Key
         })).filter(f => f.name); // Filter out empty names
         console.log('Found', templateFiles.length, 'templates in R2');
@@ -781,7 +781,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
         if (r2Storage.isR2Configured() && asset.path && fs.existsSync(asset.path)) {
           try {
             const result = await r2Storage.uploadJobFile(asset.path, jobId, folder, asset.name);
-            url = `/api/files/${result.key}`;
+            url = r2Storage.getPublicUrl(result.key);
             r2Key = result.key;
             fs.unlinkSync(asset.path);
 
@@ -1032,7 +1032,7 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       try {
         const folderPath = subfolderName ? `${folderName}/${subfolderName}` : folderName;
         const result = await r2Storage.uploadJobFile(filePath, id, folderPath, newFilename);
-        docUrl = `/api/files/${result.key}`;
+        docUrl = r2Storage.getPublicUrl(result.key);
         r2Key = result.key;
         // Clean up local file
         if (fs.existsSync(filePath)) {
@@ -1156,7 +1156,7 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
         try {
           const folderPath = subfolder ? `${folderName}/${subfolder}` : folderName;
           const result = await r2Storage.uploadJobFile(file.path, id, folderPath, file.originalname);
-          docUrl = `/api/files/${result.key}`;
+          docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
           if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
@@ -1229,7 +1229,7 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       if (r2Storage.isR2Configured()) {
         try {
           const result = await r2Storage.uploadJobFile(file.path, id, 'photos', newFilename);
-          docUrl = `/api/files/${result.key}`;
+          docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
           // Clean up local file
           if (fs.existsSync(file.path)) {

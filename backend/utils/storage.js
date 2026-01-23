@@ -4,10 +4,21 @@ const fs = require('fs');
 const path = require('path');
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'job-hub-uploads';
+// Cloudflare Worker URL for direct file serving (bypasses Railway for faster loads)
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || null; // e.g., 'https://founder-30a.workers.dev'
 
 // Check if R2 is configured - define this first
 function isR2Configured() {
   return !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY);
+}
+
+// Get direct public URL for a file (uses Cloudflare Worker if configured)
+function getPublicUrl(r2Key) {
+  if (R2_PUBLIC_URL) {
+    return `${R2_PUBLIC_URL}/${r2Key}`;
+  }
+  // Fallback to Railway proxy
+  return `/api/files/${r2Key}`;
 }
 
 // Only initialize S3 client if R2 is configured (prevents crash on undefined env vars)
@@ -211,5 +222,7 @@ module.exports = {
   uploadTemplate,
   uploadJobFile,
   uploadExtractedImage,
+  getPublicUrl,
   BUCKET_NAME,
+  R2_PUBLIC_URL,
 };
