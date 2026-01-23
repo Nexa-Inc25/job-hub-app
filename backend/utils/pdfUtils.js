@@ -39,7 +39,11 @@ const pdfParse = require('pdf-parse');
 
 async function getPdfText(filePath) {
   const dataBuffer = fs.readFileSync(filePath);
+  return getPdfTextFromBuffer(dataBuffer);
+}
 
+// Extract text from a PDF buffer (for use with R2 storage)
+async function getPdfTextFromBuffer(dataBuffer) {
   try {
     // Use pdf-parse v1.1.1 - simple function call
     const data = await pdfParse(dataBuffer);
@@ -132,4 +136,4 @@ function getConversationalChain(store) {
   return { ask: (query) => 'Stub answer' };
 }
 
-module.exports = { getPdfText, extractWithAI, getTextChunks, getVectorStore, getConversationalChain };
+module.exports = { getPdfText, getPdfTextFromBuffer, extractWithAI, getTextChunks, getVectorStore, getConversationalChain };

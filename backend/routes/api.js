@@ -140,8 +140,29 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
     }
     if (job.folders[0].documents?.[0]) {
       const doc = job.folders[0].documents[0];
-      const docPath = doc.path || doc.url;
-      const text = await getPdfUtils().getPdfText(docPath);
+      let pdfBuffer;
+      
+      // If file is in R2, fetch it; otherwise read from local path
+      if (doc.r2Key && r2Storage.isR2Configured()) {
+        // Fetch from R2
+        const fileData = await r2Storage.getFileStream(doc.r2Key);
+        if (!fileData) {
+          return res.status(404).json({ error: 'Document not found in storage' });
+        }
+        // Convert stream to buffer
+        const chunks = [];
+        for await (const chunk of fileData.stream) {
+          chunks.push(chunk);
+        }
+        pdfBuffer = Buffer.concat(chunks);
+      } else if (doc.path && fs.existsSync(doc.path)) {
+        // Read from local file
+        pdfBuffer = fs.readFileSync(doc.path);
+      } else {
+        return res.status(404).json({ error: 'Document file not accessible' });
+      }
+      
+      const text = await getPdfUtils().getPdfTextFromBuffer(pdfBuffer);
       const chunks = getPdfUtils().getTextChunks(text);
       const store = getPdfUtils().getVectorStore(chunks);
       const chain = getPdfUtils().getConversationalChain(store);

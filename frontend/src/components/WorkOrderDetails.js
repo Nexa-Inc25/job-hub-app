@@ -98,12 +98,12 @@ const WorkOrderDetails = ({ jobId, token, userRole, onJobUpdate }) => {
         <h2>Folders</h2>
         <TreeView>
           {folders.map(folder => (
-            <TreeItem itemId={folder.name} label={folder.name} key={folder.name}>
+            <TreeItem nodeId={folder.name} label={folder.name} key={folder.name}>
               {folder.documents.map(doc => (
                 <TreeItem
-                  itemId={doc.url}
+                  nodeId={doc.url || doc.name}
                   label={doc.name}
-                  key={doc.url}
+                  key={doc.url || doc.name}
                   onClick={() => handleDocClick(folder.name, doc)}
                 />
               ))}
