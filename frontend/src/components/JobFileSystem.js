@@ -119,6 +119,11 @@ const JobFileSystem = () => {
         }
       } catch (err) {
         console.error('Error fetching job data:', err);
+        console.error('Error details:', {
+          status: err.response?.status,
+          data: err.response?.data,
+          message: err.message
+        });
         if (err.response?.status === 404) {
           setError('Job not found');
         } else if (err.response?.status === 401) {
@@ -126,7 +131,9 @@ const JobFileSystem = () => {
           localStorage.removeItem('token');
           navigate('/login');
         } else {
-          setError(err.response?.data?.error || err.message || 'Failed to fetch job data');
+          const errorMsg = err.response?.data?.error || err.message || 'Failed to fetch job data';
+          console.error('Setting error:', errorMsg);
+          setError(errorMsg);
         }
       } finally {
         setLoading(false);
