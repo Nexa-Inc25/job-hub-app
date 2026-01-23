@@ -81,14 +81,19 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages:
+    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages. BE STRICT - most pages are FORM.
 
-MAP: Circuit Map Change Sheet, ADHOC - "ILS Event No.", "GIS Tag No.", pink INSTALL/REMOVE triangles, pole schematics, demand kVA
-SKETCH: Construction drawings - TRENCH DETAIL, pole layouts, dimensions, "Clear Fields", CAD diagrams
-PHOTO: Real photographs of poles, equipment, job sites, field conditions
-FORM: Checklists (CWC), permits, USA tickets - checkboxes, fillable fields, signature lines, tables
+FORM (most common): ANY page with structured text, labels, tables, checkboxes, fillable fields, headers, signatures, permits, checklists, data sheets, USA tickets, crew instructions, billing, tag sheets. If you see form fields, labels like "Date:", "Name:", checkboxes, or structured tables = FORM.
 
-Respond JSON only: [{"page":1,"category":"MAP"},{"page":2,"category":"PHOTO"}...]
+MAP: ONLY if it's a Circuit Map Change Sheet (CMCS) or ADHOC map with "ILS Event No.", "GIS Tag No.", pink INSTALL/REMOVE triangles, pole connection diagrams. Must be primarily a technical diagram with minimal form fields.
+
+SKETCH: ONLY if it's a hand-drawn or CAD construction drawing showing TRENCH DETAIL, pole layouts with dimensions, "Clear Fields" label, plan view. Must be primarily a technical drawing, NOT a form that references drawings.
+
+PHOTO: ONLY actual photographs - real camera images of poles, equipment, job sites, field conditions. NOT scanned documents or forms with embedded images.
+
+IMPORTANT: If a page has BOTH form elements (labels, tables, checkboxes) AND a diagram/image, it's a FORM, not a sketch or map.
+
+Respond JSON only: [{"page":1,"category":"FORM"},{"page":2,"category":"MAP"}...]
 Page numbers = image order (1=first, 2=second, etc.)`;
 
     // Build message with all images
@@ -108,7 +113,7 @@ Page numbers = image order (1=first, 2=second, etc.)`;
           ]
         }
       ],
-      max_tokens: 200
+      max_tokens: 300
     });
     
     // Parse JSON response
