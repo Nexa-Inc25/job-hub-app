@@ -268,8 +268,13 @@ async function analyzePagesByContent(pdfPath) {
       }
       
       // === DRAWING DETECTION ===
-      // Only detect pages with these EXACT document type labels
-      const hasDrawingKeywords = /construction sketch|pole sheet drawing|plan view drawing/i.test(text);
+      // Only detect pages that ARE drawings (not forms that reference drawings)
+      // Exclude if text ends with ":" (it's a form label) or contains "checklist"
+      const drawingMatch = text.match(/construction sketch|pole sheet drawing|plan view drawing/i);
+      const hasDrawingKeywords = drawingMatch && 
+                                 !text.includes('checklist') && 
+                                 !text.match(/pole sheet drawing\s*:/i) && // Exclude form labels like "Pole Sheet Drawing:"
+                                 textLength < 500; // Actual drawings have minimal text
       
       // === MAP DETECTION ===
       // Detect CMCS and circuit map pages - check full text for these specific patterns
