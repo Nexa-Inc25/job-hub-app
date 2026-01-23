@@ -83,7 +83,7 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
     
     const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages. BE STRICT - most pages are FORM.
 
-FORM (most common): ANY page with structured text, labels, tables, checkboxes, fillable fields, headers, signatures, permits, checklists, data sheets, USA tickets, crew instructions, billing, tag sheets. If you see form fields, labels like "Date:", "Name:", checkboxes, or structured tables = FORM.
+FORM (most common): ANY page with structured text, labels, tables, checkboxes, fillable fields, headers, signatures, permits, checklists, data sheets, USA tickets, crew instructions, billing, tag sheets, traffic control plans, lane closure diagrams, barricade layouts. If you see form fields, labels like "Date:", "Name:", checkboxes, structured tables, or standardized diagrams with legends = FORM.
 
 MAP: ONLY if it's a Circuit Map Change Sheet (CMCS) or ADHOC map with "ILS Event No.", "GIS Tag No.", pink INSTALL/REMOVE triangles, pole connection diagrams. Must be primarily a technical diagram with minimal form fields.
 
@@ -303,7 +303,8 @@ async function analyzePagesByContent(pdfPath) {
       // === FORM DETECTION (EXCLUDE these pages) ===
       // Forms have specific headers/titles - these are data sheets, not visual content
       // USA dig/ticket documents have addresses but are NOT maps
-      const isFormPage = /face sheet|crew material|equipment information|checklist|feedback to estimating|tag sheet|totals as of|crew instruction|sign.?off|billing|progress billing|paving form|environmental release|best management|job package checklist|utility standard|contractor work checklist|no parking sign|tree trimming|usa ticket|usa north|underground service alert|dig alert|call before you dig|one call|811|excavation notice|locate request|utility locate/i.test(text);
+      // Traffic control plans are forms, not sketches
+      const isFormPage = /face sheet|crew material|equipment information|checklist|feedback to estimating|tag sheet|totals as of|crew instruction|sign.?off|billing|progress billing|paving form|environmental release|best management|job package checklist|utility standard|contractor work checklist|no parking sign|tree trimming|usa ticket|usa north|underground service alert|dig alert|call before you dig|one call|811|excavation notice|locate request|utility locate|traffic control|traffic plan|tcp|lane closure|road closure|detour|flagging|barricade/i.test(text);
       
       if (isFormPage) {
         result.forms.push(pageNum);
