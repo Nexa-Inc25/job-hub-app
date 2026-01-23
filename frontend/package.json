@@ -2,9 +2,6 @@
   "name": "job-hub-frontend",
   "version": "0.1.0",
   "private": true,
-  "engines": {
-    "node": ">=18.0.0 <23.0.0"
-  },
   "dependencies": {
     "@emotion/react": "^11.13.0",
     "@emotion/styled": "^11.13.0",
