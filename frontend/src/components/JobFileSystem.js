@@ -545,8 +545,11 @@ const JobFileSystem = () => {
 
   // Handle double-click to open PDF viewer
   const handleDocDoubleClick = (doc) => {
+    console.log('Document clicked:', { name: doc.name, type: doc.type, url: doc.url });
+    
     // Check if it's an image file
     const isImage = doc.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.type === 'image' || doc.type === 'photo' || doc.type === 'drawing' || doc.type === 'map';
+    console.log('Is image:', isImage);
     
     if (isImage) {
       // Open image in modal viewer
