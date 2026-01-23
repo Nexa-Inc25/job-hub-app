@@ -148,6 +148,7 @@ const JobFileSystem = () => {
       }
     };
     fetchJobData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   // Poll for extraction completion if not yet complete

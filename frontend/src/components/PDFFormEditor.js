@@ -1,7 +1,7 @@
 // src/components/PDFFormEditor.js
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import {
