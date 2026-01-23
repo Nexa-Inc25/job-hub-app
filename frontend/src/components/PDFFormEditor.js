@@ -30,8 +30,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 
-// Set up PDF.js worker - use ES module build
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Set up PDF.js worker - use non-ESM build for CRA compatibility
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [pdfBytes, setPdfBytes] = useState(null);

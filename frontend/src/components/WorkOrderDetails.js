@@ -7,7 +7,8 @@ import { TreeView, TreeItem } from '@mui/x-tree-view';
 import api from '../api';
 import PDFEditor from './PDFEditor';
 
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+// Use non-ESM build for CRA compatibility
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
 
 // ... rest of the file remains the same
 
