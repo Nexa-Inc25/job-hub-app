@@ -61,11 +61,14 @@ function isExtractionAvailable() {
   return pdfExtractionAvailable;
 }
 
+// Helper to delay execution
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Use OpenAI Vision to categorize a page image
  * Returns: 'SKETCH', 'MAP', 'PHOTO', 'FORM', or 'OTHER'
  */
-async function categorizePageWithVision(imageBase64, pageNum) {
+async function categorizePageWithVision(imageBase64, pageNum, retryCount = 0) {
   if (!process.env.OPENAI_API_KEY) {
     console.log(`  Vision fallback skipped for page ${pageNum}: No OpenAI key`);
     return null;
@@ -105,6 +108,12 @@ Respond with ONLY one word: SKETCH, MAP, PHOTO, or FORM`;
     console.log(`  Vision categorized page ${pageNum} as: ${category}`);
     return category;
   } catch (err) {
+    // Handle rate limit with retry
+    if (err.message?.includes('429') && retryCount < 3) {
+      console.log(`  Rate limited on page ${pageNum}, waiting 1s and retrying...`);
+      await delay(1000);
+      return categorizePageWithVision(imageBase64, pageNum, retryCount + 1);
+    }
     console.error(`  Vision error for page ${pageNum}:`, err.message);
     return null;
   }
@@ -332,7 +341,15 @@ async function analyzePagesByContent(pdfPath) {
       
       // Analyze ALL vision candidates (removed limit - CMCS/sketches could be anywhere)
       // Cost is ~$0.01-0.02 per page with gpt-4o-mini
-      for (const page of visionCandidates) {
+      // Add delay between calls to avoid rate limiting
+      for (let i = 0; i < visionCandidates.length; i++) {
+        const page = visionCandidates[i];
+        
+        // Add 300ms delay between calls to avoid rate limits (except first)
+        if (i > 0) {
+          await delay(300);
+        }
+        
         const base64 = await renderPageToBase64(pdf, page.pageNum, 1.0);
         if (base64) {
           const category = await categorizePageWithVision(base64, page.pageNum);
