@@ -1601,6 +1601,29 @@ app.post('/api/admin/utilities', authenticateUser, async (req, res) => {
   }
 });
 
+// Admin: Cleanup emergency test jobs
+app.delete('/api/admin/cleanup-emergency-jobs', authenticateUser, async (req, res) => {
+  try {
+    if (!req.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    const result = await Job.deleteMany({
+      $or: [
+        { isEmergency: true },
+        { title: /emergency/i },
+        { priority: 'emergency' }
+      ]
+    });
+    
+    console.log(`Admin cleanup: Deleted ${result.deletedCount} emergency jobs`);
+    res.json({ message: `Deleted ${result.deletedCount} emergency jobs` });
+  } catch (err) {
+    console.error('Error cleaning up emergency jobs:', err);
+    res.status(500).json({ error: 'Failed to cleanup jobs', details: err.message });
+  }
+});
+
 // Get current user's company
 app.get('/api/company', authenticateUser, async (req, res) => {
   try {
