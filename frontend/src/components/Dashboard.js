@@ -1255,7 +1255,6 @@ const Dashboard = () => {
               <Grid container spacing={2}>
                 {gfCategories.preFieldingInProgress.map((job) => {
                   const isFlipped = !!flippedCards[job._id];
-                  const details = jobDetails[job._id] || job;
                   
                   return (
                     <Grid item xs={12} md={6} lg={4} key={job._id}>
