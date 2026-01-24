@@ -436,9 +436,14 @@ app.use('/api', authenticateUser, apiRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
-// Get all users (for assignment dropdown) - Admin only
-app.get('/api/users', authenticateUser, requireAdmin, async (req, res) => {
+// Get all users (for assignment dropdown) - Admin, PM, or GF
+app.get('/api/users', authenticateUser, async (req, res) => {
   try {
+    // Check permissions - Admin, PM, or GF can view users for assignment
+    if (!req.isAdmin && !['admin', 'pm', 'gf'].includes(req.userRole)) {
+      return res.status(403).json({ error: 'Only Admin, PM, or GF can view users' });
+    }
+    
     const users = await User.find({}, 'name email role isAdmin').sort({ name: 1 });
     res.json(users);
   } catch (err) {
@@ -501,10 +506,16 @@ app.put('/api/jobs/:id/assign-gf', authenticateUser, async (req, res) => {
 });
 
 // GF assigns crew to job (existing endpoint, updated for new workflow)
-app.put('/api/jobs/:id/assign', authenticateUser, requireAdmin, async (req, res) => {
+// Allow Admin, PM, or GF to assign crews
+app.put('/api/jobs/:id/assign', authenticateUser, async (req, res) => {
   try {
     console.log('Assignment request:', req.params.id, req.body);
-    console.log('User:', req.userId, 'isAdmin:', req.isAdmin);
+    console.log('User:', req.userId, 'isAdmin:', req.isAdmin, 'role:', req.userRole);
+    
+    // Check permissions - Admin, PM, or GF can assign
+    if (!req.isAdmin && !['admin', 'pm', 'gf'].includes(req.userRole)) {
+      return res.status(403).json({ error: 'Only Admin, PM, or GF can assign crews' });
+    }
     
     const { assignedTo, crewScheduledDate, crewScheduledEndDate, assignmentNotes } = req.body;
     
