@@ -1832,9 +1832,23 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     const { id, folderName } = req.params;
     const { subfolder } = req.body; // Optional subfolder name
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // Allow file upload if user has access to this job
+    let job;
+    if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
+      job = await Job.findById(id);
+    } else {
+      job = await Job.findOne({
+        _id: id,
+        $or: [
+          { userId: req.userId },
+          { assignedTo: req.userId },
+          { assignedToGF: req.userId }
+        ]
+      });
+    }
+    
     if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
+      return res.status(404).json({ error: 'Job not found or you do not have access' });
     }
     
     // Find the folder
@@ -1908,9 +1922,27 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
   try {
     const { id } = req.params;
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // Allow photo upload if user is:
+    // - Admin/PM (can access any job)
+    // - Owner of the job (userId)
+    // - Assigned to the job (assignedTo)
+    // - GF assigned to the job (assignedToGF)
+    let job;
+    if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
+      job = await Job.findById(id);
+    } else {
+      job = await Job.findOne({
+        _id: id,
+        $or: [
+          { userId: req.userId },
+          { assignedTo: req.userId },
+          { assignedToGF: req.userId }
+        ]
+      });
+    }
+    
     if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
+      return res.status(404).json({ error: 'Job not found or you do not have access' });
     }
     
     // Find ACI > Photos folder
