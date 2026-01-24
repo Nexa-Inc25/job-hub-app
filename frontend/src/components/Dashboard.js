@@ -282,9 +282,9 @@ const Dashboard = () => {
       
       for (const [key, value] of checkedItems) {
         await api.post(`/api/jobs/${jobId}/dependencies`, {
-          type: key === 'civil' ? 'other' : key,
+          type: key,  // Use the key directly - all match enum values
           description: value.notes || preFieldItems.find(i => i.key === key)?.description || '',
-          status: 'pending',
+          status: 'required',  // Must match enum: required, check, scheduled, not_required
           notes: value.notes
         });
       }
