@@ -364,6 +364,92 @@ const Dashboard = () => {
     }
   };
 
+  // Update job status (workflow progression)
+  const handleUpdateStatus = async (newStatus, confirmMessage) => {
+    if (!selectedJobId) return;
+    
+    // Optional confirmation
+    if (confirmMessage && !window.confirm(confirmMessage)) {
+      handleJobMenuClose();
+      return;
+    }
+    
+    try {
+      await api.put(`/api/jobs/${selectedJobId}/status`, { status: newStatus });
+      
+      // Update local state
+      setJobs(jobs.map(job => 
+        job._id === selectedJobId ? { ...job, status: newStatus } : job
+      ));
+      
+      setSnackbar({
+        open: true,
+        message: `Status updated to "${getStatusLabel(newStatus)}"`,
+        severity: 'success'
+      });
+    } catch (err) {
+      console.error('Error updating status:', err);
+      setSnackbar({
+        open: true,
+        message: err.response?.data?.error || 'Failed to update status',
+        severity: 'error'
+      });
+    } finally {
+      handleJobMenuClose();
+    }
+  };
+
+  // Get next available status transitions based on current status and role
+  const getAvailableTransitions = (job) => {
+    if (!job) return [];
+    const status = job.status;
+    const transitions = [];
+    
+    // PM/Admin transitions
+    if (isAdmin || userRole === 'pm' || userRole === 'admin') {
+      if (status === 'new' || status === 'pending') {
+        transitions.push({ status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' });
+      }
+      if (status === 'pending_pm_approval') {
+        transitions.push({ status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' });
+      }
+      if (status === 'ready_to_submit') {
+        transitions.push({ status: 'submitted', label: 'Mark as Submitted', icon: 'submit' });
+      }
+      if (status === 'submitted') {
+        transitions.push({ status: 'billed', label: 'Mark as Billed', icon: 'bill' });
+      }
+      if (status === 'billed') {
+        transitions.push({ status: 'invoiced', label: 'Mark as Invoiced', icon: 'invoice' });
+      }
+    }
+    
+    // GF transitions
+    if (isAdmin || userRole === 'gf' || userRole === 'pm' || userRole === 'admin') {
+      if (status === 'assigned_to_gf') {
+        transitions.push({ status: 'pre_fielding', label: 'Start Pre-Field', icon: 'prefield' });
+      }
+      if (status === 'pre_fielding') {
+        transitions.push({ status: 'scheduled', label: 'Schedule Crew', icon: 'schedule' });
+      }
+      if (status === 'pending_gf_review') {
+        transitions.push({ status: 'pending_pm_approval', label: 'Approve → Send to PM', icon: 'approve' });
+      }
+    }
+    
+    // Foreman/Crew transitions
+    if (isAdmin || userRole === 'foreman' || userRole === 'crew' || userRole === 'gf' || userRole === 'pm') {
+      if (status === 'scheduled') {
+        transitions.push({ status: 'in_progress', label: 'Start Work', icon: 'start' });
+      }
+      if (status === 'in_progress') {
+        transitions.push({ status: 'pending_gf_review', label: 'Submit for Review', icon: 'submit' });
+      }
+    }
+    
+    return transitions;
+  };
+
   const handleGoToCalendar = () => {
     navigate('/calendar');
   };
@@ -841,6 +927,32 @@ const Dashboard = () => {
             Assign to Foreman
           </MenuItem>
         )}
+        
+        {/* Workflow Status Transitions */}
+        {selectedJobId && (() => {
+          const job = jobs.find(j => j._id === selectedJobId);
+          const transitions = getAvailableTransitions(job);
+          if (transitions.length === 0) return null;
+          return (
+            <>
+              <Divider />
+              <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem', py: 0.5 }}>
+                — Update Status —
+              </MenuItem>
+              {transitions.map((t) => (
+                <MenuItem 
+                  key={t.status} 
+                  onClick={() => handleUpdateStatus(t.status)}
+                  sx={{ color: 'primary.main' }}
+                >
+                  <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
+                  {t.label}
+                </MenuItem>
+              ))}
+            </>
+          );
+        })()}
+        
         <Divider />
         <MenuItem onClick={handleDeleteJob} sx={{ color: 'error.main' }}>
           <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
