@@ -51,10 +51,7 @@ import {
   Flip as FlipIcon,
   Chat as ChatIcon,
   Construction as ConstructionIcon,
-  EventNote as EventNoteIcon,
   Build as BuildIcon,
-  LocalShipping as LocalShippingIcon,
-  Security as SecurityIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
