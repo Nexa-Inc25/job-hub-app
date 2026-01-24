@@ -1,5 +1,5 @@
 // src/components/Dashboard.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -988,38 +988,21 @@ const Dashboard = () => {
               
               return (
               <Grid item xs={12} md={6} lg={4} key={job._id}>
-                {/* Flip Card Container */}
-                <Box 
-                  sx={{
-                    perspective: '1000px',
-                    height: 340,
-                  }}
-                >
-                  <Box 
-                    className={`flip-card-inner ${isFlipped ? 'flipped' : ''}`}
-                    sx={{
-                      position: 'relative',
-                      width: '100%',
-                      height: '100%',
-                      transformStyle: 'preserve-3d',
-                      transition: 'transform 0.6s ease-in-out',
-                      '&.flipped': {
-                        transform: 'rotateY(180deg)',
-                      },
-                    }}
-                  >
-                    {/* FRONT SIDE */}
+                {/* Flip Card Container - No animation, just show/hide */}
+                <Box sx={{ height: 340, position: 'relative' }}>
+                  {/* Show front or back based on flip state */}
+                  {/* FRONT SIDE - only render when not flipped */}
+                  {!isFlipped && (
                     <Card sx={{
                       position: 'absolute',
+                      top: 0,
+                      left: 0,
                       width: '100%',
                       height: '100%',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden',
                       borderRadius: 2,
                       boxShadow: 2,
                       display: 'flex',
                       flexDirection: 'column',
-                      zIndex: isFlipped ? 0 : 1,
                     }}>
                       <CardContent sx={{ flexGrow: 1 }}>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -1137,21 +1120,21 @@ const Dashboard = () => {
                         </IconButton>
                       </CardActions>
                     </Card>
+                  )}
 
-                    {/* BACK SIDE - Pre-Field Checklist OR Dependencies/Schedule/Chat */}
+                  {/* BACK SIDE - only render when flipped */}
+                  {isFlipped && (
                     <Card sx={{
                       position: 'absolute',
+                      top: 0,
+                      left: 0,
                       width: '100%',
                       height: '100%',
-                      backfaceVisibility: 'hidden',
-                      WebkitBackfaceVisibility: 'hidden',
-                      transform: 'rotateY(180deg)',
                       borderRadius: 2,
                       boxShadow: 2,
                       display: 'flex',
                       flexDirection: 'column',
                       bgcolor: 'background.paper',
-                      zIndex: isFlipped ? 1 : 0,
                     }}>
                       <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
                         {/* Header */}
@@ -1366,7 +1349,7 @@ const Dashboard = () => {
                         </IconButton>
                       </CardActions>
                     </Card>
-                  </Box>
+                  )}
                 </Box>
               </Grid>
             );})
