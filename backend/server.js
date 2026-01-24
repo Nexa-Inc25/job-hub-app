@@ -1832,6 +1832,7 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     const { id, folderName } = req.params;
     const { subfolder } = req.body; // Optional subfolder name
     
+
     // Allow file upload if user has access to this job
     let job;
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
@@ -1922,6 +1923,14 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
   try {
     const { id } = req.params;
     
+    console.log('Photo upload request:', {
+      jobId: id,
+      userId: req.userId,
+      userRole: req.userRole,
+      isAdmin: req.isAdmin,
+      filesCount: req.files?.length
+    });
+    
     // Allow photo upload if user is:
     // - Admin/PM (can access any job)
     // - Owner of the job (userId)
@@ -1929,8 +1938,21 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
     // - GF assigned to the job (assignedToGF)
     let job;
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
+      console.log('Admin/PM access - finding job by ID');
       job = await Job.findById(id);
     } else {
+      console.log('Non-admin access - checking assignment');
+      // First find the job to check assignment
+      const checkJob = await Job.findById(id);
+      if (checkJob) {
+        console.log('Job assignment check:', {
+          jobUserId: checkJob.userId?.toString(),
+          assignedTo: checkJob.assignedTo?.toString(),
+          assignedToGF: checkJob.assignedToGF?.toString(),
+          requestingUser: req.userId
+        });
+      }
+      
       job = await Job.findOne({
         _id: id,
         $or: [
@@ -1942,8 +1964,11 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
     }
     
     if (!job) {
+      console.log('Photo upload denied - job not found or no access');
       return res.status(404).json({ error: 'Job not found or you do not have access' });
     }
+    
+    console.log('Photo upload authorized for job:', job.pmNumber);
     
     // Find ACI > Photos folder
     const aciFolder = job.folders.find(f => f.name === 'ACI');
