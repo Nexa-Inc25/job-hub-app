@@ -63,6 +63,9 @@ import DialogActions from '@mui/material/DialogActions';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Collapse from '@mui/material/Collapse';
 import { useThemeMode } from '../ThemeContext';
 
 const Dashboard = () => {
@@ -90,6 +93,7 @@ const Dashboard = () => {
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [flippedCards, setFlippedCards] = useState({}); // Track which cards are flipped
   const [jobDetails, setJobDetails] = useState({}); // Cache full job details for flipped cards
+  const [preFieldChecklist, setPreFieldChecklist] = useState({}); // Pre-field checklist state per job
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
@@ -146,14 +150,22 @@ const Dashboard = () => {
   // Handle card flip - load full details on first flip
   const handleCardFlip = async (jobId) => {
     const isCurrentlyFlipped = flippedCards[jobId];
+    const job = jobs.find(j => j._id === jobId);
     
-    if (!isCurrentlyFlipped && !jobDetails[jobId]) {
-      // First time flipping - fetch full details
-      try {
-        const response = await api.get(`/api/jobs/${jobId}/full-details`);
-        setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
-      } catch (err) {
-        console.error('Error fetching job details:', err);
+    if (!isCurrentlyFlipped) {
+      // Initialize pre-field checklist if job needs pre-fielding
+      if (job && needsPreField(job.status)) {
+        initPreFieldChecklist(jobId);
+      }
+      
+      // Fetch full details if not already cached
+      if (!jobDetails[jobId]) {
+        try {
+          const response = await api.get(`/api/jobs/${jobId}/full-details`);
+          setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
+        } catch (err) {
+          console.error('Error fetching job details:', err);
+        }
       }
     }
     
@@ -180,6 +192,95 @@ const Dashboard = () => {
       'other': 'Other'
     };
     return labels[type] || type;
+  };
+
+  // Pre-field checklist items
+  const preFieldItems = [
+    { key: 'usa_dig', label: 'USA Dig Required', description: 'Underground utility locate needed' },
+    { key: 'traffic_control', label: 'Traffic Control', description: 'TC plan or flaggers needed' },
+    { key: 'permit', label: 'Permit Required', description: 'City/county permit needed' },
+    { key: 'civil', label: 'Civil Work', description: 'Trenching, boring, or excavation' },
+    { key: 'materials', label: 'Special Materials', description: 'Materials need to be ordered' },
+    { key: 'equipment', label: 'Heavy Equipment', description: 'Backhoe, crane, etc. needed' },
+  ];
+
+  // Initialize pre-field checklist for a job
+  const initPreFieldChecklist = (jobId) => {
+    if (!preFieldChecklist[jobId]) {
+      setPreFieldChecklist(prev => ({
+        ...prev,
+        [jobId]: preFieldItems.reduce((acc, item) => {
+          acc[item.key] = { checked: false, notes: '' };
+          return acc;
+        }, {})
+      }));
+    }
+  };
+
+  // Handle pre-field checkbox toggle
+  const handlePreFieldCheck = (jobId, key, checked) => {
+    setPreFieldChecklist(prev => ({
+      ...prev,
+      [jobId]: {
+        ...prev[jobId],
+        [key]: { ...prev[jobId]?.[key], checked, notes: prev[jobId]?.[key]?.notes || '' }
+      }
+    }));
+  };
+
+  // Handle pre-field notes change
+  const handlePreFieldNotes = (jobId, key, notes) => {
+    setPreFieldChecklist(prev => ({
+      ...prev,
+      [jobId]: {
+        ...prev[jobId],
+        [key]: { ...prev[jobId]?.[key], checked: prev[jobId]?.[key]?.checked || false, notes }
+      }
+    }));
+  };
+
+  // Save pre-field checklist and create dependencies
+  const handleSavePreField = async (jobId) => {
+    const checklist = preFieldChecklist[jobId];
+    if (!checklist) return;
+
+    try {
+      // Create dependencies for each checked item
+      const checkedItems = Object.entries(checklist).filter(([_, value]) => value.checked);
+      
+      for (const [key, value] of checkedItems) {
+        await api.post(`/api/jobs/${jobId}/dependencies`, {
+          type: key === 'civil' ? 'other' : key,
+          description: value.notes || preFieldItems.find(i => i.key === key)?.description || '',
+          status: 'pending',
+          notes: value.notes
+        });
+      }
+
+      // Update job status to pre_fielding
+      await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
+
+      // Refresh job list
+      const response = await api.get('/api/jobs');
+      setJobs(response.data);
+      
+      // Flip card back
+      setFlippedCards(prev => ({ ...prev, [jobId]: false }));
+      
+      setSnackbar({ 
+        open: true, 
+        message: `Pre-field complete! ${checkedItems.length} dependencies added.`, 
+        severity: 'success' 
+      });
+    } catch (err) {
+      console.error('Save pre-field error:', err);
+      setSnackbar({ open: true, message: 'Failed to save pre-field data', severity: 'error' });
+    }
+  };
+
+  // Check if job needs pre-fielding (not yet pre-fielded)
+  const needsPreField = (status) => {
+    return ['new', 'assigned_to_gf', 'pending'].includes(status);
   };
 
   // Status colors for new workflow + legacy statuses
@@ -456,7 +557,7 @@ const Dashboard = () => {
         message: `Status updated to "${getStatusLabel(newStatus)}"`,
         severity: 'success'
       });
-    } catch (err) {
+      } catch (err) {
       console.error('Error updating status:', err);
       setSnackbar({
         open: true,
@@ -1017,7 +1118,7 @@ const Dashboard = () => {
                       </CardActions>
                     </Card>
 
-                    {/* BACK SIDE - Dependencies, Schedule, Chat */}
+                    {/* BACK SIDE - Pre-Field Checklist OR Dependencies/Schedule/Chat */}
                     <Card sx={{
                       position: 'absolute',
                       width: '100%',
@@ -1049,95 +1150,152 @@ const Dashboard = () => {
                           />
                         </Box>
 
-                        {/* Schedule Info */}
-                        <Paper variant="outlined" sx={{ p: 1, mb: 1, bgcolor: 'action.hover' }}>
-                          <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
-                            <CalendarIcon fontSize="small" />
-                            Schedule
-                          </Typography>
-                          <Box sx={{ mt: 0.5, pl: 2 }}>
-                            {details.crewScheduledDate ? (
-                              <Typography variant="caption" display="block">
-                                🗓️ Scheduled: {formatDate(details.crewScheduledDate)}
-                              </Typography>
-                            ) : (
-                              <Typography variant="caption" color="text.secondary" display="block">
-                                Not scheduled
-                              </Typography>
-                            )}
-                            {details.dueDate && (
-                              <Typography variant="caption" display="block" color={new Date(details.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
-                                ⏰ Due: {formatDate(details.dueDate)}
-                              </Typography>
-                            )}
-                            {details.assignedTo && (
-                              <Typography variant="caption" display="block">
-                                👷 Crew: {details.assignedTo.name || details.assignedTo.email || 'Assigned'}
-                              </Typography>
-                            )}
+                        {/* CONDITIONAL: Pre-Field Checklist OR Dependencies View */}
+                        {needsPreField(job.status) ? (
+                          /* PRE-FIELD CHECKLIST */
+                          <Box>
+                            <Typography variant="caption" color="primary" fontWeight="bold" display="flex" alignItems="center" gap={0.5} mb={1}>
+                              <ConstructionIcon fontSize="small" />
+                              Pre-Field Checklist
+                            </Typography>
+                            <Box sx={{ maxHeight: 220, overflow: 'auto' }}>
+                              {preFieldItems.map((item) => {
+                                const isChecked = preFieldChecklist[job._id]?.[item.key]?.checked || false;
+                                const notes = preFieldChecklist[job._id]?.[item.key]?.notes || '';
+                                
+                                return (
+                                  <Box key={item.key} sx={{ mb: 0.5 }}>
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox 
+                                          size="small"
+                                          checked={isChecked}
+                                          onChange={(e) => handlePreFieldCheck(job._id, item.key, e.target.checked)}
+                                          sx={{ py: 0 }}
+                                        />
+                                      }
+                                      label={
+                                        <Typography variant="caption" fontWeight={isChecked ? 'bold' : 'normal'}>
+                                          {item.label}
+                                        </Typography>
+                                      }
+                                      sx={{ m: 0, height: 24 }}
+                                    />
+                                    <Collapse in={isChecked}>
+                                      <TextField
+                                        size="small"
+                                        placeholder={`Details for ${item.label}...`}
+                                        value={notes}
+                                        onChange={(e) => handlePreFieldNotes(job._id, item.key, e.target.value)}
+                                        multiline
+                                        rows={2}
+                                        fullWidth
+                                        sx={{ 
+                                          ml: 3, 
+                                          mb: 1,
+                                          '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 }
+                                        }}
+                                      />
+                                    </Collapse>
+                                  </Box>
+                                );
+                              })}
+                            </Box>
                           </Box>
-                        </Paper>
+                        ) : (
+                          /* DEPENDENCIES/SCHEDULE VIEW (for pre-fielded jobs) */
+                          <>
+                            {/* Schedule Info */}
+                            <Paper variant="outlined" sx={{ p: 1, mb: 1, bgcolor: 'action.hover' }}>
+                              <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
+                                <CalendarIcon fontSize="small" />
+                                Schedule
+                              </Typography>
+                              <Box sx={{ mt: 0.5, pl: 2 }}>
+                                {details.crewScheduledDate ? (
+                                  <Typography variant="caption" display="block">
+                                    🗓️ Scheduled: {formatDate(details.crewScheduledDate)}
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    Not scheduled
+                                  </Typography>
+                                )}
+                                {details.dueDate && (
+                                  <Typography variant="caption" display="block" color={new Date(details.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
+                                    ⏰ Due: {formatDate(details.dueDate)}
+                                  </Typography>
+                                )}
+                                {details.assignedTo && (
+                                  <Typography variant="caption" display="block">
+                                    👷 Crew: {details.assignedTo.name || details.assignedTo.email || 'Assigned'}
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Paper>
 
-                        {/* Dependencies */}
-                        <Paper variant="outlined" sx={{ p: 1, mb: 1 }}>
-                          <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
-                            <BuildIcon fontSize="small" />
-                            Dependencies ({details.dependencies?.length || 0})
-                          </Typography>
-                          <Box sx={{ mt: 0.5, maxHeight: 80, overflow: 'auto' }}>
-                            {details.dependencies && details.dependencies.length > 0 ? (
-                              details.dependencies.map((dep, i) => (
-                                <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5}>
-                                  <Chip 
-                                    size="small"
-                                    label={getDependencyTypeLabel(dep.type)}
-                                    color={getDependencyStatusColor(dep.status)}
-                                    sx={{ fontSize: '0.6rem', height: 18 }}
-                                  />
-                                  {dep.ticketNumber && (
-                                    <Typography variant="caption" color="text.secondary">
-                                      #{dep.ticketNumber}
-                                    </Typography>
-                                  )}
-                                  {dep.scheduledDate && (
-                                    <Typography variant="caption" color="text.secondary">
-                                      {new Date(dep.scheduledDate).toLocaleDateString()}
-                                    </Typography>
-                                  )}
-                                </Box>
-                              ))
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                No dependencies tracked
+                            {/* Dependencies */}
+                            <Paper variant="outlined" sx={{ p: 1, mb: 1 }}>
+                              <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
+                                <BuildIcon fontSize="small" />
+                                Dependencies ({details.dependencies?.length || 0})
                               </Typography>
-                            )}
-                          </Box>
-                        </Paper>
+                              <Box sx={{ mt: 0.5, maxHeight: 80, overflow: 'auto' }}>
+                                {details.dependencies && details.dependencies.length > 0 ? (
+                                  details.dependencies.map((dep, i) => (
+                                    <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5}>
+                                      <Chip 
+                                        size="small"
+                                        label={getDependencyTypeLabel(dep.type)}
+                                        color={getDependencyStatusColor(dep.status)}
+                                        sx={{ fontSize: '0.6rem', height: 18 }}
+                                      />
+                                      {dep.ticketNumber && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          #{dep.ticketNumber}
+                                        </Typography>
+                                      )}
+                                      {dep.scheduledDate && (
+                                        <Typography variant="caption" color="text.secondary">
+                                          {new Date(dep.scheduledDate).toLocaleDateString()}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  ))
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">
+                                    No dependencies tracked
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Paper>
 
-                        {/* Recent Notes Preview */}
-                        <Paper variant="outlined" sx={{ p: 1 }}>
-                          <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
-                            <ChatIcon fontSize="small" />
-                            Notes ({details.notes?.length || 0})
-                          </Typography>
-                          <Box sx={{ mt: 0.5, maxHeight: 50, overflow: 'auto' }}>
-                            {details.notes && details.notes.length > 0 ? (
-                              details.notes.slice(-2).map((note, i) => (
-                                <Typography key={i} variant="caption" display="block" sx={{ 
-                                  overflow: 'hidden', 
-                                  textOverflow: 'ellipsis', 
-                                  whiteSpace: 'nowrap' 
-                                }}>
-                                  <strong>{note.userName || 'User'}:</strong> {note.message}
-                                </Typography>
-                              ))
-                            ) : (
-                              <Typography variant="caption" color="text.secondary">
-                                No notes yet
+                            {/* Recent Notes Preview */}
+                            <Paper variant="outlined" sx={{ p: 1 }}>
+                              <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
+                                <ChatIcon fontSize="small" />
+                                Notes ({details.notes?.length || 0})
                               </Typography>
-                            )}
-                          </Box>
-                        </Paper>
+                              <Box sx={{ mt: 0.5, maxHeight: 50, overflow: 'auto' }}>
+                                {details.notes && details.notes.length > 0 ? (
+                                  details.notes.slice(-2).map((note, i) => (
+                                    <Typography key={i} variant="caption" display="block" sx={{ 
+                                      overflow: 'hidden', 
+                                      textOverflow: 'ellipsis', 
+                                      whiteSpace: 'nowrap' 
+                                    }}>
+                                      <strong>{note.userName || 'User'}:</strong> {note.message}
+                                    </Typography>
+                                  ))
+                                ) : (
+                                  <Typography variant="caption" color="text.secondary">
+                                    No notes yet
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Paper>
+                          </>
+                        )}
                       </CardContent>
 
                       <Divider />
@@ -1152,14 +1310,29 @@ const Dashboard = () => {
                             <FlipIcon />
                           </IconButton>
                         </Tooltip>
-                        <Button
-                          size="small"
-                          component={Link}
-                          to={`/jobs/${job._id}/details`}
-                          sx={{ borderRadius: 1 }}
-                        >
-                          Full Details
-                        </Button>
+                        
+                        {/* Show "Save Pre-Field" for jobs needing pre-field, otherwise "Full Details" */}
+                        {needsPreField(job.status) ? (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            color="primary"
+                            onClick={() => handleSavePreField(job._id)}
+                            sx={{ borderRadius: 1, fontSize: '0.7rem' }}
+                          >
+                            Save Pre-Field
+                          </Button>
+                        ) : (
+                          <Button
+                            size="small"
+                            component={Link}
+                            to={`/jobs/${job._id}/details`}
+                            sx={{ borderRadius: 1 }}
+                          >
+                            Full Details
+                          </Button>
+                        )}
+                        
                         <IconButton 
                           size="small"
                           onClick={(e) => handleJobMenuOpen(e, job._id)}
