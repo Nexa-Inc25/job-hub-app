@@ -51,6 +51,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import HomeIcon from '@mui/icons-material/Home';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
 import { TreeView, TreeItem } from '@mui/x-tree-view';
 import PDFFormEditor from './PDFFormEditor';
 import { useThemeMode } from '../ThemeContext';
@@ -73,27 +75,28 @@ const JobFileSystem = () => {
   const photoInputRef = useRef(null);
   const cameraInputRef = useRef(null);
   
-  // Admin state
+  // Admin/approval state
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canApprove, setCanApprove] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderParent, setNewFolderParent] = useState('');
   const [isSubfolder, setIsSubfolder] = useState(false);
+  const [approvalLoading, setApprovalLoading] = useState(null); // docId being approved/rejected
 
-  // Check if user is admin
+  // Check user permissions from JWT
   useEffect(() => {
-    const checkAdmin = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
-      try {
-        // api module automatically adds Authorization header
-        const response = await api.get('/api/user/me');
-        setIsAdmin(response.data.isAdmin || false);
-      } catch (err) {
-        console.log('Could not fetch user info');
-      }
-    };
-    checkAdmin();
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      setIsAdmin(payload.isAdmin || false);
+      setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
+      setUserRole(payload.role || null);
+    } catch (err) {
+      console.log('Could not parse token');
+    }
   }, []);
 
   useEffect(() => {
@@ -455,6 +458,78 @@ const JobFileSystem = () => {
 
   const handleCloseMenu = () => {
     setAnchorEl(null);
+  };
+
+  // Approve a draft document
+  const handleApproveDocument = async (doc) => {
+    if (!doc?._id) return;
+    
+    setApprovalLoading(doc._id);
+    try {
+      const response = await api.post(`/api/jobs/${job._id}/documents/${doc._id}/approve`);
+      
+      // Refresh job data to get updated document
+      const jobResponse = await api.get(`/api/jobs/${job._id}`);
+      setJob(jobResponse.data);
+      
+      // Update selected folder if viewing the same folder
+      if (selectedFolder) {
+        const updatedFolder = findFolderByName(jobResponse.data.folders, selectedFolder.name);
+        if (updatedFolder) {
+          setSelectedFolder(updatedFolder);
+        }
+      }
+      
+      console.log('Document approved:', response.data);
+    } catch (err) {
+      console.error('Error approving document:', err);
+      setError(err.response?.data?.error || 'Failed to approve document');
+    } finally {
+      setApprovalLoading(null);
+    }
+  };
+
+  // Reject a draft document
+  const handleRejectDocument = async (doc, reason) => {
+    if (!doc?._id) return;
+    
+    const rejectReason = reason || window.prompt('Enter rejection reason:');
+    if (!rejectReason) return; // User cancelled
+    
+    setApprovalLoading(doc._id);
+    try {
+      await api.post(`/api/jobs/${job._id}/documents/${doc._id}/reject`, { reason: rejectReason });
+      
+      // Refresh job data
+      const jobResponse = await api.get(`/api/jobs/${job._id}`);
+      setJob(jobResponse.data);
+      
+      if (selectedFolder) {
+        const updatedFolder = findFolderByName(jobResponse.data.folders, selectedFolder.name);
+        if (updatedFolder) {
+          setSelectedFolder(updatedFolder);
+        }
+      }
+      
+      console.log('Document rejected');
+    } catch (err) {
+      console.error('Error rejecting document:', err);
+      setError(err.response?.data?.error || 'Failed to reject document');
+    } finally {
+      setApprovalLoading(null);
+    }
+  };
+
+  // Helper to find folder by name in nested structure
+  const findFolderByName = (folders, name) => {
+    for (const folder of folders) {
+      if (folder.name === name) return folder;
+      if (folder.subfolders) {
+        const found = findFolderByName(folder.subfolders, name);
+        if (found) return found;
+      }
+    }
+    return null;
   };
 
   // Get the correct URL for a document
@@ -902,7 +977,7 @@ const JobFileSystem = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell>Name</TableCell>
-                        <TableCell>Date Created</TableCell>
+                        <TableCell>Date</TableCell>
                         <TableCell>Actions</TableCell>
                       </TableRow>
                     </TableHead>
@@ -915,7 +990,15 @@ const JobFileSystem = () => {
                             onDoubleClick={() => handleDocDoubleClick(doc)}
                             sx={{ 
                               '&:hover': { bgcolor: alpha(blue[50], 0.5), cursor: 'pointer' },
-                              cursor: 'pointer'
+                              cursor: 'pointer',
+                              // Highlight draft documents
+                              ...(doc.approvalStatus === 'pending_approval' && {
+                                bgcolor: alpha('#FFA726', 0.1),
+                                borderLeft: '3px solid #FFA726'
+                              }),
+                              ...(doc.approvalStatus === 'approved' && {
+                                bgcolor: alpha('#66BB6A', 0.05)
+                              })
                             }}
                           >
                             <TableCell>
@@ -924,30 +1007,92 @@ const JobFileSystem = () => {
                                   <InsertDriveFileIcon fontSize="small" color={doc.isTemplate ? 'primary' : 'action'} />
                                 </ListItemIcon>
                                 <Box>
-                                  <Typography variant="body2">{doc.name}</Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Typography variant="body2">{doc.name}</Typography>
+                                    {/* Approval status badges */}
+                                    {doc.approvalStatus === 'pending_approval' && (
+                                      <Chip 
+                                        label="DRAFT" 
+                                        size="small" 
+                                        color="warning" 
+                                        sx={{ height: 20, fontSize: '0.65rem', fontWeight: 'bold' }}
+                                      />
+                                    )}
+                                    {doc.approvalStatus === 'approved' && (
+                                      <Chip 
+                                        label="APPROVED" 
+                                        size="small" 
+                                        color="success" 
+                                        sx={{ height: 20, fontSize: '0.65rem' }}
+                                      />
+                                    )}
+                                    {doc.approvalStatus === 'rejected' && (
+                                      <Chip 
+                                        label="REJECTED" 
+                                        size="small" 
+                                        color="error" 
+                                        sx={{ height: 20, fontSize: '0.65rem' }}
+                                      />
+                                    )}
+                                  </Box>
                                   <Typography variant="caption" color="text.secondary">
-                                    Double-click to open
+                                    {doc.approvalStatus === 'pending_approval' 
+                                      ? 'Awaiting approval • Double-click to review'
+                                      : 'Double-click to open'}
                                   </Typography>
                                 </Box>
                               </Box>
                             </TableCell>
                             <TableCell>{doc.uploadDate ? new Date(doc.uploadDate).toLocaleString() : '-'}</TableCell>
                             <TableCell>
-                              <Tooltip title="Open">
-                                <IconButton size="small" onClick={() => handleDocDoubleClick(doc)}>
-                                  <VisibilityIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Download">
-                                <IconButton size="small" onClick={() => handleDownload(doc)}>
-                                  <DownloadIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="More options">
-                                <IconButton size="small" onClick={(e) => handleContextMenu(e, doc)}>
-                                  <MoreVertIcon fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <Tooltip title="Open">
+                                  <IconButton size="small" onClick={() => handleDocDoubleClick(doc)}>
+                                    <VisibilityIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Download">
+                                  <IconButton size="small" onClick={() => handleDownload(doc)}>
+                                    <DownloadIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                
+                                {/* Approval buttons for GF/PM/Admin */}
+                                {doc.approvalStatus === 'pending_approval' && canApprove && (
+                                  <>
+                                    <Tooltip title="Approve document">
+                                      <IconButton 
+                                        size="small" 
+                                        color="success"
+                                        onClick={(e) => { e.stopPropagation(); handleApproveDocument(doc); }}
+                                        disabled={approvalLoading === doc._id}
+                                      >
+                                        {approvalLoading === doc._id ? (
+                                          <CircularProgress size={16} />
+                                        ) : (
+                                          <CheckCircleIcon fontSize="small" />
+                                        )}
+                                      </IconButton>
+                                    </Tooltip>
+                                    <Tooltip title="Reject document">
+                                      <IconButton 
+                                        size="small" 
+                                        color="error"
+                                        onClick={(e) => { e.stopPropagation(); handleRejectDocument(doc); }}
+                                        disabled={approvalLoading === doc._id}
+                                      >
+                                        <CancelIcon fontSize="small" />
+                                      </IconButton>
+                                    </Tooltip>
+                                  </>
+                                )}
+                                
+                                <Tooltip title="More options">
+                                  <IconButton size="small" onClick={(e) => handleContextMenu(e, doc)}>
+                                    <MoreVertIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </Box>
                             </TableCell>
                           </TableRow>
                         ))
