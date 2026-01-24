@@ -54,7 +54,6 @@ import {
   Build as BuildIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  PauseCircle as PauseCircleIcon,
   Today as TodayIcon,
   EventNote as EventNoteIcon,
   Block as BlockIcon,
