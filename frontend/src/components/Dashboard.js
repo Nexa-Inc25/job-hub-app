@@ -986,7 +986,7 @@ const Dashboard = () => {
                     position: 'relative',
                     width: '100%',
                     height: '100%',
-                    transition: 'transform 0.6s',
+                    transition: 'transform 0.6s ease-in-out',
                     transformStyle: 'preserve-3d',
                     transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
                   }}>
@@ -1000,6 +1000,7 @@ const Dashboard = () => {
                       boxShadow: 2,
                       display: 'flex',
                       flexDirection: 'column',
+                      pointerEvents: isFlipped ? 'none' : 'auto',
                     }}>
                       <CardContent sx={{ flexGrow: 1 }}>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -1092,7 +1093,10 @@ const Dashboard = () => {
                         <Tooltip title="Flip card for details">
                           <IconButton 
                             size="small"
-                            onClick={() => handleCardFlip(job._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCardFlip(job._id);
+                            }}
                             color="primary"
                           >
                             <FlipIcon />
@@ -1127,6 +1131,7 @@ const Dashboard = () => {
                       display: 'flex',
                       flexDirection: 'column',
                       bgcolor: 'background.paper',
+                      pointerEvents: isFlipped ? 'auto' : 'none',
                     }}>
                       <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
                         {/* Header */}
@@ -1301,7 +1306,10 @@ const Dashboard = () => {
                         <Tooltip title="Flip back">
                           <IconButton 
                             size="small"
-                            onClick={() => handleCardFlip(job._id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCardFlip(job._id);
+                            }}
                             color="primary"
                           >
                             <FlipIcon />
