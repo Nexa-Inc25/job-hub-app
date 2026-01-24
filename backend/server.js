@@ -2722,9 +2722,18 @@ app.delete('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, re
 app.get('/api/jobs/:id/full-details', authenticateUser, async (req, res) => {
   try {
     const job = await Job.findById(req.params.id)
+      // Core assignments
       .populate('assignedTo', 'name email role')
       .populate('assignedToGF', 'name email role')
       .populate('userId', 'name email role')
+      // Who did what - audit trail
+      .populate('assignedBy', 'name email role')
+      .populate('assignedToGFBy', 'name email role')
+      .populate('crewSubmittedBy', 'name email role')
+      .populate('gfReviewedBy', 'name email role')
+      .populate('pmApprovedBy', 'name email role')
+      .populate('completedBy', 'name email role')
+      // Notes
       .populate('notes.userId', 'name email role');
     
     if (!job) {

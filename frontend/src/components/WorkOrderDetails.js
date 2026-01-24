@@ -455,35 +455,216 @@ const WorkOrderDetails = () => {
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
-                <Box sx={{ '& > *': { mb: 1 } }}>
+                {/* Audit Trail - Who did what and when */}
+                <Box sx={{ '& > *': { mb: 1.5 } }}>
+                  {/* Job Created */}
+                  {job.createdAt && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
+                        📋 Job Created
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.createdAt)}
+                      </Typography>
+                      {job.userId && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.userId.name || job.userId.email || 'Unknown'}
+                          {job.userId._id && <span style={{ opacity: 0.6 }}> (ID: {job.userId._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Assigned to GF */}
                   {job.assignedToGFDate && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      ✓ Assigned to GF: {formatDateTime(job.assignedToGFDate)}
-                    </Typography>
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
+                        👔 Assigned to GF
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.assignedToGFDate)}
+                      </Typography>
+                      {job.assignedToGFBy && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.assignedToGFBy.name || job.assignedToGFBy.email || 'Unknown'}
+                          {job.assignedToGFBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedToGFBy._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                      {job.assignedToGF && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          To: <strong>{job.assignedToGF.name || job.assignedToGF.email}</strong>
+                          {job.assignedToGF._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedToGF._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                    </Box>
                   )}
+
+                  {/* Pre-fielded */}
                   {job.preFieldDate && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      ✓ Pre-fielded: {formatDateTime(job.preFieldDate)}
-                    </Typography>
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
+                        🔍 Pre-Fielded
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.preFieldDate)}
+                      </Typography>
+                      {job.assignedToGF && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.assignedToGF.name || job.assignedToGF.email}
+                        </Typography>
+                      )}
+                    </Box>
                   )}
+
+                  {/* Crew Assigned */}
+                  {job.assignedDate && job.assignedTo && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
+                        👷 Crew Assigned
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.assignedDate)}
+                      </Typography>
+                      {job.assignedBy && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.assignedBy.name || job.assignedBy.email || 'Unknown'}
+                          {job.assignedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedBy._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                      <Typography variant="caption" display="block" color="text.primary">
+                        To: <strong>{job.assignedTo.name || job.assignedTo.email}</strong>
+                        {job.assignedTo._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedTo._id.toString().slice(-6)})</span>}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Crew Submitted */}
                   {job.crewSubmittedDate && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      ✓ Crew submitted: {formatDateTime(job.crewSubmittedDate)}
-                    </Typography>
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'warning.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="warning.main">
+                        📤 Crew Submitted
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.crewSubmittedDate)}
+                      </Typography>
+                      {job.crewSubmittedBy && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.crewSubmittedBy.name || job.crewSubmittedBy.email || 'Unknown'}
+                          {job.crewSubmittedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.crewSubmittedBy._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                      {job.crewSubmissionNotes && (
+                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
+                          "{job.crewSubmissionNotes}"
+                        </Typography>
+                      )}
+                    </Box>
                   )}
+
+                  {/* GF Reviewed */}
                   {job.gfReviewDate && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      ✓ GF reviewed: {formatDateTime(job.gfReviewDate)} ({job.gfReviewStatus})
-                    </Typography>
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color={job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main'}>
+                        {job.gfReviewStatus === 'approved' ? '✅' : '❌'} GF Review: {job.gfReviewStatus?.toUpperCase()}
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.gfReviewDate)}
+                      </Typography>
+                      {job.gfReviewedBy && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.gfReviewedBy.name || job.gfReviewedBy.email || 'Unknown'}
+                          {job.gfReviewedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.gfReviewedBy._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                      {job.gfReviewNotes && (
+                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
+                          "{job.gfReviewNotes}"
+                        </Typography>
+                      )}
+                    </Box>
                   )}
+
+                  {/* PM Approved */}
                   {job.pmApprovalDate && (
-                    <Typography variant="caption" display="block" color="text.secondary">
-                      ✓ PM approved: {formatDateTime(job.pmApprovalDate)}
-                    </Typography>
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color={job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main'}>
+                        {job.pmApprovalStatus === 'approved' ? '✅' : '❌'} PM Approval: {job.pmApprovalStatus?.toUpperCase()}
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.pmApprovalDate)}
+                      </Typography>
+                      {job.pmApprovedBy && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.pmApprovedBy.name || job.pmApprovedBy.email || 'Unknown'}
+                          {job.pmApprovedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.pmApprovedBy._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                      {job.pmApprovalNotes && (
+                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
+                          "{job.pmApprovalNotes}"
+                        </Typography>
+                      )}
+                    </Box>
                   )}
+
+                  {/* Completed */}
                   {job.completedDate && (
-                    <Typography variant="caption" display="block" color="success.main">
-                      ✓ Completed: {formatDateTime(job.completedDate)}
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
+                        🎉 Completed
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.completedDate)}
+                      </Typography>
+                      {job.completedBy && (
+                        <Typography variant="caption" display="block" color="text.primary">
+                          By: {job.completedBy.name || job.completedBy.email || 'Unknown'}
+                          {job.completedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.completedBy._id.toString().slice(-6)})</span>}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Submitted to Utility */}
+                  {job.utilitySubmittedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
+                        📨 Submitted to Utility
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.utilitySubmittedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Billed */}
+                  {job.billedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
+                        💵 Billed
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.billedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Invoiced */}
+                  {job.invoicedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main' }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
+                        💰 Invoiced (Paid)
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.invoicedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* No activity yet */}
+                  {!job.assignedToGFDate && !job.preFieldDate && !job.crewSubmittedDate && (
+                    <Typography variant="caption" color="text.secondary" textAlign="center" display="block">
+                      No workflow activity yet
                     </Typography>
                   )}
                 </Box>
