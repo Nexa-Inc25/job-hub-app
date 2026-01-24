@@ -1242,7 +1242,8 @@ const Dashboard = () => {
       )}
 
       {/* Work Orders Grid - GF View vs Standard View */}
-      {!loading && !error && userRole === 'gf' && filter === 'all' && !search ? (
+      {/* Show GF categorized view for GF role, or Admin/PM who want the organized view */}
+      {!loading && !error && (userRole === 'gf' || userRole === 'admin' || userRole === 'pm' || isAdmin) && filter === 'all' && !search ? (
         /* ========== GF CATEGORIZED VIEW ========== */
         <Box>
           {/* TODAY'S WORK - Most important, always visible */}
