@@ -29,6 +29,13 @@ import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import DeleteIcon from '@mui/icons-material/Delete';
 import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
+import GestureIcon from '@mui/icons-material/Gesture';
+import DrawIcon from '@mui/icons-material/Draw';
+import CloseIcon from '@mui/icons-material/Close';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 
 // PDF.js worker is set globally in App.js
 
@@ -46,8 +53,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [currentText, setCurrentText] = useState('');
   const [selectedAnnotation, setSelectedAnnotation] = useState(null);
+  const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+  const [savedSignature, setSavedSignature] = useState(null); // Base64 image of signature
+  const [isDrawing, setIsDrawing] = useState(false);
   const containerRef = useRef(null);
   const pageRef = useRef(null);
+  const signatureCanvasRef = useRef(null);
 
   // Load PDF bytes for pdf-lib
   useEffect(() => {
@@ -118,8 +129,106 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       };
       setAnnotations(prev => [...prev, newAnnotation]);
       console.log('Added check annotation:', newAnnotation);
+    } else if (currentTool === 'signature') {
+      if (savedSignature) {
+        const newAnnotation = {
+          id: generateUniqueId(),
+          type: 'signature',
+          x,
+          y,
+          imageData: savedSignature,
+          width: 150, // Default signature width
+          height: 50, // Default signature height
+          page: currentPage
+        };
+        setAnnotations(prev => [...prev, newAnnotation]);
+        console.log('Added signature annotation:', newAnnotation);
+      } else {
+        // Open signature dialog if no signature saved
+        setSignatureDialogOpen(true);
+      }
     }
-  }, [currentTool, currentText, fontSize, zoom, currentPage]);
+  }, [currentTool, currentText, fontSize, zoom, currentPage, savedSignature]);
+
+  // Signature canvas drawing functions
+  const initSignatureCanvas = useCallback(() => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+  }, []);
+
+  useEffect(() => {
+    if (signatureDialogOpen) {
+      // Small delay to ensure canvas is mounted
+      setTimeout(initSignatureCanvas, 100);
+    }
+  }, [signatureDialogOpen, initSignatureCanvas]);
+
+  const getCanvasCoords = (e, canvas) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    // Handle both mouse and touch events
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const handleSignatureStart = (e) => {
+    e.preventDefault();
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    
+    setIsDrawing(true);
+    const ctx = canvas.getContext('2d');
+    const coords = getCanvasCoords(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(coords.x, coords.y);
+  };
+
+  const handleSignatureMove = (e) => {
+    if (!isDrawing) return;
+    e.preventDefault();
+    
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    const coords = getCanvasCoords(e, canvas);
+    ctx.lineTo(coords.x, coords.y);
+    ctx.stroke();
+  };
+
+  const handleSignatureEnd = () => {
+    setIsDrawing(false);
+  };
+
+  const clearSignature = () => {
+    initSignatureCanvas();
+  };
+
+  const saveSignature = () => {
+    const canvas = signatureCanvasRef.current;
+    if (!canvas) return;
+    
+    // Get the signature as a PNG data URL
+    const dataUrl = canvas.toDataURL('image/png');
+    setSavedSignature(dataUrl);
+    setSignatureDialogOpen(false);
+    setCurrentTool('signature');
+  };
 
   // Remove annotation
   const handleRemoveAnnotation = (id) => {
@@ -171,6 +280,25 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             font: helveticaFont,
             color: rgb(0, 0, 0),
           });
+        } else if (annotation.type === 'signature' && annotation.imageData) {
+          try {
+            // Convert base64 to bytes
+            const signatureBase64 = annotation.imageData.split(',')[1];
+            const signatureBytes = Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
+            
+            // Embed the PNG image
+            const signatureImage = await pdfDoc.embedPng(signatureBytes);
+            
+            // Draw signature on page
+            page.drawImage(signatureImage, {
+              x: annotation.x,
+              y: height - annotation.y - annotation.height, // Adjust for image height
+              width: annotation.width,
+              height: annotation.height,
+            });
+          } catch (sigErr) {
+            console.error('Error embedding signature:', sigErr);
+          }
         }
       }
 
@@ -237,7 +365,41 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
               <CheckBoxIcon />
             </Tooltip>
           </ToggleButton>
+          <ToggleButton value="signature">
+            <Tooltip title="Add Signature">
+              <GestureIcon />
+            </Tooltip>
+          </ToggleButton>
         </ToggleButtonGroup>
+
+        {/* Signature status */}
+        {currentTool === 'signature' && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {savedSignature ? (
+              <>
+                <Typography variant="caption" color="success.main">
+                  ✓ Signature ready - click on PDF to place
+                </Typography>
+                <Button 
+                  size="small" 
+                  onClick={() => setSignatureDialogOpen(true)}
+                  startIcon={<DrawIcon />}
+                >
+                  Redraw
+                </Button>
+              </>
+            ) : (
+              <Button 
+                size="small" 
+                variant="outlined"
+                onClick={() => setSignatureDialogOpen(true)}
+                startIcon={<DrawIcon />}
+              >
+                Draw Signature
+              </Button>
+            )}
+          </Box>
+        )}
 
         <Divider orientation="vertical" flexItem />
 
@@ -428,6 +590,16 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                   >
                     {annotation.text}
                   </Typography>
+                ) : annotation.type === 'signature' ? (
+                  <img 
+                    src={annotation.imageData} 
+                    alt="Signature"
+                    style={{
+                      width: annotation.width * zoom,
+                      height: annotation.height * zoom,
+                      pointerEvents: 'none',
+                    }}
+                  />
                 ) : (
                   <Typography sx={{ fontSize: annotation.size * zoom, color: 'green', lineHeight: 1 }}>
                     ✓
@@ -463,12 +635,77 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       {/* Instructions */}
       <Paper sx={{ p: 1, mt: 1, bgcolor: 'info.light' }}>
         <Typography variant="body2" color="text.primary">
-          <strong>How to edit:</strong> 1) Select <strong>Text</strong> or <strong>Checkmark</strong> tool → 
+          <strong>How to edit:</strong> 1) Select <strong>Text</strong>, <strong>Checkmark</strong>, or <strong>Signature</strong> tool → 
           2) For text: type in the field above → 
           3) <strong>Click directly on the PDF</strong> where you want to place it → 
           4) Click <strong>Save Changes</strong> when done
         </Typography>
       </Paper>
+
+      {/* Signature Drawing Dialog */}
+      <Dialog 
+        open={signatureDialogOpen} 
+        onClose={() => setSignatureDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <GestureIcon color="primary" />
+            Draw Your Signature
+          </Box>
+          <IconButton size="small" onClick={() => setSignatureDialogOpen(false)}>
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Use your finger, stylus, or Apple Pencil to sign below. Your signature will be saved for this session.
+          </Typography>
+          <Box 
+            sx={{ 
+              border: '2px solid',
+              borderColor: 'grey.400',
+              borderRadius: 1,
+              bgcolor: 'white',
+              touchAction: 'none', // Prevent scrolling while drawing
+              cursor: 'crosshair',
+            }}
+          >
+            <canvas
+              ref={signatureCanvasRef}
+              width={500}
+              height={150}
+              style={{ 
+                width: '100%', 
+                height: 150,
+                display: 'block',
+              }}
+              onMouseDown={handleSignatureStart}
+              onMouseMove={handleSignatureMove}
+              onMouseUp={handleSignatureEnd}
+              onMouseLeave={handleSignatureEnd}
+              onTouchStart={handleSignatureStart}
+              onTouchMove={handleSignatureMove}
+              onTouchEnd={handleSignatureEnd}
+            />
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            Tip: Sign naturally - this will be embedded in the PDF exactly as drawn.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={clearSignature} color="inherit">
+            Clear
+          </Button>
+          <Button onClick={() => setSignatureDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={saveSignature} variant="contained" color="primary">
+            Use This Signature
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar
