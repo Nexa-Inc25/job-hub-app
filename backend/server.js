@@ -644,9 +644,14 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
         ]
       };
     }
-    // Default fallback - only see own jobs
+    // Default fallback - see own jobs OR if legacy admin account
     else {
-      query = { userId: req.userId };
+      // Legacy accounts without role but with isAdmin should still work
+      if (req.isAdmin) {
+        query = {}; // Admin sees all
+      } else {
+        query = { userId: req.userId };
+      }
     }
 
     // Add search filter if provided
@@ -1766,12 +1771,21 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
 });
 
 // Delete a job
+// Admin/PM can delete any job, others can only delete their own
 app.delete('/api/jobs/:id', authenticateUser, async (req, res) => {
   try {
     console.log('Deleting job by ID:', req.params.id);
-    console.log('User ID from token:', req.userId);
+    console.log('User ID from token:', req.userId, 'isAdmin:', req.isAdmin, 'role:', req.userRole);
 
-    const job = await Job.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    let job;
+    
+    // Admin and PM can delete any job
+    if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
+      job = await Job.findByIdAndDelete(req.params.id);
+    } else {
+      // Others can only delete their own jobs
+      job = await Job.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+    }
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
