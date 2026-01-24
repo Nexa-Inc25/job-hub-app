@@ -536,13 +536,17 @@ const Dashboard = () => {
     const todayStr = getLocalDateString(new Date());
 
     return {
-      // Jobs assigned to GF but not pre-fielded
+      // Jobs actively being pre-fielded (show as cards with flip)
+      preFieldingInProgress: jobs.filter(job => 
+        ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo
+      ),
+      // Jobs assigned to GF but not yet started pre-field (simple list)
       pendingPreField: jobs.filter(job => 
         ['new', 'assigned_to_gf', 'pending'].includes(job.status)
       ),
-      // Pre-fielded but not scheduled with a crew
+      // Needs scheduling - pre-fielded AND has assignedTo but no scheduled date
       needsScheduling: jobs.filter(job => 
-        ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo
+        ['pre_fielding', 'pre-field'].includes(job.status) && !job.crewScheduledDate
       ),
       // Jobs marked as stuck
       stuck: jobs.filter(job => job.status === 'stuck'),
@@ -1241,6 +1245,163 @@ const Dashboard = () => {
       {!loading && !error && (userRole === 'gf' || userRole === 'admin' || userRole === 'pm' || isAdmin) && filter === 'all' && !search ? (
         /* ========== GF CATEGORIZED VIEW ========== */
         <Box>
+          {/* PRE-FIELDING IN PROGRESS - Show as flip cards at the top */}
+          {gfCategories.preFieldingInProgress.length > 0 && (
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ConstructionIcon fontSize="small" color="primary" />
+                Pre-Fielding In Progress ({gfCategories.preFieldingInProgress.length})
+              </Typography>
+              <Grid container spacing={2}>
+                {gfCategories.preFieldingInProgress.map((job) => {
+                  const isFlipped = !!flippedCards[job._id];
+                  const details = jobDetails[job._id] || job;
+                  
+                  return (
+                    <Grid item xs={12} md={6} lg={4} key={job._id}>
+                      <Box sx={{ height: 340, position: 'relative' }}>
+                        {/* FRONT SIDE */}
+                        {!isFlipped && (
+                          <Card sx={{
+                            position: 'absolute',
+                            top: 0, left: 0, width: '100%', height: '100%',
+                            borderRadius: 2, boxShadow: 2,
+                            display: 'flex', flexDirection: 'column',
+                            border: '2px solid',
+                            borderColor: 'primary.main',
+                          }}>
+                            <CardContent sx={{ flexGrow: 1 }}>
+                              <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                                <Box flex={1}>
+                                  <Typography variant="h6" component="h2" gutterBottom sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {job.pmNumber || job.woNumber || job.title || 'Untitled'}
+                                  </Typography>
+                                  {job.address && (
+                                    <Typography variant="body2" color="text.secondary">
+                                      📍 {job.address}
+                                    </Typography>
+                                  )}
+                                </Box>
+                                <Chip label="PRE-FIELDING" color="primary" size="small" />
+                              </Box>
+                              
+                              {/* Workflow Info */}
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {job.userId && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    📝 Created by {job.userId.name || job.userId.email}
+                                  </Typography>
+                                )}
+                                {job.dueDate && (
+                                  <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
+                                    ⏰ Due: {new Date(job.dueDate).toLocaleDateString()}
+                                  </Typography>
+                                )}
+                              </Box>
+                              
+                              {/* Dependencies Preview */}
+                              {job.dependencies && job.dependencies.length > 0 && (
+                                <Box sx={{ mt: 2 }}>
+                                  <Typography variant="caption" color="text.secondary" fontWeight="bold">Dependencies:</Typography>
+                                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                                    {job.dependencies.map((dep, i) => (
+                                      <Chip key={i} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
+                                    ))}
+                                  </Box>
+                                </Box>
+                              )}
+                            </CardContent>
+                            <Divider />
+                            <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                              <Tooltip title="Flip to see checklist">
+                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary">
+                                  <FlipIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                              <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
+                              <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                            </CardActions>
+                          </Card>
+                        )}
+                        
+                        {/* BACK SIDE - Pre-field Checklist */}
+                        {isFlipped && (
+                          <Card sx={{
+                            position: 'absolute',
+                            top: 0, left: 0, width: '100%', height: '100%',
+                            borderRadius: 2, boxShadow: 2,
+                            display: 'flex', flexDirection: 'column',
+                            bgcolor: 'background.paper',
+                          }}>
+                            <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
+                              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                                <Typography variant="subtitle2" fontWeight="bold">
+                                  {job.pmNumber || job.woNumber || job.title}
+                                </Typography>
+                                <Chip label="PRE-FIELD" color="primary" size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
+                              </Box>
+                              
+                              <Typography variant="caption" color="primary" fontWeight="bold" display="flex" alignItems="center" gap={0.5} mb={1}>
+                                <ConstructionIcon fontSize="small" />
+                                Pre-Field Checklist
+                              </Typography>
+                              <Box sx={{ maxHeight: 220, overflow: 'auto' }}>
+                                {preFieldItems.map((item) => {
+                                  const isChecked = preFieldChecklist[job._id]?.[item.key]?.checked || false;
+                                  const notes = preFieldChecklist[job._id]?.[item.key]?.notes || '';
+                                  
+                                  return (
+                                    <Box key={item.key} sx={{ mb: 0.5 }}>
+                                      <FormControlLabel
+                                        control={
+                                          <Checkbox 
+                                            size="small"
+                                            checked={isChecked}
+                                            onChange={(e) => handlePreFieldCheck(job._id, item.key, e.target.checked)}
+                                            sx={{ py: 0 }}
+                                          />
+                                        }
+                                        label={<Typography variant="caption" fontWeight={isChecked ? 'bold' : 'normal'}>{item.label}</Typography>}
+                                        sx={{ m: 0, height: 24 }}
+                                      />
+                                      <Collapse in={isChecked}>
+                                        <TextField
+                                          size="small"
+                                          placeholder={`Details for ${item.label}...`}
+                                          value={notes}
+                                          onChange={(e) => handlePreFieldNotes(job._id, item.key, e.target.value)}
+                                          multiline rows={2} fullWidth
+                                          sx={{ ml: 3, mb: 1, '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 } }}
+                                        />
+                                      </Collapse>
+                                    </Box>
+                                  );
+                                })}
+                              </Box>
+                            </CardContent>
+                            <Divider />
+                            <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                              <Tooltip title="Flip back">
+                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary">
+                                  <FlipIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Button size="small" variant="contained" color="primary" onClick={() => handleSavePreField(job._id)} sx={{ borderRadius: 1, fontSize: '0.7rem' }}>
+                                Save & Schedule
+                              </Button>
+                              <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Full Details</Button>
+                            </CardActions>
+                          </Card>
+                        )}
+                      </Box>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+            </Box>
+          )}
+
           {/* TODAY'S WORK */}
           {renderSectionHeader("Today's Work", <TodayIcon fontSize="small" />, gfCategories.todaysWork.length, 'todaysWork')}
           <Collapse in={expandedSections.todaysWork}>
@@ -1366,7 +1527,7 @@ const Dashboard = () => {
           </Collapse>
 
           {/* PENDING PRE-FIELD */}
-          {renderSectionHeader("Pending Pre-Field", <ConstructionIcon fontSize="small" />, gfCategories.pendingPreField.length, 'pendingPreField')}
+          {renderSectionHeader("Pending Pre-Field", <ScheduleIcon fontSize="small" />, gfCategories.pendingPreField.length, 'pendingPreField')}
           <Collapse in={expandedSections.pendingPreField}>
             {gfCategories.pendingPreField.length === 0 ? (
               <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
@@ -1398,6 +1559,25 @@ const Dashboard = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Button 
+                        size="small" 
+                        variant="outlined"
+                        color="primary"
+                        onClick={async () => {
+                          try {
+                            await api.put(`/api/jobs/${job._id}/status`, { status: 'pre_fielding' });
+                            const response = await api.get('/api/jobs');
+                            setJobs(response.data);
+                            // Initialize checklist for this job
+                            initPreFieldChecklist(job._id);
+                            setSnackbar({ open: true, message: 'Started pre-fielding', severity: 'success' });
+                          } catch (err) {
+                            setSnackbar({ open: true, message: 'Failed to start pre-field', severity: 'error' });
+                          }
+                        }}
+                      >
+                        Start Pre-Field
+                      </Button>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
                       <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
