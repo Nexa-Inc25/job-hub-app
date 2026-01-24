@@ -106,18 +106,6 @@ const Calendar = () => {
     navigate(`/jobs/${jobId}`);
   };
 
-  const getStatusColor = (status) => {
-    const colors = {
-      'pending': '#ff9800',
-      'pre-field': '#2196f3',
-      'in-progress': '#4caf50',
-      'completed': '#9e9e9e',
-      'billed': '#673ab7',
-      'invoiced': '#009688'
-    };
-    return colors[status] || '#757575';
-  };
-
   const getPriorityColor = (priority) => {
     const colors = {
       'emergency': '#f44336',
