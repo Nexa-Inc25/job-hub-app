@@ -4,7 +4,8 @@ import { useParams } from 'react-router-dom';
 import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
-import { TreeView, TreeItem } from '@mui/x-tree-view';
+import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
+import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import api from '../api';
 import PDFEditor from './PDFEditor';
 
@@ -108,12 +109,12 @@ const WorkOrderDetails = ({ jobId: propJobId, token: propToken, userRole, onJobU
     <div style={{ display: 'flex', height: '100%' }}>
       <div style={{ width: '30%', borderRight: '1px solid #ddd', padding: '16px' }}>
         <h2>Folders</h2>
-        <TreeView>
+        <SimpleTreeView>
           {folders.map(folder => (
-            <TreeItem nodeId={`folder-${folder.name}`} label={folder.name} key={`folder-${folder.name}`}>
+            <TreeItem itemId={`folder-${folder.name}`} label={folder.name} key={`folder-${folder.name}`}>
               {folder.documents.map((doc, docIndex) => (
                 <TreeItem
-                  nodeId={`${folder.name}-doc-${docIndex}-${doc.name}`}
+                  itemId={`${folder.name}-doc-${docIndex}-${doc.name}`}
                   label={doc.name}
                   key={`${folder.name}-doc-${docIndex}-${doc.name}`}
                   onClick={() => handleDocClick(folder.name, doc)}
@@ -121,7 +122,7 @@ const WorkOrderDetails = ({ jobId: propJobId, token: propToken, userRole, onJobU
               ))}
             </TreeItem>
           ))}
-        </TreeView>
+        </SimpleTreeView>
       </div>
       <div style={{ flex: 1, padding: '16px' }}>
         <h2>Work Order Details</h2>
