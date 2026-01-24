@@ -66,9 +66,9 @@ const WorkOrderDetails = () => {
   const [depDialogOpen, setDepDialogOpen] = useState(false);
   const [editingDep, setEditingDep] = useState(null);
   const [depForm, setDepForm] = useState({
-    type: 'usa_dig',
+    type: 'usa',
     description: '',
-    status: 'pending',
+    status: 'required',
     scheduledDate: '',
     ticketNumber: '',
     notes: ''
@@ -162,33 +162,38 @@ const WorkOrderDetails = () => {
   // Dependency type helpers
   const getDependencyIcon = (type) => {
     const icons = {
-      'usa_dig': <ConstructionIcon />,
-      'permit': <DescriptionIcon />,
-      'materials': <LocalShippingIcon />,
-      'equipment': <BuildIcon />,
+      'usa': <ConstructionIcon />,
+      'vegetation': <DescriptionIcon />,
       'traffic_control': <SecurityIcon />,
-      'other': <BuildIcon />,
+      'no_parks': <DescriptionIcon />,
+      'cwc': <BuildIcon />,
+      'afw_type': <BuildIcon />,
+      'special_equipment': <LocalShippingIcon />,
+      'civil': <ConstructionIcon />,
     };
     return icons[type] || <BuildIcon />;
   };
 
   const getDependencyLabel = (type) => {
     const labels = {
-      'usa_dig': 'USA Dig',
-      'permit': 'Permit',
-      'materials': 'Materials',
-      'equipment': 'Equipment',
+      'usa': 'USA',
+      'vegetation': 'Vegetation',
       'traffic_control': 'Traffic Control',
-      'other': 'Other',
+      'no_parks': 'No Parks',
+      'cwc': 'CWC',
+      'afw_type': 'AFW Type',
+      'special_equipment': 'Special Equipment',
+      'civil': 'Civil',
     };
     return labels[type] || type;
   };
 
   const getDependencyStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'success';
+      case 'not_required': return 'success';
       case 'scheduled': return 'info';
-      case 'pending': return 'warning';
+      case 'required': return 'warning';
+      case 'check': return 'default';
       default: return 'default';
     }
   };
@@ -200,9 +205,9 @@ const WorkOrderDetails = () => {
       setDependencies([...dependencies, response.data]);
       setDepDialogOpen(false);
       setDepForm({
-        type: 'usa_dig',
+        type: 'usa',
         description: '',
-        status: 'pending',
+        status: 'required',
         scheduledDate: '',
         ticketNumber: '',
         notes: ''
@@ -223,9 +228,9 @@ const WorkOrderDetails = () => {
       setDepDialogOpen(false);
       setEditingDep(null);
       setDepForm({
-        type: 'usa_dig',
+        type: 'usa',
         description: '',
-        status: 'pending',
+        status: 'required',
         scheduledDate: '',
         ticketNumber: '',
         notes: ''
@@ -687,9 +692,9 @@ const WorkOrderDetails = () => {
                       onClick={() => {
                         setEditingDep(null);
                         setDepForm({
-                          type: 'usa_dig',
+                          type: 'usa',
                           description: '',
-                          status: 'pending',
+                          status: 'required',
                           scheduledDate: '',
                           ticketNumber: '',
                           notes: ''
@@ -882,12 +887,14 @@ const WorkOrderDetails = () => {
                 onChange={(e) => setDepForm({ ...depForm, type: e.target.value })}
                 label="Type"
               >
-                <MenuItem value="usa_dig">USA Dig</MenuItem>
-                <MenuItem value="permit">Permit</MenuItem>
-                <MenuItem value="materials">Materials</MenuItem>
-                <MenuItem value="equipment">Equipment</MenuItem>
+                <MenuItem value="usa">USA</MenuItem>
+                <MenuItem value="vegetation">Vegetation</MenuItem>
                 <MenuItem value="traffic_control">Traffic Control</MenuItem>
-                <MenuItem value="other">Other</MenuItem>
+                <MenuItem value="no_parks">No Parks</MenuItem>
+                <MenuItem value="cwc">CWC</MenuItem>
+                <MenuItem value="afw_type">AFW Type</MenuItem>
+                <MenuItem value="special_equipment">Special Equipment</MenuItem>
+                <MenuItem value="civil">Civil</MenuItem>
               </Select>
             </FormControl>
             
@@ -898,9 +905,10 @@ const WorkOrderDetails = () => {
                 onChange={(e) => setDepForm({ ...depForm, status: e.target.value })}
                 label="Status"
               >
-                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="required">Required</MenuItem>
+                <MenuItem value="check">Check</MenuItem>
                 <MenuItem value="scheduled">Scheduled</MenuItem>
-                <MenuItem value="completed">Completed</MenuItem>
+                <MenuItem value="not_required">Not Required</MenuItem>
               </Select>
             </FormControl>
             

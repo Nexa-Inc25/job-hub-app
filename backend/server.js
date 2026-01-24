@@ -24,6 +24,7 @@ const OpenAI = require('openai');
 const sharp = require('sharp');
 const heicConvert = require('heic-convert');
 const aiDataCapture = require('./utils/aiDataCapture');
+const documentAutoFill = require('./utils/documentAutoFill');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -2683,7 +2684,7 @@ app.post('/api/jobs/:id/dependencies', authenticateUser, async (req, res) => {
     const newDep = {
       type,
       description: description || '',
-      status: 'pending',
+      status: 'required',
       scheduledDate: scheduledDate || null,
       ticketNumber: ticketNumber || '',
       notes: notes || ''
@@ -2808,6 +2809,41 @@ app.post('/api/jobs/:id/capture-form', authenticateUser, async (req, res) => {
   } catch (err) {
     console.error('Capture form error:', err);
     res.status(500).json({ error: 'Failed to capture form data' });
+  }
+});
+
+// === DOCUMENT AUTO-FILL ENDPOINTS ===
+
+// Get auto-fill values for a document type
+app.get('/api/jobs/:id/autofill/:documentType', authenticateUser, async (req, res) => {
+  try {
+    const { id, documentType } = req.params;
+    
+    const autoFillResult = await documentAutoFill.generateAutoFill(
+      documentType.toUpperCase(),
+      id,
+      req.userId
+    );
+    
+    if (autoFillResult.error) {
+      return res.status(400).json({ error: autoFillResult.error });
+    }
+    
+    res.json(autoFillResult);
+  } catch (err) {
+    console.error('Auto-fill error:', err);
+    res.status(500).json({ error: 'Failed to generate auto-fill' });
+  }
+});
+
+// Get available document types for auto-fill
+app.get('/api/autofill/document-types', authenticateUser, async (req, res) => {
+  try {
+    const types = documentAutoFill.getDocumentTypes();
+    res.json(types);
+  } catch (err) {
+    console.error('Get document types error:', err);
+    res.status(500).json({ error: 'Failed to get document types' });
   }
 });
 

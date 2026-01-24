@@ -108,9 +108,9 @@ const jobSchema = new mongoose.Schema({
   
   // Dependencies tracking (GF manages)
   dependencies: [{
-    type: { type: String, enum: ['usa_dig', 'permit', 'materials', 'equipment', 'traffic_control', 'other'] },
+    type: { type: String, enum: ['usa', 'vegetation', 'traffic_control', 'no_parks', 'cwc', 'afw_type', 'special_equipment', 'civil'] },
     description: String,
-    status: { type: String, enum: ['pending', 'scheduled', 'completed'], default: 'pending' },
+    status: { type: String, enum: ['required', 'check', 'scheduled', 'not_required'], default: 'required' },
     scheduledDate: Date,
     completedDate: Date,
     ticketNumber: String,  // For USA dig tickets, permits, etc.

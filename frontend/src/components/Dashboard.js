@@ -183,33 +183,38 @@ const Dashboard = () => {
   // Format dependency status
   const getDependencyStatusColor = (status) => {
     switch (status) {
-      case 'completed': return 'success';
+      case 'not_required': return 'success';
       case 'scheduled': return 'info';
-      case 'pending': return 'warning';
+      case 'required': return 'warning';
+      case 'check': return 'default';
       default: return 'default';
     }
   };
 
   const getDependencyTypeLabel = (type) => {
     const labels = {
-      'usa_dig': 'USA Dig',
-      'permit': 'Permit',
-      'materials': 'Materials',
-      'equipment': 'Equipment',
+      'usa': 'USA',
+      'vegetation': 'Vegetation',
       'traffic_control': 'Traffic Control',
-      'other': 'Other'
+      'no_parks': 'No Parks',
+      'cwc': 'CWC',
+      'afw_type': 'AFW Type',
+      'special_equipment': 'Special Equipment',
+      'civil': 'Civil'
     };
     return labels[type] || type;
   };
 
   // Pre-field checklist items
   const preFieldItems = [
-    { key: 'usa_dig', label: 'USA Dig Required', description: 'Underground utility locate needed' },
+    { key: 'usa', label: 'USA', description: 'Underground utility locate needed' },
+    { key: 'vegetation', label: 'Vegetation', description: 'Vegetation management needed' },
     { key: 'traffic_control', label: 'Traffic Control', description: 'TC plan or flaggers needed' },
-    { key: 'permit', label: 'Permit Required', description: 'City/county permit needed' },
-    { key: 'civil', label: 'Civil Work', description: 'Trenching, boring, or excavation' },
-    { key: 'materials', label: 'Special Materials', description: 'Materials need to be ordered' },
-    { key: 'equipment', label: 'Heavy Equipment', description: 'Backhoe, crane, etc. needed' },
+    { key: 'no_parks', label: 'No Parks', description: 'No parks restriction applies' },
+    { key: 'cwc', label: 'CWC', description: 'CWC coordination required' },
+    { key: 'afw_type', label: 'AFW Type', description: 'AFW type specification (if CWC)' },
+    { key: 'special_equipment', label: 'Special Equipment', description: 'Special equipment needed' },
+    { key: 'civil', label: 'Civil', description: 'Trenching, boring, or excavation' },
   ];
 
   // Initialize pre-field checklist for a job
