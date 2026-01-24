@@ -151,16 +151,22 @@ const JobFileSystem = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Poll for extraction completion if not yet complete
+  // Poll for extraction completion if extraction is actively in progress
+  // Only poll if aiExtractionStarted is set but aiExtractionComplete is false
   useEffect(() => {
-    if (!job || job.aiExtractionComplete) return;
+    // Don't poll if:
+    // - No job loaded
+    // - Extraction is already complete
+    // - Extraction was never started (old jobs or jobs without PDF upload)
+    if (!job) return;
+    if (job.aiExtractionComplete === true) return;
+    if (!job.aiExtractionStarted) return; // Only poll if extraction was actually started
+    
+    console.log('Starting extraction poll for job:', job._id);
     
     const pollInterval = setInterval(async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await api.get(`/api/jobs/${job._id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await api.get(`/api/jobs/${job._id}`);
         const updatedJob = response.data;
         
         if (updatedJob.aiExtractionComplete) {
@@ -172,12 +178,23 @@ const JobFileSystem = () => {
         }
       } catch (err) {
         console.error('Error polling for extraction:', err);
+        // Stop polling on error to prevent infinite loops
+        clearInterval(pollInterval);
       }
-    }, 3000); // Poll every 3 seconds
+    }, 5000); // Poll every 5 seconds (was 3, increased to reduce load)
     
-    return () => clearInterval(pollInterval);
+    // Stop polling after 5 minutes max (extraction shouldn't take longer)
+    const timeout = setTimeout(() => {
+      console.log('Extraction polling timeout - stopping');
+      clearInterval(pollInterval);
+    }, 5 * 60 * 1000);
+    
+    return () => {
+      clearInterval(pollInterval);
+      clearTimeout(timeout);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?._id, job?.aiExtractionComplete]);
+  }, [job?._id, job?.aiExtractionStarted, job?.aiExtractionComplete]);
 
   const handleJobChange = (event, newValue) => {
     if (newValue) {
