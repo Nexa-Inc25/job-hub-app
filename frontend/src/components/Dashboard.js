@@ -100,6 +100,8 @@ const Dashboard = () => {
   const [stuckDialogOpen, setStuckDialogOpen] = useState(false);
   const [stuckReason, setStuckReason] = useState('');
   const [stuckJobId, setStuckJobId] = useState(null);
+  const [depScheduleDialogOpen, setDepScheduleDialogOpen] = useState(false);
+  const [depScheduleData, setDepScheduleData] = useState({ jobId: null, depId: null, date: '' });
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
@@ -382,13 +384,24 @@ const Dashboard = () => {
     }
   };
 
-  // Cycle dependency status on click: required → scheduled → not_required → required
+  // Cycle dependency status on click: required → scheduled (with date picker) → not_required → required
   const handleDependencyStatusClick = async (jobId, depId, currentStatus, e) => {
     e.stopPropagation(); // Prevent card flip
     
     const statusCycle = ['required', 'scheduled', 'not_required'];
     const currentIndex = statusCycle.indexOf(currentStatus);
     const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
+    
+    // If moving to 'scheduled', open date picker dialog
+    if (nextStatus === 'scheduled') {
+      setDepScheduleData({ 
+        jobId, 
+        depId, 
+        date: new Date().toISOString().split('T')[0] // Default to today
+      });
+      setDepScheduleDialogOpen(true);
+      return;
+    }
     
     try {
       await api.put(`/api/jobs/${jobId}/dependencies/${depId}`, { status: nextStatus });
@@ -399,7 +412,7 @@ const Dashboard = () => {
         [jobId]: {
           ...prev[jobId],
           dependencies: prev[jobId]?.dependencies?.map(dep => 
-            dep._id === depId ? { ...dep, status: nextStatus } : dep
+            dep._id === depId ? { ...dep, status: nextStatus, scheduledDate: null } : dep
           )
         }
       }));
@@ -412,6 +425,44 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Update dependency error:', err);
       setSnackbar({ open: true, message: 'Failed to update status', severity: 'error' });
+    }
+  };
+
+  // Save scheduled dependency with date
+  const handleSaveDepSchedule = async () => {
+    const { jobId, depId, date } = depScheduleData;
+    if (!jobId || !depId || !date) return;
+    
+    try {
+      // Create date at noon local time to avoid timezone issues
+      const scheduledDate = new Date(date + 'T12:00:00');
+      
+      await api.put(`/api/jobs/${jobId}/dependencies/${depId}`, { 
+        status: 'scheduled',
+        scheduledDate: scheduledDate.toISOString()
+      });
+      
+      // Update local cache
+      setJobDetails(prev => ({
+        ...prev,
+        [jobId]: {
+          ...prev[jobId],
+          dependencies: prev[jobId]?.dependencies?.map(dep => 
+            dep._id === depId ? { ...dep, status: 'scheduled', scheduledDate: scheduledDate.toISOString() } : dep
+          )
+        }
+      }));
+      
+      setSnackbar({ 
+        open: true, 
+        message: `Scheduled for ${new Date(scheduledDate).toLocaleDateString()}`, 
+        severity: 'success' 
+      });
+      setDepScheduleDialogOpen(false);
+      setDepScheduleData({ jobId: null, depId: null, date: '' });
+    } catch (err) {
+      console.error('Schedule dependency error:', err);
+      setSnackbar({ open: true, message: 'Failed to schedule dependency', severity: 'error' });
     }
   };
 
@@ -2056,6 +2107,43 @@ const Dashboard = () => {
             disabled={!stuckReason.trim()}
           >
             Mark as Stuck
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Schedule Dependency Dialog */}
+      <Dialog open={depScheduleDialogOpen} onClose={() => setDepScheduleDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CalendarIcon color="primary" />
+            Schedule Dependency
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            When is this scheduled for?
+          </Typography>
+          <TextField
+            id="depScheduleDate"
+            name="depScheduleDate"
+            label="Scheduled Date"
+            type="date"
+            value={depScheduleData.date}
+            onChange={(e) => setDepScheduleData({ ...depScheduleData, date: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            fullWidth
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDepScheduleDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleSaveDepSchedule} 
+            variant="contained" 
+            startIcon={<CalendarIcon />}
+            disabled={!depScheduleData.date}
+          >
+            Schedule
           </Button>
         </DialogActions>
       </Dialog>
