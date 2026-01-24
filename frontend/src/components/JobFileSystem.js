@@ -79,6 +79,7 @@ const JobFileSystem = () => {
   // Admin/approval state
   const [isAdmin, setIsAdmin] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
+  // eslint-disable-next-line no-unused-vars
   const [userRole, setUserRole] = useState(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');

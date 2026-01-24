@@ -6,7 +6,6 @@ import {
   Container,
   Typography,
   Box,
-  Paper,
   Grid,
   Card,
   CardContent,
@@ -27,9 +26,7 @@ import {
   MenuItem,
   List,
   ListItem,
-  ListItemText,
   ListItemIcon,
-  ListItemSecondaryAction,
   Tooltip,
   CircularProgress,
   AppBar,
@@ -55,12 +52,9 @@ import {
   Folder as FolderIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { useThemeMode } from '../ThemeContext';
-
 const WorkOrderDetails = () => {
   const { id: jobId } = useParams();
   const navigate = useNavigate();
-  const { darkMode } = useThemeMode();
   
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -85,24 +79,9 @@ const WorkOrderDetails = () => {
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('update');
   
-  // User info
-  const [userRole, setUserRole] = useState(null);
-  const [canApprove, setCanApprove] = useState(false);
-
-  // Fetch user role from token
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUserRole(payload.role || null);
-        setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
-      } catch (e) {
-        setUserRole(null);
-        setCanApprove(false);
-      }
-    }
-  }, []);
+  // User info - reserved for future role-based features
+  // const [userRole, setUserRole] = useState(null);
+  // const [canApprove, setCanApprove] = useState(false);
 
   // Fetch job details
   const fetchJobDetails = useCallback(async () => {
