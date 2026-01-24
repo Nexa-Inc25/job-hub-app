@@ -143,6 +143,8 @@ const authenticateUser = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
     req.isAdmin = decoded.isAdmin || false;
+    req.userRole = decoded.role || null;  // crew, foreman, gf, pm, admin
+    req.canApprove = decoded.canApprove || false;
     next();
   } catch (err) {
     res.status(401).json({ error: 'Invalid token' });
@@ -606,30 +608,73 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
 
 // Protect jobs route - this applies to all /api/jobs/* routes defined below
 // All /api/jobs routes require authentication
+// Role-based filtering:
+//   - Admin/PM: See all jobs in their company
+//   - GF: See jobs assigned to them for pre-field/review
+//   - Foreman/Crew: See only jobs assigned to them
 app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
-    console.log('GET /api/jobs - userId:', req.userId);
-    const { search } = req.query;
-    // Always filter by authenticated user for data isolation
-    let query = { userId: req.userId };
+    console.log('GET /api/jobs - userId:', req.userId, 'role:', req.userRole, 'isAdmin:', req.isAdmin);
+    const { search, view } = req.query;
+    
+    // Build query based on user role
+    let query = {};
+    
+    // Admin and PM see all jobs (in their company eventually)
+    if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
+      // For now, admins see all jobs they created OR are in their company
+      // Once multi-tenant is fully implemented, filter by companyId
+      query = {}; // See all jobs
+    } 
+    // GF sees jobs assigned to them for pre-field/review, plus jobs they need to assign crews to
+    else if (req.userRole === 'gf') {
+      query = {
+        $or: [
+          { assignedToGF: req.userId },  // Jobs assigned to this GF
+          { userId: req.userId }          // Jobs they created (if any)
+        ]
+      };
+    }
+    // Foreman/Crew only sees jobs assigned to them
+    else if (req.userRole === 'foreman' || req.userRole === 'crew') {
+      query = {
+        $or: [
+          { assignedTo: req.userId },     // Jobs assigned to this foreman
+          { userId: req.userId }           // Jobs they created (unlikely but safe)
+        ]
+      };
+    }
+    // Default fallback - only see own jobs
+    else {
+      query = { userId: req.userId };
+    }
 
+    // Add search filter if provided
     if (search) {
-      // Escape regex special characters to treat search as literal string
       const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const searchRegex = new RegExp(escapedSearch, 'i');
       query = {
-        userId: req.userId,
-        $or: [
-          { title: searchRegex },
-          { pmNumber: searchRegex },
-          { woNumber: searchRegex },
-          { notificationNumber: searchRegex },
-          { address: searchRegex },
-          { city: searchRegex },
-          { client: searchRegex },
-          { description: searchRegex }
-        ]
+        ...query,
+        $and: [
+          query.$or ? { $or: query.$or } : {},
+          {
+            $or: [
+              { title: searchRegex },
+              { pmNumber: searchRegex },
+              { woNumber: searchRegex },
+              { notificationNumber: searchRegex },
+              { address: searchRegex },
+              { city: searchRegex },
+              { client: searchRegex },
+              { description: searchRegex }
+            ]
+          }
+        ].filter(q => Object.keys(q).length > 0)
       };
+      // Clean up the query structure
+      if (query.$and && query.$and.length > 0) {
+        delete query.$or;
+      }
     }
 
     // Only fetch fields needed for dashboard listing - exclude large nested folders/documents
@@ -637,7 +682,7 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
       .select('-folders') // Exclude folders array which contains all documents
       .sort({ createdAt: -1 })
       .lean(); // Use lean() for faster read-only queries
-    console.log('GET /api/jobs - returning', jobs.length, 'jobs');
+    console.log('GET /api/jobs - returning', jobs.length, 'jobs for role:', req.userRole || 'unknown');
     res.json(jobs);
   } catch (err) {
     console.error('Error fetching jobs:', err);

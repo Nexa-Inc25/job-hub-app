@@ -78,18 +78,21 @@ const Dashboard = () => {
     assignmentNotes: ''
   });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
-  // Check if user is admin
+  // Check user role from token
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setIsAdmin(payload.isAdmin || false);
+        setUserRole(payload.role || null);
       } catch (e) {
         setIsAdmin(false);
+        setUserRole(null);
       }
     }
   }, []);
@@ -466,10 +469,18 @@ const Dashboard = () => {
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
           <Box>
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-              Work Order Dashboard
+              {userRole === 'foreman' || userRole === 'crew' 
+                ? 'My Assigned Jobs' 
+                : userRole === 'gf' 
+                  ? 'Jobs to Pre-Field & Review' 
+                  : 'Work Order Dashboard'}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              Manage and track your work orders with AI-powered automation
+              {userRole === 'foreman' || userRole === 'crew'
+                ? 'Your scheduled work and assigned jobs'
+                : userRole === 'gf'
+                  ? 'Pre-field, schedule, and review crew work'
+                  : 'Manage and track your work orders with AI-powered automation'}
             </Typography>
           </Box>
 
