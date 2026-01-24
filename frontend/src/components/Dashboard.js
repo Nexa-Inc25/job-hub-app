@@ -79,6 +79,8 @@ const Dashboard = () => {
   });
   const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
+  const [canApprove, setCanApprove] = useState(false);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
@@ -90,12 +92,31 @@ const Dashboard = () => {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setIsAdmin(payload.isAdmin || false);
         setUserRole(payload.role || null);
+        setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
       } catch (e) {
         setIsAdmin(false);
         setUserRole(null);
+        setCanApprove(false);
       }
     }
   }, []);
+
+  // Fetch pending approvals for GF/PM/Admin
+  const fetchPendingApprovals = useCallback(async () => {
+    if (!canApprove) return;
+    try {
+      const response = await api.get('/api/admin/pending-approvals');
+      setPendingApprovals(response.data || []);
+    } catch (err) {
+      console.error('Error fetching pending approvals:', err);
+    }
+  }, [canApprove]);
+
+  useEffect(() => {
+    if (canApprove) {
+      fetchPendingApprovals();
+    }
+  }, [canApprove, fetchPendingApprovals]);
 
   // Fetch foremen list for assignment
   const fetchForemen = async () => {
@@ -598,6 +619,33 @@ const Dashboard = () => {
             </Button>
           </Box>
         </Box>
+
+      {/* Pending Approvals Alert - for GF/PM/Admin */}
+      {canApprove && pendingApprovals.length > 0 && (
+        <Alert 
+          severity="warning" 
+          sx={{ mb: 3, borderRadius: 2 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small"
+              onClick={() => {
+                // Navigate to first job with pending approval
+                if (pendingApprovals[0]?.jobId) {
+                  navigate(`/jobs/${pendingApprovals[0].jobId}/files`);
+                }
+              }}
+            >
+              Review Now
+            </Button>
+          }
+        >
+          <Typography variant="body2">
+            <strong>{pendingApprovals.length} document{pendingApprovals.length > 1 ? 's' : ''} awaiting approval</strong>
+            {' '}- Draft documents need GF/PM review before submission
+          </Typography>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={3} mb={4}>
