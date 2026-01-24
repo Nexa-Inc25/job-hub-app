@@ -62,13 +62,62 @@ const jobSchema = new mongoose.Schema({
   orderType: String,
   division: { type: String, default: 'DA' },
   matCode: String,
-  status: { type: String, enum: ['pending', 'pre-field', 'in-progress', 'completed', 'billed', 'invoiced'], default: 'pending' },
+  // Job status workflow:
+  // new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
+  // pending_gf_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced
+  status: { 
+    type: String, 
+    enum: [
+      'new',                  // Just received from utility, PM needs to review
+      'assigned_to_gf',       // PM assigned to General Foreman
+      'pre_fielding',         // GF is pre-fielding (site visit, assessing)
+      'scheduled',            // GF scheduled crew and dependencies
+      'in_progress',          // Crew is working on the job
+      'pending_gf_review',    // Crew submitted, waiting for GF review
+      'pending_pm_approval',  // GF approved, waiting for PM final approval
+      'ready_to_submit',      // PM approved, ready to submit to utility
+      'submitted',            // Submitted to utility
+      'billed',               // Invoice sent
+      'invoiced',             // Payment received
+      // Legacy statuses for backwards compatibility
+      'pending',              // (legacy) maps to 'new'
+      'pre-field',            // (legacy) maps to 'pre_fielding'
+      'completed'             // (legacy) maps to 'ready_to_submit'
+    ], 
+    default: 'new' 
+  },
   priority: { type: String, enum: ['low', 'medium', 'high', 'emergency'], default: 'medium' },
   // Due date from job package - when work must be completed by
   dueDate: Date,
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },  // PM who received the job
   folders: [folderSchema],
   isEmergency: { type: Boolean, default: false },
+  
+  // === WORKFLOW TRACKING ===
+  // GF assignment (PM assigns to GF)
+  assignedToGF: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  assignedToGFDate: Date,
+  assignedToGFBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  
+  // Pre-field data (GF fills out)
+  preFieldDate: Date,
+  preFieldNotes: String,
+  preFieldPhotos: [String],  // URLs to pre-field photos
+  siteConditions: String,
+  
+  // Dependencies tracking (GF manages)
+  dependencies: [{
+    type: { type: String, enum: ['usa_dig', 'permit', 'materials', 'equipment', 'traffic_control', 'other'] },
+    description: String,
+    status: { type: String, enum: ['pending', 'scheduled', 'completed'], default: 'pending' },
+    scheduledDate: Date,
+    completedDate: Date,
+    ticketNumber: String,  // For USA dig tickets, permits, etc.
+    notes: String
+  }],
+  
+  // Crew assignment (GF assigns crew)
+  // (existing fields: assignedTo, assignedBy, assignedDate, crewScheduledDate, etc.)
   
   // === MULTI-TENANT FIELDS (optional for backwards compatibility) ===
   // Which company owns this job
@@ -96,10 +145,30 @@ const jobSchema = new mongoose.Schema({
   crewScheduledDate: Date,                                             // When crew is scheduled to work
   crewScheduledEndDate: Date,                                          // End date for multi-day jobs
   assignmentNotes: String,                                             // Special instructions
-  // GF Pre-field data
+  // GF Pre-field data (bid/estimate)
   bidAmount: Number,
   bidNotes: String,
+  estimatedHours: Number,
   crewSize: Number,
+  
+  // === REVIEW & APPROVAL WORKFLOW ===
+  // Crew submission
+  crewSubmittedDate: Date,
+  crewSubmittedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  crewSubmissionNotes: String,
+  
+  // GF Review
+  gfReviewDate: Date,
+  gfReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  gfReviewStatus: { type: String, enum: ['approved', 'rejected', 'revision_requested', null], default: null },
+  gfReviewNotes: String,
+  
+  // PM Final Approval  
+  pmApprovalDate: Date,
+  pmApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  pmApprovalStatus: { type: String, enum: ['approved', 'rejected', 'revision_requested', null], default: null },
+  pmApprovalNotes: String,
+  
   // Completion tracking
   completedDate: Date,
   completedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

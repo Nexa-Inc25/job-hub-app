@@ -459,7 +459,44 @@ app.get('/api/users/foremen', authenticateUser, async (req, res) => {
 
 // ==================== JOB ASSIGNMENT ENDPOINTS ====================
 
-// Assign a job to a foreman (Admin/GF only)
+// PM assigns job to GF
+app.put('/api/jobs/:id/assign-gf', authenticateUser, async (req, res) => {
+  try {
+    const { assignedToGF, notes } = req.body;
+    
+    // Only PM/Admin can assign to GF
+    const user = await User.findById(req.userId);
+    if (!user?.isAdmin && !['pm', 'admin'].includes(user?.role)) {
+      return res.status(403).json({ error: 'Only PM or Admin can assign jobs to GF' });
+    }
+    
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    job.assignedToGF = assignedToGF;
+    job.assignedToGFBy = req.userId;
+    job.assignedToGFDate = new Date();
+    if (notes) job.assignmentNotes = notes;
+    
+    // Update status
+    if (['new', 'pending'].includes(job.status)) {
+      job.status = 'assigned_to_gf';
+    }
+    
+    await job.save();
+    await job.populate('assignedToGF', 'name email');
+    
+    console.log(`Job ${job.pmNumber || job._id} assigned to GF ${assignedToGF}`);
+    res.json({ message: 'Job assigned to GF', job });
+  } catch (err) {
+    console.error('Error assigning to GF:', err);
+    res.status(500).json({ error: 'Failed to assign to GF', details: err.message });
+  }
+});
+
+// GF assigns crew to job (existing endpoint, updated for new workflow)
 app.put('/api/jobs/:id/assign', authenticateUser, requireAdmin, async (req, res) => {
   try {
     console.log('Assignment request:', req.params.id, req.body);
@@ -480,9 +517,14 @@ app.put('/api/jobs/:id/assign', authenticateUser, requireAdmin, async (req, res)
     job.crewScheduledEndDate = crewScheduledEndDate ? new Date(crewScheduledEndDate) : null;
     job.assignmentNotes = assignmentNotes || '';
     
-    // Update status to pre-field if being assigned
-    if (assignedTo && job.status === 'pending') {
-      job.status = 'pre-field';
+    // Update status based on current state
+    if (assignedTo) {
+      if (['new', 'pending', 'assigned_to_gf', 'pre_fielding'].includes(job.status)) {
+        job.status = 'scheduled';
+      } else if (job.status === 'pre-field') {
+        // Legacy status
+        job.status = 'scheduled';
+      }
     }
     
     await job.save();
@@ -491,7 +533,7 @@ app.put('/api/jobs/:id/assign', authenticateUser, requireAdmin, async (req, res)
     await job.populate('assignedTo', 'name email');
     await job.populate('assignedBy', 'name email');
     
-    console.log(`Job ${job.pmNumber || job._id} assigned to user ${assignedTo} for ${crewScheduledDate}`);
+    console.log(`Job ${job.pmNumber || job._id} assigned to crew ${assignedTo} for ${crewScheduledDate}`);
     res.json(job);
   } catch (err) {
     console.error('Error assigning job:', err.message);
@@ -2144,44 +2186,218 @@ app.put('/api/jobs/:id/documents/:docId', authenticateUser, async (req, res) => 
   }
 });
 
-// Update job status (for workflow: pending -> pre-field -> in-progress -> completed -> billed -> invoiced)
+// Update job status - Full workflow:
+// new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
+// pending_gf_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced
 app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, bidAmount, bidNotes, crewSize, crewScheduledDate } = req.body;
+    const { 
+      status, 
+      bidAmount, 
+      bidNotes, 
+      estimatedHours,
+      crewSize, 
+      crewScheduledDate,
+      preFieldNotes,
+      siteConditions,
+      submissionNotes,
+      reviewNotes
+    } = req.body;
     
-    // Allow job creator OR assigned foreman/crew to update status
+    // Get current user's role
+    const user = await User.findById(req.userId);
+    const userRole = user?.role || 'crew';
+    const isAdmin = user?.isAdmin || ['pm', 'admin'].includes(userRole);
+    const isGF = ['gf', 'pm', 'admin'].includes(userRole);
+    
+    // Allow job creator, assigned GF, assigned crew, or admin to update
     const job = await Job.findOne({
       _id: id,
       $or: [
         { userId: req.userId },
-        { assignedTo: req.userId }
+        { assignedToGF: req.userId },
+        { assignedTo: req.userId },
+        ...(isAdmin ? [{ _id: id }] : [])  // Admins can update any job
       ]
     });
     if (!job) {
       return res.status(404).json({ error: 'Job not found or not authorized' });
     }
     
+    const oldStatus = job.status;
+    
+    // Update fields based on what was provided
     if (status) job.status = status;
     if (bidAmount !== undefined) job.bidAmount = bidAmount;
     if (bidNotes !== undefined) job.bidNotes = bidNotes;
+    if (estimatedHours !== undefined) job.estimatedHours = estimatedHours;
     if (crewSize !== undefined) job.crewSize = crewSize;
     if (crewScheduledDate !== undefined) job.crewScheduledDate = crewScheduledDate;
+    if (preFieldNotes !== undefined) job.preFieldNotes = preFieldNotes;
+    if (siteConditions !== undefined) job.siteConditions = siteConditions;
     
-    if (status === 'completed') {
-      job.completedDate = new Date();
-      job.completedBy = req.userId;
-    } else if (status === 'billed') {
-      job.billedDate = new Date();
-    } else if (status === 'invoiced') {
-      job.invoicedDate = new Date();
+    // Handle status-specific updates
+    switch (status) {
+      case 'assigned_to_gf':
+        // PM assigned job to GF
+        if (!job.assignedToGFDate) {
+          job.assignedToGFDate = new Date();
+          job.assignedToGFBy = req.userId;
+        }
+        break;
+        
+      case 'pre_fielding':
+        // GF started pre-fielding
+        if (!job.preFieldDate) {
+          job.preFieldDate = new Date();
+        }
+        break;
+        
+      case 'scheduled':
+        // GF scheduled the job
+        break;
+        
+      case 'in_progress':
+        // Crew started work
+        break;
+        
+      case 'pending_gf_review':
+        // Crew submitted work for GF review
+        job.crewSubmittedDate = new Date();
+        job.crewSubmittedBy = req.userId;
+        if (submissionNotes) job.crewSubmissionNotes = submissionNotes;
+        break;
+        
+      case 'pending_pm_approval':
+        // GF approved, moving to PM review
+        job.gfReviewDate = new Date();
+        job.gfReviewedBy = req.userId;
+        job.gfReviewStatus = 'approved';
+        if (reviewNotes) job.gfReviewNotes = reviewNotes;
+        break;
+        
+      case 'ready_to_submit':
+        // PM approved, ready for utility submission
+        job.pmApprovalDate = new Date();
+        job.pmApprovedBy = req.userId;
+        job.pmApprovalStatus = 'approved';
+        if (reviewNotes) job.pmApprovalNotes = reviewNotes;
+        job.completedDate = new Date();
+        job.completedBy = req.userId;
+        break;
+        
+      case 'submitted':
+        // Submitted to utility
+        job.utilitySubmittedDate = new Date();
+        job.utilityVisible = true;
+        job.utilityStatus = 'submitted';
+        break;
+        
+      case 'billed':
+        job.billedDate = new Date();
+        break;
+        
+      case 'invoiced':
+        job.invoicedDate = new Date();
+        break;
+        
+      // Legacy status mappings
+      case 'pending':
+        job.status = 'new';
+        break;
+      case 'pre-field':
+        job.status = 'pre_fielding';
+        break;
+      case 'completed':
+        job.status = 'ready_to_submit';
+        job.completedDate = new Date();
+        job.completedBy = req.userId;
+        break;
     }
     
     await job.save();
-    res.json({ message: 'Job status updated', job });
+    
+    console.log(`Job ${job.pmNumber || job._id} status: ${oldStatus} → ${job.status}`);
+    res.json({ message: 'Job status updated', job, previousStatus: oldStatus });
   } catch (err) {
     console.error('Status update error:', err);
     res.status(500).json({ error: 'Status update failed', details: err.message });
+  }
+});
+
+// GF/PM Review endpoint - approve or reject crew submission
+app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, notes } = req.body;  // action: 'approve', 'reject', 'request_revision'
+    
+    const user = await User.findById(req.userId);
+    const userRole = user?.role || 'crew';
+    const canReview = user?.canApprove || ['gf', 'pm', 'admin'].includes(userRole);
+    
+    if (!canReview) {
+      return res.status(403).json({ error: 'You do not have permission to review jobs' });
+    }
+    
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const isGF = ['gf'].includes(userRole) || job.assignedToGF?.toString() === req.userId;
+    const isPM = ['pm', 'admin'].includes(userRole) || job.userId?.toString() === req.userId;
+    
+    // Determine which review stage we're in
+    if (job.status === 'pending_gf_review' && (isGF || isPM)) {
+      // GF reviewing crew submission
+      job.gfReviewDate = new Date();
+      job.gfReviewedBy = req.userId;
+      job.gfReviewNotes = notes;
+      
+      if (action === 'approve') {
+        job.gfReviewStatus = 'approved';
+        job.status = 'pending_pm_approval';
+      } else if (action === 'reject') {
+        job.gfReviewStatus = 'rejected';
+        job.status = 'in_progress';  // Send back to crew
+      } else if (action === 'request_revision') {
+        job.gfReviewStatus = 'revision_requested';
+        job.status = 'in_progress';
+      }
+    } else if (job.status === 'pending_pm_approval' && isPM) {
+      // PM final approval
+      job.pmApprovalDate = new Date();
+      job.pmApprovedBy = req.userId;
+      job.pmApprovalNotes = notes;
+      
+      if (action === 'approve') {
+        job.pmApprovalStatus = 'approved';
+        job.status = 'ready_to_submit';
+        job.completedDate = new Date();
+        job.completedBy = req.userId;
+      } else if (action === 'reject') {
+        job.pmApprovalStatus = 'rejected';
+        job.status = 'pending_gf_review';  // Send back to GF
+      } else if (action === 'request_revision') {
+        job.pmApprovalStatus = 'revision_requested';
+        job.status = 'pending_gf_review';
+      }
+    } else {
+      return res.status(400).json({ 
+        error: 'Job is not in a reviewable state or you are not the appropriate reviewer',
+        currentStatus: job.status,
+        yourRole: userRole
+      });
+    }
+    
+    await job.save();
+    
+    console.log(`Job ${job.pmNumber || job._id} reviewed: ${action} by ${user.email}`);
+    res.json({ message: `Job ${action}d successfully`, job });
+  } catch (err) {
+    console.error('Review error:', err);
+    res.status(500).json({ error: 'Review failed', details: err.message });
   }
 });
 
