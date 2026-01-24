@@ -1547,13 +1547,49 @@ const Dashboard = () => {
                           </Typography>
                         )}
 
-                        <Box display="flex" justifyContent="space-between" alignItems="center">
-                          <Typography variant="caption" color="text.secondary">
-                            Created: {formatDate(job.createdAt)}
+                        {/* Workflow Info */}
+                        <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {/* Created By */}
+                          <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
+                            📝 Created: {formatDate(job.createdAt)}
+                            {job.userId && (
+                              <span style={{ fontWeight: 'bold' }}>
+                                {' '}by {job.userId.name || job.userId.email || 'Unknown'}
+                                {job.userId._id && <span style={{ opacity: 0.6 }}> ({job.userId._id.toString().slice(-6)})</span>}
+                              </span>
+                            )}
                           </Typography>
+                          
+                          {/* Pre-fielded By */}
+                          {job.preFieldDate && (
+                            <Typography variant="caption" color="info.main" display="flex" alignItems="center" gap={0.5}>
+                              🔍 Pre-fielded: {formatDate(job.preFieldDate)}
+                              {job.assignedToGF && (
+                                <span style={{ fontWeight: 'bold' }}>
+                                  {' '}by {job.assignedToGF.name || job.assignedToGF.email || 'GF'}
+                                  {job.assignedToGF._id && <span style={{ opacity: 0.6 }}> ({job.assignedToGF._id.toString().slice(-6)})</span>}
+                                </span>
+                              )}
+                            </Typography>
+                          )}
+                          
+                          {/* Scheduled For */}
+                          {job.crewScheduledDate && (
+                            <Typography variant="caption" color="primary.main" display="flex" alignItems="center" gap={0.5}>
+                              📅 Scheduled: {formatDate(job.crewScheduledDate)}
+                              {job.assignedTo && (
+                                <span style={{ fontWeight: 'bold' }}>
+                                  {' '}→ {job.assignedTo.name || job.assignedTo.email || 'Crew'}
+                                  {job.assignedTo._id && <span style={{ opacity: 0.6 }}> ({job.assignedTo._id.toString().slice(-6)})</span>}
+                                </span>
+                              )}
+                            </Typography>
+                          )}
+                          
+                          {/* Due Date */}
                           {job.dueDate && (
-                            <Typography variant="caption" color="text.secondary">
-                              Due: {formatDate(job.dueDate)}
+                            <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'} display="flex" alignItems="center" gap={0.5}>
+                              ⏰ Due: {formatDate(job.dueDate)}
                             </Typography>
                           )}
                         </Box>

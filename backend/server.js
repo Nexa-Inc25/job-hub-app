@@ -698,6 +698,9 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
     // Only fetch fields needed for dashboard listing - exclude large nested folders/documents
     const jobs = await Job.find(query)
       .select('-folders') // Exclude folders array which contains all documents
+      .populate('userId', 'name email _id')
+      .populate('assignedTo', 'name email _id')
+      .populate('assignedToGF', 'name email _id')
       .sort({ createdAt: -1 })
       .lean(); // Use lean() for faster read-only queries
     console.log('GET /api/jobs - returning', jobs.length, 'jobs for role:', req.userRole || 'unknown');
