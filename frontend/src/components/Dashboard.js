@@ -265,6 +265,16 @@ const Dashboard = () => {
         });
       }
 
+      // === CAPTURE FOR AI TRAINING ===
+      // Send checklist decisions to train AI for future auto-suggestions
+      try {
+        await api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist });
+        console.log('[AI Training] Pre-field checklist captured for job', jobId);
+      } catch (aiErr) {
+        console.warn('[AI Training] Failed to capture pre-field data:', aiErr);
+        // Don't fail the main operation if AI capture fails
+      }
+
       // Update job status to pre_fielding
       await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
 

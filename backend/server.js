@@ -23,6 +23,7 @@ const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
 const sharp = require('sharp');
 const heicConvert = require('heic-convert');
+const aiDataCapture = require('./utils/aiDataCapture');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -2473,6 +2474,42 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
     await job.save();
     
     console.log(`Job ${job.pmNumber || job._id} status: ${oldStatus} → ${job.status}`);
+    
+    // === AI DATA CAPTURE ===
+    // Capture workflow transitions for AI training (non-blocking)
+    (async () => {
+      try {
+        // Initialize training data if not exists
+        await aiDataCapture.initializeTrainingData(job._id, req.userId);
+        
+        // Capture crew data when scheduled
+        if (status === 'scheduled' && (crewSize || estimatedHours)) {
+          await aiDataCapture.captureCrewData(job._id, {
+            crewSize,
+            estimatedHours,
+            foremanId: job.assignedTo
+          }, req.userId);
+        }
+        
+        // Capture site conditions when pre-fielding
+        if (status === 'pre_fielding' && (siteConditions || preFieldNotes)) {
+          await aiDataCapture.captureSiteConditions(job._id, {
+            siteConditions: siteConditions || preFieldNotes
+          }, req.userId);
+        }
+        
+        // Capture outcome when completed
+        if (['ready_to_submit', 'completed'].includes(status)) {
+          await aiDataCapture.captureJobOutcome(job._id, {
+            firstTimeSuccess: !job.gfReviewStatus || job.gfReviewStatus === 'approved',
+            revisionsRequired: job.gfReviewStatus === 'revision_requested' ? 1 : 0
+          }, req.userId);
+        }
+      } catch (aiErr) {
+        console.error('[AI Data] Error capturing workflow data:', aiErr);
+      }
+    })();
+    
     res.json({ message: 'Job status updated', job, previousStatus: oldStatus });
   } catch (err) {
     console.error('Status update error:', err);
@@ -2715,6 +2752,62 @@ app.delete('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, re
   } catch (err) {
     console.error('Delete dependency error:', err);
     res.status(500).json({ error: 'Failed to delete dependency' });
+  }
+});
+
+// === AI TRAINING DATA ENDPOINTS ===
+
+// Capture pre-field checklist decisions for AI training
+app.post('/api/jobs/:id/prefield-checklist', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { decisions } = req.body;  // { usa_dig: { checked: true, notes: "..." }, ... }
+    
+    // Capture for AI training
+    await aiDataCapture.capturePreFieldDecisions(id, decisions, req.userId);
+    
+    res.json({ message: 'Pre-field checklist captured for AI training' });
+  } catch (err) {
+    console.error('Capture prefield error:', err);
+    res.status(500).json({ error: 'Failed to capture pre-field data' });
+  }
+});
+
+// Get AI suggestions for a job based on similar past jobs
+app.get('/api/jobs/:id/ai-suggestions', authenticateUser, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const suggestions = await aiDataCapture.getAISuggestions({
+      city: job.city,
+      orderType: job.orderType,
+      division: job.division,
+      matCode: job.matCode,
+      address: job.address
+    });
+    
+    res.json(suggestions);
+  } catch (err) {
+    console.error('Get AI suggestions error:', err);
+    res.status(500).json({ error: 'Failed to get AI suggestions' });
+  }
+});
+
+// Capture form field data for AI training
+app.post('/api/jobs/:id/capture-form', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { formType, fields, completionTimeSeconds } = req.body;
+    
+    await aiDataCapture.captureFormCompletion(id, formType, fields, completionTimeSeconds, req.userId);
+    
+    res.json({ message: 'Form data captured for AI training' });
+  } catch (err) {
+    console.error('Capture form error:', err);
+    res.status(500).json({ error: 'Failed to capture form data' });
   }
 });
 
