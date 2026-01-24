@@ -185,6 +185,19 @@ const jobSchema = new mongoose.Schema({
     name: String,
     url: String,
     extractedAt: Date
+  }],
+  
+  // === JOB NOTES/CHAT (company internal communication) ===
+  notes: [{
+    message: { type: String, required: true },
+    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    userName: String,  // Denormalized for fast display
+    userRole: String,  // 'foreman', 'gf', 'pm', 'admin'
+    createdAt: { type: Date, default: Date.now },
+    // Optional: tag type of note
+    noteType: { type: String, enum: ['update', 'issue', 'question', 'resolution', null], default: null },
+    // If note is related to a specific dependency
+    dependencyId: { type: mongoose.Schema.Types.ObjectId }
   }]
 }, { timestamps: true });
 

@@ -1,182 +1,806 @@
-// src/components/WorkOrderDetails.js
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Document, Page } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
-import { TreeItem } from '@mui/x-tree-view/TreeItem';
+// src/components/WorkOrderDetails.js - Full Job Details & Management Page
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
-import PDFEditor from './PDFEditor';
+import {
+  Container,
+  Typography,
+  Box,
+  Paper,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  TextField,
+  Chip,
+  Divider,
+  IconButton,
+  Alert,
+  Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  ListItemSecondaryAction,
+  Tooltip,
+  CircularProgress,
+  AppBar,
+  Toolbar,
+} from '@mui/material';
+import {
+  ArrowBack as ArrowBackIcon,
+  Schedule as ScheduleIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Add as AddIcon,
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Send as SendIcon,
+  Build as BuildIcon,
+  LocalShipping as LocalShippingIcon,
+  Security as SecurityIcon,
+  Construction as ConstructionIcon,
+  Description as DescriptionIcon,
+  Person as PersonIcon,
+  CalendarMonth as CalendarIcon,
+  Chat as ChatIcon,
+  Folder as FolderIcon,
+  Refresh as RefreshIcon,
+} from '@mui/icons-material';
+import { useThemeMode } from '../ThemeContext';
 
-// PDF.js worker is set globally in App.js
+const WorkOrderDetails = () => {
+  const { id: jobId } = useParams();
+  const navigate = useNavigate();
+  const { darkMode } = useThemeMode();
+  
+  const [job, setJob] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // Dependencies state
+  const [dependencies, setDependencies] = useState([]);
+  const [depDialogOpen, setDepDialogOpen] = useState(false);
+  const [editingDep, setEditingDep] = useState(null);
+  const [depForm, setDepForm] = useState({
+    type: 'usa_dig',
+    description: '',
+    status: 'pending',
+    scheduledDate: '',
+    ticketNumber: '',
+    notes: ''
+  });
+  
+  // Notes/Chat state
+  const [notes, setNotes] = useState([]);
+  const [newNote, setNewNote] = useState('');
+  const [noteType, setNoteType] = useState('update');
+  
+  // User info
+  const [userRole, setUserRole] = useState(null);
+  const [canApprove, setCanApprove] = useState(false);
 
-const WorkOrderDetails = ({ jobId: propJobId, token: propToken, userRole, onJobUpdate }) => {
-  // Support both route params and props for flexibility
-  const { id: routeJobId } = useParams();
-  const jobId = propJobId || routeJobId;
-  const token = propToken || localStorage.getItem('token');
-  const [numPages, setNumPages] = useState(null);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
-  const [selectedDoc, setSelectedDoc] = useState(null);
-  const [folders, setFolders] = useState([]);
-  const [bidAmount, setBidAmount] = useState('');
-  const [preFieldNotes, setPreFieldNotes] = useState('');
-  const [jobStatus, setJobStatus] = useState('active');
-
+  // Fetch user role from token
   useEffect(() => {
-    const fetchJobDetails = async () => {
+    const token = localStorage.getItem('token');
+    if (token) {
       try {
-        // api module automatically adds Authorization header
-        const response = await api.get(`/api/jobs/${jobId}`);
-        setFolders(response.data.folders);
-        setJobStatus(response.data.status);
-        // TODO: Fetch existing bid/notes if any
-      } catch (err) {
-        console.error('Failed to fetch WO details:', err);
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUserRole(payload.role || null);
+        setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
+      } catch (e) {
+        setUserRole(null);
+        setCanApprove(false);
       }
-    };
-    fetchJobDetails();
+    }
+  }, []);
+
+  // Fetch job details
+  const fetchJobDetails = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get(`/api/jobs/${jobId}/full-details`);
+      setJob(response.data);
+      setDependencies(response.data.dependencies || []);
+      setNotes(response.data.notes || []);
+      setError('');
+    } catch (err) {
+      console.error('Failed to fetch job details:', err);
+      setError('Failed to load job details');
+    } finally {
+      setLoading(false);
+    }
   }, [jobId]);
 
-  // Separate cleanup effect for blob URL to avoid refetching job data on every doc open
   useEffect(() => {
-    return () => {
-      if (pdfBlobUrl) URL.revokeObjectURL(pdfBlobUrl);
+    fetchJobDetails();
+  }, [fetchJobDetails]);
+
+  // Format date helper
+  const formatDate = (date) => {
+    if (!date) return 'Not set';
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
+    });
+  };
+
+  const formatDateTime = (date) => {
+    if (!date) return '';
+    return new Date(date).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  };
+
+  // Status helpers
+  const getStatusColor = (status) => {
+    const colors = {
+      'new': 'warning',
+      'assigned_to_gf': 'info',
+      'pre_fielding': 'info',
+      'scheduled': 'primary',
+      'in_progress': 'primary',
+      'pending_gf_review': 'warning',
+      'pending_pm_approval': 'warning',
+      'ready_to_submit': 'success',
+      'submitted': 'success',
+      'billed': 'secondary',
+      'invoiced': 'default',
     };
-  }, [pdfBlobUrl]);
+    return colors[status] || 'default';
+  };
 
-  const handleDocClick = async (folderName, doc) => {
+  const getStatusLabel = (status) => {
+    const labels = {
+      'new': 'New',
+      'assigned_to_gf': 'Assigned to GF',
+      'pre_fielding': 'Pre-Fielding',
+      'scheduled': 'Scheduled',
+      'in_progress': 'In Progress',
+      'pending_gf_review': 'Awaiting GF Review',
+      'pending_pm_approval': 'Awaiting PM Approval',
+      'ready_to_submit': 'Ready to Submit',
+      'submitted': 'Submitted',
+      'billed': 'Billed',
+      'invoiced': 'Invoiced',
+    };
+    return labels[status] || status;
+  };
+
+  // Dependency type helpers
+  const getDependencyIcon = (type) => {
+    const icons = {
+      'usa_dig': <ConstructionIcon />,
+      'permit': <DescriptionIcon />,
+      'materials': <LocalShippingIcon />,
+      'equipment': <BuildIcon />,
+      'traffic_control': <SecurityIcon />,
+      'other': <BuildIcon />,
+    };
+    return icons[type] || <BuildIcon />;
+  };
+
+  const getDependencyLabel = (type) => {
+    const labels = {
+      'usa_dig': 'USA Dig',
+      'permit': 'Permit',
+      'materials': 'Materials',
+      'equipment': 'Equipment',
+      'traffic_control': 'Traffic Control',
+      'other': 'Other',
+    };
+    return labels[type] || type;
+  };
+
+  const getDependencyStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'success';
+      case 'scheduled': return 'info';
+      case 'pending': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  // Add dependency
+  const handleAddDependency = async () => {
     try {
-      // Get fresh token on each call to avoid stale/null token issues
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        alert('Please log in to view documents.');
-        return;
-      }
-      const response = await fetch(doc.url, {
-        headers: { Authorization: `Bearer ${currentToken}` },
+      const response = await api.post(`/api/jobs/${jobId}/dependencies`, depForm);
+      setDependencies([...dependencies, response.data]);
+      setDepDialogOpen(false);
+      setDepForm({
+        type: 'usa_dig',
+        description: '',
+        status: 'pending',
+        scheduledDate: '',
+        ticketNumber: '',
+        notes: ''
       });
-      if (!response.ok) throw new Error('Failed to load document');
-      const blob = await response.blob();
-      setPdfBlobUrl(URL.createObjectURL(blob));
-      setSelectedDoc({ ...doc, folderName });
-    } catch (error) {
-      alert('Could not load the document.');
+      setSnackbar({ open: true, message: 'Dependency added', severity: 'success' });
+    } catch (err) {
+      console.error('Add dependency error:', err);
+      setSnackbar({ open: true, message: 'Failed to add dependency', severity: 'error' });
     }
   };
 
-  const handleBidSubmit = async () => {
+  // Update dependency
+  const handleUpdateDependency = async () => {
+    if (!editingDep) return;
     try {
-      // Use the /status endpoint with status='pre-field' and bid info
-      await api.put(`/api/jobs/${jobId}/status`, { 
-        status: 'pre-field',
-        bidAmount: parseFloat(bidAmount),
-        bidNotes: preFieldNotes 
+      const response = await api.put(`/api/jobs/${jobId}/dependencies/${editingDep._id}`, depForm);
+      setDependencies(dependencies.map(d => d._id === editingDep._id ? response.data : d));
+      setDepDialogOpen(false);
+      setEditingDep(null);
+      setDepForm({
+        type: 'usa_dig',
+        description: '',
+        status: 'pending',
+        scheduledDate: '',
+        ticketNumber: '',
+        notes: ''
       });
-      onJobUpdate(); // Refresh parent
+      setSnackbar({ open: true, message: 'Dependency updated', severity: 'success' });
     } catch (err) {
-      console.error('Bid submission failed:', err);
+      console.error('Update dependency error:', err);
+      setSnackbar({ open: true, message: 'Failed to update dependency', severity: 'error' });
     }
   };
 
-  const handlePhotoUpload = async (e) => {
-    const formData = new FormData();
-    Array.from(e.target.files).forEach(file => formData.append('photos', file));
+  // Delete dependency
+  const handleDeleteDependency = async (depId) => {
+    if (!window.confirm('Delete this dependency?')) return;
     try {
-      // api module automatically adds Authorization header
-      await api.post(`/api/jobs/${jobId}/photos`, formData);
-      onJobUpdate();
+      await api.delete(`/api/jobs/${jobId}/dependencies/${depId}`);
+      setDependencies(dependencies.filter(d => d._id !== depId));
+      setSnackbar({ open: true, message: 'Dependency deleted', severity: 'success' });
     } catch (err) {
-      console.error('Photo upload failed:', err);
+      console.error('Delete dependency error:', err);
+      setSnackbar({ open: true, message: 'Failed to delete dependency', severity: 'error' });
     }
   };
 
-  const handleSubmitJob = async () => {
+  // Open edit dialog
+  const handleEditDependency = (dep) => {
+    setEditingDep(dep);
+    setDepForm({
+      type: dep.type,
+      description: dep.description || '',
+      status: dep.status,
+      scheduledDate: dep.scheduledDate ? dep.scheduledDate.split('T')[0] : '',
+      ticketNumber: dep.ticketNumber || '',
+      notes: dep.notes || ''
+    });
+    setDepDialogOpen(true);
+  };
+
+  // Add note
+  const handleAddNote = async () => {
+    if (!newNote.trim()) return;
     try {
-      // Use the /status endpoint to mark job as completed
-      await api.put(`/api/jobs/${jobId}/status`, { status: 'completed' });
-      onJobUpdate();
+      const response = await api.post(`/api/jobs/${jobId}/notes`, {
+        message: newNote,
+        noteType: noteType
+      });
+      setNotes([...notes, response.data]);
+      setNewNote('');
+      setSnackbar({ open: true, message: 'Note added', severity: 'success' });
     } catch (err) {
-      console.error('Job submission failed:', err);
+      console.error('Add note error:', err);
+      setSnackbar({ open: true, message: 'Failed to add note', severity: 'error' });
     }
   };
 
-  const onDocumentLoadSuccess = ({ numPages }) => setNumPages(numPages);
+  // Note type colors
+  const getNoteTypeColor = (type) => {
+    switch (type) {
+      case 'issue': return 'error';
+      case 'question': return 'warning';
+      case 'resolution': return 'success';
+      default: return 'info';
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error || !job) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Alert severity="error">{error || 'Job not found'}</Alert>
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/dashboard')} sx={{ mt: 2 }}>
+          Back to Dashboard
+        </Button>
+      </Container>
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', height: '100%' }}>
-      <div style={{ width: '30%', borderRight: '1px solid #ddd', padding: '16px' }}>
-        <h2>Folders</h2>
-        <SimpleTreeView>
-          {folders.map(folder => (
-            <TreeItem itemId={`folder-${folder.name}`} label={folder.name} key={`folder-${folder.name}`}>
-              {folder.documents.map((doc, docIndex) => (
-                <TreeItem
-                  itemId={`${folder.name}-doc-${docIndex}-${doc.name}`}
-                  label={doc.name}
-                  key={`${folder.name}-doc-${docIndex}-${doc.name}`}
-                  onClick={() => handleDocClick(folder.name, doc)}
-                />
-              ))}
-            </TreeItem>
-          ))}
-        </SimpleTreeView>
-      </div>
-      <div style={{ flex: 1, padding: '16px' }}>
-        <h2>Work Order Details</h2>
-        {pdfBlobUrl ? (
-          <>
-            <Document file={pdfBlobUrl} onLoadSuccess={onDocumentLoadSuccess}>
-              <Page pageNumber={pageNumber} renderAnnotationLayer={true} renderTextLayer={true} />
-            </Document>
-            <div style={{ marginTop: '16px', textAlign: 'center' }}>
-              <p>Page {pageNumber} of {numPages}</p>
-              <button onClick={() => setPageNumber((prev) => Math.max(prev - 1, 1))} disabled={pageNumber <= 1}>Previous</button>
-              <button onClick={() => setPageNumber((prev) => Math.min(prev + 1, numPages)) } disabled={pageNumber >= numPages}>Next</button>
-            </div>
-            {userRole === 'contributor' && selectedDoc && (
-              <PDFEditor doc={selectedDoc} jobId={jobId} folderName={selectedDoc.folderName} token={token} />
-            )}
-          </>
-        ) : (
-          <div style={{ textAlign: 'center', marginTop: '100px', color: '#666' }}>
-            <h2>Select a document to view/edit</h2>
-          </div>
-        )}
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      {/* App Bar */}
+      <AppBar position="static" color="default" elevation={1}>
+        <Toolbar>
+          <IconButton edge="start" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+            {job.pmNumber || job.woNumber || job.title || 'Work Order Details'}
+          </Typography>
+          <Chip
+            label={getStatusLabel(job.status)}
+            color={getStatusColor(job.status)}
+            sx={{ mr: 2 }}
+          />
+          <Tooltip title="Refresh">
+            <IconButton onClick={fetchJobDetails}>
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+          <Button
+            component={Link}
+            to={`/jobs/${jobId}/files`}
+            startIcon={<FolderIcon />}
+            variant="outlined"
+            sx={{ ml: 1 }}
+          >
+            Files
+          </Button>
+        </Toolbar>
+      </AppBar>
 
-        {/* General Foreman: Bid/Pre-Field */}
-        {userRole === 'foreman' && jobStatus === 'active' && (
-          <div style={{ marginTop: '20px' }}>
-            <h3>Pre-Field and Bid the Job</h3>
-            <input
-              type="number"
-              value={bidAmount}
-              onChange={(e) => setBidAmount(e.target.value)}
-              placeholder="Bid Amount ($)"
-              style={{ marginRight: '10px' }}
-            />
-            <textarea
-              value={preFieldNotes}
-              onChange={(e) => setPreFieldNotes(e.target.value)}
-              placeholder="Pre-Field Notes (site conditions, etc.)"
-              style={{ width: '80%', height: '100px' }}
-            />
-            <button onClick={handleBidSubmit}>Submit Bid</button>
-          </div>
-        )}
+      <Container maxWidth="xl" sx={{ py: 3 }}>
+        <Grid container spacing={3}>
+          {/* Left Column - Job Info & Schedule */}
+          <Grid item xs={12} md={4}>
+            {/* Job Info Card */}
+            <Card sx={{ mb: 3, borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+                  <DescriptionIcon color="primary" />
+                  Job Information
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Box sx={{ '& > *': { mb: 1.5 } }}>
+                  <Typography variant="body2">
+                    <strong>Title:</strong> {job.title || 'Untitled'}
+                  </Typography>
+                  {job.pmNumber && (
+                    <Typography variant="body2">
+                      <strong>PM Number:</strong> {job.pmNumber}
+                    </Typography>
+                  )}
+                  {job.woNumber && (
+                    <Typography variant="body2">
+                      <strong>WO Number:</strong> {job.woNumber}
+                    </Typography>
+                  )}
+                  {job.address && (
+                    <Typography variant="body2">
+                      <strong>Address:</strong> {job.address}
+                    </Typography>
+                  )}
+                  {job.client && (
+                    <Typography variant="body2">
+                      <strong>Client:</strong> {job.client}
+                    </Typography>
+                  )}
+                  {job.description && (
+                    <Typography variant="body2" color="text.secondary">
+                      {job.description}
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
 
-        {/* Foreman: Photo Upload + Submit */}
-        {userRole === 'contributor' && jobStatus === 'in progress' && (
-          <div style={{ marginTop: '20px' }}>
-            <h3>Upload Construction Photos</h3>
-            <input type="file" multiple accept="image/*" onChange={handlePhotoUpload} />
-            <button onClick={handleSubmitJob} style={{ marginTop: '10px' }}>Submit Completed Job</button>
-          </div>
-        )}
-      </div>
-    </div>
+            {/* Schedule Card */}
+            <Card sx={{ mb: 3, borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+                  <CalendarIcon color="primary" />
+                  Schedule
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Box sx={{ '& > *': { mb: 1.5 } }}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <ScheduleIcon fontSize="small" color="action" />
+                    <Typography variant="body2">
+                      <strong>Created:</strong> {formatDate(job.createdAt)}
+                    </Typography>
+                  </Box>
+                  
+                  {job.dueDate && (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <WarningIcon fontSize="small" color={new Date(job.dueDate) < new Date() ? 'error' : 'warning'} />
+                      <Typography variant="body2" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'inherit'}>
+                        <strong>Due:</strong> {formatDate(job.dueDate)}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {job.crewScheduledDate && (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <CalendarIcon fontSize="small" color="info" />
+                      <Typography variant="body2">
+                        <strong>Scheduled:</strong> {formatDate(job.crewScheduledDate)}
+                        {job.crewScheduledEndDate && ` - ${formatDate(job.crewScheduledEndDate)}`}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {job.assignedToGF && (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <PersonIcon fontSize="small" color="action" />
+                      <Typography variant="body2">
+                        <strong>GF:</strong> {job.assignedToGF.name || job.assignedToGF.email}
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {job.assignedTo && (
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <PersonIcon fontSize="small" color="action" />
+                      <Typography variant="body2">
+                        <strong>Crew:</strong> {job.assignedTo.name || job.assignedTo.email}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Workflow Progress */}
+            <Card sx={{ borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+                  <CheckCircleIcon color="primary" />
+                  Workflow Progress
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                <Box sx={{ '& > *': { mb: 1 } }}>
+                  {job.assignedToGFDate && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      ✓ Assigned to GF: {formatDateTime(job.assignedToGFDate)}
+                    </Typography>
+                  )}
+                  {job.preFieldDate && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      ✓ Pre-fielded: {formatDateTime(job.preFieldDate)}
+                    </Typography>
+                  )}
+                  {job.crewSubmittedDate && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      ✓ Crew submitted: {formatDateTime(job.crewSubmittedDate)}
+                    </Typography>
+                  )}
+                  {job.gfReviewDate && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      ✓ GF reviewed: {formatDateTime(job.gfReviewDate)} ({job.gfReviewStatus})
+                    </Typography>
+                  )}
+                  {job.pmApprovalDate && (
+                    <Typography variant="caption" display="block" color="text.secondary">
+                      ✓ PM approved: {formatDateTime(job.pmApprovalDate)}
+                    </Typography>
+                  )}
+                  {job.completedDate && (
+                    <Typography variant="caption" display="block" color="success.main">
+                      ✓ Completed: {formatDateTime(job.completedDate)}
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Middle Column - Dependencies */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 2, height: '100%' }}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="h6" display="flex" alignItems="center" gap={1}>
+                    <BuildIcon color="primary" />
+                    Dependencies ({dependencies.length})
+                  </Typography>
+                  <Tooltip title="Add Dependency">
+                    <IconButton 
+                      color="primary" 
+                      onClick={() => {
+                        setEditingDep(null);
+                        setDepForm({
+                          type: 'usa_dig',
+                          description: '',
+                          status: 'pending',
+                          scheduledDate: '',
+                          ticketNumber: '',
+                          notes: ''
+                        });
+                        setDepDialogOpen(true);
+                      }}
+                    >
+                      <AddIcon />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+                
+                {dependencies.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+                    No dependencies tracked yet.
+                    <br />
+                    Click + to add USA Dig, permits, etc.
+                  </Typography>
+                ) : (
+                  <List dense>
+                    {dependencies.map((dep) => (
+                      <ListItem 
+                        key={dep._id}
+                        sx={{ 
+                          bgcolor: 'action.hover', 
+                          borderRadius: 1, 
+                          mb: 1,
+                          flexDirection: 'column',
+                          alignItems: 'flex-start'
+                        }}
+                      >
+                        <Box display="flex" alignItems="center" width="100%" justifyContent="space-between">
+                          <Box display="flex" alignItems="center" gap={1}>
+                            <ListItemIcon sx={{ minWidth: 32 }}>
+                              {getDependencyIcon(dep.type)}
+                            </ListItemIcon>
+                            <Typography variant="subtitle2">
+                              {getDependencyLabel(dep.type)}
+                            </Typography>
+                            <Chip 
+                              size="small" 
+                              label={dep.status}
+                              color={getDependencyStatusColor(dep.status)}
+                              sx={{ height: 20, fontSize: '0.65rem' }}
+                            />
+                          </Box>
+                          <Box>
+                            <IconButton size="small" onClick={() => handleEditDependency(dep)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => handleDeleteDependency(dep._id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Box>
+                        {(dep.ticketNumber || dep.scheduledDate || dep.description) && (
+                          <Box pl={5} width="100%">
+                            {dep.ticketNumber && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                Ticket: #{dep.ticketNumber}
+                              </Typography>
+                            )}
+                            {dep.scheduledDate && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                Scheduled: {formatDate(dep.scheduledDate)}
+                              </Typography>
+                            )}
+                            {dep.description && (
+                              <Typography variant="caption" display="block" color="text.secondary">
+                                {dep.description}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Right Column - Notes/Chat */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+                  <ChatIcon color="primary" />
+                  Job Notes ({notes.length})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {/* Notes List */}
+                <Box sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 400, mb: 2 }}>
+                  {notes.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
+                      No notes yet. Add updates, issues, or questions.
+                    </Typography>
+                  ) : (
+                    <List dense>
+                      {notes.map((note, index) => (
+                        <ListItem 
+                          key={index}
+                          sx={{ 
+                            bgcolor: 'action.hover', 
+                            borderRadius: 1, 
+                            mb: 1,
+                            flexDirection: 'column',
+                            alignItems: 'flex-start'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={1} width="100%">
+                            <Typography variant="caption" fontWeight="bold">
+                              {note.userName || 'User'}
+                            </Typography>
+                            {note.userRole && (
+                              <Chip 
+                                size="small" 
+                                label={note.userRole.toUpperCase()}
+                                sx={{ height: 16, fontSize: '0.6rem' }}
+                              />
+                            )}
+                            {note.noteType && (
+                              <Chip 
+                                size="small" 
+                                label={note.noteType}
+                                color={getNoteTypeColor(note.noteType)}
+                                sx={{ height: 16, fontSize: '0.6rem' }}
+                              />
+                            )}
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                              {formatDateTime(note.createdAt)}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {note.message}
+                          </Typography>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Box>
+                
+                {/* Add Note Form */}
+                <Box>
+                  <Box display="flex" gap={1} mb={1}>
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                      <Select
+                        value={noteType}
+                        onChange={(e) => setNoteType(e.target.value)}
+                        displayEmpty
+                      >
+                        <MenuItem value="update">Update</MenuItem>
+                        <MenuItem value="issue">Issue</MenuItem>
+                        <MenuItem value="question">Question</MenuItem>
+                        <MenuItem value="resolution">Resolution</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Add a note..."
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddNote()}
+                    />
+                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()}>
+                      <SendIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      </Container>
+
+      {/* Dependency Dialog */}
+      <Dialog open={depDialogOpen} onClose={() => setDepDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingDep ? 'Edit Dependency' : 'Add Dependency'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <FormControl fullWidth>
+              <InputLabel>Type</InputLabel>
+              <Select
+                value={depForm.type}
+                onChange={(e) => setDepForm({ ...depForm, type: e.target.value })}
+                label="Type"
+              >
+                <MenuItem value="usa_dig">USA Dig</MenuItem>
+                <MenuItem value="permit">Permit</MenuItem>
+                <MenuItem value="materials">Materials</MenuItem>
+                <MenuItem value="equipment">Equipment</MenuItem>
+                <MenuItem value="traffic_control">Traffic Control</MenuItem>
+                <MenuItem value="other">Other</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                value={depForm.status}
+                onChange={(e) => setDepForm({ ...depForm, status: e.target.value })}
+                label="Status"
+              >
+                <MenuItem value="pending">Pending</MenuItem>
+                <MenuItem value="scheduled">Scheduled</MenuItem>
+                <MenuItem value="completed">Completed</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <TextField
+              label="Ticket/Permit Number"
+              value={depForm.ticketNumber}
+              onChange={(e) => setDepForm({ ...depForm, ticketNumber: e.target.value })}
+              fullWidth
+            />
+            
+            <TextField
+              label="Scheduled Date"
+              type="date"
+              value={depForm.scheduledDate}
+              onChange={(e) => setDepForm({ ...depForm, scheduledDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+            
+            <TextField
+              label="Description"
+              value={depForm.description}
+              onChange={(e) => setDepForm({ ...depForm, description: e.target.value })}
+              multiline
+              rows={2}
+              fullWidth
+            />
+            
+            <TextField
+              label="Notes"
+              value={depForm.notes}
+              onChange={(e) => setDepForm({ ...depForm, notes: e.target.value })}
+              multiline
+              rows={2}
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDepDialogOpen(false)}>Cancel</Button>
+          <Button 
+            variant="contained" 
+            onClick={editingDep ? handleUpdateDependency : handleAddDependency}
+          >
+            {editingDep ? 'Update' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   );
 };
 

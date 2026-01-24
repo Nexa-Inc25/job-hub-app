@@ -48,6 +48,13 @@ import {
   Logout as LogoutIcon,
   AssignmentInd as AssignIcon,
   CalendarMonth as CalendarIcon,
+  Flip as FlipIcon,
+  Chat as ChatIcon,
+  Construction as ConstructionIcon,
+  EventNote as EventNoteIcon,
+  Build as BuildIcon,
+  LocalShipping as LocalShippingIcon,
+  Security as SecurityIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -81,6 +88,8 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
   const [canApprove, setCanApprove] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [flippedCards, setFlippedCards] = useState({}); // Track which cards are flipped
+  const [jobDetails, setJobDetails] = useState({}); // Cache full job details for flipped cards
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
@@ -132,6 +141,45 @@ const Dashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     navigate('/login');
+  };
+
+  // Handle card flip - load full details on first flip
+  const handleCardFlip = async (jobId) => {
+    const isCurrentlyFlipped = flippedCards[jobId];
+    
+    if (!isCurrentlyFlipped && !jobDetails[jobId]) {
+      // First time flipping - fetch full details
+      try {
+        const response = await api.get(`/api/jobs/${jobId}/full-details`);
+        setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
+      } catch (err) {
+        console.error('Error fetching job details:', err);
+      }
+    }
+    
+    setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
+  };
+
+  // Format dependency status
+  const getDependencyStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'success';
+      case 'scheduled': return 'info';
+      case 'pending': return 'warning';
+      default: return 'default';
+    }
+  };
+
+  const getDependencyTypeLabel = (type) => {
+    const labels = {
+      'usa_dig': 'USA Dig',
+      'permit': 'Permit',
+      'materials': 'Materials',
+      'equipment': 'Equipment',
+      'traffic_control': 'Traffic Control',
+      'other': 'Other'
+    };
+    return labels[type] || type;
   };
 
   // Status colors for new workflow + legacy statuses
@@ -825,115 +873,305 @@ const Dashboard = () => {
               </Paper>
             </Grid>
           ) : (
-            filteredJobs.map((job) => (
+            filteredJobs.map((job) => {
+              const isFlipped = flippedCards[job._id];
+              const details = jobDetails[job._id] || job;
+              
+              return (
               <Grid item xs={12} md={6} lg={4} key={job._id}>
-                <Card sx={{
-                  borderRadius: 2,
-                  boxShadow: 2,
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: 4,
-                  }
+                {/* Flip Card Container */}
+                <Box sx={{
+                  perspective: '1000px',
+                  height: 340,
                 }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                      <Box flex={1}>
-                        <Typography variant="h6" component="h2" gutterBottom sx={{
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {job.title || 'Untitled Work Order'}
-                        </Typography>
-                        {job.client && (
-                          <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
-                            <PersonIcon fontSize="small" />
-                            {job.client}
+                  <Box sx={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '100%',
+                    transition: 'transform 0.6s',
+                    transformStyle: 'preserve-3d',
+                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                  }}>
+                    {/* FRONT SIDE */}
+                    <Card sx={{
+                      position: 'absolute',
+                      width: '100%',
+                      height: '100%',
+                      backfaceVisibility: 'hidden',
+                      borderRadius: 2,
+                      boxShadow: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                    }}>
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                          <Box flex={1}>
+                            <Typography variant="h6" component="h2" gutterBottom sx={{
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {job.title || 'Untitled Work Order'}
+                            </Typography>
+                            {job.client && (
+                              <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
+                                <PersonIcon fontSize="small" />
+                                {job.client}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Chip
+                            icon={getStatusIcon(job.status)}
+                            label={getStatusLabel(job.status)}
+                            color={getStatusColor(job.status)}
+                            size="small"
+                            variant="filled"
+                          />
+                        </Box>
+
+                        {job.description && (
+                          <Typography variant="body2" color="text.secondary" sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            mb: 2
+                          }}>
+                            {job.description}
                           </Typography>
                         )}
-                      </Box>
-                      <Chip
-                        icon={getStatusIcon(job.status)}
-                        label={getStatusLabel(job.status)}
-                        color={getStatusColor(job.status)}
-                        size="small"
-                        variant="filled"
-                      />
-                    </Box>
 
-                    {job.description && (
-                      <Typography variant="body2" color="text.secondary" sx={{
-                        display: '-webkit-box',
-                        WebkitLineClamp: 3,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        mb: 2
-                      }}>
-                        {job.description}
-                      </Typography>
-                    )}
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography variant="caption" color="text.secondary">
+                            Created: {formatDate(job.createdAt)}
+                          </Typography>
+                          {job.dueDate && (
+                            <Typography variant="caption" color="text.secondary">
+                              Due: {formatDate(job.dueDate)}
+                            </Typography>
+                          )}
+                        </Box>
+                        
+                        {/* Quick Dependencies Preview */}
+                        {job.dependencies && job.dependencies.length > 0 && (
+                          <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                            {job.dependencies.slice(0, 3).map((dep, i) => (
+                              <Chip 
+                                key={i}
+                                size="small"
+                                label={getDependencyTypeLabel(dep.type)}
+                                color={getDependencyStatusColor(dep.status)}
+                                variant="outlined"
+                                sx={{ fontSize: '0.65rem', height: 20 }}
+                              />
+                            ))}
+                            {job.dependencies.length > 3 && (
+                              <Chip 
+                                size="small"
+                                label={`+${job.dependencies.length - 3}`}
+                                variant="outlined"
+                                sx={{ fontSize: '0.65rem', height: 20 }}
+                              />
+                            )}
+                          </Box>
+                        )}
+                        
+                        {/* AI Extraction Status */}
+                        {job.aiExtractionStarted && !job.aiExtractionComplete && (
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <ScheduleIcon fontSize="small" sx={{ animation: 'spin 2s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />
+                              Extracting assets...
+                            </Typography>
+                            <LinearProgress sx={{ mt: 0.5, borderRadius: 1 }} />
+                          </Box>
+                        )}
+                      </CardContent>
 
-                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                      <Typography variant="caption" color="text.secondary">
-                        Created: {formatDate(job.createdAt)}
-                      </Typography>
-                      {job.dueDate && (
-                        <Typography variant="caption" color="text.secondary">
-                          Due: {formatDate(job.dueDate)}
-                        </Typography>
-                      )}
-                    </Box>
-                    
-                    {/* AI Extraction Status */}
-                    {job.aiExtractionStarted && !job.aiExtractionComplete && (
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <ScheduleIcon fontSize="small" sx={{ animation: 'spin 2s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />
-                          Extracting assets...
-                        </Typography>
-                        <LinearProgress sx={{ mt: 0.5, borderRadius: 1 }} />
-                      </Box>
-                    )}
-                    {job.aiExtractionComplete && job.aiProcessingTimeMs && (
-                      <Typography variant="caption" color="success.main" sx={{ mt: 1, display: 'block' }}>
-                        ✓ Extracted in {(job.aiProcessingTimeMs / 1000).toFixed(1)}s
-                      </Typography>
-                    )}
-                  </CardContent>
+                      <Divider />
 
-                  <Divider />
+                      <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                        <Tooltip title="Flip card for details">
+                          <IconButton 
+                            size="small"
+                            onClick={() => handleCardFlip(job._id)}
+                            color="primary"
+                          >
+                            <FlipIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Button
+                          size="small"
+                          component={Link}
+                          to={`/jobs/${job._id}/files`}
+                          sx={{ borderRadius: 1 }}
+                        >
+                          Files
+                        </Button>
+                        <IconButton 
+                          size="small"
+                          onClick={(e) => handleJobMenuOpen(e, job._id)}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </CardActions>
+                    </Card>
 
-                  <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-                    <Button
-                      size="small"
-                      component={Link}
-                      to={`/jobs/${job._id}`}
-                      sx={{ borderRadius: 1 }}
-                    >
-                      View Details
-                    </Button>
-                    <Button
-                      size="small"
-                      component={Link}
-                      to={`/jobs/${job._id}/files`}
-                      sx={{ borderRadius: 1 }}
-                    >
-                      Files
-                    </Button>
-                    <IconButton 
-                      size="small"
-                      onClick={(e) => handleJobMenuOpen(e, job._id)}
-                    >
-                      <MoreVertIcon />
-                    </IconButton>
-                  </CardActions>
-                </Card>
+                    {/* BACK SIDE - Dependencies, Schedule, Chat */}
+                    <Card sx={{
+                      position: 'absolute',
+                      width: '100%',
+                      height: '100%',
+                      backfaceVisibility: 'hidden',
+                      transform: 'rotateY(180deg)',
+                      borderRadius: 2,
+                      boxShadow: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      bgcolor: 'background.paper',
+                    }}>
+                      <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
+                        {/* Header */}
+                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+                          <Typography variant="subtitle2" fontWeight="bold" sx={{ 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap',
+                            maxWidth: '70%'
+                          }}>
+                            {job.pmNumber || job.woNumber || job.title}
+                          </Typography>
+                          <Chip
+                            label={getStatusLabel(job.status)}
+                            color={getStatusColor(job.status)}
+                            size="small"
+                            sx={{ height: 20, fontSize: '0.65rem' }}
+                          />
+                        </Box>
+
+                        {/* Schedule Info */}
+                        <Paper variant="outlined" sx={{ p: 1, mb: 1, bgcolor: 'action.hover' }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
+                            <CalendarIcon fontSize="small" />
+                            Schedule
+                          </Typography>
+                          <Box sx={{ mt: 0.5, pl: 2 }}>
+                            {details.crewScheduledDate ? (
+                              <Typography variant="caption" display="block">
+                                🗓️ Scheduled: {formatDate(details.crewScheduledDate)}
+                              </Typography>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary" display="block">
+                                Not scheduled
+                              </Typography>
+                            )}
+                            {details.dueDate && (
+                              <Typography variant="caption" display="block" color={new Date(details.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
+                                ⏰ Due: {formatDate(details.dueDate)}
+                              </Typography>
+                            )}
+                            {details.assignedTo && (
+                              <Typography variant="caption" display="block">
+                                👷 Crew: {details.assignedTo.name || details.assignedTo.email || 'Assigned'}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Paper>
+
+                        {/* Dependencies */}
+                        <Paper variant="outlined" sx={{ p: 1, mb: 1 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
+                            <BuildIcon fontSize="small" />
+                            Dependencies ({details.dependencies?.length || 0})
+                          </Typography>
+                          <Box sx={{ mt: 0.5, maxHeight: 80, overflow: 'auto' }}>
+                            {details.dependencies && details.dependencies.length > 0 ? (
+                              details.dependencies.map((dep, i) => (
+                                <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5}>
+                                  <Chip 
+                                    size="small"
+                                    label={getDependencyTypeLabel(dep.type)}
+                                    color={getDependencyStatusColor(dep.status)}
+                                    sx={{ fontSize: '0.6rem', height: 18 }}
+                                  />
+                                  {dep.ticketNumber && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      #{dep.ticketNumber}
+                                    </Typography>
+                                  )}
+                                  {dep.scheduledDate && (
+                                    <Typography variant="caption" color="text.secondary">
+                                      {new Date(dep.scheduledDate).toLocaleDateString()}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              ))
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                No dependencies tracked
+                              </Typography>
+                            )}
+                          </Box>
+                        </Paper>
+
+                        {/* Recent Notes Preview */}
+                        <Paper variant="outlined" sx={{ p: 1 }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
+                            <ChatIcon fontSize="small" />
+                            Notes ({details.notes?.length || 0})
+                          </Typography>
+                          <Box sx={{ mt: 0.5, maxHeight: 50, overflow: 'auto' }}>
+                            {details.notes && details.notes.length > 0 ? (
+                              details.notes.slice(-2).map((note, i) => (
+                                <Typography key={i} variant="caption" display="block" sx={{ 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis', 
+                                  whiteSpace: 'nowrap' 
+                                }}>
+                                  <strong>{note.userName || 'User'}:</strong> {note.message}
+                                </Typography>
+                              ))
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">
+                                No notes yet
+                              </Typography>
+                            )}
+                          </Box>
+                        </Paper>
+                      </CardContent>
+
+                      <Divider />
+
+                      <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                        <Tooltip title="Flip back">
+                          <IconButton 
+                            size="small"
+                            onClick={() => handleCardFlip(job._id)}
+                            color="primary"
+                          >
+                            <FlipIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Button
+                          size="small"
+                          component={Link}
+                          to={`/jobs/${job._id}/details`}
+                          sx={{ borderRadius: 1 }}
+                        >
+                          Full Details
+                        </Button>
+                        <IconButton 
+                          size="small"
+                          onClick={(e) => handleJobMenuOpen(e, job._id)}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </CardActions>
+                    </Card>
+                  </Box>
+                </Box>
               </Grid>
-            ))
+            );})
           )}
         </Grid>
       )}

@@ -2555,6 +2555,189 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
   }
 });
 
+// === JOB NOTES/CHAT ENDPOINTS ===
+
+// Get notes for a job
+app.get('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id).select('notes');
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    res.json(job.notes || []);
+  } catch (err) {
+    console.error('Get notes error:', err);
+    res.status(500).json({ error: 'Failed to get notes' });
+  }
+});
+
+// Add a note to a job
+app.post('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
+  try {
+    const { message, noteType, dependencyId } = req.body;
+    
+    if (!message || message.trim().length === 0) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const newNote = {
+      message: message.trim(),
+      userId: req.userId,
+      userName: user.name || user.email,
+      userRole: user.role || 'crew',
+      noteType: noteType || null,
+      dependencyId: dependencyId || null,
+      createdAt: new Date()
+    };
+    
+    job.notes.push(newNote);
+    await job.save();
+    
+    // Emit via socket for real-time updates
+    io.emit(`job-note-${job._id}`, newNote);
+    
+    res.status(201).json(newNote);
+  } catch (err) {
+    console.error('Add note error:', err);
+    res.status(500).json({ error: 'Failed to add note' });
+  }
+});
+
+// === JOB DEPENDENCIES MANAGEMENT ===
+
+// Get dependencies for a job
+app.get('/api/jobs/:id/dependencies', authenticateUser, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id).select('dependencies');
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    res.json(job.dependencies || []);
+  } catch (err) {
+    console.error('Get dependencies error:', err);
+    res.status(500).json({ error: 'Failed to get dependencies' });
+  }
+});
+
+// Add a dependency to a job
+app.post('/api/jobs/:id/dependencies', authenticateUser, async (req, res) => {
+  try {
+    const { type, description, scheduledDate, ticketNumber, notes } = req.body;
+    
+    if (!type) {
+      return res.status(400).json({ error: 'Dependency type is required' });
+    }
+    
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const newDep = {
+      type,
+      description: description || '',
+      status: 'pending',
+      scheduledDate: scheduledDate || null,
+      ticketNumber: ticketNumber || '',
+      notes: notes || ''
+    };
+    
+    job.dependencies.push(newDep);
+    await job.save();
+    
+    // Return the newly created dependency with its ID
+    const createdDep = job.dependencies[job.dependencies.length - 1];
+    res.status(201).json(createdDep);
+  } catch (err) {
+    console.error('Add dependency error:', err);
+    res.status(500).json({ error: 'Failed to add dependency' });
+  }
+});
+
+// Update a dependency
+app.put('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, res) => {
+  try {
+    const { type, description, status, scheduledDate, completedDate, ticketNumber, notes } = req.body;
+    
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const dep = job.dependencies.id(req.params.depId);
+    if (!dep) {
+      return res.status(404).json({ error: 'Dependency not found' });
+    }
+    
+    // Update fields
+    if (type !== undefined) dep.type = type;
+    if (description !== undefined) dep.description = description;
+    if (status !== undefined) dep.status = status;
+    if (scheduledDate !== undefined) dep.scheduledDate = scheduledDate;
+    if (completedDate !== undefined) dep.completedDate = completedDate;
+    if (ticketNumber !== undefined) dep.ticketNumber = ticketNumber;
+    if (notes !== undefined) dep.notes = notes;
+    
+    await job.save();
+    res.json(dep);
+  } catch (err) {
+    console.error('Update dependency error:', err);
+    res.status(500).json({ error: 'Failed to update dependency' });
+  }
+});
+
+// Delete a dependency
+app.delete('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const dep = job.dependencies.id(req.params.depId);
+    if (!dep) {
+      return res.status(404).json({ error: 'Dependency not found' });
+    }
+    
+    dep.deleteOne();
+    await job.save();
+    res.json({ message: 'Dependency deleted' });
+  } catch (err) {
+    console.error('Delete dependency error:', err);
+    res.status(500).json({ error: 'Failed to delete dependency' });
+  }
+});
+
+// Get full job details including dependencies, notes, schedule info
+app.get('/api/jobs/:id/full-details', authenticateUser, async (req, res) => {
+  try {
+    const job = await Job.findById(req.params.id)
+      .populate('assignedTo', 'name email role')
+      .populate('assignedToGF', 'name email role')
+      .populate('userId', 'name email role')
+      .populate('notes.userId', 'name email role');
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    res.json(job);
+  } catch (err) {
+    console.error('Get full details error:', err);
+    res.status(500).json({ error: 'Failed to get job details' });
+  }
+});
+
 // Note: API routes for /api/ai/* are mounted earlier via apiRoutes
 // This line is kept for any additional routes in apiRoutes that need auth
 
