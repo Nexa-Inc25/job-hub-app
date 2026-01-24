@@ -110,22 +110,65 @@ const Dashboard = () => {
     navigate('/login');
   };
 
+  // Status colors for new workflow + legacy statuses
   const statusColors = {
+    // New workflow statuses
+    'new': 'warning',
+    'assigned_to_gf': 'info',
+    'pre_fielding': 'info',
+    'scheduled': 'primary',
+    'in_progress': 'primary',
+    'pending_gf_review': 'warning',
+    'pending_pm_approval': 'warning',
+    'ready_to_submit': 'success',
+    'submitted': 'success',
+    'billed': 'secondary',
+    'invoiced': 'default',
+    // Legacy statuses (backwards compatibility)
     'pending': 'warning',
     'pre-field': 'info',
     'in-progress': 'primary',
     'completed': 'success',
-    'billed': 'secondary',
-    'invoiced': 'default',
+  };
+
+  // Human-readable status labels
+  const statusLabels = {
+    'new': 'New',
+    'assigned_to_gf': 'Assigned to GF',
+    'pre_fielding': 'Pre-Fielding',
+    'scheduled': 'Scheduled',
+    'in_progress': 'In Progress',
+    'pending_gf_review': 'Awaiting GF Review',
+    'pending_pm_approval': 'Awaiting PM Approval',
+    'ready_to_submit': 'Ready to Submit',
+    'submitted': 'Submitted',
+    'billed': 'Billed',
+    'invoiced': 'Invoiced',
+    // Legacy
+    'pending': 'Pending',
+    'pre-field': 'Pre-Field',
+    'in-progress': 'In Progress',
+    'completed': 'Completed',
   };
 
   const statusIcons = {
+    // New workflow statuses
+    'new': <ScheduleIcon />,
+    'assigned_to_gf': <DescriptionIcon />,
+    'pre_fielding': <DescriptionIcon />,
+    'scheduled': <ScheduleIcon />,
+    'in_progress': <DescriptionIcon />,
+    'pending_gf_review': <ScheduleIcon />,
+    'pending_pm_approval': <ScheduleIcon />,
+    'ready_to_submit': <CheckCircleIcon />,
+    'submitted': <CheckCircleIcon />,
+    'billed': <CheckCircleIcon />,
+    'invoiced': <CheckCircleIcon />,
+    // Legacy statuses
     'pending': <ScheduleIcon />,
     'pre-field': <DescriptionIcon />,
     'in-progress': <DescriptionIcon />,
     'completed': <CheckCircleIcon />,
-    'billed': <CheckCircleIcon />,
-    'invoiced': <CheckCircleIcon />,
   };
 
   const fetchJobs = useCallback(async () => {
@@ -347,6 +390,10 @@ const Dashboard = () => {
     return statusIcons[status] || <DescriptionIcon />;
   };
 
+  const getStatusLabel = (status) => {
+    return statusLabels[status] || status?.replace(/_/g, ' ') || 'Unknown';
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return 'No date';
     return new Date(dateString).toLocaleDateString();
@@ -354,11 +401,28 @@ const Dashboard = () => {
 
   const getJobStats = () => {
     // Calculate stats from filteredJobs to match displayed results
+    // Group statuses into logical categories for the stats display
     const total = filteredJobs.length;
-    const pending = filteredJobs.filter(job => job.status === 'pending').length;
-    const inProgress = filteredJobs.filter(job => job.status === 'in-progress').length;
-    const completed = filteredJobs.filter(job => job.status === 'completed').length;
-    const preField = filteredJobs.filter(job => job.status === 'pre-field').length;
+    
+    // "Pending" = new jobs awaiting assignment or pre-field
+    const pending = filteredJobs.filter(job => 
+      ['new', 'pending', 'assigned_to_gf'].includes(job.status)
+    ).length;
+    
+    // "Pre-Field" = being pre-fielded or scheduled
+    const preField = filteredJobs.filter(job => 
+      ['pre_fielding', 'pre-field', 'scheduled'].includes(job.status)
+    ).length;
+    
+    // "In Progress" = crew working or awaiting review
+    const inProgress = filteredJobs.filter(job => 
+      ['in_progress', 'in-progress', 'pending_gf_review', 'pending_pm_approval'].includes(job.status)
+    ).length;
+    
+    // "Completed" = ready to submit through invoiced
+    const completed = filteredJobs.filter(job => 
+      ['ready_to_submit', 'submitted', 'billed', 'invoiced', 'completed'].includes(job.status)
+    ).length;
 
     return { total, pending, inProgress, completed, preField };
   };
@@ -634,7 +698,7 @@ const Dashboard = () => {
                       </Box>
                       <Chip
                         icon={getStatusIcon(job.status)}
-                        label={job.status?.replace('_', ' ') || 'pending'}
+                        label={getStatusLabel(job.status)}
                         color={getStatusColor(job.status)}
                         size="small"
                         variant="filled"
