@@ -198,6 +198,16 @@ const WorkOrderDetails = () => {
     }
   };
 
+  const getDependencyStatusLabel = (status) => {
+    const labels = {
+      'required': 'REQUIRED',
+      'check': 'CHECK',
+      'scheduled': 'SCHEDULED',
+      'not_required': 'NOT REQUIRED',
+    };
+    return labels[status] || status;
+  };
+
   // Add dependency
   const handleAddDependency = async () => {
     try {
@@ -737,7 +747,7 @@ const WorkOrderDetails = () => {
                             </Typography>
                             <Chip 
                               size="small" 
-                              label={dep.status}
+                              label={getDependencyStatusLabel(dep.status)}
                               color={getDependencyStatusColor(dep.status)}
                               sx={{ height: 20, fontSize: '0.65rem' }}
                             />

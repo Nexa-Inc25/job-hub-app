@@ -56,6 +56,10 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [savedSignature, setSavedSignature] = useState(null); // Base64 image of signature
   const [isDrawing, setIsDrawing] = useState(false);
+  // Drag state for moving annotations
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragAnnotationId, setDragAnnotationId] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
   const pageRef = useRef(null);
   const signatureCanvasRef = useRef(null);
@@ -229,6 +233,83 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     setSignatureDialogOpen(false);
     setCurrentTool('signature');
   };
+
+  // Start dragging an annotation
+  const handleDragStart = (e, annotationId) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const annotation = annotations.find(a => a.id === annotationId);
+    if (!annotation || !pageRef.current) return;
+    
+    const rect = pageRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    // Calculate offset from annotation position to click position
+    const clickX = (clientX - rect.left) / zoom;
+    const clickY = (clientY - rect.top) / zoom;
+    
+    setDragOffset({
+      x: clickX - annotation.x,
+      y: clickY - annotation.y
+    });
+    
+    setIsDragging(true);
+    setDragAnnotationId(annotationId);
+    setSelectedAnnotation(annotationId);
+  };
+
+  // Handle drag movement
+  const handleDragMove = useCallback((e) => {
+    if (!isDragging || !dragAnnotationId || !pageRef.current) return;
+    
+    e.preventDefault();
+    
+    const rect = pageRef.current.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    // Calculate new position
+    const newX = (clientX - rect.left) / zoom - dragOffset.x;
+    const newY = (clientY - rect.top) / zoom - dragOffset.y;
+    
+    // Update annotation position
+    setAnnotations(prev => prev.map(a => 
+      a.id === dragAnnotationId 
+        ? { ...a, x: Math.max(0, newX), y: Math.max(0, newY) }
+        : a
+    ));
+  }, [isDragging, dragAnnotationId, zoom, dragOffset]);
+
+  // End dragging
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+    setDragAnnotationId(null);
+    setDragOffset({ x: 0, y: 0 });
+  }, []);
+
+  // Add global mouse/touch listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      const handleMouseMove = (e) => handleDragMove(e);
+      const handleMouseUp = () => handleDragEnd();
+      const handleTouchMove = (e) => handleDragMove(e);
+      const handleTouchEnd = () => handleDragEnd();
+      
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isDragging, handleDragMove, handleDragEnd]);
 
   // Remove annotation
   const handleRemoveAnnotation = (id) => {
@@ -566,17 +647,27 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                   position: 'absolute',
                   left: annotation.x * zoom,
                   top: annotation.y * zoom,
-                  cursor: 'pointer',
-                  '&:hover': { bgcolor: 'rgba(255,255,0,0.3)' },
+                  cursor: isDragging && dragAnnotationId === annotation.id ? 'grabbing' : 'grab',
+                  '&:hover': { 
+                    bgcolor: 'rgba(255,255,0,0.3)',
+                    boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.5)',
+                  },
                   padding: '2px',
                   borderRadius: '2px',
-                  border: selectedAnnotation === annotation.id ? '2px solid blue' : 'none',
-                  zIndex: 10,
+                  border: selectedAnnotation === annotation.id ? '2px solid blue' : '1px dashed transparent',
+                  zIndex: isDragging && dragAnnotationId === annotation.id ? 100 : 10,
+                  transition: isDragging ? 'none' : 'box-shadow 0.2s',
+                  userSelect: 'none',
+                  touchAction: 'none',
                 }}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedAnnotation(annotation.id);
+                  if (!isDragging) {
+                    setSelectedAnnotation(annotation.id);
+                  }
                 }}
+                onMouseDown={(e) => handleDragStart(e, annotation.id)}
+                onTouchStart={(e) => handleDragStart(e, annotation.id)}
               >
                 {annotation.type === 'text' ? (
                   <Typography
@@ -638,7 +729,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           <strong>How to edit:</strong> 1) Select <strong>Text</strong>, <strong>Checkmark</strong>, or <strong>Signature</strong> tool → 
           2) For text: type in the field above → 
           3) <strong>Click directly on the PDF</strong> where you want to place it → 
-          4) Click <strong>Save Changes</strong> when done
+          4) <strong>Drag to reposition</strong> if needed → 
+          5) Click <strong>Save Changes</strong> when done
         </Typography>
       </Paper>
 

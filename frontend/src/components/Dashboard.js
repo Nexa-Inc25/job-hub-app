@@ -191,6 +191,16 @@ const Dashboard = () => {
     }
   };
 
+  const getDependencyStatusLabel = (status) => {
+    const labels = {
+      'required': 'REQUIRED',
+      'check': 'CHECK',
+      'scheduled': 'SCHEDULED',
+      'not_required': 'NOT REQUIRED',
+    };
+    return labels[status] || status;
+  };
+
   const getDependencyTypeLabel = (type) => {
     const labels = {
       'usa': 'USA',
@@ -1263,12 +1273,18 @@ const Dashboard = () => {
                               <Box sx={{ mt: 0.5, maxHeight: 80, overflow: 'auto' }}>
                                 {details.dependencies && details.dependencies.length > 0 ? (
                                   details.dependencies.map((dep, i) => (
-                                    <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5}>
+                                    <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5} flexWrap="wrap">
                                       <Chip 
                                         size="small"
                                         label={getDependencyTypeLabel(dep.type)}
-                                        color={getDependencyStatusColor(dep.status)}
+                                        variant="outlined"
                                         sx={{ fontSize: '0.6rem', height: 18 }}
+                                      />
+                                      <Chip 
+                                        size="small"
+                                        label={getDependencyStatusLabel(dep.status)}
+                                        color={getDependencyStatusColor(dep.status)}
+                                        sx={{ fontSize: '0.55rem', height: 16, fontWeight: 'bold' }}
                                       />
                                       {dep.ticketNumber && (
                                         <Typography variant="caption" color="text.secondary">
