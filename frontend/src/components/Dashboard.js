@@ -91,6 +91,7 @@ const Dashboard = () => {
   const [flippedCards, setFlippedCards] = useState({}); // Track which cards are flipped
   const [jobDetails, setJobDetails] = useState({}); // Cache full job details for flipped cards
   const [preFieldChecklist, setPreFieldChecklist] = useState({}); // Pre-field checklist state per job
+  const [flipLock, setFlipLock] = useState(false); // Prevent rapid flipping
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
@@ -145,28 +146,38 @@ const Dashboard = () => {
   };
 
   // Handle card flip - load full details on first flip
-  const handleCardFlip = async (jobId) => {
+  const handleCardFlip = (jobId) => {
+    // Prevent rapid clicking
+    if (flipLock) return;
+    setFlipLock(true);
+    
     const isCurrentlyFlipped = flippedCards[jobId];
     const job = jobs.find(j => j._id === jobId);
     
+    // Toggle flip state immediately
+    setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
+    
+    // If flipping to back side, load data
     if (!isCurrentlyFlipped) {
       // Initialize pre-field checklist if job needs pre-fielding
       if (job && needsPreField(job.status)) {
         initPreFieldChecklist(jobId);
       }
       
-      // Fetch full details if not already cached
+      // Fetch full details if not already cached (don't await - fire and forget)
       if (!jobDetails[jobId]) {
-        try {
-          const response = await api.get(`/api/jobs/${jobId}/full-details`);
-          setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
-        } catch (err) {
-          console.error('Error fetching job details:', err);
-        }
+        api.get(`/api/jobs/${jobId}/full-details`)
+          .then(response => {
+            setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
+          })
+          .catch(err => {
+            console.error('Error fetching job details:', err);
+          });
       }
     }
     
-    setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
+    // Release lock after animation completes
+    setTimeout(() => setFlipLock(false), 700);
   };
 
   // Format dependency status
