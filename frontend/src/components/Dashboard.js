@@ -1434,7 +1434,7 @@ const Dashboard = () => {
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -1473,7 +1473,7 @@ const Dashboard = () => {
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Button size="small" color="success" onClick={(e) => handleUnstickJob(job._id, e)}>Resume</Button>
-                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
                       </Box>
                     </Box>
                   ))}
@@ -1517,7 +1517,7 @@ const Dashboard = () => {
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <Button size="small" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>Assign</Button>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -1578,7 +1578,7 @@ const Dashboard = () => {
                         Start Pre-Field
                       </Button>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -1617,7 +1617,7 @@ const Dashboard = () => {
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
                       </Box>
                     </Box>
                   ))}
