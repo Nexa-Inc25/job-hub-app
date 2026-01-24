@@ -72,6 +72,7 @@ const jobSchema = new mongoose.Schema({
       'assigned_to_gf',       // PM assigned to General Foreman
       'pre_fielding',         // GF is pre-fielding (site visit, assessing)
       'scheduled',            // GF scheduled crew and dependencies
+      'stuck',                // Job has issues/discrepancies blocking work
       'in_progress',          // Crew is working on the job
       'pending_gf_review',    // Crew submitted, waiting for GF review
       'pending_pm_approval',  // GF approved, waiting for PM final approval
@@ -105,6 +106,11 @@ const jobSchema = new mongoose.Schema({
   preFieldNotes: String,
   preFieldPhotos: [String],  // URLs to pre-field photos
   siteConditions: String,
+  
+  // Stuck job tracking (design discrepancy, utility issue, etc.)
+  stuckReason: String,
+  stuckDate: Date,
+  stuckBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
   // Dependencies tracking (GF manages)
   dependencies: [{

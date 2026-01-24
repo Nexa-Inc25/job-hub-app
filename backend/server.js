@@ -2409,6 +2409,15 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
       case 'scheduled':
         // GF scheduled the job
         break;
+      
+      case 'stuck':
+        // Job has issues blocking progress
+        job.stuckDate = new Date();
+        job.stuckBy = req.userId;
+        if (req.body.stuckReason) {
+          job.stuckReason = req.body.stuckReason;
+        }
+        break;
         
       case 'in_progress':
         // Crew started work

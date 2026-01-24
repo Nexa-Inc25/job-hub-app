@@ -52,6 +52,12 @@ import {
   Chat as ChatIcon,
   Construction as ConstructionIcon,
   Build as BuildIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  PauseCircle as PauseCircleIcon,
+  Today as TodayIcon,
+  EventNote as EventNoteIcon,
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -92,6 +98,9 @@ const Dashboard = () => {
   const [jobDetails, setJobDetails] = useState({}); // Cache full job details for flipped cards
   const [preFieldChecklist, setPreFieldChecklist] = useState({}); // Pre-field checklist state per job
   const [flipLock, setFlipLock] = useState(false); // Prevent rapid flipping
+  const [stuckDialogOpen, setStuckDialogOpen] = useState(false);
+  const [stuckReason, setStuckReason] = useState('');
+  const [stuckJobId, setStuckJobId] = useState(null);
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
@@ -316,6 +325,64 @@ const Dashboard = () => {
     return ['new', 'assigned_to_gf', 'pending'].includes(status);
   };
 
+  // Handle marking a job as stuck
+  const handleOpenStuckDialog = (jobId, e) => {
+    if (e) e.stopPropagation();
+    setStuckJobId(jobId);
+    setStuckReason('');
+    setStuckDialogOpen(true);
+    handleJobMenuClose();
+  };
+
+  const handleMarkAsStuck = async () => {
+    if (!stuckJobId || !stuckReason.trim()) return;
+    
+    try {
+      await api.put(`/api/jobs/${stuckJobId}/status`, { 
+        status: 'stuck',
+        stuckReason: stuckReason.trim()
+      });
+      
+      // Refresh jobs
+      const response = await api.get('/api/jobs');
+      setJobs(response.data);
+      
+      setSnackbar({ 
+        open: true, 
+        message: 'Job marked as stuck', 
+        severity: 'warning' 
+      });
+      setStuckDialogOpen(false);
+      setStuckJobId(null);
+      setStuckReason('');
+    } catch (err) {
+      console.error('Mark as stuck error:', err);
+      setSnackbar({ open: true, message: 'Failed to update job status', severity: 'error' });
+    }
+  };
+
+  // Handle unsticking a job (move back to pre_fielding or scheduled)
+  const handleUnstickJob = async (jobId, e) => {
+    if (e) e.stopPropagation();
+    
+    try {
+      await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
+      
+      // Refresh jobs
+      const response = await api.get('/api/jobs');
+      setJobs(response.data);
+      
+      setSnackbar({ 
+        open: true, 
+        message: 'Job moved back to Pre-Fielding', 
+        severity: 'success' 
+      });
+    } catch (err) {
+      console.error('Unstick job error:', err);
+      setSnackbar({ open: true, message: 'Failed to update job status', severity: 'error' });
+    }
+  };
+
   // Cycle dependency status on click: required → scheduled → not_required → required
   const handleDependencyStatusClick = async (jobId, depId, currentStatus, e) => {
     e.stopPropagation(); // Prevent card flip
@@ -356,6 +423,7 @@ const Dashboard = () => {
     'assigned_to_gf': 'info',
     'pre_fielding': 'info',
     'scheduled': 'primary',
+    'stuck': 'error',
     'in_progress': 'primary',
     'pending_gf_review': 'warning',
     'pending_pm_approval': 'warning',
@@ -376,6 +444,7 @@ const Dashboard = () => {
     'assigned_to_gf': 'Assigned to GF',
     'pre_fielding': 'Pre-Fielding',
     'scheduled': 'Scheduled',
+    'stuck': 'Stuck',
     'in_progress': 'In Progress',
     'pending_gf_review': 'Awaiting GF Review',
     'pending_pm_approval': 'Awaiting PM Approval',
@@ -390,12 +459,103 @@ const Dashboard = () => {
     'completed': 'Completed',
   };
 
+  // State for collapsible sections (GF View)
+  const [expandedSections, setExpandedSections] = useState({
+    pendingPreField: true,
+    needsScheduling: true,
+    stuck: true,
+    todaysWork: true,
+    scheduled: false,
+  });
+
+  // Toggle section expansion
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  // Categorize jobs for GF view
+  const categorizeJobsForGF = useCallback(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return {
+      // Jobs assigned to GF but not pre-fielded
+      pendingPreField: jobs.filter(job => 
+        ['new', 'assigned_to_gf', 'pending'].includes(job.status)
+      ),
+      // Pre-fielded but not scheduled with a crew
+      needsScheduling: jobs.filter(job => 
+        ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo
+      ),
+      // Jobs marked as stuck
+      stuck: jobs.filter(job => job.status === 'stuck'),
+      // Jobs scheduled for today
+      todaysWork: jobs.filter(job => {
+        if (!job.crewScheduledDate) return false;
+        const schedDate = new Date(job.crewScheduledDate);
+        schedDate.setHours(0, 0, 0, 0);
+        return schedDate.getTime() === today.getTime() && 
+               ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
+      }),
+      // Scheduled but not today (future work)
+      scheduled: jobs.filter(job => {
+        if (!job.crewScheduledDate) return false;
+        const schedDate = new Date(job.crewScheduledDate);
+        schedDate.setHours(0, 0, 0, 0);
+        return schedDate.getTime() > today.getTime() && 
+               ['scheduled', 'in_progress'].includes(job.status);
+      }),
+    };
+  }, [jobs]);
+
+  const gfCategories = categorizeJobsForGF();
+
+  // Render a collapsible section header
+  const renderSectionHeader = (title, icon, count, sectionKey, color = 'primary') => (
+    <Paper 
+      sx={{ 
+        p: 2, 
+        mb: 2, 
+        cursor: 'pointer',
+        bgcolor: expandedSections[sectionKey] ? `${color}.main` : 'background.paper',
+        color: expandedSections[sectionKey] ? 'white' : 'text.primary',
+        borderRadius: 2,
+        boxShadow: 1,
+        '&:hover': { opacity: 0.9 },
+        transition: 'all 0.2s ease',
+      }}
+      onClick={() => toggleSection(sectionKey)}
+    >
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Box display="flex" alignItems="center" gap={1}>
+          {icon}
+          <Typography variant="h6" fontWeight="bold">
+            {title}
+          </Typography>
+          <Chip 
+            label={count} 
+            size="small" 
+            sx={{ 
+              bgcolor: expandedSections[sectionKey] ? 'rgba(255,255,255,0.3)' : `${color}.light`,
+              color: expandedSections[sectionKey] ? 'white' : `${color}.dark`,
+              fontWeight: 'bold',
+            }} 
+          />
+        </Box>
+        {expandedSections[sectionKey] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+      </Box>
+    </Paper>
+  );
+
   const statusIcons = {
     // New workflow statuses
     'new': <ScheduleIcon />,
     'assigned_to_gf': <DescriptionIcon />,
     'pre_fielding': <DescriptionIcon />,
     'scheduled': <ScheduleIcon />,
+    'stuck': <WarningIcon />,
     'in_progress': <DescriptionIcon />,
     'pending_gf_review': <ScheduleIcon />,
     'pending_pm_approval': <ScheduleIcon />,
@@ -992,6 +1152,11 @@ const Dashboard = () => {
             <MenuItem onClick={() => { setFilter('submitted'); handleMenuClose(); }}>Submitted</MenuItem>
             <MenuItem onClick={() => { setFilter('billed'); handleMenuClose(); }}>Billed</MenuItem>
             <MenuItem onClick={() => { setFilter('invoiced'); handleMenuClose(); }}>Invoiced</MenuItem>
+            <Divider />
+            <MenuItem onClick={() => { setFilter('stuck'); handleMenuClose(); }}>
+              <BlockIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
+              Stuck
+            </MenuItem>
           </Menu>
         </Box>
       </Paper>
@@ -1013,8 +1178,240 @@ const Dashboard = () => {
         </Alert>
       )}
 
-      {/* Work Orders Grid */}
-      {!loading && !error && (
+      {/* Work Orders Grid - GF View vs Standard View */}
+      {!loading && !error && userRole === 'gf' && filter === 'all' && !search ? (
+        /* ========== GF CATEGORIZED VIEW ========== */
+        <Box>
+          {/* TODAY'S WORK - Most important, always visible */}
+          {renderSectionHeader(
+            "Today's Work", 
+            <TodayIcon />, 
+            gfCategories.todaysWork.length, 
+            'todaysWork', 
+            'success'
+          )}
+          <Collapse in={expandedSections.todaysWork}>
+            {gfCategories.todaysWork.length === 0 ? (
+              <Paper sx={{ p: 3, mb: 3, textAlign: 'center', bgcolor: 'success.light', color: 'success.dark', borderRadius: 2 }}>
+                <Typography>No jobs scheduled for today</Typography>
+              </Paper>
+            ) : (
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                {gfCategories.todaysWork.map((job) => (
+                  <Grid item xs={12} sm={6} md={4} key={job._id}>
+                    <Card sx={{ borderRadius: 2, boxShadow: 2, border: '2px solid', borderColor: 'success.main' }}>
+                      <CardContent sx={{ pb: 1 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                            {job.pmNumber || job.woNumber || job.title}
+                          </Typography>
+                          <Chip label="TODAY" color="success" size="small" />
+                        </Box>
+                        {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
+                        {job.assignedTo && (
+                          <Typography variant="body2" color="primary">
+                            👷 {job.assignedTo.name || job.assignedTo.email || 'Assigned'}
+                          </Typography>
+                        )}
+                      </CardContent>
+                      <CardActions sx={{ pt: 0 }}>
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
+                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Collapse>
+
+          {/* STUCK JOBS - Alert level, needs attention */}
+          {gfCategories.stuck.length > 0 && (
+            <>
+              {renderSectionHeader(
+                "Stuck Jobs", 
+                <BlockIcon />, 
+                gfCategories.stuck.length, 
+                'stuck', 
+                'error'
+              )}
+              <Collapse in={expandedSections.stuck}>
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  {gfCategories.stuck.map((job) => (
+                    <Grid item xs={12} sm={6} md={4} key={job._id}>
+                      <Card sx={{ borderRadius: 2, boxShadow: 2, border: '2px solid', borderColor: 'error.main' }}>
+                        <CardContent sx={{ pb: 1 }}>
+                          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                            <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
+                              {job.pmNumber || job.woNumber || job.title}
+                            </Typography>
+                            <Chip label="STUCK" color="error" size="small" icon={<BlockIcon />} />
+                          </Box>
+                          {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
+                          {job.stuckReason && (
+                            <Alert severity="error" sx={{ mt: 1, py: 0, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
+                              {job.stuckReason}
+                            </Alert>
+                          )}
+                        </CardContent>
+                        <CardActions sx={{ pt: 0 }}>
+                          <Button size="small" color="success" onClick={(e) => handleUnstickJob(job._id, e)}>Resume</Button>
+                          <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
+                          <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Collapse>
+            </>
+          )}
+
+          {/* NEEDS SCHEDULING - Pre-fielded but not assigned to crew */}
+          {renderSectionHeader(
+            "Needs Scheduling", 
+            <EventNoteIcon />, 
+            gfCategories.needsScheduling.length, 
+            'needsScheduling', 
+            'warning'
+          )}
+          <Collapse in={expandedSections.needsScheduling}>
+            {gfCategories.needsScheduling.length === 0 ? (
+              <Paper sx={{ p: 3, mb: 3, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.dark', borderRadius: 2 }}>
+                <Typography>All pre-fielded jobs are scheduled! 🎉</Typography>
+              </Paper>
+            ) : (
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                {gfCategories.needsScheduling.map((job) => (
+                  <Grid item xs={12} sm={6} md={4} key={job._id}>
+                    <Card sx={{ borderRadius: 2, boxShadow: 2, border: '2px solid', borderColor: 'warning.main' }}>
+                      <CardContent sx={{ pb: 1 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                            {job.pmNumber || job.woNumber || job.title}
+                          </Typography>
+                          <Chip label="SCHEDULE" color="warning" size="small" />
+                        </Box>
+                        {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
+                        {job.dueDate && (
+                          <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
+                            Due: {new Date(job.dueDate).toLocaleDateString()}
+                          </Typography>
+                        )}
+                        {/* Show dependencies summary */}
+                        {job.dependencies && job.dependencies.length > 0 && (
+                          <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                            {job.dependencies.slice(0, 3).map((dep, i) => (
+                              <Chip key={i} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={{ fontSize: '0.6rem', height: 18 }} />
+                            ))}
+                          </Box>
+                        )}
+                      </CardContent>
+                      <CardActions sx={{ pt: 0 }}>
+                        <Button size="small" color="primary" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>
+                          <AssignIcon fontSize="small" sx={{ mr: 0.5 }} /> Assign
+                        </Button>
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Collapse>
+
+          {/* PENDING PRE-FIELD - Jobs assigned to GF but not pre-fielded */}
+          {renderSectionHeader(
+            "Pending Pre-Field", 
+            <ConstructionIcon />, 
+            gfCategories.pendingPreField.length, 
+            'pendingPreField', 
+            'info'
+          )}
+          <Collapse in={expandedSections.pendingPreField}>
+            {gfCategories.pendingPreField.length === 0 ? (
+              <Paper sx={{ p: 3, mb: 3, textAlign: 'center', bgcolor: 'info.light', color: 'info.dark', borderRadius: 2 }}>
+                <Typography>No jobs pending pre-field</Typography>
+              </Paper>
+            ) : (
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                {gfCategories.pendingPreField.map((job) => (
+                  <Grid item xs={12} sm={6} md={4} key={job._id}>
+                    <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
+                      <CardContent sx={{ pb: 1 }}>
+                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                          <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                            {job.pmNumber || job.woNumber || job.title}
+                          </Typography>
+                          <Chip label={getStatusLabel(job.status)} color={getStatusColor(job.status)} size="small" />
+                        </Box>
+                        {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
+                        {job.dueDate && (
+                          <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
+                            Due: {new Date(job.dueDate).toLocaleDateString()}
+                          </Typography>
+                        )}
+                      </CardContent>
+                      <CardActions sx={{ pt: 0 }}>
+                        <Button size="small" onClick={() => handleCardFlip(job._id)}>
+                          <FlipIcon fontSize="small" sx={{ mr: 0.5 }} /> Pre-Field
+                        </Button>
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Collapse>
+
+          {/* SCHEDULED (Future) - Collapse by default */}
+          {gfCategories.scheduled.length > 0 && (
+            <>
+              {renderSectionHeader(
+                "Scheduled (Future)", 
+                <CalendarIcon />, 
+                gfCategories.scheduled.length, 
+                'scheduled', 
+                'secondary'
+              )}
+              <Collapse in={expandedSections.scheduled}>
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                  {gfCategories.scheduled.map((job) => (
+                    <Grid item xs={12} sm={6} md={4} key={job._id}>
+                      <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
+                        <CardContent sx={{ pb: 1 }}>
+                          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                            <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
+                              {job.pmNumber || job.woNumber || job.title}
+                            </Typography>
+                            <Chip label={new Date(job.crewScheduledDate).toLocaleDateString()} size="small" variant="outlined" />
+                          </Box>
+                          {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
+                          {job.assignedTo && (
+                            <Typography variant="body2" color="primary">
+                              👷 {job.assignedTo.name || job.assignedTo.email}
+                            </Typography>
+                          )}
+                        </CardContent>
+                        <CardActions sx={{ pt: 0 }}>
+                          <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                          <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
+                          <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Collapse>
+            </>
+          )}
+        </Box>
+      ) : !loading && !error && (
+        /* ========== STANDARD VIEW (for non-GF or filtered/searched) ========== */
         <Grid container spacing={3}>
           {filteredJobs.length === 0 ? (
             <Grid item xs={12}>
@@ -1461,12 +1858,37 @@ const Dashboard = () => {
           <FolderIcon fontSize="small" sx={{ mr: 1 }} />
           Open Files
         </MenuItem>
-        {isAdmin && (
+        {(isAdmin || userRole === 'gf') && (
           <MenuItem onClick={handleOpenAssignDialog}>
             <AssignIcon fontSize="small" sx={{ mr: 1 }} />
             Assign to Foreman
           </MenuItem>
         )}
+        
+        {/* Mark as Stuck option for GF/PM/Admin */}
+        {(isAdmin || ['gf', 'pm'].includes(userRole)) && selectedJobId && (() => {
+          const job = jobs.find(j => j._id === selectedJobId);
+          if (!job || job.status === 'stuck') return null;
+          if (['ready_to_submit', 'submitted', 'billed', 'invoiced'].includes(job.status)) return null;
+          return (
+            <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
+              <BlockIcon fontSize="small" sx={{ mr: 1 }} />
+              Mark as Stuck
+            </MenuItem>
+          );
+        })()}
+        
+        {/* Unstick option for stuck jobs */}
+        {(isAdmin || ['gf', 'pm'].includes(userRole)) && selectedJobId && (() => {
+          const job = jobs.find(j => j._id === selectedJobId);
+          if (!job || job.status !== 'stuck') return null;
+          return (
+            <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
+              <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
+              Resume Job
+            </MenuItem>
+          );
+        })()}
         
         {/* Workflow Status Transitions */}
         {selectedJobId && (() => {
@@ -1594,6 +2016,47 @@ const Dashboard = () => {
             disabled={!assignmentData.assignedTo || !assignmentData.crewScheduledDate}
           >
             Assign Job
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Mark as Stuck Dialog */}
+      <Dialog open={stuckDialogOpen} onClose={() => setStuckDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
+            <BlockIcon />
+            Mark Job as Stuck
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Use this when a job has a design discrepancy, missing materials, utility issue, 
+            or any problem that will delay completion.
+          </Typography>
+          <TextField
+            id="stuckReason"
+            name="stuckReason"
+            label="Reason for Delay"
+            multiline
+            rows={3}
+            value={stuckReason}
+            onChange={(e) => setStuckReason(e.target.value)}
+            placeholder="Describe the issue blocking this job..."
+            fullWidth
+            required
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setStuckDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleMarkAsStuck} 
+            variant="contained" 
+            color="error"
+            startIcon={<BlockIcon />}
+            disabled={!stuckReason.trim()}
+          >
+            Mark as Stuck
           </Button>
         </DialogActions>
       </Dialog>
