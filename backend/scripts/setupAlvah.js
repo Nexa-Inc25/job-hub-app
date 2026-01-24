@@ -6,10 +6,12 @@
  * EDIT THE USER DETAILS BELOW BEFORE RUNNING!
  */
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 const mongoose = require('mongoose');
 const Company = require('../models/Company');
 const User = require('../models/User');
+const Utility = require('../models/Utility');
 
 // ============================================
 // EDIT THESE USER DETAILS BEFORE RUNNING
@@ -67,14 +69,30 @@ const USERS = [
 async function setupAlvah() {
   try {
     // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI;
+    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
     if (!mongoUri) {
-      throw new Error('MONGODB_URI environment variable is not set');
+      throw new Error('MONGODB_URI or MONGO_URI environment variable is not set');
     }
     
     console.log('Connecting to MongoDB...');
+    console.log('Using URI:', mongoUri.substring(0, 30) + '...');
     await mongoose.connect(mongoUri);
     console.log('Connected to MongoDB');
+
+    // Find PG&E utility
+    let pgeUtility = await Utility.findOne({ slug: 'pge' });
+    if (!pgeUtility) {
+      console.log('PG&E utility not found, creating...');
+      pgeUtility = await Utility.create({
+        name: 'Pacific Gas & Electric',
+        slug: 'pge',
+        region: 'California',
+        isActive: true
+      });
+      console.log('Created PG&E utility:', pgeUtility._id);
+    } else {
+      console.log('Found PG&E utility:', pgeUtility._id);
+    }
 
     // Check if company already exists
     let company = await Company.findOne({ name: COMPANY_INFO.name });
@@ -85,6 +103,8 @@ async function setupAlvah() {
       // Create the company
       company = new Company({
         ...COMPANY_INFO,
+        utilities: [pgeUtility._id],
+        defaultUtility: pgeUtility._id,
         subscription: {
           plan: 'starter',
           seats: 10,

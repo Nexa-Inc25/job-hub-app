@@ -2797,6 +2797,106 @@ app.get('/api/jobs/:id/ai-suggestions', authenticateUser, async (req, res) => {
   }
 });
 
+// === ADMIN SETUP ENDPOINTS ===
+
+// Setup Alvah company (one-time use)
+app.post('/api/admin/setup-alvah', authenticateUser, async (req, res) => {
+  try {
+    // Only allow admins
+    if (!req.isAdmin && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const results = { created: [], skipped: [], errors: [] };
+
+    // Find or create PG&E utility
+    let pgeUtility = await Utility.findOne({ slug: 'pge' });
+    if (!pgeUtility) {
+      pgeUtility = await Utility.create({
+        name: 'Pacific Gas & Electric',
+        slug: 'pge',
+        region: 'California',
+        isActive: true
+      });
+      results.created.push('PG&E Utility');
+    }
+
+    // Company info
+    const COMPANY_INFO = {
+      name: 'Alvah',
+      email: 'info@alvah.com',
+      state: 'CA',
+    };
+
+    // Users to create
+    const USERS = [
+      { email: 'leek@alvah.com', name: 'Lee Kizer', password: 'Alvah2025!', role: 'gf', isAdmin: false, canApprove: true },
+      { email: 'mattf@alvah.com', name: 'Matt Ferrier', password: 'Alvah2025!', role: 'foreman', isAdmin: false, canApprove: false },
+      { email: 'stephens@alvah.com', name: 'Stephen Shay', password: 'Alvah2025!', role: 'foreman', isAdmin: false, canApprove: false },
+      { email: 'joeb@alvah.com', name: 'Joe Bodner', password: 'Alvah2025!', role: 'foreman', isAdmin: false, canApprove: false },
+    ];
+
+    // Check if company exists
+    let company = await Company.findOne({ name: COMPANY_INFO.name });
+    
+    if (company) {
+      results.skipped.push(`Company "${COMPANY_INFO.name}" already exists`);
+    } else {
+      company = new Company({
+        ...COMPANY_INFO,
+        utilities: [pgeUtility._id],
+        defaultUtility: pgeUtility._id,
+        subscription: { plan: 'starter', seats: 10, status: 'active' },
+        settings: { timezone: 'America/Los_Angeles', defaultDivision: 'DA' },
+        isActive: true
+      });
+      await company.save();
+      results.created.push(`Company "${company.name}"`);
+    }
+
+    // Create users
+    for (const userData of USERS) {
+      const existingUser = await User.findOne({ email: userData.email });
+      
+      if (existingUser) {
+        if (!existingUser.companyId) {
+          existingUser.companyId = company._id;
+          await existingUser.save();
+          results.skipped.push(`${userData.email} - updated companyId`);
+        } else {
+          results.skipped.push(`${userData.email} - already exists`);
+        }
+        continue;
+      }
+      
+      const user = new User({
+        email: userData.email,
+        name: userData.name,
+        password: userData.password,
+        role: userData.role,
+        isAdmin: userData.isAdmin,
+        canApprove: userData.canApprove,
+        companyId: company._id,
+        userType: 'contractor'
+      });
+      
+      await user.save();
+      results.created.push(`${userData.role.toUpperCase()} - ${userData.email} (${userData.name})`);
+    }
+
+    res.json({
+      success: true,
+      message: 'Alvah setup complete',
+      companyId: company._id,
+      results
+    });
+
+  } catch (err) {
+    console.error('Setup Alvah error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Capture form field data for AI training
 app.post('/api/jobs/:id/capture-form', authenticateUser, async (req, res) => {
   try {

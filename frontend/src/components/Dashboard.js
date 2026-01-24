@@ -316,6 +316,39 @@ const Dashboard = () => {
     return ['new', 'assigned_to_gf', 'pending'].includes(status);
   };
 
+  // Cycle dependency status on click: required → scheduled → not_required → required
+  const handleDependencyStatusClick = async (jobId, depId, currentStatus, e) => {
+    e.stopPropagation(); // Prevent card flip
+    
+    const statusCycle = ['required', 'scheduled', 'not_required'];
+    const currentIndex = statusCycle.indexOf(currentStatus);
+    const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
+    
+    try {
+      await api.put(`/api/jobs/${jobId}/dependencies/${depId}`, { status: nextStatus });
+      
+      // Update local cache
+      setJobDetails(prev => ({
+        ...prev,
+        [jobId]: {
+          ...prev[jobId],
+          dependencies: prev[jobId]?.dependencies?.map(dep => 
+            dep._id === depId ? { ...dep, status: nextStatus } : dep
+          )
+        }
+      }));
+      
+      setSnackbar({ 
+        open: true, 
+        message: `Status changed to ${getDependencyStatusLabel(nextStatus)}`, 
+        severity: 'success' 
+      });
+    } catch (err) {
+      console.error('Update dependency error:', err);
+      setSnackbar({ open: true, message: 'Failed to update status', severity: 'error' });
+    }
+  };
+
   // Status colors for new workflow + legacy statuses
   const statusColors = {
     // New workflow statuses
@@ -1273,19 +1306,28 @@ const Dashboard = () => {
                               <Box sx={{ mt: 0.5, maxHeight: 80, overflow: 'auto' }}>
                                 {details.dependencies && details.dependencies.length > 0 ? (
                                   details.dependencies.map((dep, i) => (
-                                    <Box key={i} display="flex" alignItems="center" gap={0.5} mb={0.5} flexWrap="wrap">
+                                    <Box key={dep._id || i} display="flex" alignItems="center" gap={0.5} mb={0.5} flexWrap="wrap">
                                       <Chip 
                                         size="small"
                                         label={getDependencyTypeLabel(dep.type)}
                                         variant="outlined"
                                         sx={{ fontSize: '0.6rem', height: 18 }}
                                       />
-                                      <Chip 
-                                        size="small"
-                                        label={getDependencyStatusLabel(dep.status)}
-                                        color={getDependencyStatusColor(dep.status)}
-                                        sx={{ fontSize: '0.55rem', height: 16, fontWeight: 'bold' }}
-                                      />
+                                      <Tooltip title="Click to change status" arrow>
+                                        <Chip 
+                                          size="small"
+                                          label={getDependencyStatusLabel(dep.status)}
+                                          color={getDependencyStatusColor(dep.status)}
+                                          onClick={(e) => handleDependencyStatusClick(job._id, dep._id, dep.status, e)}
+                                          sx={{ 
+                                            fontSize: '0.55rem', 
+                                            height: 16, 
+                                            fontWeight: 'bold',
+                                            cursor: 'pointer',
+                                            '&:hover': { opacity: 0.8 }
+                                          }}
+                                        />
+                                      </Tooltip>
                                       {dep.ticketNumber && (
                                         <Typography variant="caption" color="text.secondary">
                                           #{dep.ticketNumber}
