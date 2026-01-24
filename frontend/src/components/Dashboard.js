@@ -523,12 +523,17 @@ const Dashboard = () => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
+  // Helper to get local date string (YYYY-MM-DD) from any date
+  const getLocalDateString = (date) => {
+    const d = new Date(date);
+    return d.getFullYear() + '-' + 
+           String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+           String(d.getDate()).padStart(2, '0');
+  };
+
   // Categorize jobs for GF view
   const categorizeJobsForGF = useCallback(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    const todayStr = getLocalDateString(new Date());
 
     return {
       // Jobs assigned to GF but not pre-fielded
@@ -541,20 +546,18 @@ const Dashboard = () => {
       ),
       // Jobs marked as stuck
       stuck: jobs.filter(job => job.status === 'stuck'),
-      // Jobs scheduled for today
+      // Jobs scheduled for today (compare local date strings)
       todaysWork: jobs.filter(job => {
         if (!job.crewScheduledDate) return false;
-        const schedDate = new Date(job.crewScheduledDate);
-        schedDate.setHours(0, 0, 0, 0);
-        return schedDate.getTime() === today.getTime() && 
+        const schedDateStr = getLocalDateString(job.crewScheduledDate);
+        return schedDateStr === todayStr && 
                ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
       }),
       // Scheduled but not today (future work)
       scheduled: jobs.filter(job => {
         if (!job.crewScheduledDate) return false;
-        const schedDate = new Date(job.crewScheduledDate);
-        schedDate.setHours(0, 0, 0, 0);
-        return schedDate.getTime() > today.getTime() && 
+        const schedDateStr = getLocalDateString(job.crewScheduledDate);
+        return schedDateStr > todayStr && 
                ['scheduled', 'in_progress'].includes(job.status);
       }),
     };
@@ -789,8 +792,18 @@ const Dashboard = () => {
 
   const handleAssignJob = async () => {
     try {
+      // Fix timezone issue: set dates at noon local time to avoid day boundary shifts
+      const dataToSend = { ...assignmentData };
+      if (dataToSend.crewScheduledDate) {
+        // Create date at noon local time
+        dataToSend.crewScheduledDate = new Date(dataToSend.crewScheduledDate + 'T12:00:00').toISOString();
+      }
+      if (dataToSend.crewScheduledEndDate) {
+        dataToSend.crewScheduledEndDate = new Date(dataToSend.crewScheduledEndDate + 'T12:00:00').toISOString();
+      }
+      
       // api module automatically adds Authorization header
-      await api.put(`/api/jobs/${selectedJobId}/assign`, assignmentData);
+      await api.put(`/api/jobs/${selectedJobId}/assign`, dataToSend);
       
       // Refresh jobs list
       fetchJobs();
