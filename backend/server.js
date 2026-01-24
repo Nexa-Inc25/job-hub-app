@@ -2897,6 +2897,36 @@ app.post('/api/admin/setup-alvah', authenticateUser, async (req, res) => {
   }
 });
 
+// Update user to admin
+app.post('/api/admin/make-admin/:email', authenticateUser, async (req, res) => {
+  try {
+    if (!req.isAdmin && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const { email } = req.params;
+    const user = await User.findOne({ email: decodeURIComponent(email) });
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    user.isAdmin = true;
+    user.role = 'admin';
+    user.canApprove = true;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: `${user.name} (${user.email}) is now an admin`,
+      user: { id: user._id, name: user.name, email: user.email, role: user.role, isAdmin: user.isAdmin }
+    });
+  } catch (err) {
+    console.error('Make admin error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Capture form field data for AI training
 app.post('/api/jobs/:id/capture-form', authenticateUser, async (req, res) => {
   try {
