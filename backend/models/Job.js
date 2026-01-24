@@ -82,6 +82,7 @@ const jobSchema = new mongoose.Schema({
       // Legacy statuses for backwards compatibility
       'pending',              // (legacy) maps to 'new'
       'pre-field',            // (legacy) maps to 'pre_fielding'
+      'in-progress',          // (legacy) maps to 'in_progress'
       'completed'             // (legacy) maps to 'ready_to_submit'
     ], 
     default: 'new' 
