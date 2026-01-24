@@ -565,41 +565,36 @@ const Dashboard = () => {
 
   const gfCategories = categorizeJobsForGF();
 
-  // Render a collapsible section header
-  const renderSectionHeader = (title, icon, count, sectionKey, color = 'primary') => (
-    <Paper 
+  // Render a simple collapsible section header
+  const renderSectionHeader = (title, icon, count, sectionKey) => (
+    <Box 
       sx={{ 
-        p: 2, 
-        mb: 2, 
+        py: 1.5, 
+        px: 2,
+        mb: 1, 
         cursor: 'pointer',
-        bgcolor: expandedSections[sectionKey] ? `${color}.main` : 'background.paper',
-        color: expandedSections[sectionKey] ? 'white' : 'text.primary',
-        borderRadius: 2,
-        boxShadow: 1,
-        '&:hover': { opacity: 0.9 },
-        transition: 'all 0.2s ease',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        '&:hover': { bgcolor: 'action.hover' },
+        transition: 'background 0.2s ease',
       }}
       onClick={() => toggleSection(sectionKey)}
     >
       <Box display="flex" alignItems="center" justifyContent="space-between">
         <Box display="flex" alignItems="center" gap={1}>
-          {icon}
-          <Typography variant="h6" fontWeight="bold">
+          <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
+          <Typography variant="subtitle1" fontWeight="medium" color="text.primary">
             {title}
           </Typography>
-          <Chip 
-            label={count} 
-            size="small" 
-            sx={{ 
-              bgcolor: expandedSections[sectionKey] ? 'rgba(255,255,255,0.3)' : `${color}.light`,
-              color: expandedSections[sectionKey] ? 'white' : `${color}.dark`,
-              fontWeight: 'bold',
-            }} 
-          />
+          <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+            ({count})
+          </Typography>
         </Box>
-        {expandedSections[sectionKey] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+        <Box sx={{ color: 'text.secondary' }}>
+          {expandedSections[sectionKey] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+        </Box>
       </Box>
-    </Paper>
+    </Box>
   );
 
   const statusIcons = {
@@ -1246,230 +1241,208 @@ const Dashboard = () => {
       {!loading && !error && (userRole === 'gf' || userRole === 'admin' || userRole === 'pm' || isAdmin) && filter === 'all' && !search ? (
         /* ========== GF CATEGORIZED VIEW ========== */
         <Box>
-          {/* TODAY'S WORK - Most important, always visible */}
-          {renderSectionHeader(
-            "Today's Work", 
-            <TodayIcon />, 
-            gfCategories.todaysWork.length, 
-            'todaysWork', 
-            'success'
-          )}
+          {/* TODAY'S WORK */}
+          {renderSectionHeader("Today's Work", <TodayIcon fontSize="small" />, gfCategories.todaysWork.length, 'todaysWork')}
           <Collapse in={expandedSections.todaysWork}>
             {gfCategories.todaysWork.length === 0 ? (
-              <Paper sx={{ p: 3, mb: 3, textAlign: 'center', bgcolor: 'success.light', color: 'success.dark', borderRadius: 2 }}>
-                <Typography>No jobs scheduled for today</Typography>
-              </Paper>
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
+                No jobs scheduled for today
+              </Typography>
             ) : (
-              <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Box sx={{ mb: 2 }}>
                 {gfCategories.todaysWork.map((job) => (
-                  <Grid item xs={12} sm={6} md={4} key={job._id}>
-                    <Card sx={{ borderRadius: 2, boxShadow: 2, border: '2px solid', borderColor: 'success.main' }}>
-                      <CardContent sx={{ pb: 1 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                          <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                            {job.pmNumber || job.woNumber || job.title}
-                          </Typography>
-                          <Chip label="TODAY" color="success" size="small" />
-                        </Box>
-                        {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
-                        {job.assignedTo && (
-                          <Typography variant="body2" color="primary">
-                            👷 {job.assignedTo.name || job.assignedTo.email || 'Assigned'}
-                          </Typography>
-                        )}
-                      </CardContent>
-                      <CardActions sx={{ pt: 0 }}>
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
-                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
-                      </CardActions>
-                    </Card>
-                  </Grid>
+                  <Box 
+                    key={job._id} 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      py: 1, 
+                      px: 2, 
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight="medium" noWrap>
+                        {job.pmNumber || job.woNumber || job.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {job.address} {job.assignedTo && `• ${job.assignedTo.name || job.assignedTo.email}`}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                      <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                    </Box>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             )}
           </Collapse>
 
-          {/* STUCK JOBS - Alert level, needs attention */}
+          {/* STUCK JOBS */}
           {gfCategories.stuck.length > 0 && (
             <>
-              {renderSectionHeader(
-                "Stuck Jobs", 
-                <BlockIcon />, 
-                gfCategories.stuck.length, 
-                'stuck', 
-                'error'
-              )}
+              {renderSectionHeader("Stuck", <BlockIcon fontSize="small" />, gfCategories.stuck.length, 'stuck')}
               <Collapse in={expandedSections.stuck}>
-                <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Box sx={{ mb: 2 }}>
                   {gfCategories.stuck.map((job) => (
-                    <Grid item xs={12} sm={6} md={4} key={job._id}>
-                      <Card sx={{ borderRadius: 2, boxShadow: 2, border: '2px solid', borderColor: 'error.main' }}>
-                        <CardContent sx={{ pb: 1 }}>
-                          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                            <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '60%' }}>
-                              {job.pmNumber || job.woNumber || job.title}
-                            </Typography>
-                            <Chip label="STUCK" color="error" size="small" icon={<BlockIcon />} />
-                          </Box>
-                          {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
-                          {job.stuckReason && (
-                            <Alert severity="error" sx={{ mt: 1, py: 0, '& .MuiAlert-message': { fontSize: '0.75rem' } }}>
-                              {job.stuckReason}
-                            </Alert>
-                          )}
-                        </CardContent>
-                        <CardActions sx={{ pt: 0 }}>
-                          <Button size="small" color="success" onClick={(e) => handleUnstickJob(job._id, e)}>Resume</Button>
-                          <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
-                          <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
-                        </CardActions>
-                      </Card>
-                    </Grid>
+                    <Box 
+                      key={job._id} 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        py: 1, 
+                        px: 2, 
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        bgcolor: 'error.50',
+                        '&:hover': { bgcolor: 'error.100' },
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight="medium" noWrap color="error.main">
+                          {job.pmNumber || job.woNumber || job.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {job.stuckReason || job.address}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Button size="small" color="success" onClick={(e) => handleUnstickJob(job._id, e)}>Resume</Button>
+                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                      </Box>
+                    </Box>
                   ))}
-                </Grid>
+                </Box>
               </Collapse>
             </>
           )}
 
-          {/* NEEDS SCHEDULING - Pre-fielded but not assigned to crew */}
-          {renderSectionHeader(
-            "Needs Scheduling", 
-            <EventNoteIcon />, 
-            gfCategories.needsScheduling.length, 
-            'needsScheduling', 
-            'warning'
-          )}
+          {/* NEEDS SCHEDULING */}
+          {renderSectionHeader("Needs Scheduling", <EventNoteIcon fontSize="small" />, gfCategories.needsScheduling.length, 'needsScheduling')}
           <Collapse in={expandedSections.needsScheduling}>
             {gfCategories.needsScheduling.length === 0 ? (
-              <Paper sx={{ p: 3, mb: 3, textAlign: 'center', bgcolor: 'warning.light', color: 'warning.dark', borderRadius: 2 }}>
-                <Typography>All pre-fielded jobs are scheduled! 🎉</Typography>
-              </Paper>
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
+                All pre-fielded jobs are scheduled
+              </Typography>
             ) : (
-              <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Box sx={{ mb: 2 }}>
                 {gfCategories.needsScheduling.map((job) => (
-                  <Grid item xs={12} sm={6} md={4} key={job._id}>
-                    <Card sx={{ borderRadius: 2, boxShadow: 2, border: '2px solid', borderColor: 'warning.main' }}>
-                      <CardContent sx={{ pb: 1 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                          <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                            {job.pmNumber || job.woNumber || job.title}
-                          </Typography>
-                          <Chip label="SCHEDULE" color="warning" size="small" />
-                        </Box>
-                        {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
-                        {job.dueDate && (
-                          <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
-                            Due: {new Date(job.dueDate).toLocaleDateString()}
-                          </Typography>
-                        )}
-                        {/* Show dependencies summary */}
-                        {job.dependencies && job.dependencies.length > 0 && (
-                          <Box sx={{ mt: 0.5, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {job.dependencies.slice(0, 3).map((dep, i) => (
-                              <Chip key={i} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={{ fontSize: '0.6rem', height: 18 }} />
-                            ))}
-                          </Box>
-                        )}
-                      </CardContent>
-                      <CardActions sx={{ pt: 0 }}>
-                        <Button size="small" color="primary" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>
-                          <AssignIcon fontSize="small" sx={{ mr: 0.5 }} /> Assign
-                        </Button>
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
-                      </CardActions>
-                    </Card>
-                  </Grid>
+                  <Box 
+                    key={job._id} 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      py: 1, 
+                      px: 2, 
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight="medium" noWrap>
+                        {job.pmNumber || job.woNumber || job.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {job.address}
+                        {job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Button size="small" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>Assign</Button>
+                      <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                      <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                    </Box>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             )}
           </Collapse>
 
-          {/* PENDING PRE-FIELD - Jobs assigned to GF but not pre-fielded */}
-          {renderSectionHeader(
-            "Pending Pre-Field", 
-            <ConstructionIcon />, 
-            gfCategories.pendingPreField.length, 
-            'pendingPreField', 
-            'info'
-          )}
+          {/* PENDING PRE-FIELD */}
+          {renderSectionHeader("Pending Pre-Field", <ConstructionIcon fontSize="small" />, gfCategories.pendingPreField.length, 'pendingPreField')}
           <Collapse in={expandedSections.pendingPreField}>
             {gfCategories.pendingPreField.length === 0 ? (
-              <Paper sx={{ p: 3, mb: 3, textAlign: 'center', bgcolor: 'info.light', color: 'info.dark', borderRadius: 2 }}>
-                <Typography>No jobs pending pre-field</Typography>
-              </Paper>
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
+                No jobs pending pre-field
+              </Typography>
             ) : (
-              <Grid container spacing={2} sx={{ mb: 3 }}>
+              <Box sx={{ mb: 2 }}>
                 {gfCategories.pendingPreField.map((job) => (
-                  <Grid item xs={12} sm={6} md={4} key={job._id}>
-                    <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-                      <CardContent sx={{ pb: 1 }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                          <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                            {job.pmNumber || job.woNumber || job.title}
-                          </Typography>
-                          <Chip label={getStatusLabel(job.status)} color={getStatusColor(job.status)} size="small" />
-                        </Box>
-                        {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
-                        {job.dueDate && (
-                          <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
-                            Due: {new Date(job.dueDate).toLocaleDateString()}
-                          </Typography>
-                        )}
-                      </CardContent>
-                      <CardActions sx={{ pt: 0 }}>
-                        <Button size="small" onClick={() => handleCardFlip(job._id)}>
-                          <FlipIcon fontSize="small" sx={{ mr: 0.5 }} /> Pre-Field
-                        </Button>
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
-                      </CardActions>
-                    </Card>
-                  </Grid>
+                  <Box 
+                    key={job._id} 
+                    sx={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      py: 1, 
+                      px: 2, 
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                      '&:hover': { bgcolor: 'action.hover' },
+                    }}
+                  >
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight="medium" noWrap>
+                        {job.pmNumber || job.woNumber || job.title}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" noWrap>
+                        {job.address}
+                        {job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                      <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                    </Box>
+                  </Box>
                 ))}
-              </Grid>
+              </Box>
             )}
           </Collapse>
 
-          {/* SCHEDULED (Future) - Collapse by default */}
+          {/* SCHEDULED (Future) */}
           {gfCategories.scheduled.length > 0 && (
             <>
-              {renderSectionHeader(
-                "Scheduled (Future)", 
-                <CalendarIcon />, 
-                gfCategories.scheduled.length, 
-                'scheduled', 
-                'secondary'
-              )}
+              {renderSectionHeader("Scheduled", <CalendarIcon fontSize="small" />, gfCategories.scheduled.length, 'scheduled')}
               <Collapse in={expandedSections.scheduled}>
-                <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Box sx={{ mb: 2 }}>
                   {gfCategories.scheduled.map((job) => (
-                    <Grid item xs={12} sm={6} md={4} key={job._id}>
-                      <Card sx={{ borderRadius: 2, boxShadow: 1 }}>
-                        <CardContent sx={{ pb: 1 }}>
-                          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                            <Typography variant="subtitle1" fontWeight="bold" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>
-                              {job.pmNumber || job.woNumber || job.title}
-                            </Typography>
-                            <Chip label={new Date(job.crewScheduledDate).toLocaleDateString()} size="small" variant="outlined" />
-                          </Box>
-                          {job.address && <Typography variant="body2" color="text.secondary">{job.address}</Typography>}
-                          {job.assignedTo && (
-                            <Typography variant="body2" color="primary">
-                              👷 {job.assignedTo.name || job.assignedTo.email}
-                            </Typography>
-                          )}
-                        </CardContent>
-                        <CardActions sx={{ pt: 0 }}>
-                          <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                          <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
-                          <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
-                        </CardActions>
-                      </Card>
-                    </Grid>
+                    <Box 
+                      key={job._id} 
+                      sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'space-between',
+                        py: 1, 
+                        px: 2, 
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        '&:hover': { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight="medium" noWrap>
+                          {job.pmNumber || job.woNumber || job.title}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap>
+                          {new Date(job.crewScheduledDate).toLocaleDateString()} • {job.assignedTo?.name || job.assignedTo?.email || 'Unassigned'}
+                          {job.address && ` • ${job.address}`}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                        <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon fontSize="small" /></IconButton>
+                      </Box>
+                    </Box>
                   ))}
-                </Grid>
+                </Box>
               </Collapse>
             </>
           )}
