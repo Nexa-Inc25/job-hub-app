@@ -5,10 +5,7 @@ import {
   Paper,
   Typography,
   IconButton,
-  Grid,
   Chip,
-  Card,
-  CardActionArea,
   Tooltip,
   CircularProgress,
   Alert,
@@ -149,16 +146,16 @@ const Calendar = () => {
     // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
       days.push(
-        <Grid item xs key={`empty-${i}`}>
-          <Paper 
-            sx={{ 
-              height: 120, 
-              p: 1, 
-              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
-              opacity: 0.5
-            }}
-          />
-        </Grid>
+        <Paper 
+          key={`empty-${i}`}
+          sx={{ 
+            minHeight: 140, 
+            p: 1, 
+            bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+            opacity: 0.4,
+            borderRadius: 1
+          }}
+        />
       );
     }
 
@@ -168,130 +165,103 @@ const Calendar = () => {
       const isToday = isCurrentMonth && today.getDate() === day;
 
       days.push(
-        <Grid item xs key={day}>
-          <Paper
+        <Paper
+          key={day}
+          sx={{
+            minHeight: 140,
+            p: 1,
+            overflow: 'hidden',
+            border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid',
+            borderColor: isToday ? 'primary.main' : 'divider',
+            bgcolor: isToday 
+              ? (theme.palette.mode === 'dark' ? 'primary.900' : 'primary.50')
+              : (theme.palette.mode === 'dark' ? 'grey.800' : 'white'),
+            borderRadius: 1,
+            '&:hover': {
+              bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.50'
+            }
+          }}
+        >
+          <Typography
+            variant="body2"
             sx={{
-              height: 120,
-              p: 0.5,
-              overflow: 'hidden',
-              border: isToday ? `2px solid ${theme.palette.primary.main}` : 'none',
-              bgcolor: isToday 
-                ? (theme.palette.mode === 'dark' ? 'primary.dark' : 'primary.light')
-                : (theme.palette.mode === 'dark' ? 'grey.800' : 'white'),
-              '&:hover': {
-                bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.50'
-              }
+              fontWeight: isToday ? 'bold' : 'medium',
+              color: isToday ? 'primary.main' : 'text.primary',
+              mb: 0.5
             }}
           >
-            <Typography
-              variant="body2"
-              sx={{
-                fontWeight: isToday ? 'bold' : 'normal',
-                color: isToday ? 'primary.contrastText' : 'text.primary',
-                mb: 0.5
-              }}
-            >
-              {day}
-            </Typography>
-            <Box sx={{ overflow: 'auto', maxHeight: 85 }}>
-              {dayJobs.slice(0, 3).map((job) => (
-                  <Tooltip
-                  key={job._id}
-                  title={
-                    <Box>
-                      <Typography variant="body2"><strong>{job.pmNumber || job.woNumber}</strong></Typography>
-                      <Typography variant="caption">{job.address}</Typography>
-                      {isAdmin && viewAll && job.assignedTo && (
-                        <Typography variant="caption" display="block" color="info.main">
-                          Assigned to: {job.assignedTo.name || job.assignedTo.email}
-                        </Typography>
-                      )}
-                      {job.dueDate && (
-                        <Typography variant="caption" display="block" color="warning.main">
-                          Due: {new Date(job.dueDate).toLocaleDateString()}
-                        </Typography>
-                      )}
-                      {job.assignmentNotes && (
-                        <Typography variant="caption" display="block">Notes: {job.assignmentNotes}</Typography>
-                      )}
-                    </Box>
-                  }
-                  arrow
-                >
-                  <Card
-                    sx={{
-                      mb: 0.5,
-                      cursor: 'pointer',
-                      borderLeft: `3px solid ${getPriorityColor(job.priority)}`,
-                      '&:hover': { transform: 'scale(1.02)' },
-                      transition: 'transform 0.1s'
-                    }}
-                    onClick={() => handleJobClick(job._id)}
-                  >
-                    <CardActionArea sx={{ p: 0.5 }}>
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          fontWeight: 'bold',
-                          display: 'block',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}
-                      >
-                        {job.pmNumber || job.woNumber || 'No PM#'}
+            {day}
+          </Typography>
+          <Box sx={{ overflow: 'auto', maxHeight: 110 }}>
+            {dayJobs.map((job) => (
+              <Tooltip
+                key={job._id}
+                title={
+                  <Box>
+                    <Typography variant="body2"><strong>{job.pmNumber || job.woNumber}</strong></Typography>
+                    <Typography variant="caption">{job.address}</Typography>
+                    {isAdmin && viewAll && job.assignedTo && (
+                      <Typography variant="caption" display="block" color="info.main">
+                        Crew: {job.assignedTo.name || job.assignedTo.email}
                       </Typography>
-                      {job.assignedTo ? (
-                        <Box>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              display: 'block',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              fontWeight: 'medium',
-                              color: 'primary.main',
-                              fontSize: '0.65rem'
-                            }}
-                          >
-                            {job.assignedTo.name || job.assignedTo.email?.split('@')[0] || 'Foreman'}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: '0.55rem',
-                              color: 'text.secondary',
-                              fontStyle: 'italic'
-                            }}
-                          >
-                            Scheduled
-                          </Typography>
-                        </Box>
-                      ) : (
-                        <Chip
-                          label={job.status}
-                          size="small"
-                          sx={{
-                            height: 16,
-                            fontSize: '0.6rem',
-                            bgcolor: getStatusColor(job.status),
-                            color: 'white'
-                          }}
-                        />
-                      )}
-                    </CardActionArea>
-                  </Card>
-                </Tooltip>
-              ))}
-              {dayJobs.length > 3 && (
-                <Typography variant="caption" color="text.secondary">
-                  +{dayJobs.length - 3} more
-                </Typography>
-              )}
-            </Box>
-          </Paper>
-        </Grid>
+                    )}
+                    {job.dueDate && (
+                      <Typography variant="caption" display="block" color="warning.main">
+                        Due: {new Date(job.dueDate).toLocaleDateString()}
+                      </Typography>
+                    )}
+                  </Box>
+                }
+                arrow
+                placement="right"
+              >
+                <Box
+                  onClick={() => handleJobClick(job._id)}
+                  sx={{
+                    mb: 0.5,
+                    p: 0.5,
+                    cursor: 'pointer',
+                    borderLeft: `3px solid ${getPriorityColor(job.priority)}`,
+                    bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.100',
+                    borderRadius: '0 4px 4px 0',
+                    '&:hover': { 
+                      bgcolor: theme.palette.mode === 'dark' ? 'grey.600' : 'grey.200'
+                    },
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontWeight: 'bold',
+                      display: 'block',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      fontSize: '0.7rem'
+                    }}
+                  >
+                    {job.pmNumber || job.woNumber || 'Job'}
+                  </Typography>
+                  {job.assignedTo && (
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        color: 'text.secondary',
+                        fontSize: '0.65rem'
+                      }}
+                    >
+                      {job.assignedTo.name || job.assignedTo.email?.split('@')[0]}
+                    </Typography>
+                  )}
+                </Box>
+              </Tooltip>
+            ))}
+          </Box>
+        </Paper>
       );
     }
 
@@ -301,16 +271,16 @@ const Calendar = () => {
     if (remainingCells < 7) {
       for (let i = 0; i < remainingCells; i++) {
         days.push(
-          <Grid item xs key={`empty-end-${i}`}>
-            <Paper 
-              sx={{ 
-                height: 120, 
-                p: 1, 
-                bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.100',
-                opacity: 0.5
-              }}
-            />
-          </Grid>
+          <Paper 
+            key={`empty-end-${i}`}
+            sx={{ 
+              minHeight: 140, 
+              p: 1, 
+              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
+              opacity: 0.4,
+              borderRadius: 1
+            }}
+          />
         );
       }
     }
@@ -378,25 +348,39 @@ const Calendar = () => {
         </Box>
       ) : (
         <Paper sx={{ p: 2 }}>
-          {/* Day Headers */}
-          <Grid container spacing={1} sx={{ mb: 1 }}>
+          {/* Day Headers - Fixed width columns */}
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(7, 1fr)', 
+            gap: 1, 
+            mb: 1 
+          }}>
             {dayNames.map((day) => (
-              <Grid item xs key={day}>
-                <Typography
-                  variant="subtitle2"
-                  align="center"
-                  sx={{ fontWeight: 'bold', color: 'text.secondary' }}
-                >
-                  {day}
-                </Typography>
-              </Grid>
+              <Typography
+                key={day}
+                variant="subtitle2"
+                align="center"
+                sx={{ 
+                  fontWeight: 'bold', 
+                  color: 'text.secondary',
+                  py: 1,
+                  borderBottom: '2px solid',
+                  borderColor: 'divider'
+                }}
+              >
+                {day}
+              </Typography>
             ))}
-          </Grid>
+          </Box>
 
-          {/* Calendar Grid */}
-          <Grid container spacing={1}>
+          {/* Calendar Grid - Same fixed width columns */}
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(7, 1fr)', 
+            gap: 1 
+          }}>
             {renderCalendarDays()}
-          </Grid>
+          </Box>
         </Paper>
       )}
 
