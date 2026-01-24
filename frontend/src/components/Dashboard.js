@@ -613,10 +613,25 @@ const Dashboard = () => {
             onClose={handleMenuClose}
           >
             <MenuItem onClick={() => { setFilter('all'); handleMenuClose(); }}>All Status</MenuItem>
-            <MenuItem onClick={() => { setFilter('pending'); handleMenuClose(); }}>Pending</MenuItem>
-            <MenuItem onClick={() => { setFilter('pre-field'); handleMenuClose(); }}>Pre-Field</MenuItem>
-            <MenuItem onClick={() => { setFilter('in-progress'); handleMenuClose(); }}>In Progress</MenuItem>
-            <MenuItem onClick={() => { setFilter('completed'); handleMenuClose(); }}>Completed</MenuItem>
+            <Divider />
+            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— New Jobs —</MenuItem>
+            <MenuItem onClick={() => { setFilter('new'); handleMenuClose(); }}>New</MenuItem>
+            <MenuItem onClick={() => { setFilter('assigned_to_gf'); handleMenuClose(); }}>Assigned to GF</MenuItem>
+            <Divider />
+            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— Pre-Field —</MenuItem>
+            <MenuItem onClick={() => { setFilter('pre_fielding'); handleMenuClose(); }}>Pre-Fielding</MenuItem>
+            <MenuItem onClick={() => { setFilter('scheduled'); handleMenuClose(); }}>Scheduled</MenuItem>
+            <Divider />
+            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— In Progress —</MenuItem>
+            <MenuItem onClick={() => { setFilter('in_progress'); handleMenuClose(); }}>In Progress</MenuItem>
+            <MenuItem onClick={() => { setFilter('pending_gf_review'); handleMenuClose(); }}>Awaiting GF Review</MenuItem>
+            <MenuItem onClick={() => { setFilter('pending_pm_approval'); handleMenuClose(); }}>Awaiting PM Approval</MenuItem>
+            <Divider />
+            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— Completed —</MenuItem>
+            <MenuItem onClick={() => { setFilter('ready_to_submit'); handleMenuClose(); }}>Ready to Submit</MenuItem>
+            <MenuItem onClick={() => { setFilter('submitted'); handleMenuClose(); }}>Submitted</MenuItem>
+            <MenuItem onClick={() => { setFilter('billed'); handleMenuClose(); }}>Billed</MenuItem>
+            <MenuItem onClick={() => { setFilter('invoiced'); handleMenuClose(); }}>Invoiced</MenuItem>
           </Menu>
         </Box>
       </Paper>
