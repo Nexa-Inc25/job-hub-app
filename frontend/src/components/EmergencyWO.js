@@ -24,11 +24,15 @@ function EmergencyWO() {
       <Typography variant="h6" sx={{ mb: 2 }}>Create Emergency Work Order</Typography>
       <form onSubmit={handleSubmit}>
         <TextField
+          id="emergency-wo-number"
+          name="woNumber"
           label="WO Number"
           value={woNumber}
           onChange={e => setWoNumber(e.target.value)}
           fullWidth
           margin="normal"
+          autoComplete="off"
+          required
         />
         <Button type="submit" variant="contained" color="primary">Submit</Button>
       </form>
