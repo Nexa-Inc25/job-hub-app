@@ -983,7 +983,12 @@ const JobFileSystem = () => {
                     </TableHead>
                     <TableBody>
                       {selectedFolder.documents.length > 0 ? (
-                        selectedFolder.documents.map((doc, idx) => (
+                        selectedFolder.documents.map((doc, idx) => {
+                          // Debug: log document approval status
+                          if (doc.approvalStatus) {
+                            console.log('Document with approvalStatus:', doc.name, doc.approvalStatus);
+                          }
+                          return (
                           <TableRow
                             key={doc.url || doc.name + idx}
                             onContextMenu={(e) => handleContextMenu(e, doc)}
@@ -1095,7 +1100,8 @@ const JobFileSystem = () => {
                               </Box>
                             </TableCell>
                           </TableRow>
-                        ))
+                          );
+                        })
                       ) : (
                         <TableRow>
                           <TableCell colSpan={3} align="center">
