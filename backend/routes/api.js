@@ -164,9 +164,9 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
       
       const text = await getPdfUtils().getPdfTextFromBuffer(pdfBuffer);
       const chunks = getPdfUtils().getTextChunks(text);
-      const store = getPdfUtils().getVectorStore(chunks);
+      const store = await getPdfUtils().getVectorStore(chunks);
       const chain = getPdfUtils().getConversationalChain(store);
-      const answer = chain.ask(query);
+      const answer = await chain.ask(query);
       res.json({ answer });
     } else {
       res.json({ answer: 'No documents' });

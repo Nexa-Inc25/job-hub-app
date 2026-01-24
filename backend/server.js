@@ -2302,17 +2302,32 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
         job.invoicedDate = new Date();
         break;
         
-      // Legacy status mappings
+      // Legacy status mappings - map to new status AND execute transition logic
       case 'pending':
         job.status = 'new';
         break;
+        
       case 'pre-field':
         job.status = 'pre_fielding';
+        // Execute same logic as 'pre_fielding' case
+        if (!job.preFieldDate) {
+          job.preFieldDate = new Date();
+        }
         break;
+        
       case 'completed':
         job.status = 'ready_to_submit';
         job.completedDate = new Date();
         job.completedBy = req.userId;
+        // Execute same logic as 'ready_to_submit' case
+        job.pmApprovalDate = new Date();
+        job.pmApprovedBy = req.userId;
+        job.pmApprovalStatus = 'approved';
+        break;
+        
+      case 'in-progress':
+        // Legacy hyphenated version
+        job.status = 'in_progress';
         break;
     }
     

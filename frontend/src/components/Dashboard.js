@@ -226,12 +226,10 @@ const Dashboard = () => {
     }
     
     try {
-      const token = localStorage.getItem('token');
       console.log('Deleting job:', selectedJobId);
       
-      const response = await api.delete(`/api/jobs/${selectedJobId}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // api module automatically adds Authorization header
+      const response = await api.delete(`/api/jobs/${selectedJobId}`);
       
       console.log('Delete response:', response.data);
       
@@ -299,10 +297,8 @@ const Dashboard = () => {
 
   const handleAssignJob = async () => {
     try {
-      const token = localStorage.getItem('token');
-      await api.put(`/api/jobs/${selectedJobId}/assign`, assignmentData, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      // api module automatically adds Authorization header
+      await api.put(`/api/jobs/${selectedJobId}/assign`, assignmentData);
       
       // Refresh jobs list
       fetchJobs();
