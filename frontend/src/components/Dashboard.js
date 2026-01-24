@@ -983,35 +983,43 @@ const Dashboard = () => {
             </Grid>
           ) : (
             filteredJobs.map((job) => {
-              const isFlipped = flippedCards[job._id];
+              const isFlipped = !!flippedCards[job._id];
               const details = jobDetails[job._id] || job;
               
               return (
               <Grid item xs={12} md={6} lg={4} key={job._id}>
                 {/* Flip Card Container */}
-                <Box sx={{
-                  perspective: '1000px',
-                  height: 340,
-                }}>
-                  <Box sx={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%',
-                    transition: 'transform 0.6s ease-in-out',
-                    transformStyle: 'preserve-3d',
-                    transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
-                  }}>
+                <Box 
+                  sx={{
+                    perspective: '1000px',
+                    height: 340,
+                  }}
+                >
+                  <Box 
+                    className={`flip-card-inner ${isFlipped ? 'flipped' : ''}`}
+                    sx={{
+                      position: 'relative',
+                      width: '100%',
+                      height: '100%',
+                      transformStyle: 'preserve-3d',
+                      transition: 'transform 0.6s ease-in-out',
+                      '&.flipped': {
+                        transform: 'rotateY(180deg)',
+                      },
+                    }}
+                  >
                     {/* FRONT SIDE */}
                     <Card sx={{
                       position: 'absolute',
                       width: '100%',
                       height: '100%',
                       backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
                       borderRadius: 2,
                       boxShadow: 2,
                       display: 'flex',
                       flexDirection: 'column',
-                      pointerEvents: isFlipped ? 'none' : 'auto',
+                      zIndex: isFlipped ? 0 : 1,
                     }}>
                       <CardContent sx={{ flexGrow: 1 }}>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
@@ -1136,13 +1144,14 @@ const Dashboard = () => {
                       width: '100%',
                       height: '100%',
                       backfaceVisibility: 'hidden',
+                      WebkitBackfaceVisibility: 'hidden',
                       transform: 'rotateY(180deg)',
                       borderRadius: 2,
                       boxShadow: 2,
                       display: 'flex',
                       flexDirection: 'column',
                       bgcolor: 'background.paper',
-                      pointerEvents: isFlipped ? 'auto' : 'none',
+                      zIndex: isFlipped ? 1 : 0,
                     }}>
                       <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
                         {/* Header */}
