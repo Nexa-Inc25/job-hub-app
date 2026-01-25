@@ -2,6 +2,35 @@ const fs = require('fs');
 const path = require('path');
 const OpenAI = require('openai');
 
+// API Usage tracking for owner dashboard
+let APIUsage = null;
+try {
+  APIUsage = require('../models/APIUsage');
+} catch (err) {
+  console.warn('APIUsage model not available - usage tracking disabled');
+}
+
+// Helper to log OpenAI usage
+async function logOpenAIUsage(response, operation, jobId, userId, startTime) {
+  if (!APIUsage || !response?.usage) return;
+  
+  try {
+    await APIUsage.logOpenAIUsage({
+      operation,
+      model: response.model || 'gpt-4o-mini',
+      promptTokens: response.usage.prompt_tokens || 0,
+      completionTokens: response.usage.completion_tokens || 0,
+      success: true,
+      responseTimeMs: Date.now() - startTime,
+      jobId,
+      userId,
+      metadata: { operation }
+    });
+  } catch (err) {
+    console.warn('Failed to log OpenAI usage:', err.message);
+  }
+}
+
 // Try to load canvas and pdfjs - these may fail on some platforms
 let canvasModule = null;
 let createCanvas = null;

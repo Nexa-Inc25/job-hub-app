@@ -84,7 +84,14 @@ const CreateWorkOrder = ({ token }) => {
           if (data.orderType) setOrderType(data.orderType);
         }
       }).catch(err => {
-        console.error('AI extraction error:', err);
+        // Log detailed error for debugging
+        console.error('AI extraction error:', err.message || err);
+        if (err.response) {
+          console.error('Response status:', err.response.status);
+          console.error('Response data:', err.response.data);
+        } else if (err.request) {
+          console.error('No response received - network error or timeout');
+        }
         // Don't show error - extraction is optional, user can fill manually
       }).finally(() => {
         setExtracting(false);

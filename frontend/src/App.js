@@ -12,6 +12,7 @@ import WorkOrderDetails from './components/WorkOrderDetails';
 import JobFileSystem from './components/JobFileSystem';
 import TemplateManager from './components/TemplateManager';
 import Calendar from './components/Calendar';
+import OwnerDashboard from './components/OwnerDashboard';
 import { ThemeProvider } from './ThemeContext';
 
 // Set PDF.js worker globally - use non-ESM build for CRA compatibility
@@ -33,6 +34,7 @@ function App() {
           <Route path="/emergency-wo" element={<EmergencyWO />} />
           <Route path="/forms" element={<Forms />} />
           <Route path="/admin/templates" element={<TemplateManager />} />
+          <Route path="/admin/owner-dashboard" element={<OwnerDashboard />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="*" element={<div>404 - Not Found</div>} />
         </Routes>

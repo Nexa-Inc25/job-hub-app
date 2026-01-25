@@ -57,6 +57,7 @@ import {
   Today as TodayIcon,
   EventNote as EventNoteIcon,
   Block as BlockIcon,
+  Analytics as AnalyticsIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -986,6 +987,15 @@ const Dashboard = () => {
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
             JobHub
           </Typography>
+          
+          {/* Owner Dashboard - Admin Only */}
+          {isAdmin && (
+            <Tooltip title="Owner Dashboard">
+              <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }}>
+                <AnalyticsIcon />
+              </IconButton>
+            </Tooltip>
+          )}
           
           {/* Calendar Button */}
           <Tooltip title="My Schedule">

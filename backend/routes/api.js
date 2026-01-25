@@ -38,7 +38,23 @@ const storage = multer.diskStorage({
     cb(null, Date.now() + path.extname(file.originalname));
   }
 });
-const upload = multer({ storage });
+
+// File filter to only accept PDFs
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype === 'application/pdf' || file.originalname.endsWith('.pdf')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only PDF files are allowed'), false);
+  }
+};
+
+const upload = multer({ 
+  storage,
+  limits: {
+    fileSize: 150 * 1024 * 1024,  // 150MB max file size
+  },
+  fileFilter
+});
 
 // POST AI extract
 router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
