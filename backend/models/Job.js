@@ -8,7 +8,13 @@ const documentSchema = new mongoose.Schema({
   r2Key: String, // R2 storage key
   type: { type: String, enum: ['pdf', 'image', 'template', 'drawing', 'map', 'other'], default: 'other' },
   // AI-assigned category for extracted content
-  category: { type: String, enum: ['SKETCH', 'MAP', 'FORM', 'PHOTO', null], default: null },
+  // Categories for intelligent routing to correct folders:
+  // - SKETCH: Construction sketches, as-built drawings
+  // - MAP: Circuit maps, service area maps
+  // - TCP_MAP: Traffic Control Plan maps (cone placement, sign placement)
+  // - FORM: Fillable forms, permits, documents
+  // - PHOTO: Job site photos, progress photos
+  category: { type: String, enum: ['SKETCH', 'MAP', 'TCP_MAP', 'FORM', 'PHOTO', null], default: null },
   uploadDate: { type: Date, default: Date.now },
   uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   isTemplate: { type: Boolean, default: false },

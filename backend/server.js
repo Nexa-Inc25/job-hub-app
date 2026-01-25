@@ -828,6 +828,33 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
             { name: 'Dispatch Documents', documents: [] },
             { name: 'Pre-Field Docs', documents: [] }
           ]
+        },
+        {
+          name: 'UCS',  // Civil company
+          documents: [],
+          subfolders: [
+            { name: 'Dispatch Docs', documents: [] },
+            { name: 'Civil Plans', documents: [] },
+            { name: 'Photos', documents: [] },
+            { name: 'Time Sheets', documents: [] }
+          ]
+        },
+        {
+          name: 'UTCS',  // Flagging/Traffic Control company
+          documents: [],
+          subfolders: [
+            { name: 'Dispatch Docs', documents: [] },      // Emails, scheduling docs
+            { name: 'No Parks', documents: [] },           // No parking signs/permits
+            { name: 'Photos', documents: [] },             // Traffic control photos
+            { name: 'Time Sheets', documents: [] },        // Flagger time sheets
+            { 
+              name: 'TCP',                                 // Traffic Control Plans
+              documents: [],
+              subfolders: [
+                { name: 'TCP Maps', documents: [] }        // Traffic control plan maps
+              ]
+            }
+          ]
         }
       ]
     });
@@ -1000,7 +1027,8 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     console.log('Extracted assets:', {
       photos: extractedAssets.photos?.length || 0,
       drawings: extractedAssets.drawings?.length || 0,
-      maps: extractedAssets.maps?.length || 0
+      maps: extractedAssets.maps?.length || 0,
+      tcpMaps: extractedAssets.tcpMaps?.length || 0
     });
     
     // Upload extracted assets to R2 and update URLs
@@ -1026,9 +1054,10 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       return uploaded;
     }
     
-    extractedAssets.photos = await uploadAssetsToR2(extractedAssets.photos, 'photos');
-    extractedAssets.drawings = await uploadAssetsToR2(extractedAssets.drawings, 'drawings');
-    extractedAssets.maps = await uploadAssetsToR2(extractedAssets.maps, 'maps');
+    extractedAssets.photos = await uploadAssetsToR2(extractedAssets.photos || [], 'photos');
+    extractedAssets.drawings = await uploadAssetsToR2(extractedAssets.drawings || [], 'drawings');
+    extractedAssets.maps = await uploadAssetsToR2(extractedAssets.maps || [], 'maps');
+    extractedAssets.tcpMaps = await uploadAssetsToR2(extractedAssets.tcpMaps || [], 'tcp_maps');
     
     // Update job with extracted assets
     const aciFolder = job.folders.find(f => f.name === 'ACI');
@@ -1105,6 +1134,44 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       }
     }
     
+    // Add TCP Maps to UTCS folder structure
+    if (extractedAssets.tcpMaps && extractedAssets.tcpMaps.length > 0) {
+      const utcsFolder = job.folders.find(f => f.name === 'UTCS');
+      if (utcsFolder) {
+        // Find or create TCP subfolder
+        let tcpFolder = utcsFolder.subfolders.find(sf => sf.name === 'TCP');
+        if (!tcpFolder) {
+          tcpFolder = { name: 'TCP', documents: [], subfolders: [{ name: 'TCP Maps', documents: [] }] };
+          utcsFolder.subfolders.push(tcpFolder);
+        }
+        
+        // Ensure TCP Maps subfolder exists
+        if (!tcpFolder.subfolders) tcpFolder.subfolders = [];
+        let tcpMapsFolder = tcpFolder.subfolders.find(sf => sf.name === 'TCP Maps');
+        if (!tcpMapsFolder) {
+          tcpMapsFolder = { name: 'TCP Maps', documents: [] };
+          tcpFolder.subfolders.push(tcpMapsFolder);
+        }
+        
+        // Add extracted TCP maps
+        extractedAssets.tcpMaps.forEach(tcpMap => {
+          const doc = {
+            name: tcpMap.name,
+            url: tcpMap.url,
+            type: 'map',
+            category: 'TCP_MAP',
+            pageNumber: tcpMap.pageNumber,
+            extractedFrom: path.basename(pdfPath),
+            uploadDate: new Date()
+          };
+          if (tcpMap.r2Key) doc.r2Key = tcpMap.r2Key;
+          tcpMapsFolder.documents.push(doc);
+        });
+        
+        console.log(`Added ${extractedAssets.tcpMaps.length} TCP maps to UTCS/TCP/TCP Maps`);
+      }
+    }
+    
     job.aiExtractionComplete = true;
     job.aiExtractionEnded = new Date();
     job.aiProcessingTimeMs = Date.now() - startTime;
@@ -1113,7 +1180,8 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     job.aiExtractedAssets = [
       ...extractedAssets.photos.map(p => ({ type: 'photo', name: p.name, url: p.url, extractedAt: new Date() })),
       ...extractedAssets.drawings.map(d => ({ type: 'drawing', name: d.name, url: d.url, extractedAt: new Date() })),
-      ...extractedAssets.maps.map(m => ({ type: 'map', name: m.name, url: m.url, extractedAt: new Date() }))
+      ...extractedAssets.maps.map(m => ({ type: 'map', name: m.name, url: m.url, extractedAt: new Date() })),
+      ...(extractedAssets.tcpMaps || []).map(t => ({ type: 'tcp_map', name: t.name, url: t.url, extractedAt: new Date() }))
     ];
     
     // Log folder structure before saving
@@ -1133,7 +1201,8 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     console.log('Background asset extraction complete for job:', jobId, {
       photos: extractedAssets.photos.length,
       drawings: extractedAssets.drawings.length,
-      maps: extractedAssets.maps.length
+      maps: extractedAssets.maps.length,
+      tcpMaps: extractedAssets.tcpMaps?.length || 0
     });
     
     // Clean up local PDF file after extraction is complete

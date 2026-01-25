@@ -81,17 +81,17 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     
-    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages. BE VERY STRICT - 90% of pages are FORM.
+    const prompt = `Categorize ${pagesWithImages.length} PG&E utility PDF pages. BE VERY STRICT - most pages are FORM.
 
-FORM (default - use when unsure): ANY page with text labels, tables, checkboxes, headers, signatures, permits, checklists, USA tickets, traffic control plans/diagrams, lane closures, barricades, road work signs, detour arrows, legends, title blocks. Traffic control diagrams are ALWAYS FORM. Any standardized diagram with arrows, icons, or legends = FORM.
+FORM (default - use when unsure): ANY page with text labels, tables, checkboxes, headers, signatures, permits, checklists, USA tickets, forms, data entry fields. When in doubt = FORM.
 
-MAP: ONLY Circuit Map Change Sheet (CMCS) or ADHOC with "ILS Event No.", "GIS Tag No.", pink triangles, pole schematics. Very rare.
+MAP: ONLY Circuit Map Change Sheet (CMCS) or ADHOC with "ILS Event No.", "GIS Tag No.", pink triangles, pole schematics. Utility service area maps. Very rare.
 
-SKETCH: ONLY hand-drawn construction drawings with "TRENCH DETAIL", pole dimensions, "Clear Fields". NOT traffic control. NOT standardized diagrams. Very rare.
+TCP_MAP: Traffic Control Plan MAPS ONLY - bird's eye view of road/intersection showing cone placement, sign placement, arrow boards, lane closures, detour routes. Has road layout with symbols for cones/signs. NOT the text forms or permit pages.
+
+SKETCH: ONLY hand-drawn construction drawings with "TRENCH DETAIL", pole dimensions, "Clear Fields". As-built drawings. NOT traffic control. Very rare.
 
 PHOTO: ONLY real camera photographs of physical job sites/equipment. NOT diagrams or documents.
-
-When in doubt = FORM. Traffic control = FORM. Diagrams with legends = FORM.
 
 JSON only: [{"page":1,"category":"FORM"}...]`;
 
@@ -242,6 +242,7 @@ async function analyzePagesByContent(pdfPath) {
   const result = {
     drawings: [],      // Pages with actual drawings (pole sheets, plan views)
     maps: [],          // Pages with circuit/location maps
+    tcpMaps: [],       // Pages with traffic control plan maps (cone/sign placement)
     photos: [],        // Pages with photos/pictures
     forms: [],         // Pages with forms/data sheets
     totalPages: 0
@@ -324,9 +325,15 @@ async function analyzePagesByContent(pdfPath) {
       const hasMapKeywords = /cmcs|circuit map change sheet|adhoc|cirmap/i.test(text) || 
                              (/circuit map/i.test(text) && !/circuit map:/i.test(text));
       
+      // === TCP MAP DETECTION ===
+      // Traffic Control Plan maps show cone/sign placement, lane closures as diagrams
+      // Look for visual TCP indicators (NOT the form/permit pages)
+      const hasTcpMapKeywords = /traffic control plan.*map|tcp.*diagram|lane closure.*map|detour.*route|cone.*placement|sign.*placement/i.test(text) &&
+                                 textLength < 500; // Real TCP maps have minimal text, mostly visual
+      
       // Debug: Log pages that have potential map/sketch indicators
-      if (hasMapKeywords || hasDrawingKeywords) {
-        console.log(`  Page ${pageNum}: hasMap=${hasMapKeywords}, hasDrawing=${hasDrawingKeywords}, textLen=${textLength}, snippet="${text.substring(0, 100).replace(/\n/g, ' ')}"`);
+      if (hasMapKeywords || hasDrawingKeywords || hasTcpMapKeywords) {
+        console.log(`  Page ${pageNum}: hasMap=${hasMapKeywords}, hasTcpMap=${hasTcpMapKeywords}, hasDrawing=${hasDrawingKeywords}, textLen=${textLength}, snippet="${text.substring(0, 100).replace(/\n/g, ' ')}"`);
       }
       
       // === PHOTO DETECTION ===
@@ -347,6 +354,9 @@ async function analyzePagesByContent(pdfPath) {
       if (hasDrawingKeywords) {
         console.log(`    -> DRAWING (text match)`);
         result.drawings.push(pageNum);
+      } else if (hasTcpMapKeywords) {
+        console.log(`    -> TCP_MAP (text match: traffic control plan map)`);
+        result.tcpMaps.push(pageNum);
       } else if (hasMapKeywords) {
         const matchedKeyword = text.match(/cmcs|circuit map change sheet|adhoc|circuit map|cirmap/i)?.[0];
         console.log(`    -> MAP (text match: "${matchedKeyword}")`);
@@ -405,6 +415,8 @@ async function analyzePagesByContent(pdfPath) {
             result.drawings.push(page.pageNum);
           } else if (category === 'MAP') {
             result.maps.push(page.pageNum);
+          } else if (category === 'TCP_MAP') {
+            result.tcpMaps.push(page.pageNum);
           } else if (category === 'PHOTO') {
             result.photos.push(page.pageNum);
           } else if (category === 'FORM') {
@@ -429,11 +441,13 @@ async function analyzePagesByContent(pdfPath) {
     // Remove duplicates and sort
     result.drawings = [...new Set(result.drawings)].sort((a, b) => a - b);
     result.maps = [...new Set(result.maps)].sort((a, b) => a - b);
+    result.tcpMaps = [...new Set(result.tcpMaps)].sort((a, b) => a - b);
     result.photos = [...new Set(result.photos)].sort((a, b) => a - b);
     
     console.log('Page analysis complete:', {
       drawings: result.drawings.length,
       maps: result.maps.length,
+      tcpMaps: result.tcpMaps.length,
       photos: result.photos.length,
       forms: result.forms.length
     });
@@ -509,6 +523,7 @@ async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
     photos: [],
     drawings: [],
     maps: [],
+    tcpMaps: [],      // Traffic control plan maps -> UTCS/TCP/TCP Maps
     summary: ''
   };
   
@@ -528,9 +543,10 @@ async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
     const photosDir = path.join(jobDir, 'photos');
     const drawingsDir = path.join(jobDir, 'drawings');
     const mapsDir = path.join(jobDir, 'maps');
+    const tcpMapsDir = path.join(jobDir, 'tcp_maps');  // For UTCS/TCP/TCP Maps
     
     // Create directories
-    [photosDir, drawingsDir, mapsDir].forEach(dir => {
+    [photosDir, drawingsDir, mapsDir, tcpMapsDir].forEach(dir => {
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
@@ -542,6 +558,7 @@ async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
     console.log('Found pages:');
     console.log('  Drawings:', pageAnalysis.drawings.slice(0, 10).join(', ') + (pageAnalysis.drawings.length > 10 ? '...' : ''));
     console.log('  Maps:', pageAnalysis.maps.join(', '));
+    console.log('  TCP Maps:', pageAnalysis.tcpMaps.join(', '));
     console.log('  Photos:', pageAnalysis.photos.slice(0, 10).join(', ') + (pageAnalysis.photos.length > 10 ? '...' : ''));
     
     // Convert drawing pages (limit to first 5)
@@ -556,13 +573,19 @@ async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
       result.maps = await convertPagesToImages(pdfPath, mapPages, mapsDir, 'map');
     }
     
+    // Convert TCP map pages (limit to first 5)
+    const tcpMapPages = pageAnalysis.tcpMaps.slice(0, 5);
+    if (tcpMapPages.length > 0) {
+      result.tcpMaps = await convertPagesToImages(pdfPath, tcpMapPages, tcpMapsDir, 'tcp_map');
+    }
+    
     // Convert photo pages (limit to first 15)
     const photoPages = pageAnalysis.photos.slice(0, 15);
     if (photoPages.length > 0) {
       result.photos = await convertPagesToImages(pdfPath, photoPages, photosDir, 'photo');
     }
     
-    result.summary = `Extracted ${result.drawings.length} drawings, ${result.maps.length} maps, ${result.photos.length} photos from ${pageAnalysis.totalPages} pages`;
+    result.summary = `Extracted ${result.drawings.length} drawings, ${result.maps.length} maps, ${result.tcpMaps.length} TCP maps, ${result.photos.length} photos from ${pageAnalysis.totalPages} pages`;
     
     console.log('=== Extraction complete ===');
     console.log(result.summary);
