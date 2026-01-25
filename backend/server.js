@@ -881,6 +881,92 @@ app.post('/api/jobs/emergency', authenticateUser, async (req, res) => {
   }
 });
 
+// ==================== AI METADATA EXTRACTION ====================
+// Extract job metadata from PDF before creating a job (for form auto-fill)
+app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, res) => {
+  try {
+    console.log('AI metadata extraction request received');
+    
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No PDF file provided' });
+    }
+    
+    if (!process.env.OPENAI_API_KEY) {
+      console.log('OpenAI API key not configured - skipping extraction');
+      return res.json({ success: false, error: 'AI extraction not configured' });
+    }
+    
+    const pdfPath = req.file.path;
+    console.log('Extracting metadata from:', pdfPath);
+    
+    // Use pdf-parse to extract text from first few pages
+    const pdfParse = require('pdf-parse');
+    const pdfBuffer = fs.readFileSync(pdfPath);
+    const pdfData = await pdfParse(pdfBuffer, { max: 3 }); // Only first 3 pages
+    const text = pdfData.text.substring(0, 8000); // Limit to 8000 chars
+    
+    console.log('Extracted text length:', text.length);
+    
+    // Use OpenAI to extract structured data
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a utility work order parser. Extract the following fields from the PDF text. Return ONLY a JSON object with these exact keys:
+- pmNumber: The PM number (usually starts with numbers, 8 digits like 35661262)
+- woNumber: The WO or Work Order number
+- notificationNumber: The notification number (if present)
+- address: The street address where work is to be performed
+- city: The city name
+- client: The utility company name (e.g., "PG&E", "Pacific Gas & Electric")
+- projectName: The project name or description
+- orderType: The type of work (e.g., "Service", "New Business", "Relocation")
+
+If a field is not found, use an empty string. Return ONLY valid JSON, no markdown.`
+        },
+        {
+          role: 'user',
+          content: `Extract job information from this utility work order:\n\n${text}`
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 500
+    });
+    
+    // Parse the response
+    let structured = {};
+    try {
+      const content = response.choices[0]?.message?.content || '{}';
+      // Remove markdown code blocks if present
+      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      structured = JSON.parse(cleanContent);
+      console.log('Extracted metadata:', structured);
+    } catch (parseErr) {
+      console.error('Failed to parse AI response:', parseErr.message);
+      console.log('Raw response:', response.choices[0]?.message?.content);
+    }
+    
+    // Clean up the uploaded file
+    try {
+      fs.unlinkSync(pdfPath);
+    } catch (e) {
+      console.log('Could not delete temp file:', e.message);
+    }
+    
+    res.json({ success: true, structured });
+  } catch (err) {
+    console.error('AI extraction error:', err.message);
+    // Clean up on error
+    if (req.file?.path) {
+      try { fs.unlinkSync(req.file.path); } catch (e) {}
+    }
+    res.status(500).json({ success: false, error: 'Extraction failed: ' + err.message });
+  }
+});
+
 app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) => {
   try {
     const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode } = req.body;
