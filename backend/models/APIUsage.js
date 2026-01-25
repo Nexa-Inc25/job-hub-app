@@ -72,10 +72,11 @@ apiUsageSchema.statics.logOpenAIUsage = async function(data) {
   
   const modelPricing = pricing[data.model] || pricing['default'];
   
-  // Calculate cost in cents
-  const inputCost = (data.promptTokens / 1000000) * modelPricing.input * 100;
-  const outputCost = (data.completionTokens / 1000000) * modelPricing.output * 100;
-  const totalCostCents = Math.round((inputCost + outputCost) * 100) / 100;
+  // Calculate cost in cents (pricing is in $/million tokens, multiply by 100 to convert dollars to cents)
+  const inputCostCents = (data.promptTokens / 1000000) * modelPricing.input * 100;
+  const outputCostCents = (data.completionTokens / 1000000) * modelPricing.output * 100;
+  // Round to 2 decimal places of cents for precision
+  const totalCostCents = Math.round((inputCostCents + outputCostCents) * 100) / 100;
   
   return this.create({
     service: 'openai',
@@ -98,13 +99,15 @@ apiUsageSchema.statics.logOpenAIUsage = async function(data) {
 // Static method to log R2 storage usage
 apiUsageSchema.statics.logStorageUsage = async function(data) {
   // R2 pricing: $0.015/GB stored, $0/egress (free egress!)
-  const storageCostCents = (data.bytesStored / (1024 * 1024 * 1024)) * 1.5; // $0.015 = 1.5 cents
+  // 0.015 dollars = 1.5 cents per GB
+  const storageCostCents = (data.bytesStored / (1024 * 1024 * 1024)) * 1.5;
   
   return this.create({
     service: 'r2_storage',
     operation: data.operation,
     bytesStored: data.bytesStored || 0,
     bytesTransferred: data.bytesTransferred || 0,
+    // Round to 2 decimal places of cents (no additional multiplication needed)
     estimatedCostCents: Math.round(storageCostCents * 100) / 100,
     success: data.success !== false,
     errorMessage: data.errorMessage,

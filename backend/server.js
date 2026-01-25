@@ -1552,13 +1552,15 @@ app.get('/api/jobs/:id', authenticateUser, async (req, res) => {
     const currentUser = await User.findById(req.userId).select('companyId');
     const userCompanyId = currentUser?.companyId;
     
-    // Build query - ALWAYS filter by company first
-    let query = { _id: req.params.id };
-    
-    // CRITICAL: Add company filter for all users
-    if (userCompanyId) {
-      query.companyId = userCompanyId;
+    // CRITICAL: Reject access if user has no company assignment
+    // This prevents admins without a company from accessing any job
+    if (!userCompanyId) {
+      console.log('Access denied: User has no company assignment');
+      return res.status(404).json({ error: 'Job not found' });
     }
+    
+    // Build query - ALWAYS filter by company
+    let query = { _id: req.params.id, companyId: userCompanyId };
     
     // Non-admins also need ownership/assignment check within their company
     if (!req.isAdmin) {
