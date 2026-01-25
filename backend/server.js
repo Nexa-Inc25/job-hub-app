@@ -861,11 +861,20 @@ app.post('/api/jobs/emergency', authenticateUser, async (req, res) => {
           ]
         },
         {
-          name: 'UTC',
+          name: 'UTCS',  // Flagging/Traffic Control company
           documents: [],
           subfolders: [
-            { name: 'Dispatch Documents', documents: [] },
-            { name: 'Pre-Field Docs', documents: [] }
+            { name: 'Dispatch Docs', documents: [] },
+            { name: 'No Parks', documents: [] },
+            { name: 'Photos', documents: [] },
+            { name: 'Time Sheets', documents: [] },
+            { 
+              name: 'TCP',
+              documents: [],
+              subfolders: [
+                { name: 'TCP Maps', documents: [] }
+              ]
+            }
           ]
         }
       ]
@@ -1068,14 +1077,6 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
               ]
             },
             { name: 'General Forms', documents: [] }
-          ]
-        },
-        {
-          name: 'UTC',
-          documents: [],
-          subfolders: [
-            { name: 'Dispatch Documents', documents: [] },
-            { name: 'Pre-Field Docs', documents: [] }
           ]
         },
         {
