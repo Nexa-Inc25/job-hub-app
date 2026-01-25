@@ -321,9 +321,9 @@ const Dashboard = () => {
     }
   };
 
-  // Check if job needs pre-fielding (not yet pre-fielded)
+  // Check if job shows pre-field checklist (including jobs actively being pre-fielded)
   const needsPreField = (status) => {
-    return ['new', 'assigned_to_gf', 'pending'].includes(status);
+    return ['new', 'assigned_to_gf', 'pending', 'pre_fielding', 'pre-field'].includes(status);
   };
 
   // Handle marking a job as stuck
