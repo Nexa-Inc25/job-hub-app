@@ -141,7 +141,8 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
       <Dialog 
         open={open} 
         onClose={handleClose} 
-        maxWidth="sm" 
+        maxWidth="sm"
+        disableRestoreFocus
         fullWidth
         PaperProps={{
           sx: { borderRadius: 2 }
