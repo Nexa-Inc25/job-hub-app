@@ -204,7 +204,24 @@ const jobSchema = new mongoose.Schema({
     noteType: { type: String, enum: ['update', 'issue', 'question', 'resolution', null], default: null },
     // If note is related to a specific dependency
     dependencyId: { type: mongoose.Schema.Types.ObjectId }
-  }]
+  }],
+  
+  // === SOFT DELETE & ARCHIVAL (preserve data for AI training & compliance) ===
+  // Soft delete - job hidden from UI but fully preserved
+  isDeleted: { type: Boolean, default: false },
+  deletedAt: Date,
+  deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  deleteReason: String,  // Why was it deleted (duplicate, test data, etc.)
+  
+  // Archival - completed jobs moved to cold storage after billing
+  isArchived: { type: Boolean, default: false },
+  archivedAt: Date,
+  archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  archiveReason: String, // 'completed', 'billed', 'invoiced', 'retention_policy'
+  
+  // Document retention compliance (utilities often require 7+ years)
+  retentionExpiresAt: Date,  // When this job can be permanently deleted
+  retentionPolicy: String    // e.g., 'pge_7_year', 'default_5_year'
 }, { timestamps: true });
 
 // Indexes for searching
@@ -216,5 +233,8 @@ jobSchema.index({ userId: 1, createdAt: -1 }); // For dashboard listing (fast us
 // Multi-tenant indexes
 jobSchema.index({ companyId: 1, createdAt: -1 }); // Company dashboard
 jobSchema.index({ utilityId: 1, utilityVisible: 1, createdAt: -1 }); // Utility dashboard
+// Soft delete & archive indexes - filter out deleted/archived from normal queries
+jobSchema.index({ isDeleted: 1, isArchived: 1 }); // Fast filtering
+jobSchema.index({ companyId: 1, isArchived: 1, archivedAt: -1 }); // Archived jobs listing
 
 module.exports = mongoose.model('Job', jobSchema);

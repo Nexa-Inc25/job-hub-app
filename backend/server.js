@@ -628,16 +628,25 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
 app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
     console.log('GET /api/jobs - userId:', req.userId, 'role:', req.userRole, 'isAdmin:', req.isAdmin);
-    const { search, view } = req.query;
+    const { search, view, includeArchived, includeDeleted } = req.query;
     
     // Build query based on user role
     let query = {};
+    
+    // By default, exclude deleted and archived jobs
+    // Only admins can request to see deleted/archived
+    if (!includeDeleted || !req.isAdmin) {
+      query.isDeleted = { $ne: true };
+    }
+    if (!includeArchived) {
+      query.isArchived = { $ne: true };
+    }
     
     // Admin and PM see all jobs (in their company eventually)
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
       // For now, admins see all jobs they created OR are in their company
       // Once multi-tenant is fully implemented, filter by companyId
-      query = {}; // See all jobs
+      // (query already has isDeleted/isArchived filters)
     } 
     // GF sees jobs assigned to them for pre-field/review, plus jobs they need to assign crews to
     else if (req.userRole === 'gf') {
@@ -1834,30 +1843,218 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
 
 // Delete a job
 // Admin/PM can delete any job, others can only delete their own
+// SOFT DELETE - Preserve job data for AI training and compliance
+// Jobs are never truly deleted - they're marked as deleted and hidden from UI
+// R2 files and AI training data remain intact
 app.delete('/api/jobs/:id', authenticateUser, async (req, res) => {
   try {
-    console.log('Deleting job by ID:', req.params.id);
+    console.log('Soft-deleting job by ID:', req.params.id);
     console.log('User ID from token:', req.userId, 'isAdmin:', req.isAdmin, 'role:', req.userRole);
+    
+    const { reason } = req.body || {};
 
     let job;
     
     // Admin and PM can delete any job
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
-      job = await Job.findByIdAndDelete(req.params.id);
+      job = await Job.findById(req.params.id);
     } else {
       // Others can only delete their own jobs
-      job = await Job.findOneAndDelete({ _id: req.params.id, userId: req.userId });
+      job = await Job.findOne({ _id: req.params.id, userId: req.userId });
     }
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
+    
+    // Soft delete - mark as deleted but preserve all data
+    job.isDeleted = true;
+    job.deletedAt = new Date();
+    job.deletedBy = req.userId;
+    job.deleteReason = reason || 'User deleted from dashboard';
+    
+    await job.save();
 
-    console.log('Job deleted:', job._id);
-    res.json({ message: 'Work order deleted successfully', jobId: job._id });
+    console.log('Job soft-deleted:', job._id, 'PM:', job.pmNumber);
+    res.json({ 
+      message: 'Work order removed from dashboard', 
+      jobId: job._id,
+      note: 'Data preserved for compliance and AI training'
+    });
   } catch (err) {
-    console.error('Error deleting job:', err);
+    console.error('Error soft-deleting job:', err);
     res.status(500).json({ error: 'Server error', details: err.message });
+  }
+});
+
+// ARCHIVE JOB - Move completed/billed jobs to archive for long-term storage
+// Keeps data for AI training and utility compliance (7+ year retention)
+app.post('/api/jobs/:id/archive', authenticateUser, async (req, res) => {
+  try {
+    const { reason } = req.body;
+    
+    // Only admin/PM can archive jobs
+    if (!req.isAdmin && req.userRole !== 'pm' && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Only PM or Admin can archive jobs' });
+    }
+    
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Set archive fields
+    job.isArchived = true;
+    job.archivedAt = new Date();
+    job.archivedBy = req.userId;
+    job.archiveReason = reason || 'Manual archive';
+    
+    // Set retention policy - default 7 years for utility compliance
+    const retentionYears = 7;
+    job.retentionExpiresAt = new Date(Date.now() + retentionYears * 365 * 24 * 60 * 60 * 1000);
+    job.retentionPolicy = 'utility_7_year';
+    
+    await job.save();
+    
+    console.log('Job archived:', job._id, 'PM:', job.pmNumber, 'Retention until:', job.retentionExpiresAt);
+    res.json({ 
+      message: 'Work order archived successfully',
+      jobId: job._id,
+      retentionExpiresAt: job.retentionExpiresAt,
+      note: 'Job preserved for compliance. Can be retrieved from archive.'
+    });
+  } catch (err) {
+    console.error('Error archiving job:', err);
+    res.status(500).json({ error: 'Failed to archive job', details: err.message });
+  }
+});
+
+// RESTORE JOB - Bring back a deleted or archived job
+app.post('/api/jobs/:id/restore', authenticateUser, async (req, res) => {
+  try {
+    // Only admin can restore jobs
+    if (!req.isAdmin && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Only Admin can restore jobs' });
+    }
+    
+    const job = await Job.findById(req.params.id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Clear delete/archive flags
+    job.isDeleted = false;
+    job.deletedAt = null;
+    job.deletedBy = null;
+    job.deleteReason = null;
+    job.isArchived = false;
+    job.archivedAt = null;
+    job.archivedBy = null;
+    job.archiveReason = null;
+    
+    await job.save();
+    
+    console.log('Job restored:', job._id, 'PM:', job.pmNumber);
+    res.json({ 
+      message: 'Work order restored successfully',
+      jobId: job._id
+    });
+  } catch (err) {
+    console.error('Error restoring job:', err);
+    res.status(500).json({ error: 'Failed to restore job', details: err.message });
+  }
+});
+
+// GET ARCHIVED JOBS - List all archived jobs for admin review
+app.get('/api/jobs/archived', authenticateUser, async (req, res) => {
+  try {
+    // Only admin/PM can view archived jobs
+    if (!req.isAdmin && req.userRole !== 'pm' && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Only PM or Admin can view archived jobs' });
+    }
+    
+    const { search, page = 1, limit = 50 } = req.query;
+    
+    let query = { isArchived: true };
+    
+    if (search) {
+      const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { pmNumber: searchRegex },
+        { woNumber: searchRegex },
+        { address: searchRegex },
+        { city: searchRegex }
+      ];
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const [jobs, total] = await Promise.all([
+      Job.find(query)
+        .select('pmNumber woNumber address city status archivedAt archivedBy archiveReason retentionExpiresAt')
+        .populate('archivedBy', 'name')
+        .sort({ archivedAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Job.countDocuments(query)
+    ]);
+    
+    res.json({
+      jobs,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (err) {
+    console.error('Error fetching archived jobs:', err);
+    res.status(500).json({ error: 'Failed to fetch archived jobs', details: err.message });
+  }
+});
+
+// GET DELETED JOBS - List soft-deleted jobs (admin only)
+app.get('/api/jobs/deleted', authenticateUser, async (req, res) => {
+  try {
+    // Only admin can view deleted jobs
+    if (!req.isAdmin && req.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Only Admin can view deleted jobs' });
+    }
+    
+    const { search, page = 1, limit = 50 } = req.query;
+    
+    let query = { isDeleted: true };
+    
+    if (search) {
+      const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { pmNumber: searchRegex },
+        { woNumber: searchRegex },
+        { address: searchRegex }
+      ];
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const [jobs, total] = await Promise.all([
+      Job.find(query)
+        .select('pmNumber woNumber address city status deletedAt deletedBy deleteReason')
+        .populate('deletedBy', 'name')
+        .sort({ deletedAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      Job.countDocuments(query)
+    ]);
+    
+    res.json({
+      jobs,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (err) {
+    console.error('Error fetching deleted jobs:', err);
+    res.status(500).json({ error: 'Failed to fetch deleted jobs', details: err.message });
   }
 });
 
