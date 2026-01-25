@@ -145,6 +145,7 @@ const authenticateUser = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
     req.isAdmin = decoded.isAdmin || false;
+    req.isSuperAdmin = decoded.isSuperAdmin || false;  // Job Hub platform owners only
     req.userRole = decoded.role || null;  // crew, foreman, gf, pm, admin
     req.canApprove = decoded.canApprove || false;
     next();
@@ -153,12 +154,22 @@ const authenticateUser = (req, res, next) => {
   }
 };
 
-// Admin-only middleware
+// Admin-only middleware (company admin)
 const requireAdmin = (req, res, next) => {
   console.log('requireAdmin check - userId:', req.userId, 'isAdmin:', req.isAdmin);
   if (!req.isAdmin) {
     console.log('Admin access denied for user:', req.userId);
     return res.status(403).json({ error: 'Admin access required' });
+  }
+  next();
+};
+
+// Super Admin middleware (Job Hub platform owners only)
+const requireSuperAdmin = (req, res, next) => {
+  console.log('requireSuperAdmin check - userId:', req.userId, 'isSuperAdmin:', req.isSuperAdmin);
+  if (!req.isSuperAdmin) {
+    console.log('Super Admin access denied for user:', req.userId);
+    return res.status(403).json({ error: 'Super Admin access required. This feature is for Job Hub platform owners only.' });
   }
   next();
 };
@@ -204,6 +215,7 @@ app.post('/api/signup', async (req, res) => {
     const token = jwt.sign({ 
       userId: user._id, 
       isAdmin: user.isAdmin || false,
+      isSuperAdmin: user.isSuperAdmin || false,
       role: user.role,
       canApprove: user.canApprove || false
     }, process.env.JWT_SECRET, { expiresIn: '24h' });
@@ -237,13 +249,15 @@ app.post('/api/login', async (req, res) => {
     const token = jwt.sign({ 
       userId: user._id, 
       isAdmin: user.isAdmin,
+      isSuperAdmin: user.isSuperAdmin || false,
       role: user.role,
       canApprove: user.canApprove || false
     }, process.env.JWT_SECRET, { expiresIn: '24h' });
     res.json({ 
       token, 
       userId: user._id, 
-      isAdmin: user.isAdmin, 
+      isAdmin: user.isAdmin,
+      isSuperAdmin: user.isSuperAdmin || false, 
       role: user.role, 
       canApprove: user.canApprove || false,
       name: user.name 
@@ -649,10 +663,14 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
       // (query already has isDeleted/isArchived filters)
     } 
     // GF sees jobs assigned to them for pre-field/review, plus jobs they need to assign crews to
+    // GF also sees UNASSIGNED jobs (no assignedToGF set) so they can pick up new work
     else if (req.userRole === 'gf') {
       query = {
+        ...query,  // Keep isDeleted/isArchived filters
         $or: [
           { assignedToGF: req.userId },  // Jobs assigned to this GF
+          { assignedToGF: null },        // Jobs not yet assigned to any GF
+          { assignedToGF: { $exists: false } },  // Jobs without assignedToGF field
           { userId: req.userId }          // Jobs they created (if any)
         ]
       };
@@ -1725,12 +1743,9 @@ app.post('/api/admin/utilities', authenticateUser, async (req, res) => {
 const APIUsage = require('./models/APIUsage');
 const AITrainingData = require('./models/AITrainingData');
 
-// Owner Dashboard: Get comprehensive platform statistics
-app.get('/api/admin/owner-stats', authenticateUser, async (req, res) => {
+// Owner Dashboard: Get comprehensive platform statistics (Super Admin only)
+app.get('/api/admin/owner-stats', authenticateUser, requireSuperAdmin, async (req, res) => {
   try {
-    if (!req.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
     
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -2002,12 +2017,9 @@ app.get('/api/admin/owner-stats', authenticateUser, async (req, res) => {
   }
 });
 
-// Owner Dashboard: Get system health metrics
-app.get('/api/admin/system-health', authenticateUser, async (req, res) => {
+// Owner Dashboard: Get system health metrics (Super Admin only)
+app.get('/api/admin/system-health', authenticateUser, requireSuperAdmin, async (req, res) => {
   try {
-    if (!req.isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
     
     const health = {
       timestamp: new Date().toISOString(),
@@ -2064,6 +2076,248 @@ function formatUptime(seconds) {
   
   return parts.join(' ');
 }
+
+// ========================================
+// SUPER ADMIN - COMPANY ONBOARDING
+// Simple endpoints for non-technical owners to add companies/users
+// ========================================
+
+// Get all companies (Super Admin only)
+app.get('/api/superadmin/companies', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const companies = await Company.find({ isActive: true })
+      .populate('utilities', 'name shortName')
+      .populate('ownerId', 'name email')
+      .sort({ createdAt: -1 });
+    
+    // Add user count for each company
+    const companiesWithCounts = await Promise.all(companies.map(async (company) => {
+      const userCount = await User.countDocuments({ companyId: company._id });
+      return {
+        ...company.toObject(),
+        userCount
+      };
+    }));
+    
+    res.json(companiesWithCounts);
+  } catch (err) {
+    console.error('Error fetching companies:', err);
+    res.status(500).json({ error: 'Failed to fetch companies' });
+  }
+});
+
+// Create a new company (Super Admin only)
+app.post('/api/superadmin/companies', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { name, email, phone, address, city, state, zip, contractorLicense } = req.body;
+    
+    if (!name) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+    
+    // Check if company with same name already exists
+    const existingCompany = await Company.findOne({ 
+      name: { $regex: new RegExp(`^${name}$`, 'i') } 
+    });
+    if (existingCompany) {
+      return res.status(400).json({ error: 'A company with this name already exists' });
+    }
+    
+    const company = new Company({
+      name,
+      email,
+      phone,
+      address,
+      city,
+      state,
+      zip,
+      contractorLicense,
+      subscription: {
+        plan: 'starter',
+        seats: 10,
+        status: 'active'
+      },
+      settings: {
+        timezone: 'America/Los_Angeles',
+        defaultDivision: 'DA'
+      },
+      isActive: true
+    });
+    
+    await company.save();
+    
+    console.log(`[SuperAdmin] Created company: ${company.name} (${company._id})`);
+    res.status(201).json(company);
+  } catch (err) {
+    console.error('Error creating company:', err);
+    res.status(500).json({ error: 'Failed to create company', details: err.message });
+  }
+});
+
+// Get users for a specific company (Super Admin only)
+app.get('/api/superadmin/companies/:companyId/users', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    
+    const users = await User.find({ companyId })
+      .select('-password')
+      .sort({ createdAt: -1 });
+    
+    res.json(users);
+  } catch (err) {
+    console.error('Error fetching company users:', err);
+    res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Create a user for a company (Super Admin only)
+app.post('/api/superadmin/companies/:companyId/users', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { email, password, name, role, phone } = req.body;
+    
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'Email, password, and name are required' });
+    }
+    
+    // Verify company exists
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    // Check if user already exists
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) {
+      return res.status(400).json({ error: 'A user with this email already exists' });
+    }
+    
+    // Determine permissions based on role
+    const userRole = role || 'crew';
+    const isAdmin = ['pm', 'admin'].includes(userRole);
+    const canApprove = ['gf', 'pm', 'admin'].includes(userRole);
+    
+    const user = new User({
+      email: email.toLowerCase(),
+      password,  // Will be hashed by pre-save hook
+      name,
+      role: userRole,
+      phone,
+      companyId,
+      userType: 'contractor',
+      isAdmin,
+      canApprove,
+      isSuperAdmin: false  // Only manually set super admins
+    });
+    
+    await user.save();
+    
+    // Don't return password
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    
+    console.log(`[SuperAdmin] Created user: ${user.email} (${userRole}) for company ${company.name}`);
+    res.status(201).json(userResponse);
+  } catch (err) {
+    console.error('Error creating user:', err);
+    res.status(500).json({ error: 'Failed to create user', details: err.message });
+  }
+});
+
+// Update a user (Super Admin only)
+app.put('/api/superadmin/users/:userId', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { name, email, role, phone, isActive } = req.body;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Update fields
+    if (name) user.name = name;
+    if (email) user.email = email.toLowerCase();
+    if (phone !== undefined) user.phone = phone;
+    if (role) {
+      user.role = role;
+      user.isAdmin = ['pm', 'admin'].includes(role);
+      user.canApprove = ['gf', 'pm', 'admin'].includes(role);
+    }
+    
+    await user.save();
+    
+    const userResponse = user.toObject();
+    delete userResponse.password;
+    
+    console.log(`[SuperAdmin] Updated user: ${user.email}`);
+    res.json(userResponse);
+  } catch (err) {
+    console.error('Error updating user:', err);
+    res.status(500).json({ error: 'Failed to update user', details: err.message });
+  }
+});
+
+// Reset user password (Super Admin only)
+app.post('/api/superadmin/users/:userId/reset-password', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { newPassword } = req.body;
+    
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    user.password = newPassword;  // Will be hashed by pre-save hook
+    await user.save();
+    
+    console.log(`[SuperAdmin] Reset password for user: ${user.email}`);
+    res.json({ message: 'Password reset successfully' });
+  } catch (err) {
+    console.error('Error resetting password:', err);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Delete/deactivate a company (Super Admin only)
+app.delete('/api/superadmin/companies/:companyId', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    // Soft delete - mark as inactive
+    company.isActive = false;
+    await company.save();
+    
+    console.log(`[SuperAdmin] Deactivated company: ${company.name}`);
+    res.json({ message: `Company "${company.name}" has been deactivated` });
+  } catch (err) {
+    console.error('Error deactivating company:', err);
+    res.status(500).json({ error: 'Failed to deactivate company' });
+  }
+});
+
+// Get all available utilities for dropdown (Super Admin only)
+app.get('/api/superadmin/utilities', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const utilities = await Utility.find({ isActive: true })
+      .select('name shortName slug')
+      .sort({ name: 1 });
+    res.json(utilities);
+  } catch (err) {
+    console.error('Error fetching utilities:', err);
+    res.status(500).json({ error: 'Failed to fetch utilities' });
+  }
+});
 
 // Admin: Cleanup emergency test jobs
 app.delete('/api/admin/cleanup-emergency-jobs', authenticateUser, async (req, res) => {

@@ -34,6 +34,14 @@ const userSchema = new mongoose.Schema({
     default: false
   },
   
+  // === SUPER ADMIN - Job Hub Platform Owners Only ===
+  // Only 2-3 people should have this - the actual owners of Job Hub SaaS
+  // Super admins can: access owner dashboard, onboard new companies, manage all users
+  isSuperAdmin: {
+    type: Boolean,
+    default: false
+  },
+  
   // === MULTI-TENANT FIELDS (optional for backwards compatibility) ===
   // Which company this user belongs to
   companyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Company' },

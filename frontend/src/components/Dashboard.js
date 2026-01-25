@@ -91,6 +91,7 @@ const Dashboard = () => {
     assignmentNotes: ''
   });
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Job Hub platform owners only
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
   const [canApprove, setCanApprove] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState([]);
@@ -113,10 +114,12 @@ const Dashboard = () => {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         setIsAdmin(payload.isAdmin || false);
+        setIsSuperAdmin(payload.isSuperAdmin || false);
         setUserRole(payload.role || null);
         setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
       } catch (e) {
         setIsAdmin(false);
+        setIsSuperAdmin(false);
         setUserRole(null);
         setCanApprove(false);
       }
@@ -988,8 +991,8 @@ const Dashboard = () => {
             JobHub
           </Typography>
           
-          {/* Owner Dashboard - Admin Only */}
-          {isAdmin && (
+          {/* Owner Dashboard - Super Admin Only (Job Hub Owners) */}
+          {isSuperAdmin && (
             <Tooltip title="Owner Dashboard">
               <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }}>
                 <AnalyticsIcon />

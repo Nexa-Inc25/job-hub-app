@@ -92,6 +92,19 @@ const OwnerDashboard = () => {
         navigate('/login');
         return;
       }
+      
+      // Check if user is super admin (frontend check - backend also validates)
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (!payload.isSuperAdmin) {
+          setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        navigate('/login');
+        return;
+      }
 
       const [statsRes, healthRes] = await Promise.all([
         api.get('/api/admin/owner-stats'),
@@ -104,7 +117,7 @@ const OwnerDashboard = () => {
     } catch (err) {
       console.error('Error fetching owner stats:', err);
       if (err.response?.status === 403) {
-        setError('Admin access required. You do not have permission to view this dashboard.');
+        setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
       } else if (err.response?.status === 401) {
         navigate('/login');
       } else {
@@ -286,6 +299,21 @@ const OwnerDashboard = () => {
           <Typography variant="h6" sx={{ flexGrow: 1, color: textPrimary, fontWeight: 700 }}>
             Owner Dashboard
           </Typography>
+          <Button
+            variant="contained"
+            startIcon={<BusinessIcon />}
+            onClick={() => navigate('/admin/onboarding')}
+            sx={{ 
+              bgcolor: '#22c55e', 
+              '&:hover': { bgcolor: '#16a34a' },
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+              mr: 2
+            }}
+          >
+            Add Customer
+          </Button>
           <Tooltip title="Refresh Data">
             <IconButton onClick={fetchData} disabled={loading} sx={{ color: textSecondary }}>
               <RefreshIcon />
