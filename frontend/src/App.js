@@ -14,6 +14,9 @@ import TemplateManager from './components/TemplateManager';
 import Calendar from './components/Calendar';
 import OwnerDashboard from './components/OwnerDashboard';
 import CompanyOnboarding from './components/CompanyOnboarding';
+import AdminUsersList from './components/AdminUsersList';
+import AdminJobsOverview from './components/AdminJobsOverview';
+import AdminAICosts from './components/AdminAICosts';
 import { ThemeProvider } from './ThemeContext';
 
 // Set PDF.js worker globally - use non-ESM build for CRA compatibility
@@ -37,6 +40,9 @@ function App() {
           <Route path="/admin/templates" element={<TemplateManager />} />
           <Route path="/admin/owner-dashboard" element={<OwnerDashboard />} />
           <Route path="/admin/onboarding" element={<CompanyOnboarding />} />
+          <Route path="/admin/users" element={<AdminUsersList />} />
+          <Route path="/admin/jobs-overview" element={<AdminJobsOverview />} />
+          <Route path="/admin/ai-costs" element={<AdminAICosts />} />
           <Route path="/calendar" element={<Calendar />} />
           <Route path="*" element={<div>404 - Not Found</div>} />
         </Routes>

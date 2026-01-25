@@ -142,20 +142,23 @@ const OwnerDashboard = () => {
   const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
   const chartGridColor = mode === 'dark' ? '#334155' : '#e5e7eb';
 
-  // Stat Card Component
-  const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend }) => (
+  // Stat Card Component - Clickable
+  const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend, onClick }) => (
     <Card 
+      onClick={onClick}
       sx={{ 
         bgcolor: cardBg, 
         border: `1px solid ${borderColor}`,
         borderRadius: 3,
         height: '100%',
+        cursor: onClick ? 'pointer' : 'default',
         transition: 'transform 0.2s, box-shadow 0.2s',
         '&:hover': {
-          transform: 'translateY(-2px)',
+          transform: onClick ? 'translateY(-4px)' : 'translateY(-2px)',
           boxShadow: mode === 'dark' 
             ? '0 8px 25px rgba(0,0,0,0.4)' 
             : '0 8px 25px rgba(0,0,0,0.1)',
+          borderColor: onClick ? color : borderColor,
         }
       }}
     >
@@ -180,6 +183,11 @@ const OwnerDashboard = () => {
                   {trend}
                 </Typography>
               </Box>
+            )}
+            {onClick && (
+              <Typography variant="caption" sx={{ color: color, mt: 1, display: 'block' }}>
+                Click for details →
+              </Typography>
             )}
           </Box>
           <Box 
@@ -339,6 +347,7 @@ const OwnerDashboard = () => {
               icon={PeopleIcon}
               color="#6366f1"
               trend={stats?.users?.newThisMonth > 0 ? `+${stats?.users?.newThisMonth} this month` : null}
+              onClick={() => navigate('/admin/users')}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -349,6 +358,7 @@ const OwnerDashboard = () => {
               icon={WorkIcon}
               color="#22c55e"
               trend={stats?.jobs?.thisWeek > 0 ? `+${stats?.jobs?.thisWeek} this week` : null}
+              onClick={() => navigate('/admin/jobs-overview')}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -358,6 +368,7 @@ const OwnerDashboard = () => {
               subtitle={`Avg ${Math.round(stats?.aiExtraction?.performance?.avgProcessingTimeMs / 1000 || 0)}s processing`}
               icon={AIIcon}
               color="#f59e0b"
+              onClick={() => navigate('/admin/ai-costs')}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -367,6 +378,7 @@ const OwnerDashboard = () => {
               subtitle={`${stats?.apiUsage?.openai?.totalCalls || 0} API calls`}
               icon={MoneyIcon}
               color="#ef4444"
+              onClick={() => navigate('/admin/ai-costs')}
             />
           </Grid>
         </Grid>
