@@ -38,7 +38,6 @@ import {
   Warning as WarningIcon,
   // Error as ErrorIcon, // Currently unused
   Person as PersonIcon,
-  Upload as UploadIcon,
   Assessment as AssessmentIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
@@ -928,15 +927,6 @@ const Dashboard = () => {
     navigate('/emergency-wo');
   };
 
-  const handleUploadPDF = () => {
-    // AI PDF parsing functionality would be implemented here
-    setSnackbar({
-      open: true,
-      message: 'PDF upload feature coming soon with AI parsing!',
-      severity: 'info'
-    });
-  };
-
   const getStatusColor = (status) => {
     return statusColors[status] || 'default';
   };
@@ -1065,14 +1055,6 @@ const Dashboard = () => {
                 Export
               </Button>
             </Tooltip>
-            <Button
-              variant="outlined"
-              startIcon={<UploadIcon />}
-              onClick={handleUploadPDF}
-              sx={{ borderRadius: 2 }}
-            >
-              Upload PDF (AI Parse)
-            </Button>
             <Button
               variant="outlined"
               color="error"

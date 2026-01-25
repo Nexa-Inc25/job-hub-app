@@ -53,6 +53,10 @@ console.log('R2 Storage configured:', r2Storage.isR2Configured());
 const app = express();
 const server = http.createServer(app);
 
+// Trust proxy - required for rate limiting behind Railway/Vercel reverse proxy
+// This allows express-rate-limit to correctly identify users via X-Forwarded-For
+app.set('trust proxy', 1);
+
 // ============================================
 // SECURITY MIDDLEWARE
 // ============================================
