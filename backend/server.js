@@ -462,12 +462,13 @@ app.get('/api/users', authenticateUser, async (req, res) => {
     // MULTI-TENANT SECURITY: Only show users from same company
     // ============================================
     const currentUser = await User.findById(req.userId).select('companyId');
-    const query = {};
-    if (currentUser?.companyId) {
-      query.companyId = currentUser.companyId;
+    
+    // CRITICAL: If user has no company, return empty array (fail-safe)
+    if (!currentUser?.companyId) {
+      return res.json([]);
     }
     
-    const users = await User.find(query, 'name email role isAdmin companyId').sort({ name: 1 });
+    const users = await User.find({ companyId: currentUser.companyId }, 'name email role isAdmin companyId').sort({ name: 1 });
     res.json(users);
   } catch (err) {
     console.error('Error fetching users:', err);
@@ -482,10 +483,16 @@ app.get('/api/users/foremen', authenticateUser, async (req, res) => {
     // MULTI-TENANT SECURITY: Only show foremen from same company
     // ============================================
     const currentUser = await User.findById(req.userId).select('companyId');
-    const query = { $or: [{ role: 'foreman' }, { role: 'admin' }, { isAdmin: true }] };
-    if (currentUser?.companyId) {
-      query.companyId = currentUser.companyId;
+    
+    // CRITICAL: If user has no company, return empty array (fail-safe)
+    if (!currentUser?.companyId) {
+      return res.json([]);
     }
+    
+    const query = { 
+      companyId: currentUser.companyId,
+      $or: [{ role: 'foreman' }, { role: 'admin' }, { isAdmin: true }] 
+    };
     
     const foremen = await User.find(query, 'name email role companyId').sort({ name: 1 });
     res.json(foremen);
@@ -2815,14 +2822,14 @@ app.get('/api/jobs/archived', authenticateUser, async (req, res) => {
     // ============================================
     const currentUser = await User.findById(req.userId).select('companyId');
     
+    // CRITICAL: If user has no company, return empty result (fail-safe)
+    if (!currentUser?.companyId) {
+      return res.json({ jobs: [], total: 0, page: 1, totalPages: 0 });
+    }
+    
     const { search, page = 1, limit = 50 } = req.query;
     
-    let query = { isArchived: true };
-    
-    // CRITICAL: Only show archived jobs from user's company
-    if (currentUser?.companyId) {
-      query.companyId = currentUser.companyId;
-    }
+    let query = { isArchived: true, companyId: currentUser.companyId };
     
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -2874,14 +2881,14 @@ app.get('/api/jobs/deleted', authenticateUser, async (req, res) => {
     // ============================================
     const currentUser = await User.findById(req.userId).select('companyId');
     
+    // CRITICAL: If user has no company, return empty result (fail-safe)
+    if (!currentUser?.companyId) {
+      return res.json({ jobs: [], total: 0, page: 1, totalPages: 0 });
+    }
+    
     const { search, page = 1, limit = 50 } = req.query;
     
-    let query = { isDeleted: true };
-    
-    // CRITICAL: Only show deleted jobs from user's company
-    if (currentUser?.companyId) {
-      query.companyId = currentUser.companyId;
-    }
+    let query = { isDeleted: true, companyId: currentUser.companyId };
     
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
