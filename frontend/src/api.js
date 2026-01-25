@@ -4,6 +4,9 @@ import axios from 'axios';
 // Use Railway URL directly since Vercel proxy doesn't work reliably
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app',
+  timeout: 60000, // 60 second timeout for large PDF uploads
+  maxContentLength: 100 * 1024 * 1024, // 100MB
+  maxBodyLength: 100 * 1024 * 1024, // 100MB
 });
 
 // Add auth token to all requests

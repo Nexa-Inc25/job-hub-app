@@ -402,7 +402,17 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       setAnnotations([]); // Clear annotations after save
     } catch (err) {
       console.error('Error saving PDF:', err);
-      setSnackbar({ open: true, message: 'Failed to save: ' + err.message, severity: 'error' });
+      let errorMsg = 'Failed to save';
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        errorMsg = 'Request timed out - PDF may be too large';
+      } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+        errorMsg = 'Network error - check your connection';
+      } else if (err.response?.data?.error) {
+        errorMsg = err.response.data.error;
+      } else if (err.message) {
+        errorMsg = err.message;
+      }
+      setSnackbar({ open: true, message: 'Failed to save: ' + errorMsg, severity: 'error' });
     } finally {
       setSaving(false);
     }
