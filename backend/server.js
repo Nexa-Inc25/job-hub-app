@@ -1036,29 +1036,38 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
     const resolvedTitle = title || pmNumber || woNumber || 'Untitled Work Order';
     const resolvedDescription = description || [address, city, client].filter(Boolean).join(' | ') || '';
     
-    // Get user's company for multi-tenant job creation
+    // Get user's company for multi-tenant job creation and folder template
     const user = await User.findById(req.userId).select('companyId');
+    const company = user?.companyId ? await Company.findById(user.companyId).select('folderTemplate name') : null;
     
-    // Create proper folder structure: WO# -> ACI/UTC -> subfolders
-    const job = new Job({
-      title: resolvedTitle,
-      description: resolvedDescription,
-      priority: priority || 'medium',
-      dueDate,
-      woNumber,
-      address,
-      city,
-      client,
-      pmNumber,
-      notificationNumber,
-      projectName,
-      orderType,
-      division: division || 'DA',
-      matCode,
-      userId: req.userId,
-      companyId: user?.companyId,  // MULTI-TENANT: Assign job to user's company
-      status: 'pending',
-      folders: [
+    // Helper function to build folders with proper document arrays
+    const buildFoldersFromTemplate = (template) => {
+      if (!template || template.length === 0) return null;
+      
+      const buildSubfolders = (subs) => {
+        if (!subs || subs.length === 0) return [];
+        return subs.map(sf => ({
+          name: sf.name,
+          documents: [],
+          subfolders: buildSubfolders(sf.subfolders)
+        }));
+      };
+      
+      return template.map(folder => ({
+        name: folder.name,
+        documents: [],
+        subfolders: buildSubfolders(folder.subfolders)
+      }));
+    };
+    
+    // Use company's custom folder template if available, otherwise use Alvah default
+    let jobFolders;
+    if (company?.folderTemplate && company.folderTemplate.length > 0) {
+      console.log(`Using custom folder template for company: ${company.name}`);
+      jobFolders = buildFoldersFromTemplate(company.folderTemplate);
+    } else {
+      // Default folder structure (Alvah's structure)
+      jobFolders = [
         {
           name: 'ACI',
           documents: [],
@@ -1093,20 +1102,41 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
           name: 'UTCS',  // Flagging/Traffic Control company
           documents: [],
           subfolders: [
-            { name: 'Dispatch Docs', documents: [] },      // Emails, scheduling docs
-            { name: 'No Parks', documents: [] },           // No parking signs/permits
-            { name: 'Photos', documents: [] },             // Traffic control photos
-            { name: 'Time Sheets', documents: [] },        // Flagger time sheets
+            { name: 'Dispatch Docs', documents: [] },
+            { name: 'No Parks', documents: [] },
+            { name: 'Photos', documents: [] },
+            { name: 'Time Sheets', documents: [] },
             { 
-              name: 'TCP',                                 // Traffic Control Plans
+              name: 'TCP',
               documents: [],
               subfolders: [
-                { name: 'TCP Maps', documents: [] }        // Traffic control plan maps
+                { name: 'TCP Maps', documents: [] }
               ]
             }
           ]
         }
-      ]
+      ];
+    }
+    
+    const job = new Job({
+      title: resolvedTitle,
+      description: resolvedDescription,
+      priority: priority || 'medium',
+      dueDate,
+      woNumber,
+      address,
+      city,
+      client,
+      pmNumber,
+      notificationNumber,
+      projectName,
+      orderType,
+      division: division || 'DA',
+      matCode,
+      userId: req.userId,
+      companyId: user?.companyId,  // MULTI-TENANT: Assign job to user's company
+      status: 'pending',
+      folders: jobFolders
     });
     
     // If a PDF was uploaded, add it to the Field As Built folder (the job package)
@@ -2567,6 +2597,67 @@ app.post('/api/superadmin/users/:userId/reset-password', authenticateUser, requi
   } catch (err) {
     console.error('Error resetting password:', err);
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Update company details (Super Admin only)
+app.put('/api/superadmin/companies/:companyId', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { name, email, phone, address, city, state, zip, contractorLicense, folderTemplate } = req.body;
+    
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    // Update fields if provided
+    if (name) company.name = name;
+    if (email !== undefined) company.email = email;
+    if (phone !== undefined) company.phone = phone;
+    if (address !== undefined) company.address = address;
+    if (city !== undefined) company.city = city;
+    if (state !== undefined) company.state = state;
+    if (zip !== undefined) company.zip = zip;
+    if (contractorLicense !== undefined) company.contractorLicense = contractorLicense;
+    if (folderTemplate !== undefined) company.folderTemplate = folderTemplate;
+    
+    await company.save();
+    
+    console.log(`[SuperAdmin] Updated company: ${company.name}`);
+    res.json(company);
+  } catch (err) {
+    console.error('Error updating company:', err);
+    res.status(500).json({ error: 'Failed to update company' });
+  }
+});
+
+// Update company folder template (Super Admin only)
+app.put('/api/superadmin/companies/:companyId/folder-template', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { folderTemplate } = req.body;
+    
+    if (!folderTemplate || !Array.isArray(folderTemplate)) {
+      return res.status(400).json({ error: 'folderTemplate must be an array' });
+    }
+    
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    
+    company.folderTemplate = folderTemplate;
+    await company.save();
+    
+    console.log(`[SuperAdmin] Updated folder template for: ${company.name}`);
+    res.json({ 
+      message: `Folder template updated for ${company.name}`,
+      folderTemplate: company.folderTemplate 
+    });
+  } catch (err) {
+    console.error('Error updating folder template:', err);
+    res.status(500).json({ error: 'Failed to update folder template' });
   }
 });
 

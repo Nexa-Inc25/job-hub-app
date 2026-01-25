@@ -54,6 +54,19 @@ const companySchema = new mongoose.Schema({
   // Status
   isActive: { type: Boolean, default: true },
   
+  // Custom folder structure template for jobs
+  // Each company can have their own organizational structure
+  folderTemplate: [{
+    name: String,
+    subfolders: [{
+      name: String,
+      subfolders: [{
+        name: String,
+        subfolders: [mongoose.Schema.Types.Mixed]  // Allow deeper nesting
+      }]
+    }]
+  }],
+  
 }, { timestamps: true });
 
 // Indexes (slug already has unique:true which creates an index)
