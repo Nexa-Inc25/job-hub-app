@@ -23,6 +23,7 @@ import {
   Tooltip,
   Chip,
   CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
@@ -86,8 +87,55 @@ const OwnerDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const [updatingFeedback, setUpdatingFeedback] = useState(null);
   const navigate = useNavigate();
   const { mode } = useThemeMode();
+
+  // Update feedback status
+  const handleUpdateFeedbackStatus = async (feedbackId, newStatus) => {
+    setUpdatingFeedback(feedbackId);
+    try {
+      await api.put(`/api/admin/feedback/${feedbackId}`, { status: newStatus });
+      
+      // Update local state
+      setFeedback(prev => prev.map(item => 
+        item._id === feedbackId ? { ...item, status: newStatus } : item
+      ));
+      
+      // Update counts
+      setFeedbackCounts(prev => {
+        const oldItem = feedback.find(f => f._id === feedbackId);
+        const oldStatus = oldItem?.status || 'new';
+        return {
+          ...prev,
+          [oldStatus]: Math.max(0, (prev[oldStatus] || 1) - 1),
+          [newStatus]: (prev[newStatus] || 0) + 1
+        };
+      });
+      
+      const statusMessages = {
+        'acknowledged': 'Feedback acknowledged! User will know you\'ve seen their report.',
+        'in_progress': 'Marked as in progress.',
+        'resolved': 'Marked as resolved!'
+      };
+      
+      setSnackbar({ 
+        open: true, 
+        message: statusMessages[newStatus] || `Status updated to ${newStatus}`, 
+        severity: 'success' 
+      });
+    } catch (err) {
+      console.error('Update feedback error:', err);
+      setSnackbar({ 
+        open: true, 
+        message: 'Failed to update feedback status', 
+        severity: 'error' 
+      });
+    } finally {
+      setUpdatingFeedback(null);
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -877,14 +925,52 @@ const OwnerDashboard = () => {
                     {item.description.length > 300 ? item.description.substring(0, 300) + '...' : item.description}
                   </Typography>
                   
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                     <Typography variant="caption" sx={{ color: textSecondary }}>
                       From: <strong>{item.userName || item.userEmail}</strong> ({item.userRole})
                       {item.currentPage && ` • Page: ${item.currentPage}`}
+                      {' • '}{new Date(item.createdAt).toLocaleString()}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: textSecondary }}>
-                      {new Date(item.createdAt).toLocaleString()}
-                    </Typography>
+                    
+                    {/* Action Buttons */}
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      {item.status === 'new' && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          disabled={updatingFeedback === item._id}
+                          onClick={() => handleUpdateFeedbackStatus(item._id, 'acknowledged')}
+                          sx={{ fontSize: '0.7rem', py: 0.25, minWidth: 'auto' }}
+                        >
+                          {updatingFeedback === item._id ? '...' : 'Acknowledge'}
+                        </Button>
+                      )}
+                      {(item.status === 'new' || item.status === 'acknowledged') && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          disabled={updatingFeedback === item._id}
+                          onClick={() => handleUpdateFeedbackStatus(item._id, 'in_progress')}
+                          sx={{ fontSize: '0.7rem', py: 0.25, minWidth: 'auto' }}
+                        >
+                          {updatingFeedback === item._id ? '...' : 'In Progress'}
+                        </Button>
+                      )}
+                      {item.status !== 'resolved' && item.status !== 'closed' && (
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="success"
+                          disabled={updatingFeedback === item._id}
+                          onClick={() => handleUpdateFeedbackStatus(item._id, 'resolved')}
+                          sx={{ fontSize: '0.7rem', py: 0.25, minWidth: 'auto' }}
+                        >
+                          {updatingFeedback === item._id ? '...' : 'Resolved'}
+                        </Button>
+                      )}
+                    </Box>
                   </Box>
                 </Paper>
               ))}
@@ -892,6 +978,22 @@ const OwnerDashboard = () => {
           )}
         </Paper>
       </Container>
+      
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
