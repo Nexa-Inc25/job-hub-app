@@ -1217,17 +1217,24 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     const { id } = req.params;
     const { pdfData, originalName, folderName, subfolderName } = req.body;
     
-    // Allow job creator, assigned user, or admin to save edits
+    // Allow job creator, assigned user, GF, or admin to save edits
+    const user = await User.findById(req.userId);
+    const isAdminOrManager = user && (user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
+    
     const job = await Job.findOne({ 
       _id: id,
       $or: [
         { userId: req.userId },
-        { assignedTo: req.userId }
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
       ]
     });
-    if (!job && !req.isAdmin) {
-      return res.status(404).json({ error: 'Job not found' });
+    
+    // If not found by assignment, admins/managers can still access
+    if (!job && !isAdminOrManager) {
+      return res.status(404).json({ error: 'Job not found or not authorized' });
     }
+    
     const jobToUpdate = job || await Job.findById(id);
     if (!jobToUpdate) {
       return res.status(404).json({ error: 'Job not found' });
@@ -1252,7 +1259,7 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     }
     
     // Check if user can approve (GF, PM, Admin) - their saves are auto-approved
-    const user = await User.findById(req.userId);
+    // (user already fetched above)
     const canAutoApprove = user && (user.canApprove || user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
     
     // Add timestamp to ensure cache busting when same doc is edited multiple times
@@ -1263,7 +1270,13 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     const finalFilename = `${pmNumber}_${docName}.pdf`;
     const newFilename = canAutoApprove ? finalFilename : draftFilename;
     
-    const filePath = path.join(__dirname, 'uploads', newFilename);
+    const uploadsDir = path.join(__dirname, 'uploads');
+    const filePath = path.join(uploadsDir, newFilename);
+    
+    // Ensure uploads directory exists
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
     
     // Save the file
     fs.writeFileSync(filePath, pdfBuffer);
