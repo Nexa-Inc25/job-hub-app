@@ -105,8 +105,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '150mb' }));
+app.use(express.urlencoded({ limit: '150mb', extended: true }));
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
