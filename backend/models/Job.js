@@ -193,7 +193,7 @@ const jobSchema = new mongoose.Schema({
   aiExtractionEnded: Date,
   aiProcessingTimeMs: Number, // Track extraction duration for performance monitoring
   aiExtractedAssets: [{
-    type: { type: String, enum: ['photo', 'drawing', 'map', 'document'] },
+    type: { type: String, enum: ['photo', 'drawing', 'map', 'tcp_map', 'document'] },
     name: String,
     url: String,
     extractedAt: Date
