@@ -12,7 +12,7 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: true,
-    minlength: 6
+    minlength: 8  // Increased from 6 to 8
   },
   name: {
     type: String,
@@ -60,11 +60,53 @@ const userSchema = new mongoose.Schema({
   phone: String,
   avatar: String,  // URL to profile picture
   
+  // Security - account lockout
+  failedLoginAttempts: { type: Number, default: 0 },
+  lockoutUntil: { type: Date, default: null },
+  lastFailedLogin: { type: Date, default: null },
+  
   createdAt: {
     type: Date,
     default: Date.now
   }
 });
+
+// Check if account is currently locked
+userSchema.methods.isLocked = function() {
+  return this.lockoutUntil && this.lockoutUntil > new Date();
+};
+
+// Increment failed login attempts and lock if threshold reached
+userSchema.methods.incLoginAttempts = async function() {
+  // Reset if lockout has expired
+  if (this.lockoutUntil && this.lockoutUntil < new Date()) {
+    await this.updateOne({
+      $set: { failedLoginAttempts: 1, lastFailedLogin: new Date() },
+      $unset: { lockoutUntil: 1 }
+    });
+    return;
+  }
+  
+  const updates = {
+    $inc: { failedLoginAttempts: 1 },
+    $set: { lastFailedLogin: new Date() }
+  };
+  
+  // Lock account after 5 failed attempts (30 minute lockout)
+  if (this.failedLoginAttempts + 1 >= 5) {
+    updates.$set.lockoutUntil = new Date(Date.now() + 30 * 60 * 1000);
+  }
+  
+  await this.updateOne(updates);
+};
+
+// Reset failed login attempts on successful login
+userSchema.methods.resetLoginAttempts = async function() {
+  await this.updateOne({
+    $set: { failedLoginAttempts: 0 },
+    $unset: { lockoutUntil: 1, lastFailedLogin: 1 }
+  });
+};
 
 // Indexes
 userSchema.index({ companyId: 1 });

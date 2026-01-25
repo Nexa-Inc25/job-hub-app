@@ -8,6 +8,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const multer = require('multer');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
 const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
@@ -50,6 +53,48 @@ console.log('R2 Storage configured:', r2Storage.isR2Configured());
 const app = express();
 const server = http.createServer(app);
 
+// ============================================
+// SECURITY MIDDLEWARE
+// ============================================
+
+// Helmet - sets various HTTP security headers
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },  // Allow R2 resources
+  contentSecurityPolicy: false  // Disable CSP for now (can be strict later)
+}));
+
+// MongoDB query sanitization - prevents NoSQL injection
+app.use(mongoSanitize());
+
+// Rate limiting for auth endpoints (prevent brute force)
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // 10 attempts per window
+  message: { error: 'Too many login attempts, please try again after 15 minutes' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for super admins (in case they're testing)
+    // This is safe because they already need to be authenticated
+    return false;
+  }
+});
+
+// General API rate limiting (prevent abuse)
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 200, // 200 requests per minute
+  message: { error: 'Too many requests, please slow down' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+// Apply rate limiters
+app.use('/api/login', authLimiter);
+app.use('/api/signup', authLimiter);
+app.use('/api/', apiLimiter);
+
+// ============================================
 // CORS - whitelist allowed origins for security
 const allowedOrigins = [
   'https://job-hub-app.vercel.app',
@@ -184,14 +229,30 @@ app.post('/api/signup', async (req, res) => {
     }
     
     const { email, password, name, role } = req.body;
-    console.log('Signup attempt for:', email, 'role:', role || 'crew');
+    console.log('Signup attempt for:', email ? email.substring(0, 3) + '***' : 'none', 'role:', role || 'crew');
     
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
+    
+    // Password strength validation
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+    if (!/[A-Z]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
+    }
+    if (!/[a-z]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
+    }
+    if (!/[0-9]/.test(password)) {
+      return res.status(400).json({ error: 'Password must contain at least one number' });
+    }
+    
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email' });
+      // Don't reveal that email exists - security best practice
+      return res.status(400).json({ error: 'Unable to create account. Please try a different email or contact support.' });
     }
     
     // Validate role
@@ -243,9 +304,32 @@ app.post('/api/login', async (req, res) => {
 
     const { email, password } = req.body;
     const user = await User.findOne({ email });
+    
+    // Check if account is locked
+    if (user && user.isLocked()) {
+      const remainingMins = Math.ceil((user.lockoutUntil - new Date()) / 60000);
+      console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
+      return res.status(423).json({ 
+        error: `Account temporarily locked. Try again in ${remainingMins} minutes.` 
+      });
+    }
+    
+    // Validate credentials
     if (!user || !(await user.comparePassword(password))) {
+      // Track failed attempt if user exists
+      if (user) {
+        await user.incLoginAttempts();
+        console.log('Failed login attempt for:', email ? email.substring(0, 3) + '***' : 'unknown', 
+          'Attempts:', user.failedLoginAttempts + 1);
+      }
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    
+    // Reset failed attempts on successful login
+    if (user.failedLoginAttempts > 0) {
+      await user.resetLoginAttempts();
+    }
+    
     const token = jwt.sign({ 
       userId: user._id, 
       isAdmin: user.isAdmin,
@@ -253,6 +337,7 @@ app.post('/api/login', async (req, res) => {
       role: user.role,
       canApprove: user.canApprove || false
     }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    
     res.json({ 
       token, 
       userId: user._id, 
@@ -263,7 +348,7 @@ app.post('/api/login', async (req, res) => {
       name: user.name 
     });
   } catch (err) {
-    console.error(err);
+    console.error('Login error:', err.message);
     res.status(500).json({ error: 'Server error during login' });
   }
 });
