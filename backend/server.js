@@ -458,7 +458,16 @@ app.get('/api/users', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Only Admin, PM, or GF can view users' });
     }
     
-    const users = await User.find({}, 'name email role isAdmin').sort({ name: 1 });
+    // ============================================
+    // MULTI-TENANT SECURITY: Only show users from same company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const query = {};
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    const users = await User.find(query, 'name email role isAdmin companyId').sort({ name: 1 });
     res.json(users);
   } catch (err) {
     console.error('Error fetching users:', err);
@@ -469,10 +478,16 @@ app.get('/api/users', authenticateUser, async (req, res) => {
 // Get foremen only (for assignment)
 app.get('/api/users/foremen', authenticateUser, async (req, res) => {
   try {
-    const foremen = await User.find(
-      { $or: [{ role: 'foreman' }, { role: 'admin' }, { isAdmin: true }] },
-      'name email role'
-    ).sort({ name: 1 });
+    // ============================================
+    // MULTI-TENANT SECURITY: Only show foremen from same company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const query = { $or: [{ role: 'foreman' }, { role: 'admin' }, { isAdmin: true }] };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    const foremen = await User.find(query, 'name email role companyId').sort({ name: 1 });
     res.json(foremen);
   } catch (err) {
     console.error('Error fetching foremen:', err);
@@ -493,7 +508,15 @@ app.put('/api/jobs/:id/assign-gf', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Only PM or Admin can assign jobs to GF' });
     }
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -533,9 +556,18 @@ app.put('/api/jobs/:id/assign', authenticateUser, async (req, res) => {
     
     const { assignedTo, crewScheduledDate, crewScheduledEndDate, assignmentNotes } = req.body;
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
-      console.log('Job not found:', req.params.id);
+      console.log('Job not found or not in user company:', req.params.id);
       return res.status(404).json({ error: 'Job not found' });
     }
     
@@ -576,25 +608,43 @@ app.get('/api/calendar', authenticateUser, async (req, res) => {
   try {
     const { month, year, userId, viewAll } = req.query;
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Get user's company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const userCompanyId = currentUser?.companyId;
+    
     // Build date range for the month (month is 1-indexed from frontend, JS Date uses 0-indexed)
     const targetMonth = parseInt(month || (new Date().getMonth() + 1));
     const targetYear = parseInt(year || new Date().getFullYear());
     const startDate = new Date(targetYear, targetMonth - 1, 1); // First day of month
     const endDate = new Date(targetYear, targetMonth, 0, 23, 59, 59); // Last day of month
     
-    console.log('Calendar request:', { month: targetMonth, year: targetYear, viewAll, userId, isAdmin: req.isAdmin });
+    console.log('Calendar request:', { month: targetMonth, year: targetYear, viewAll, userId, isAdmin: req.isAdmin, companyId: userCompanyId });
     console.log('Date range:', startDate.toISOString(), 'to', endDate.toISOString());
     
-    // Build query
+    // Build query - ALWAYS filter by company first
     let query = {
       crewScheduledDate: { $gte: startDate, $lte: endDate }
     };
     
-    // If admin requesting viewAll, show all assigned jobs
+    // ============================================
+    // CRITICAL: Always filter by user's company
+    // Users can ONLY see their own company's jobs
+    // ============================================
+    if (userCompanyId) {
+      query.companyId = userCompanyId;
+    } else {
+      // No company = only see jobs they created or are assigned to
+      query.$or = [{ userId: req.userId }, { assignedTo: req.userId }];
+    }
+    
+    // Additional filtering within the company
+    // If admin requesting viewAll, show all assigned jobs in their company
     // If admin requesting specific user's calendar, use that userId
     // Otherwise, show jobs assigned to the current user
     if (req.isAdmin && viewAll === 'true') {
-      // Admin wants to see all scheduled jobs - just filter by date
+      // Admin wants to see all scheduled jobs in THEIR COMPANY - just filter by date
       query.assignedTo = { $ne: null }; // Only show jobs that are assigned
     } else if (req.isAdmin && userId) {
       query.assignedTo = userId;
@@ -622,8 +672,19 @@ app.get('/api/calendar', authenticateUser, async (req, res) => {
 // Get all assigned jobs for current user (for foreman dashboard)
 app.get('/api/my-assignments', authenticateUser, async (req, res) => {
   try {
-    const jobs = await Job.find({ assignedTo: req.userId })
-      .select('pmNumber woNumber title address client crewScheduledDate crewScheduledEndDate dueDate status priority assignmentNotes createdAt')
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    
+    // Build query - assigned to this user AND in their company
+    const query = { assignedTo: req.userId };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const jobs = await Job.find(query)
+      .select('pmNumber woNumber title address client crewScheduledDate crewScheduledEndDate dueDate status priority assignmentNotes createdAt companyId')
       .sort({ crewScheduledDate: 1 });
     
     res.json(jobs);
@@ -1273,14 +1334,28 @@ async function extractAssetsInBackground(jobId, pdfPath) {
 app.get('/api/jobs/search/:pmNumber', authenticateUser, async (req, res) => {
   try {
     const { pmNumber } = req.params;
-    const jobs = await Job.find({
-      userId: req.userId,
+    
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    
+    const query = {
       $or: [
         { pmNumber: { $regex: pmNumber, $options: 'i' } },
         { woNumber: { $regex: pmNumber, $options: 'i' } },
         { notificationNumber: { $regex: pmNumber, $options: 'i' } }
       ]
-    });
+    };
+    
+    // CRITICAL: Only search within user's company
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    } else {
+      query.userId = req.userId; // No company = only own jobs
+    }
+    
+    const jobs = await Job.find(query);
     res.json(jobs);
   } catch (err) {
     console.error('Search error:', err);
@@ -1293,30 +1368,36 @@ app.get('/api/jobs/:id', authenticateUser, async (req, res) => {
     console.log('Getting job by ID:', req.params.id);
     console.log('User ID from token:', req.userId, 'isAdmin:', req.isAdmin);
 
-    // Build query - admins can view any job, regular users can only view their own
-    // or jobs assigned to them
-    let query;
-    if (req.isAdmin) {
-      // Admin can view any job
-      query = { _id: req.params.id };
-    } else {
-      // Regular users can view jobs they created OR jobs assigned to them
-      query = { 
-        _id: req.params.id,
-        $or: [
-          { userId: req.userId },
-          { assignedTo: req.userId }
-        ]
-      };
+    // ============================================
+    // MULTI-TENANT SECURITY: Get user's company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const userCompanyId = currentUser?.companyId;
+    
+    // Build query - ALWAYS filter by company first
+    let query = { _id: req.params.id };
+    
+    // CRITICAL: Add company filter for all users
+    if (userCompanyId) {
+      query.companyId = userCompanyId;
     }
+    
+    // Non-admins also need ownership/assignment check within their company
+    if (!req.isAdmin) {
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId }
+      ];
+    }
+    // Admins can view any job BUT only within their own company
 
     const job = await Job.findOne(query)
       .populate('assignedTo', 'name email')
       .populate('assignedBy', 'name email');
-    console.log('Job found:', !!job);
+    console.log('Job found:', !!job, 'Query companyId:', userCompanyId);
 
     if (!job) {
-      console.log('Job not found for user');
+      console.log('Job not found for user or not in their company');
       return res.status(404).json({ error: 'Job not found' });
     }
 
@@ -1350,17 +1431,35 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     const user = await User.findById(req.userId);
     const isAdminOrManager = user && (user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
     
-    const job = await Job.findOne({ 
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const query = { 
       _id: id,
       $or: [
         { userId: req.userId },
         { assignedTo: req.userId },
         { assignedToGF: req.userId }
       ]
-    });
+    };
     
-    // If not found by assignment, admins/managers can still access
-    if (!job && !isAdminOrManager) {
+    // CRITICAL: Always add company filter
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    let job = await Job.findOne(query);
+    
+    // If not found by assignment, admins/managers can still access (but only in their company)
+    if (!job && isAdminOrManager) {
+      const adminQuery = { _id: id };
+      if (user?.companyId) {
+        adminQuery.companyId = user.companyId;
+      }
+      job = await Job.findOne(adminQuery);
+    }
+    
+    if (!job) {
       return res.status(404).json({ error: 'Job not found or not authorized' });
     }
     
@@ -1495,7 +1594,15 @@ app.post('/api/jobs/:jobId/documents/:docId/approve', authenticateUser, async (r
       return res.status(403).json({ error: 'You do not have permission to approve documents' });
     }
     
-    const job = await Job.findById(jobId);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const query = { _id: jobId };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -1609,7 +1716,15 @@ app.post('/api/jobs/:jobId/documents/:docId/reject', authenticateUser, async (re
       return res.status(403).json({ error: 'You do not have permission to reject documents' });
     }
     
-    const job = await Job.findById(jobId);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const query = { _id: jobId };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -2546,15 +2661,26 @@ app.delete('/api/jobs/:id', authenticateUser, async (req, res) => {
     
     const { reason } = req.body || {};
 
-    let job;
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const userCompanyId = currentUser?.companyId;
+
+    let query = { _id: req.params.id };
     
-    // Admin and PM can delete any job
-    if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
-      job = await Job.findById(req.params.id);
-    } else {
-      // Others can only delete their own jobs
-      job = await Job.findOne({ _id: req.params.id, userId: req.userId });
+    // CRITICAL: Always filter by company
+    if (userCompanyId) {
+      query.companyId = userCompanyId;
     }
+    
+    // Admin and PM can delete any job IN THEIR COMPANY
+    // Others can only delete their own jobs
+    if (!req.isAdmin && req.userRole !== 'pm' && req.userRole !== 'admin') {
+      query.userId = req.userId;
+    }
+    
+    const job = await Job.findOne(query);
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -2591,7 +2717,16 @@ app.post('/api/jobs/:id/archive', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Only PM or Admin can archive jobs' });
     }
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -2630,7 +2765,16 @@ app.post('/api/jobs/:id/restore', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Only Admin can restore jobs' });
     }
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -2666,17 +2810,29 @@ app.get('/api/jobs/archived', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Only PM or Admin can view archived jobs' });
     }
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    
     const { search, page = 1, limit = 50 } = req.query;
     
     let query = { isArchived: true };
     
+    // CRITICAL: Only show archived jobs from user's company
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      query.$or = [
-        { pmNumber: searchRegex },
-        { woNumber: searchRegex },
-        { address: searchRegex },
-        { city: searchRegex }
+      query.$and = [
+        { $or: [
+          { pmNumber: searchRegex },
+          { woNumber: searchRegex },
+          { address: searchRegex },
+          { city: searchRegex }
+        ]}
       ];
     }
     
@@ -2713,16 +2869,28 @@ app.get('/api/jobs/deleted', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Only Admin can view deleted jobs' });
     }
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    
     const { search, page = 1, limit = 50 } = req.query;
     
     let query = { isDeleted: true };
     
+    // CRITICAL: Only show deleted jobs from user's company
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      query.$or = [
-        { pmNumber: searchRegex },
-        { woNumber: searchRegex },
-        { address: searchRegex }
+      query.$and = [
+        { $or: [
+          { pmNumber: searchRegex },
+          { woNumber: searchRegex },
+          { address: searchRegex }
+        ]}
       ];
     }
     
@@ -2761,20 +2929,27 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     const { id, folderName } = req.params;
     const { subfolder } = req.body; // Optional subfolder name
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
 
-    // Allow file upload if user has access to this job
+    // Allow file upload if user has access to this job (IN THEIR COMPANY)
+    let query = { _id: id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
     let job;
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
-      job = await Job.findById(id);
+      job = await Job.findOne(query);
     } else {
-      job = await Job.findOne({
-        _id: id,
-        $or: [
-          { userId: req.userId },
-          { assignedTo: req.userId },
-          { assignedToGF: req.userId }
-        ]
-      });
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
+      ];
+      job = await Job.findOne(query);
     }
     
     if (!job) {
@@ -2852,44 +3027,43 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
   try {
     const { id } = req.params;
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const currentUser = await User.findById(req.userId).select('companyId');
+    
     console.log('Photo upload request:', {
       jobId: id,
       userId: req.userId,
       userRole: req.userRole,
       isAdmin: req.isAdmin,
+      companyId: currentUser?.companyId,
       filesCount: req.files?.length
     });
     
+    // Build base query with company filter
+    let query = { _id: id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
     // Allow photo upload if user is:
-    // - Admin/PM (can access any job)
+    // - Admin/PM (can access any job IN THEIR COMPANY)
     // - Owner of the job (userId)
     // - Assigned to the job (assignedTo)
     // - GF assigned to the job (assignedToGF)
     let job;
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
-      console.log('Admin/PM access - finding job by ID');
-      job = await Job.findById(id);
+      console.log('Admin/PM access - finding job by ID in company');
+      job = await Job.findOne(query);
     } else {
-      console.log('Non-admin access - checking assignment');
-      // First find the job to check assignment
-      const checkJob = await Job.findById(id);
-      if (checkJob) {
-        console.log('Job assignment check:', {
-          jobUserId: checkJob.userId?.toString(),
-          assignedTo: checkJob.assignedTo?.toString(),
-          assignedToGF: checkJob.assignedToGF?.toString(),
-          requestingUser: req.userId
-        });
-      }
-      
-      job = await Job.findOne({
-        _id: id,
-        $or: [
-          { userId: req.userId },
-          { assignedTo: req.userId },
-          { assignedToGF: req.userId }
-        ]
-      });
+      console.log('Non-admin access - checking assignment in company');
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
+      ];
+      job = await Job.findOne(query);
     }
     
     if (!job) {
@@ -3025,7 +3199,24 @@ app.delete('/api/jobs/:id/documents/:docId', authenticateUser, async (req, res) 
   try {
     const { id, docId } = req.params;
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId isAdmin role');
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    // Non-admins need ownership/assignment check
+    if (!user?.isAdmin && !['pm', 'admin'].includes(user?.role)) {
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
+      ];
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3078,8 +3269,16 @@ app.post('/api/jobs/:id/folders', authenticateUser, async (req, res) => {
       return res.status(400).json({ error: 'Folder name is required' });
     }
     
-    // Admins can access any job
-    const job = await Job.findById(id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // Admins can access any job IN THEIR COMPANY
+    // ============================================
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3137,8 +3336,16 @@ app.delete('/api/jobs/:id/folders/:folderName', authenticateUser, async (req, re
       return res.status(403).json({ error: 'Admin access required to delete folders' });
     }
     
-    // Admins can access any job
-    const job = await Job.findById(id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // Admins can access any job IN THEIR COMPANY
+    // ============================================
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3215,7 +3422,22 @@ app.put('/api/jobs/:id/documents/:docId', authenticateUser, async (req, res) => 
     const { id, docId } = req.params;
     const { isCompleted, pdfData } = req.body;
     
-    const job = await Job.findOne({ _id: id, userId: req.userId });
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    // Also check ownership/assignment
+    query.$or = [
+      { userId: req.userId },
+      { assignedTo: req.userId },
+      { assignedToGF: req.userId }
+    ];
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3279,16 +3501,27 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
     const isAdmin = user?.isAdmin || ['pm', 'admin'].includes(userRole);
     const isGF = ['gf', 'pm', 'admin'].includes(userRole);
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
     // Allow job creator, assigned GF, assigned crew, or admin to update
-    const job = await Job.findOne({
+    // But ALWAYS filter by company first
+    const query = {
       _id: id,
       $or: [
         { userId: req.userId },
         { assignedToGF: req.userId },
         { assignedTo: req.userId },
-        ...(isAdmin ? [{ _id: id }] : [])  // Admins can update any job
+        ...(isAdmin ? [{ _id: id }] : [])  // Admins can update any job IN THEIR COMPANY
       ]
-    });
+    };
+    
+    // CRITICAL: Always add company filter
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found or not authorized' });
     }
@@ -3468,7 +3701,15 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'You do not have permission to review jobs' });
     }
     
-    const job = await Job.findById(id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3534,7 +3775,16 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
 // Get notes for a job
 app.get('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).select('notes');
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query).select('notes companyId');
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3559,7 +3809,15 @@ app.post('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3592,7 +3850,16 @@ app.post('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
 // Get dependencies for a job
 app.get('/api/jobs/:id/dependencies', authenticateUser, async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).select('dependencies');
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query).select('dependencies companyId');
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3612,7 +3879,16 @@ app.post('/api/jobs/:id/dependencies', authenticateUser, async (req, res) => {
       return res.status(400).json({ error: 'Dependency type is required' });
     }
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3643,7 +3919,16 @@ app.put('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, res) 
   try {
     const { type, description, status, scheduledDate, completedDate, ticketNumber, notes } = req.body;
     
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3673,7 +3958,16 @@ app.put('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, res) 
 // Delete a dependency
 app.delete('/api/jobs/:id/dependencies/:depId', authenticateUser, async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3700,6 +3994,20 @@ app.post('/api/jobs/:id/prefield-checklist', authenticateUser, async (req, res) 
     const { id } = req.params;
     const { decisions } = req.body;  // { usa_dig: { checked: true, notes: "..." }, ... }
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Verify job is in user's company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
     // Capture for AI training
     await aiDataCapture.capturePreFieldDecisions(id, decisions, req.userId);
     
@@ -3713,7 +4021,16 @@ app.post('/api/jobs/:id/prefield-checklist', authenticateUser, async (req, res) 
 // Get AI suggestions for a job based on similar past jobs
 app.get('/api/jobs/:id/ai-suggestions', authenticateUser, async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -3869,6 +4186,20 @@ app.post('/api/jobs/:id/capture-form', authenticateUser, async (req, res) => {
     const { id } = req.params;
     const { formType, fields, completionTimeSeconds } = req.body;
     
+    // ============================================
+    // MULTI-TENANT SECURITY: Verify job is in user's company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
     await aiDataCapture.captureFormCompletion(id, formType, fields, completionTimeSeconds, req.userId);
     
     res.json({ message: 'Form data captured for AI training' });
@@ -3916,7 +4247,16 @@ app.get('/api/autofill/document-types', authenticateUser, async (req, res) => {
 // Get full job details including dependencies, notes, schedule info
 app.get('/api/jobs/:id/full-details', authenticateUser, async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id)
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by company
+    // ============================================
+    const user = await User.findById(req.userId).select('companyId');
+    const query = { _id: req.params.id };
+    if (user?.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query)
       // Core assignments
       .populate('assignedTo', 'name email role')
       .populate('assignedToGF', 'name email role')
