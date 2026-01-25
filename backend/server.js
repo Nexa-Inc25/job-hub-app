@@ -641,8 +641,12 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
 //   - Foreman/Crew: See only jobs assigned to them
 app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
-    console.log('GET /api/jobs - userId:', req.userId, 'role:', req.userRole, 'isAdmin:', req.isAdmin);
+    console.log('GET /api/jobs - userId:', req.userId, 'role:', req.userRole, 'isAdmin:', req.isAdmin, 'isSuperAdmin:', req.isSuperAdmin);
     const { search, view, includeArchived, includeDeleted } = req.query;
+    
+    // Get user's company for multi-tenant filtering
+    const user = await User.findById(req.userId).select('companyId');
+    const userCompanyId = user?.companyId;
     
     // Build query based on user role
     let query = {};
@@ -656,42 +660,57 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
       query.isArchived = { $ne: true };
     }
     
-    // Admin and PM see all jobs (in their company eventually)
+    // ============================================
+    // MULTI-TENANT SECURITY: Filter by companyId
+    // ============================================
+    // Every user MUST only see jobs from their own company
+    // Super Admins see their own company's jobs (Job Hub) - they use Owner Dashboard for analytics
+    if (userCompanyId) {
+      query.companyId = userCompanyId;
+      console.log('Filtering jobs by companyId:', userCompanyId);
+    } else {
+      // User has no company - only see jobs they personally created
+      query.userId = req.userId;
+      console.log('User has no company - showing only their own jobs');
+    }
+    
+    // Additional role-based filtering WITHIN the company
+    // Admin and PM see all jobs in their company (they assign jobs to GFs)
     if (req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin') {
-      // For now, admins see all jobs they created OR are in their company
-      // Once multi-tenant is fully implemented, filter by companyId
-      // (query already has isDeleted/isArchived filters)
+      // companyId filter already applied above - they see all company jobs
+      // PM/Admin is responsible for assigning jobs to GFs
     } 
-    // GF sees jobs assigned to them for pre-field/review, plus jobs they need to assign crews to
-    // GF also sees UNASSIGNED jobs (no assignedToGF set) so they can pick up new work
+    // GF ONLY sees jobs assigned specifically to them
+    // Each GF has their own separate workload - no cross-contamination
+    // PM assigns jobs to GFs, so unassigned jobs are PM's responsibility
     else if (req.userRole === 'gf') {
       query = {
-        ...query,  // Keep isDeleted/isArchived filters
+        ...query,  // Keep companyId and isDeleted/isArchived filters
         $or: [
-          { assignedToGF: req.userId },  // Jobs assigned to this GF
-          { assignedToGF: null },        // Jobs not yet assigned to any GF
-          { assignedToGF: { $exists: false } },  // Jobs without assignedToGF field
-          { userId: req.userId }          // Jobs they created (if any)
+          { assignedToGF: req.userId },   // Jobs assigned to THIS GF only
+          { userId: req.userId }           // Jobs they created (if any)
         ]
       };
+      console.log('GF query - only showing jobs assigned to this GF:', req.userId);
     }
-    // Foreman/Crew only sees jobs assigned to them
-    else if (req.userRole === 'foreman' || req.userRole === 'crew') {
+    // Foreman ONLY sees jobs assigned to them by their GF
+    else if (req.userRole === 'foreman') {
       query = {
+        ...query,  // Keep companyId filter
         $or: [
-          { assignedTo: req.userId },     // Jobs assigned to this foreman
+          { assignedTo: req.userId },     // Jobs assigned to this foreman by GF
           { userId: req.userId }           // Jobs they created (unlikely but safe)
         ]
       };
+      console.log('Foreman query - only showing jobs assigned to this foreman:', req.userId);
     }
-    // Default fallback - see own jobs OR if legacy admin account
-    else {
-      // Legacy accounts without role but with isAdmin should still work
-      if (req.isAdmin) {
-        query = {}; // Admin sees all
-      } else {
-        query = { userId: req.userId };
-      }
+    // Crew members only see jobs they're actively working on
+    else if (req.userRole === 'crew') {
+      query = {
+        ...query,
+        assignedTo: req.userId  // Only jobs directly assigned to them
+      };
+      console.log('Crew query - only showing jobs assigned to this crew member:', req.userId);
     }
 
     // Add search filter if provided
@@ -800,6 +819,9 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
     const resolvedTitle = title || pmNumber || woNumber || 'Untitled Work Order';
     const resolvedDescription = description || [address, city, client].filter(Boolean).join(' | ') || '';
     
+    // Get user's company for multi-tenant job creation
+    const user = await User.findById(req.userId).select('companyId');
+    
     // Create proper folder structure: WO# -> ACI/UTC -> subfolders
     const job = new Job({
       title: resolvedTitle,
@@ -817,6 +839,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       division: division || 'DA',
       matCode,
       userId: req.userId,
+      companyId: user?.companyId,  // MULTI-TENANT: Assign job to user's company
       status: 'pending',
       folders: [
         {
