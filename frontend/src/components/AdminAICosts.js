@@ -18,14 +18,12 @@ import {
   Grid,
   Card,
   CardContent,
-  Divider,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   AttachMoney as MoneyIcon,
   Psychology as AIIcon,
   Speed as SpeedIcon,
-  Storage as StorageIcon,
   TrendingUp as TrendingUpIcon,
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
@@ -39,9 +37,6 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
 } from 'recharts';
 
 const AdminAICosts = () => {

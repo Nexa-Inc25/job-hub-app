@@ -8,9 +8,6 @@ import api from '../api';
 import {
   Container,
   Typography,
-  Grid,
-  Card,
-  CardContent,
   Box,
   Paper,
   Button,
@@ -42,11 +39,8 @@ import {
   Add as AddIcon,
   Business as BusinessIcon,
   Person as PersonIcon,
-  Edit as EditIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Check as CheckIcon,
-  Refresh as RefreshIcon,
   Key as KeyIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
