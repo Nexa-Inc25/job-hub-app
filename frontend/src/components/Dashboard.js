@@ -58,8 +58,10 @@ import {
   EventNote as EventNoteIcon,
   Block as BlockIcon,
   Analytics as AnalyticsIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
+import FeedbackButton from './FeedbackButton';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -1014,9 +1016,12 @@ const Dashboard = () => {
             </IconButton>
           </Tooltip>
           
+          {/* Feedback Button - Critical for Pilot */}
+          <FeedbackButton color="inherit" />
+          
           {/* Logout Button */}
           <Tooltip title="Logout">
-            <IconButton color="inherit" onClick={handleLogout}>
+            <IconButton color="inherit" onClick={handleLogout} sx={{ ml: 1 }}>
               <LogoutIcon />
             </IconButton>
           </Tooltip>
@@ -1043,7 +1048,23 @@ const Dashboard = () => {
             </Typography>
           </Box>
 
-          <Box display="flex" gap={2}>
+          <Box display="flex" gap={2} flexWrap="wrap">
+            {/* Export Jobs CSV */}
+            <Tooltip title="Export jobs to CSV spreadsheet">
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={() => {
+                  // Direct download via API
+                  const token = localStorage.getItem('token');
+                  const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+                  window.open(`${baseUrl}/api/jobs/export/csv?token=${token}`, '_blank');
+                }}
+                sx={{ borderRadius: 2 }}
+              >
+                Export
+              </Button>
+            </Tooltip>
             <Button
               variant="outlined"
               startIcon={<UploadIcon />}

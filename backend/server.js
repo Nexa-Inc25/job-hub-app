@@ -4611,6 +4611,239 @@ app.get('/api/jobs/:id/full-details', authenticateUser, async (req, res) => {
 // Note: API routes for /api/ai/* are mounted earlier via apiRoutes
 // This line is kept for any additional routes in apiRoutes that need auth
 
+// ==================== PILOT FEEDBACK SYSTEM ====================
+// Critical for pilot success - allows users to report issues from the field
+
+const Feedback = require('./models/Feedback');
+
+// Submit feedback (any authenticated user)
+app.post('/api/feedback', authenticateUser, async (req, res) => {
+  try {
+    const { type, priority, subject, description, currentPage, screenSize, jobId } = req.body;
+    
+    // Validate required fields
+    if (!subject || !description) {
+      return res.status(400).json({ error: 'Subject and description are required' });
+    }
+    
+    // Get user info for denormalization
+    const user = await User.findById(req.userId).select('name email role companyId');
+    
+    const feedback = new Feedback({
+      userId: req.userId,
+      userName: user?.name || 'Unknown',
+      userEmail: user?.email,
+      userRole: user?.role,
+      companyId: user?.companyId,
+      type: type || 'bug',
+      priority: priority || 'medium',
+      subject,
+      description,
+      currentPage,
+      userAgent: req.headers['user-agent'],
+      screenSize,
+      jobId: jobId || null,
+      status: 'new'
+    });
+    
+    await feedback.save();
+    
+    console.log(`[FEEDBACK] New ${type} from ${user?.email}: ${subject}`);
+    
+    res.status(201).json({ 
+      success: true, 
+      message: 'Thank you for your feedback! Our team will review it shortly.',
+      feedbackId: feedback._id 
+    });
+  } catch (err) {
+    console.error('Submit feedback error:', err);
+    res.status(500).json({ error: 'Failed to submit feedback' });
+  }
+});
+
+// Get all feedback (Super Admin only)
+app.get('/api/admin/feedback', authenticateUser, async (req, res) => {
+  try {
+    if (!req.isSuperAdmin) {
+      return res.status(403).json({ error: 'Super Admin access required' });
+    }
+    
+    const { status, type, limit = 50 } = req.query;
+    
+    const query = {};
+    if (status) query.status = status;
+    if (type) query.type = type;
+    
+    const feedback = await Feedback.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('jobId', 'pmNumber woNumber title');
+    
+    // Get counts by status
+    const counts = await Feedback.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } }
+    ]);
+    
+    res.json({ 
+      feedback,
+      counts: counts.reduce((acc, c) => ({ ...acc, [c._id]: c.count }), {})
+    });
+  } catch (err) {
+    console.error('Get feedback error:', err);
+    res.status(500).json({ error: 'Failed to get feedback' });
+  }
+});
+
+// Update feedback status (Super Admin only)
+app.put('/api/admin/feedback/:id', authenticateUser, async (req, res) => {
+  try {
+    if (!req.isSuperAdmin) {
+      return res.status(403).json({ error: 'Super Admin access required' });
+    }
+    
+    const { status, adminNotes } = req.body;
+    
+    const update = {};
+    if (status) update.status = status;
+    if (adminNotes !== undefined) update.adminNotes = adminNotes;
+    if (status === 'resolved') update.resolvedAt = new Date();
+    
+    const feedback = await Feedback.findByIdAndUpdate(
+      req.params.id,
+      update,
+      { new: true }
+    );
+    
+    if (!feedback) {
+      return res.status(404).json({ error: 'Feedback not found' });
+    }
+    
+    res.json(feedback);
+  } catch (err) {
+    console.error('Update feedback error:', err);
+    res.status(500).json({ error: 'Failed to update feedback' });
+  }
+});
+
+// ==================== CSV EXPORT FOR JOBS ====================
+// Essential for contractors to share data outside the system
+// Supports both header auth and query param token for direct download
+
+app.get('/api/jobs/export/csv', async (req, res) => {
+  try {
+    // Support auth via query param for direct download links
+    let token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token && req.query.token) {
+      token = req.query.token;
+    }
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+    
+    let userId;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      userId = decoded.userId;
+    } catch (err) {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    
+    // Get user's company
+    const user = await User.findById(userId).select('companyId isSuperAdmin');
+    
+    // Handle deleted/missing user
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+    
+    // Build query based on permissions
+    const query = { isDeleted: { $ne: true } };
+    if (!user.isSuperAdmin && user.companyId) {
+      query.companyId = user.companyId;
+    }
+    
+    // Optional filters
+    const { status, startDate, endDate } = req.query;
+    if (status) query.status = status;
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    
+    const jobs = await Job.find(query)
+      .select('pmNumber woNumber notificationNumber title address city client status priority dueDate crewScheduledDate createdAt completedDate assignedTo')
+      .populate('assignedTo', 'name email')
+      .sort({ createdAt: -1 })
+      .lean();
+    
+    // RFC 4180 compliant CSV escaping
+    // Fields containing commas, quotes, or newlines must be quoted
+    // Quotes within fields must be escaped by doubling them
+    const escapeCSVField = (field) => {
+      if (field === null || field === undefined) return '';
+      const str = String(field);
+      // Check if field needs quoting (contains comma, quote, or newline)
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        // Escape quotes by doubling them, then wrap in quotes
+        return '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    };
+    
+    // Build CSV
+    const headers = [
+      'PM Number',
+      'WO Number',
+      'Notification #',
+      'Title',
+      'Address',
+      'City',
+      'Client',
+      'Status',
+      'Priority',
+      'Due Date',
+      'Scheduled Date',
+      'Created Date',
+      'Completed Date',
+      'Assigned To'
+    ];
+    
+    const rows = jobs.map(job => [
+      escapeCSVField(job.pmNumber),
+      escapeCSVField(job.woNumber),
+      escapeCSVField(job.notificationNumber),
+      escapeCSVField(job.title),
+      escapeCSVField(job.address),
+      escapeCSVField(job.city),
+      escapeCSVField(job.client),
+      escapeCSVField(job.status),
+      escapeCSVField(job.priority),
+      job.dueDate ? new Date(job.dueDate).toLocaleDateString() : '',
+      job.crewScheduledDate ? new Date(job.crewScheduledDate).toLocaleDateString() : '',
+      job.createdAt ? new Date(job.createdAt).toLocaleDateString() : '',
+      job.completedDate ? new Date(job.completedDate).toLocaleDateString() : '',
+      escapeCSVField(job.assignedTo ? (job.assignedTo.name || job.assignedTo.email) : '')
+    ]);
+    
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Set headers for CSV download
+    const filename = `jobs_export_${new Date().toISOString().split('T')[0]}.csv`;
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    
+    res.send(csv);
+  } catch (err) {
+    console.error('Export jobs CSV error:', err);
+    res.status(500).json({ error: 'Failed to export jobs' });
+  }
+});
+
 // Socket.io setup
 io.on('connection', (socket) => {
   console.log('New client connected');

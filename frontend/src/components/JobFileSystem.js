@@ -56,6 +56,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import PDFFormEditor from './PDFFormEditor';
+import FeedbackButton from './FeedbackButton';
 import { useThemeMode } from '../ThemeContext';
 import { alpha } from '@mui/material/styles';
 import { red, blue } from '@mui/material/colors';
@@ -730,6 +731,8 @@ const JobFileSystem = () => {
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>
+          {/* Feedback Button - Critical for Pilot */}
+          <FeedbackButton color="inherit" jobId={id} />
           <FormControlLabel
             control={<Switch checked={viewDetails} onChange={() => setViewDetails(!viewDetails)} />}
             label="View Details"
