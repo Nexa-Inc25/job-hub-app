@@ -40,6 +40,10 @@ import {
   Schedule as ScheduleIcon,
   Psychology as AIIcon,
   Business as BusinessIcon,
+  Feedback as FeedbackIcon,
+  BugReport as BugIcon,
+  Lightbulb as FeatureIcon,
+  Help as QuestionIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
 import {
@@ -77,6 +81,8 @@ const STATUS_COLORS = {
 const OwnerDashboard = () => {
   const [stats, setStats] = useState(null);
   const [health, setHealth] = useState(null);
+  const [feedback, setFeedback] = useState([]);
+  const [feedbackCounts, setFeedbackCounts] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [lastRefresh, setLastRefresh] = useState(null);
@@ -107,13 +113,16 @@ const OwnerDashboard = () => {
         return;
       }
 
-      const [statsRes, healthRes] = await Promise.all([
+      const [statsRes, healthRes, feedbackRes] = await Promise.all([
         api.get('/api/admin/owner-stats'),
         api.get('/api/admin/system-health'),
+        api.get('/api/admin/feedback?limit=20'),
       ]);
 
       setStats(statsRes.data);
       setHealth(healthRes.data);
+      setFeedback(feedbackRes.data.feedback || []);
+      setFeedbackCounts(feedbackRes.data.counts || {});
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Error fetching owner stats:', err);
@@ -789,6 +798,99 @@ const OwnerDashboard = () => {
             </Grid>
           </Paper>
         )}
+
+        {/* Pilot Feedback Section */}
+        <Paper sx={{ 
+          p: 3, 
+          mt: 3,
+          bgcolor: cardBg, 
+          border: `1px solid ${borderColor}`,
+          borderRadius: 3
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <FeedbackIcon sx={{ color: '#f59e0b' }} />
+              <Typography variant="h6" sx={{ color: textPrimary, fontWeight: 600 }}>
+                Pilot Feedback
+              </Typography>
+              {feedbackCounts.new > 0 && (
+                <Chip 
+                  label={`${feedbackCounts.new} new`} 
+                  size="small" 
+                  color="error"
+                  sx={{ fontWeight: 600 }}
+                />
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Chip label={`Total: ${feedback.length}`} size="small" variant="outlined" />
+            </Box>
+          </Box>
+          
+          {feedback.length === 0 ? (
+            <Typography variant="body2" sx={{ color: textSecondary, textAlign: 'center', py: 4 }}>
+              No feedback submitted yet. The feedback button appears in the app header for all users.
+            </Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {feedback.map((item) => (
+                <Paper 
+                  key={item._id} 
+                  variant="outlined" 
+                  sx={{ 
+                    p: 2, 
+                    borderRadius: 2,
+                    borderLeft: `4px solid ${
+                      item.type === 'bug' ? '#ef4444' : 
+                      item.type === 'feature_request' ? '#f59e0b' : 
+                      item.type === 'question' ? '#3b82f6' : '#6b7280'
+                    }`,
+                    bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      {item.type === 'bug' && <BugIcon sx={{ color: '#ef4444', fontSize: 20 }} />}
+                      {item.type === 'feature_request' && <FeatureIcon sx={{ color: '#f59e0b', fontSize: 20 }} />}
+                      {item.type === 'question' && <QuestionIcon sx={{ color: '#3b82f6', fontSize: 20 }} />}
+                      <Typography variant="subtitle2" sx={{ color: textPrimary, fontWeight: 600 }}>
+                        {item.subject}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 0.5 }}>
+                      <Chip 
+                        label={item.status} 
+                        size="small" 
+                        color={item.status === 'new' ? 'error' : item.status === 'resolved' ? 'success' : 'default'}
+                        sx={{ fontSize: '0.65rem', height: 20 }}
+                      />
+                      {item.priority === 'critical' && (
+                        <Chip label="CRITICAL" size="small" color="error" sx={{ fontSize: '0.65rem', height: 20 }} />
+                      )}
+                      {item.priority === 'high' && (
+                        <Chip label="HIGH" size="small" color="warning" sx={{ fontSize: '0.65rem', height: 20 }} />
+                      )}
+                    </Box>
+                  </Box>
+                  
+                  <Typography variant="body2" sx={{ color: textSecondary, mb: 1.5, whiteSpace: 'pre-wrap' }}>
+                    {item.description.length > 300 ? item.description.substring(0, 300) + '...' : item.description}
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="caption" sx={{ color: textSecondary }}>
+                      From: <strong>{item.userName || item.userEmail}</strong> ({item.userRole})
+                      {item.currentPage && ` • Page: ${item.currentPage}`}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: textSecondary }}>
+                      {new Date(item.createdAt).toLocaleString()}
+                    </Typography>
+                  </Box>
+                </Paper>
+              ))}
+            </Box>
+          )}
+        </Paper>
       </Container>
     </Box>
   );
