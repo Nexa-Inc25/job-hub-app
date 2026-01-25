@@ -97,7 +97,7 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
  * Batch categorize multiple pages with vision in a single API call
  * Returns: Map of pageNum -> category
  */
-async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
+async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0, jobId = null) {
   const results = new Map();
   
   if (!process.env.OPENAI_API_KEY || pagesWithImages.length === 0) {
@@ -106,6 +106,8 @@ async function categorizePagesWithVisionBatch(pagesWithImages, retryCount = 0) {
   
   const pageNums = pagesWithImages.map(p => p.pageNum);
   console.log(`  Vision batch analyzing pages: [${pageNums.join(', ')}]`);
+  
+  const startTime = Date.now();
   
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -144,6 +146,9 @@ JSON only: [{"page":1,"category":"FORM"}...]`;
       max_tokens: 300
     });
     
+    // Log API usage for owner dashboard
+    await logOpenAIUsage(response, 'pdf-page-categorization', jobId, null, startTime);
+    
     // Parse JSON response
     const responseText = response.choices[0].message.content.trim();
     try {
@@ -172,7 +177,7 @@ JSON only: [{"page":1,"category":"FORM"}...]`;
       const backoffMs = Math.min(2000 * Math.pow(2, retryCount), 60000) + Math.random() * 2000;
       console.log(`  Rate limited, waiting ${(backoffMs/1000).toFixed(1)}s and retrying (attempt ${retryCount + 1}/5)...`);
       await delay(backoffMs);
-      return categorizePagesWithVisionBatch(pagesWithImages, retryCount + 1);
+      return categorizePagesWithVisionBatch(pagesWithImages, retryCount + 1, jobId);
     }
     console.error(`  Vision batch error:`, err.message);
     return results;
@@ -267,7 +272,7 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
  * POSITION-INDEPENDENT: Works regardless of page order in the job package
  * Returns categorized page numbers based on actual content analysis
  */
-async function analyzePagesByContent(pdfPath) {
+async function analyzePagesByContent(pdfPath, jobId = null) {
   const result = {
     drawings: [],      // Pages with actual drawings (pole sheets, plan views)
     maps: [],          // Pages with circuit/location maps
@@ -435,7 +440,7 @@ async function analyzePagesByContent(pdfPath) {
           await delay(3000);
         }
         
-        const batchResults = await categorizePagesWithVisionBatch(batch);
+        const batchResults = await categorizePagesWithVisionBatch(batch, 0, jobId);
         
         // Process results
         for (const page of batch) {
@@ -582,7 +587,7 @@ async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
     });
     
     // Analyze pages by their actual content
-    const pageAnalysis = await analyzePagesByContent(pdfPath);
+    const pageAnalysis = await analyzePagesByContent(pdfPath, jobId);
     
     console.log('Found pages:');
     console.log('  Drawings:', pageAnalysis.drawings.slice(0, 10).join(', ') + (pageAnalysis.drawings.length > 10 ? '...' : ''));

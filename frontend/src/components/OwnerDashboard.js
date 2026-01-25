@@ -27,7 +27,6 @@ import {
   Dashboard as DashboardIcon,
   People as PeopleIcon,
   Work as WorkIcon,
-  Storage as StorageIcon,
   Speed as SpeedIcon,
   AttachMoney as MoneyIcon,
   CheckCircle as CheckIcon,
@@ -39,13 +38,10 @@ import {
   Refresh as RefreshIcon,
   Schedule as ScheduleIcon,
   Psychology as AIIcon,
-  Description as DocumentIcon,
   Business as BusinessIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -56,7 +52,6 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
-  Legend,
   Area,
   AreaChart,
 } from 'recharts';
