@@ -384,11 +384,11 @@ const Dashboard = () => {
     }
   };
 
-  // Cycle dependency status on click: required → scheduled (with date picker) → not_required → required
+  // Cycle dependency status on click: required → check → scheduled (with date picker) → not_required → required
   const handleDependencyStatusClick = async (jobId, depId, currentStatus, e) => {
     e.stopPropagation(); // Prevent card flip
     
-    const statusCycle = ['required', 'scheduled', 'not_required'];
+    const statusCycle = ['required', 'check', 'scheduled', 'not_required'];
     const currentIndex = statusCycle.indexOf(currentStatus);
     const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
     
@@ -537,16 +537,18 @@ const Dashboard = () => {
 
     return {
       // Jobs actively being pre-fielded (show as cards with flip)
+      // Must be pre_fielding status AND not yet assigned to a crew
       preFieldingInProgress: jobs.filter(job => 
-        ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo
+        ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo && !job.crewScheduledDate
       ),
       // Jobs assigned to GF but not yet started pre-field (simple list)
       pendingPreField: jobs.filter(job => 
         ['new', 'assigned_to_gf', 'pending'].includes(job.status)
       ),
-      // Needs scheduling - pre-fielded AND has assignedTo but no scheduled date
+      // Needs scheduling - pre-fielded with dependencies set, ready for crew assignment
+      // Must have assignedTo OR be past pre-fielding but no scheduled date yet
       needsScheduling: jobs.filter(job => 
-        ['pre_fielding', 'pre-field'].includes(job.status) && !job.crewScheduledDate
+        ['pre_fielding', 'pre-field'].includes(job.status) && job.assignedTo && !job.crewScheduledDate
       ),
       // Jobs marked as stuck
       stuck: jobs.filter(job => job.status === 'stuck'),
