@@ -1217,6 +1217,16 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     const { id } = req.params;
     const { pdfData, originalName, folderName, subfolderName } = req.body;
     
+    console.log('Save edited PDF request:', { id, originalName, folderName, subfolderName, pdfDataLength: pdfData?.length });
+    
+    // Validate request body
+    if (!pdfData) {
+      return res.status(400).json({ error: 'No PDF data provided' });
+    }
+    if (!originalName) {
+      return res.status(400).json({ error: 'No original filename provided' });
+    }
+    
     // Allow job creator, assigned user, GF, or admin to save edits
     const user = await User.findById(req.userId);
     const isAdminOrManager = user && (user.isAdmin || ['gf', 'pm', 'admin'].includes(user.role));
@@ -1347,7 +1357,7 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       needsApproval: !canAutoApprove
     });
   } catch (err) {
-    console.error('Error saving edited PDF:', err);
+    console.error('Error saving edited PDF:', err.message, err.stack);
     res.status(500).json({ error: 'Failed to save PDF', details: err.message });
   }
 });
