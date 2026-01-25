@@ -884,6 +884,16 @@ app.post('/api/jobs/emergency', authenticateUser, async (req, res) => {
 // ==================== AI METADATA EXTRACTION ====================
 // Extract job metadata from PDF before creating a job (for form auto-fill)
 app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, res) => {
+  const startTime = Date.now();
+  const APIUsage = require('./models/APIUsage');
+  
+  // Get user's company for tracking
+  let userCompanyId = null;
+  try {
+    const user = await User.findById(req.userId).select('companyId');
+    userCompanyId = user?.companyId;
+  } catch (e) {}
+  
   try {
     console.log('AI metadata extraction request received');
     
@@ -893,6 +903,18 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     
     if (!process.env.OPENAI_API_KEY) {
       console.log('OpenAI API key not configured - skipping extraction');
+      // Log the failed attempt
+      await APIUsage.logOpenAIUsage({
+        operation: 'metadata-extraction',
+        model: 'gpt-4o-mini',
+        promptTokens: 0,
+        completionTokens: 0,
+        success: false,
+        errorMessage: 'OpenAI API key not configured',
+        responseTimeMs: Date.now() - startTime,
+        userId: req.userId,
+        companyId: userCompanyId
+      });
       return res.json({ success: false, error: 'AI extraction not configured' });
     }
     
@@ -936,6 +958,20 @@ If a field is not found, use an empty string. Return ONLY valid JSON, no markdow
       max_tokens: 500
     });
     
+    // Log successful API call
+    const usage = response.usage || {};
+    await APIUsage.logOpenAIUsage({
+      operation: 'metadata-extraction',
+      model: 'gpt-4o-mini',
+      promptTokens: usage.prompt_tokens || 0,
+      completionTokens: usage.completion_tokens || 0,
+      success: true,
+      responseTimeMs: Date.now() - startTime,
+      userId: req.userId,
+      companyId: userCompanyId,
+      metadata: { textLength: text.length }
+    });
+    
     // Parse the response
     let structured = {};
     try {
@@ -959,6 +995,24 @@ If a field is not found, use an empty string. Return ONLY valid JSON, no markdow
     res.json({ success: true, structured });
   } catch (err) {
     console.error('AI extraction error:', err.message);
+    
+    // Log the failed API call
+    try {
+      await APIUsage.logOpenAIUsage({
+        operation: 'metadata-extraction',
+        model: 'gpt-4o-mini',
+        promptTokens: 0,
+        completionTokens: 0,
+        success: false,
+        errorMessage: err.message,
+        responseTimeMs: Date.now() - startTime,
+        userId: req.userId,
+        companyId: userCompanyId
+      });
+    } catch (logErr) {
+      console.error('Failed to log API error:', logErr.message);
+    }
+    
     // Clean up on error
     if (req.file?.path) {
       try { fs.unlinkSync(req.file.path); } catch (e) {}
