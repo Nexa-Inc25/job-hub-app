@@ -234,11 +234,11 @@ const CompanyOnboarding = () => {
   // Generate a random password
   const generatePassword = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let password = '';
-    for (let i = 0; i < 10; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
+    const length = 12;
+    // Use cryptographically secure random number generator
+    const randomValues = new Uint32Array(length);
+    crypto.getRandomValues(randomValues);
+    return Array.from(randomValues, (v) => chars[v % chars.length]).join('');
   };
 
   // Folder Template Functions

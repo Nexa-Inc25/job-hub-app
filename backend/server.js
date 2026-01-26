@@ -174,16 +174,43 @@ if (!fs.existsSync(uploadsDir)) {
   console.log('Created uploads directory:', uploadsDir);
 }
 
-// Multer setup for file uploads
+// Multer setup for file uploads with security filter
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
   filename: (req, file, cb) => {
-    cb(null, Date.now() + path.extname(file.originalname));
+    // Sanitize filename to prevent path traversal
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, Date.now() + '-' + safeName);
   }
 });
-const upload = multer({ storage });
+
+// File type filter for security
+const fileFilter = (req, file, cb) => {
+  const allowedTypes = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error(`File type ${file.mimetype} not allowed`), false);
+  }
+};
+
+const upload = multer({ 
+  storage,
+  fileFilter,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
+});
 
 // MongoDB Connection
 const { runMigration } = require('./utils/migration');
