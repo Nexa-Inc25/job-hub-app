@@ -30,7 +30,7 @@ import { useThemeMode } from '../ThemeContext';
 import {
   PieChart,
   Pie,
-  Cell,
+  Cell as RechartsCell,
   ResponsiveContainer,
   BarChart,
   Bar,
@@ -226,7 +226,7 @@ const AdminJobsOverview = () => {
                     dataKey="value"
                   >
                     {statusData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={STATUS_COLORS[entry.status] || '#64748b'} />
+                      <RechartsCell key={`cell-${index}`} fill={STATUS_COLORS[entry.status] || '#64748b'} />
                     ))}
                   </Pie>
                   <RechartsTooltip 
@@ -253,7 +253,7 @@ const AdminJobsOverview = () => {
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
                     {priorityData.map((entry, index) => (
-                      <Cell 
+                      <RechartsCell 
                         key={`cell-${index}`} 
                         fill={
                           entry.name === 'emergency' ? '#ef4444' :

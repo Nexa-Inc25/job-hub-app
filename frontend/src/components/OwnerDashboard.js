@@ -52,7 +52,7 @@ import {
   Bar,
   PieChart,
   Pie,
-  Cell,
+  Cell as RechartsCell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -518,7 +518,7 @@ const OwnerDashboard = () => {
                     labelLine={{ stroke: textSecondary }}
                   >
                     {jobStatusData.map((entry, index) => (
-                      <Cell 
+                      <RechartsCell 
                         key={`cell-${index}`} 
                         fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} 
                       />
@@ -604,7 +604,7 @@ const OwnerDashboard = () => {
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Users">
                     {userRoleData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <RechartsCell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
