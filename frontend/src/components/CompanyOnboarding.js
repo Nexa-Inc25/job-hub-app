@@ -590,6 +590,7 @@ const CompanyOnboarding = () => {
               placeholder="e.g., ABC Electric Inc."
               fullWidth
               autoFocus
+              autoComplete="organization"
             />
             <TextField
               label="Email"
@@ -598,6 +599,7 @@ const CompanyOnboarding = () => {
               onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })}
               placeholder="office@company.com"
               fullWidth
+              autoComplete="email"
             />
             <TextField
               label="Phone"
@@ -605,6 +607,7 @@ const CompanyOnboarding = () => {
               onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })}
               placeholder="(555) 123-4567"
               fullWidth
+              autoComplete="tel"
             />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <TextField
@@ -613,6 +616,7 @@ const CompanyOnboarding = () => {
                 onChange={(e) => setCompanyForm({ ...companyForm, city: e.target.value })}
                 placeholder="Sacramento"
                 sx={{ flex: 2 }}
+                autoComplete="address-level2"
               />
               <TextField
                 label="State"
@@ -620,6 +624,7 @@ const CompanyOnboarding = () => {
                 onChange={(e) => setCompanyForm({ ...companyForm, state: e.target.value })}
                 placeholder="CA"
                 sx={{ flex: 1 }}
+                autoComplete="address-level1"
               />
             </Box>
           </Box>
@@ -655,6 +660,7 @@ const CompanyOnboarding = () => {
               placeholder="John Smith"
               fullWidth
               autoFocus
+              autoComplete="name"
             />
             <TextField
               label="Email *"
@@ -664,6 +670,7 @@ const CompanyOnboarding = () => {
               placeholder="john@company.com"
               helperText="This will be their login username"
               fullWidth
+              autoComplete="email"
             />
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
               <TextField
@@ -674,6 +681,7 @@ const CompanyOnboarding = () => {
                 placeholder="Enter a password"
                 helperText="At least 6 characters. Give this to the employee."
                 fullWidth
+                autoComplete="new-password"
               />
               <Button
                 variant="outlined"
@@ -708,6 +716,7 @@ const CompanyOnboarding = () => {
               onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
               placeholder="(555) 123-4567"
               fullWidth
+              autoComplete="tel"
             />
           </Box>
         </DialogContent>
@@ -748,6 +757,7 @@ const CompanyOnboarding = () => {
                 helperText="At least 6 characters"
                 fullWidth
                 autoFocus
+                autoComplete="new-password"
               />
               <Button
                 variant="outlined"
@@ -802,6 +812,7 @@ const CompanyOnboarding = () => {
                   placeholder="e.g., Fuse Electric, Job Documents"
                   fullWidth
                   onKeyPress={(e) => e.key === 'Enter' && addParentFolder()}
+                  autoComplete="off"
                 />
                 <Button
                   variant="contained"
