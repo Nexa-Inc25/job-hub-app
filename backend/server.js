@@ -1046,21 +1046,54 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     }
     
     const pdfPath = req.file.path;
-    console.log('Extracting metadata from:', pdfPath);
     
-    // Use pdf-parse to extract text from first few pages
+    // STEP 1: Quick regex extraction (instant fallback)
+    // This gives immediate results even if AI is slow
+    const quickExtract = (text) => {
+      const patterns = {
+        pmNumber: /(?:PM|PM#|PM Number|Project)[:\s#]*(\d{7,8})/i,
+        woNumber: /(?:WO|WO#|Work Order)[:\s#]*([A-Z0-9-]+)/i,
+        notificationNumber: /(?:Notification|Notif)[:\s#]*(\d+)/i,
+        address: /(\d+\s+[A-Za-z0-9\s]+(?:St|Street|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Rd|Road|Way|Lane|Ln|Ct|Court)\.?)/i,
+        city: /(?:City)[:\s]*([A-Za-z\s]+?)(?:,|\s+CA|\s+California|\n)/i,
+        client: /(PG&E|Pacific Gas|SCE|Southern California Edison|SDG&E)/i,
+      };
+      
+      const result = {};
+      for (const [key, pattern] of Object.entries(patterns)) {
+        const match = text.match(pattern);
+        result[key] = match ? match[1].trim() : '';
+      }
+      return result;
+    };
+    
+    // STEP 2: Parse PDF with timeout protection
     const pdfParse = require('pdf-parse');
     const pdfBuffer = fs.readFileSync(pdfPath);
-    const pdfData = await pdfParse(pdfBuffer, { max: 3 }); // Only first 3 pages
-    const text = pdfData.text.substring(0, 8000); // Limit to 8000 chars
     
-    console.log('Extracted text length:', text.length);
+    // Wrap PDF parsing in a timeout (30 seconds max)
+    let text = '';
+    try {
+      const parsePromise = pdfParse(pdfBuffer, { max: 2 }); // Only first 2 pages for speed
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('PDF parse timeout')), 30000)
+      );
+      const pdfData = await Promise.race([parsePromise, timeoutPromise]);
+      text = pdfData.text.substring(0, 5000); // Reduced to 5000 chars for faster AI
+    } catch (parseErr) {
+      console.warn('PDF parsing slow or failed, using filename only:', parseErr.message);
+      text = req.file.originalname || '';
+    }
     
-    // Use OpenAI to extract structured data
-    // Set a 2-minute timeout for AI processing
+    // Get quick extraction results first
+    const quickResults = quickExtract(text);
+    const hasQuickResults = Object.values(quickResults).some(v => v);
+    
+    // STEP 3: AI enhancement (with shorter timeout)
+    // If quick extraction found PM number, we can use faster settings
     const openai = new OpenAI({ 
       apiKey: process.env.OPENAI_API_KEY,
-      timeout: 120000 // 2 minute timeout
+      timeout: hasQuickResults ? 30000 : 60000 // Shorter timeout if we have fallback
     });
     
     const response = await openai.chat.completions.create({
@@ -1068,25 +1101,17 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
       messages: [
         {
           role: 'system',
-          content: `You are a utility work order parser. Extract the following fields from the PDF text. Return ONLY a JSON object with these exact keys:
-- pmNumber: The PM number (usually starts with numbers, 8 digits like 35661262)
-- woNumber: The WO or Work Order number
-- notificationNumber: The notification number (if present)
-- address: The street address where work is to be performed
-- city: The city name
-- client: The utility company name (e.g., "PG&E", "Pacific Gas & Electric")
-- projectName: The project name or description
-- orderType: The type of work (e.g., "Service", "New Business", "Relocation")
-
-If a field is not found, use an empty string. Return ONLY valid JSON, no markdown.`
+          content: `Extract utility work order fields. Return ONLY valid JSON with these keys:
+pmNumber, woNumber, notificationNumber, address, city, client, projectName, orderType.
+Use empty string for missing fields. No markdown, just JSON.`
         },
         {
           role: 'user',
-          content: `Extract job information from this utility work order:\n\n${text}`
+          content: text.substring(0, 3000) // Even shorter for speed
         }
       ],
-      temperature: 0.1,
-      max_tokens: 500
+      temperature: 0,
+      max_tokens: 300 // Reduced for speed
     });
     
     // Log successful API call
@@ -1103,29 +1128,37 @@ If a field is not found, use an empty string. Return ONLY valid JSON, no markdow
       metadata: { textLength: text.length }
     });
     
-    // Parse the response
-    let structured = {};
+    // Parse the AI response
+    let aiResults = {};
     try {
       const content = response.choices[0]?.message?.content || '{}';
       // Remove markdown code blocks if present
       const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      structured = JSON.parse(cleanContent);
-      console.log('Extracted metadata:', structured);
+      aiResults = JSON.parse(cleanContent);
     } catch (parseErr) {
-      console.error('Failed to parse AI response:', parseErr.message);
-      console.log('Raw response:', response.choices[0]?.message?.content);
+      console.warn('Failed to parse AI response, using regex results');
     }
+    
+    // Merge: AI results take priority, fall back to quick regex results
+    const structured = {
+      pmNumber: aiResults.pmNumber || quickResults.pmNumber || '',
+      woNumber: aiResults.woNumber || quickResults.woNumber || '',
+      notificationNumber: aiResults.notificationNumber || quickResults.notificationNumber || '',
+      address: aiResults.address || quickResults.address || '',
+      city: aiResults.city || quickResults.city || '',
+      client: aiResults.client || quickResults.client || '',
+      projectName: aiResults.projectName || '',
+      orderType: aiResults.orderType || ''
+    };
     
     // Clean up the uploaded file
     try {
       fs.unlinkSync(pdfPath);
-    } catch (e) {
-      console.log('Could not delete temp file:', e.message);
-    }
+    } catch (e) {}
     
     res.json({ success: true, structured });
   } catch (err) {
-    console.error('AI extraction error:', err.message);
+    console.warn('AI extraction failed, attempting regex fallback:', err.message);
     
     // Log the failed API call
     try {
@@ -1140,15 +1173,45 @@ If a field is not found, use an empty string. Return ONLY valid JSON, no markdow
         userId: req.userId,
         companyId: userCompanyId
       });
-    } catch (logErr) {
-      console.error('Failed to log API error:', logErr.message);
+    } catch (logErr) {}
+    
+    // Try quick regex extraction as fallback
+    let fallbackResults = {};
+    try {
+      if (req.file?.path) {
+        const pdfParse = require('pdf-parse');
+        const pdfBuffer = fs.readFileSync(req.file.path);
+        const pdfData = await pdfParse(pdfBuffer, { max: 1 });
+        const text = pdfData.text.substring(0, 3000);
+        
+        // Quick regex patterns
+        const pmMatch = text.match(/(?:PM|PM#|PM Number)[:\s#]*(\d{7,8})/i);
+        const woMatch = text.match(/(?:WO|WO#|Work Order)[:\s#]*([A-Z0-9-]+)/i);
+        const addressMatch = text.match(/(\d+\s+[A-Za-z0-9\s]+(?:St|Street|Ave|Avenue|Blvd|Dr|Rd|Way|Lane)\.?)/i);
+        
+        fallbackResults = {
+          pmNumber: pmMatch ? pmMatch[1] : '',
+          woNumber: woMatch ? woMatch[1] : '',
+          address: addressMatch ? addressMatch[1].trim() : '',
+          client: text.includes('PG&E') || text.includes('Pacific Gas') ? 'PG&E' : ''
+        };
+      }
+    } catch (fallbackErr) {
+      console.warn('Regex fallback also failed:', fallbackErr.message);
     }
     
-    // Clean up on error
+    // Clean up
     if (req.file?.path) {
       try { fs.unlinkSync(req.file.path); } catch (e) {}
     }
-    res.status(500).json({ success: false, error: 'Extraction failed: ' + err.message });
+    
+    // Return fallback results if we have any, otherwise return error
+    const hasResults = Object.values(fallbackResults).some(v => v);
+    if (hasResults) {
+      res.json({ success: true, structured: fallbackResults, fallback: true });
+    } else {
+      res.status(500).json({ success: false, error: 'Extraction failed - please fill manually' });
+    }
   }
 });
 
