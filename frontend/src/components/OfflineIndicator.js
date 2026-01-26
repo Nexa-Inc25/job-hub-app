@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   Badge,
   IconButton,
@@ -210,6 +211,10 @@ const OfflineIndicator = ({ color = 'inherit' }) => {
       </Snackbar>
     </>
   );
+};
+
+OfflineIndicator.propTypes = {
+  color: PropTypes.string,
 };
 
 export default OfflineIndicator;

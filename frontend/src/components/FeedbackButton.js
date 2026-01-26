@@ -3,6 +3,7 @@
 // Critical for pilot success - provides immediate issue reporting
 
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   IconButton,
   Dialog,
@@ -287,6 +288,12 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
       </Dialog>
     </>
   );
+};
+
+FeedbackButton.propTypes = {
+  variant: PropTypes.oneOf(['icon', 'button']),
+  color: PropTypes.string,
+  jobId: PropTypes.string,
 };
 
 export default FeedbackButton;

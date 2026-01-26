@@ -2,6 +2,7 @@
 // Detailed view of AI/API usage and costs
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -105,6 +106,7 @@ const AdminAICosts = () => {
       </CardContent>
     </Card>
   );
+  StatCard.propTypes = { title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, icon: PropTypes.elementType, color: PropTypes.string };
 
   const dailyCosts = stats?.apiUsage?.dailyCosts || [];
   const openaiStats = stats?.apiUsage?.openai;

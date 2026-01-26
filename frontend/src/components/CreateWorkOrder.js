@@ -1,5 +1,6 @@
 // src/components/CreateWorkOrder.js
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -363,6 +364,10 @@ const CreateWorkOrder = ({ token }) => {
       </Container>
     </Box>
   );
+};
+
+CreateWorkOrder.propTypes = {
+  token: PropTypes.string,
 };
 
 export default CreateWorkOrder;

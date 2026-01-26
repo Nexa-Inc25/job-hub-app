@@ -3,6 +3,7 @@
 // user adoption, API costs, and system performance.
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -264,6 +265,7 @@ const OwnerDashboard = () => {
       </CardContent>
     </Card>
   );
+  StatCard.propTypes = { title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, icon: PropTypes.elementType, color: PropTypes.string, trend: PropTypes.node, onClick: PropTypes.func };
 
   // Health Status Indicator
   const HealthIndicator = ({ status, label }) => {
@@ -291,6 +293,7 @@ const OwnerDashboard = () => {
       </Box>
     );
   };
+  HealthIndicator.propTypes = { status: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]), label: PropTypes.string };
 
   if (loading && !stats) {
     return (

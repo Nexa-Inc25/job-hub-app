@@ -1,5 +1,6 @@
 // src/components/WorkOrderList.js (Updated: Role-based actions in table, e.g., bid button for general foreman)
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, TextField } from '@mui/material';
 
 const WorkOrderList = ({ jobs, onSelectJob, userRole }) => {
@@ -59,6 +60,18 @@ const WorkOrderList = ({ jobs, onSelectJob, userRole }) => {
       </TableContainer>
     </div>
   );
+};
+
+WorkOrderList.propTypes = {
+  jobs: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    woNumber: PropTypes.string,
+    address: PropTypes.string,
+    client: PropTypes.string,
+    status: PropTypes.string,
+  })).isRequired,
+  onSelectJob: PropTypes.func.isRequired,
+  userRole: PropTypes.string,
 };
 
 export default WorkOrderList;

@@ -82,7 +82,7 @@ function base64ToBlob(base64, mimeType = 'application/octet-stream') {
   const byteCharacters = atob(base64.split(',')[1] || base64);
   const byteNumbers = new Array(byteCharacters.length);
   for (let i = 0; i < byteCharacters.length; i++) {
-    byteNumbers[i] = byteCharacters.charCodeAt(i);
+    byteNumbers[i] = byteCharacters.codePointAt(i);
   }
   const byteArray = new Uint8Array(byteNumbers);
   return new Blob([byteArray], { type: mimeType });

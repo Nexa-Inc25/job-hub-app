@@ -2,6 +2,7 @@
 // Detailed view of all jobs across all companies
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -155,6 +156,7 @@ const AdminJobsOverview = () => {
       </CardContent>
     </Card>
   );
+  StatCard.propTypes = { title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, icon: PropTypes.elementType, color: PropTypes.string };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>

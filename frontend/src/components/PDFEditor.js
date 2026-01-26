@@ -1,5 +1,6 @@
 // src/components/PDFEditor.js
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Typography } from '@mui/material';
 
 const PDFEditor = ({ pdfUrl }) => {
@@ -12,6 +13,10 @@ const PDFEditor = ({ pdfUrl }) => {
       {/* Add your PDF editing logic here, e.g., using react-pdf */}
     </div>
   );
+};
+
+PDFEditor.propTypes = {
+  pdfUrl: PropTypes.string.isRequired,
 };
 
 export default PDFEditor;

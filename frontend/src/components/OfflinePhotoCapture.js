@@ -6,6 +6,7 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import {
   Dialog,
   DialogTitle,
@@ -123,7 +124,7 @@ const OfflinePhotoCapture = ({
     setMode('preview');
     
     // Generate default name
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const timestamp = new Date().toISOString().replaceAll(/[:.]/g, '-').slice(0, 19);
     setPhotoName(`Photo_${timestamp}`);
     
     stopCamera();
@@ -466,6 +467,14 @@ const OfflinePhotoCapture = ({
       </DialogActions>
     </Dialog>
   );
+};
+
+OfflinePhotoCapture.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  jobId: PropTypes.string,
+  folders: PropTypes.array,
+  onPhotoSaved: PropTypes.func,
 };
 
 export default OfflinePhotoCapture;

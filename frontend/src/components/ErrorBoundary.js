@@ -6,6 +6,7 @@
  */
 
 import React, { Component } from 'react';
+import PropTypes from 'prop-types';
 import { Box, Typography, Button, Paper, Alert } from '@mui/material';
 import { Refresh, BugReport, Home } from '@mui/icons-material';
 
@@ -135,6 +136,10 @@ class ErrorBoundary extends Component {
     return this.props.children;
   }
 }
+
+ErrorBoundary.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 export default ErrorBoundary;
 

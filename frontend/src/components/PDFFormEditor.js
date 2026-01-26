@@ -1,5 +1,6 @@
 // src/components/PDFFormEditor.js
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { Document, Page } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
@@ -366,7 +367,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           try {
             // Convert base64 to bytes
             const signatureBase64 = annotation.imageData.split(',')[1];
-            const signatureBytes = Uint8Array.from(atob(signatureBase64), c => c.charCodeAt(0));
+            const signatureBytes = Uint8Array.from(atob(signatureBase64), c => c.codePointAt(0));
             
             // Embed the PNG image
             const signatureImage = await pdfDoc.embedPng(signatureBytes);
@@ -390,7 +391,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       // Convert to base64 for sending to server
       const base64 = btoa(
         new Uint8Array(modifiedPdfBytes)
-          .reduce((data, byte) => data + String.fromCharCode(byte), '')
+          .reduce((data, byte) => data + String.fromCodePoint(byte), '')
       );
 
       // Call the onSave callback with the modified PDF
@@ -820,6 +821,20 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       </Snackbar>
     </Box>
   );
+};
+
+PDFFormEditor.propTypes = {
+  pdfUrl: PropTypes.string.isRequired,
+  jobInfo: PropTypes.shape({
+    pmNumber: PropTypes.string,
+    woNumber: PropTypes.string,
+    notificationNumber: PropTypes.string,
+    address: PropTypes.string,
+    city: PropTypes.string,
+    client: PropTypes.string,
+  }),
+  onSave: PropTypes.func,
+  documentName: PropTypes.string,
 };
 
 export default PDFFormEditor;
