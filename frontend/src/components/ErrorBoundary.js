@@ -34,11 +34,11 @@ class ErrorBoundary extends Component {
   }
 
   handleReload = () => {
-    window.location.reload();
+    globalThis.location.reload();
   };
 
   handleGoHome = () => {
-    window.location.href = '/dashboard';
+    globalThis.location.href = '/dashboard';
   };
 
   handleReportBug = () => {

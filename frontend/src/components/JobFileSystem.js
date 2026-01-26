@@ -418,7 +418,7 @@ const JobFileSystem = () => {
     }
 
     // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete "${contextDoc.name}"?`)) {
+    if (!globalThis.confirm(`Are you sure you want to delete "${contextDoc.name}"?`)) {
       handleCloseMenu();
       return;
     }
@@ -503,7 +503,7 @@ const JobFileSystem = () => {
   const handleRejectDocument = async (doc, reason) => {
     if (!doc?._id) return;
     
-    const rejectReason = reason || window.prompt('Enter rejection reason:');
+    const rejectReason = reason || globalThis.prompt('Enter rejection reason:');
     if (!rejectReason) return; // User cancelled
     
     setApprovalLoading(doc._id);
@@ -619,7 +619,7 @@ const JobFileSystem = () => {
 
   // Admin: Delete folder
   const handleDeleteFolder = async (folderName, parentFolder = null) => {
-    if (!window.confirm(`Are you sure you want to delete the folder "${folderName}"? All documents inside will be removed.`)) {
+    if (!globalThis.confirm(`Are you sure you want to delete the folder "${folderName}"? All documents inside will be removed.`)) {
       return;
     }
     
@@ -699,7 +699,7 @@ const JobFileSystem = () => {
   const handleDownload = (doc) => {
     const url = getDocUrl(doc);
     if (url) {
-      window.open(url, '_blank');
+      globalThis.open(url, '_blank');
     }
   };
 

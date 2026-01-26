@@ -254,7 +254,7 @@ const WorkOrderDetails = () => {
 
   // Delete dependency
   const handleDeleteDependency = async (depId) => {
-    if (!window.confirm('Delete this dependency?')) return;
+    if (!globalThis.confirm('Delete this dependency?')) return;
     try {
       await api.delete(`/api/jobs/${jobId}/dependencies/${depId}`);
       setDependencies(dependencies.filter(d => d._id !== depId));

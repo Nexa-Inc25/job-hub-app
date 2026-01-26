@@ -99,8 +99,8 @@ export function useOffline() {
       setIsOnline(false);
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    globalThis.addEventListener('online', handleOnline);
+    globalThis.addEventListener('offline', handleOffline);
 
     // Sync event listener
     const unsubscribe = syncManager.onSyncEvent((event, data) => {
@@ -116,8 +116,8 @@ export function useOffline() {
     });
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      globalThis.removeEventListener('online', handleOnline);
+      globalThis.removeEventListener('offline', handleOffline);
       unsubscribe();
     };
   }, [refreshPendingCounts]);

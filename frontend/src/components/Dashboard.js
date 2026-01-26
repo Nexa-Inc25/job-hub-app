@@ -718,7 +718,7 @@ const Dashboard = () => {
     const jobTitle = jobToDelete?.title || jobToDelete?.pmNumber || 'this work order';
     
     // Confirm deletion
-    if (!window.confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
+    if (!globalThis.confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
       handleJobMenuClose();
       return;
     }
@@ -827,7 +827,7 @@ const Dashboard = () => {
     if (!selectedJobId) return;
     
     // Optional confirmation
-    if (confirmMessage && !window.confirm(confirmMessage)) {
+    if (confirmMessage && !globalThis.confirm(confirmMessage)) {
       handleJobMenuClose();
       return;
     }
@@ -929,7 +929,7 @@ const Dashboard = () => {
   };
 
   const getStatusLabel = (status) => {
-    return statusLabels[status] || status?.replace(/_/g, ' ') || 'Unknown';
+    return statusLabels[status] || status?.replaceAll('_', ' ') || 'Unknown';
   };
 
   const formatDate = (dateString) => {
@@ -1050,14 +1050,14 @@ const Dashboard = () => {
                     
                     // Create download link from blob
                     const blob = new Blob([response.data], { type: 'text/csv' });
-                    const url = window.URL.createObjectURL(blob);
+                    const url = globalThis.URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.href = url;
                     link.download = `jobs_export_${new Date().toISOString().split('T')[0]}.csv`;
                     document.body.appendChild(link);
                     link.click();
-                    document.body.removeChild(link);
-                    window.URL.revokeObjectURL(url);
+                    link.remove();
+                    globalThis.URL.revokeObjectURL(url);
                   } catch (err) {
                     console.error('Export failed:', err);
                     setSnackbar({ open: true, message: 'Export failed', severity: 'error' });

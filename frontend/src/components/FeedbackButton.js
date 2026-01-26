@@ -84,8 +84,8 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
     try {
       await api.post('/api/feedback', {
         ...formData,
-        currentPage: window.location.pathname,
-        screenSize: `${window.innerWidth}x${window.innerHeight}`,
+        currentPage: globalThis.location.pathname,
+        screenSize: `${globalThis.innerWidth}x${globalThis.innerHeight}`,
         jobId: jobId || null,
       });
 
@@ -262,7 +262,7 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
 
               {/* Context info (readonly) */}
               <Typography variant="caption" color="text.secondary">
-                📍 Page: {window.location.pathname}
+                📍 Page: {globalThis.location.pathname}
                 {jobId && ` • Job ID: ${jobId}`}
               </Typography>
             </Box>

@@ -57,7 +57,7 @@ async function processOperation(op) {
     case 'UPDATE_STATUS':
       return await api.put(`/api/jobs/${jobId}/status`, data);
 
-    case 'UPLOAD_DOCUMENT':
+    case 'UPLOAD_DOCUMENT': {
       const formData = new FormData();
       // Convert base64 back to blob for upload
       const blob = base64ToBlob(data.base64, data.mimeType);
@@ -65,6 +65,7 @@ async function processOperation(op) {
       formData.append('folderName', data.folderName);
       if (data.subfolderName) formData.append('subfolderName', data.subfolderName);
       return await api.post(`/api/jobs/${jobId}/documents`, formData);
+    }
 
     case 'SUBMIT_FEEDBACK':
       return await api.post('/api/feedback', data);
@@ -187,14 +188,14 @@ export async function syncPendingOperations() {
  */
 export function initSyncManager() {
   // Sync when coming back online
-  window.addEventListener('online', () => {
+  globalThis.addEventListener('online', () => {
     console.log('Connection restored - starting sync...');
     emitSyncEvent('online', {});
     // Delay slightly to ensure connection is stable
     setTimeout(() => syncPendingOperations(), 2000);
   });
 
-  window.addEventListener('offline', () => {
+  globalThis.addEventListener('offline', () => {
     console.log('Connection lost - entering offline mode');
     emitSyncEvent('offline', {});
   });

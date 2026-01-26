@@ -26,8 +26,8 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('isAdmin');
       // Optionally redirect to login
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/signup') {
-        window.location.href = '/login';
+      if (globalThis.location.pathname !== '/login' && globalThis.location.pathname !== '/signup') {
+        globalThis.location.href = '/login';
       }
     }
     return Promise.reject(error);

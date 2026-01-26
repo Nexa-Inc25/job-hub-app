@@ -18,7 +18,7 @@ export const ThemeProvider = ({ children }) => {
 
   // Listen for system preference changes
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)');
     const handleChange = (e) => {
       // Only update if user hasn't set a preference
       if (localStorage.getItem('darkMode') === null) {
