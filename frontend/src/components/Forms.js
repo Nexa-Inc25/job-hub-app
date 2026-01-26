@@ -9,8 +9,8 @@ const Forms = () => {
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>General Forms</Typography>
       <List>
-        {forms.map((form, index) => (
-          <ListItem key={index} disablePadding>
+        {forms.map((form) => (
+          <ListItem key={form} disablePadding>
             <ListItemButton onClick={() => alert(`Loading ${form}`)}>
               <ListItemText primary={form} />
             </ListItemButton>

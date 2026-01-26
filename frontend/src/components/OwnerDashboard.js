@@ -63,6 +63,62 @@ import {
   AreaChart,
 } from 'recharts';
 
+// Extracted StatCard component
+const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend, onClick, cardBg, textPrimary, textSecondary, borderColor, mode }) => (
+  <Card 
+    onClick={onClick}
+    sx={{ 
+      bgcolor: cardBg, 
+      border: `1px solid ${borderColor}`,
+      borderRadius: 3,
+      height: '100%',
+      cursor: onClick ? 'pointer' : 'default',
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      '&:hover': {
+        transform: onClick ? 'translateY(-4px)' : 'translateY(-2px)',
+        boxShadow: mode === 'dark' ? '0 8px 25px rgba(0,0,0,0.4)' : '0 8px 25px rgba(0,0,0,0.1)',
+        borderColor: onClick ? color : borderColor,
+      }
+    }}
+  >
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5, fontWeight: 500 }}>{title}</Typography>
+          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700, mb: 0.5 }}>{value}</Typography>
+          {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
+          {trend}
+        </Box>
+        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1.5 }}>
+          <Icon sx={{ color, fontSize: 28 }} />
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
+StatCard.propTypes = { 
+  title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, 
+  icon: PropTypes.elementType, color: PropTypes.string, trend: PropTypes.node, onClick: PropTypes.func,
+  cardBg: PropTypes.string, textPrimary: PropTypes.string, textSecondary: PropTypes.string, borderColor: PropTypes.string, mode: PropTypes.string
+};
+
+// Extracted HealthIndicator component
+const HealthIndicator = ({ status, label, textPrimary }) => {
+  const isHealthy = status === 'connected' || status === 'configured' || status === true;
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+      {isHealthy ? <CheckIcon sx={{ color: '#22c55e', fontSize: 20 }} /> : <ErrorIcon sx={{ color: '#ef4444', fontSize: 20 }} />}
+      <Typography variant="body2" sx={{ color: textPrimary }}>{label}</Typography>
+      <Chip 
+        label={typeof status === 'boolean' ? (status ? 'OK' : 'Missing') : status}
+        size="small"
+        sx={{ bgcolor: isHealthy ? '#22c55e20' : '#ef444420', color: isHealthy ? '#22c55e' : '#ef4444', fontWeight: 600, fontSize: '0.7rem' }}
+      />
+    </Box>
+  );
+};
+HealthIndicator.propTypes = { status: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]), label: PropTypes.string, textPrimary: PropTypes.string };
+
 // Color palette for charts
 const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 const STATUS_COLORS = {
@@ -202,99 +258,8 @@ const OwnerDashboard = () => {
   const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
   const chartGridColor = mode === 'dark' ? '#334155' : '#e5e7eb';
 
-  // Stat Card Component - Clickable
-  const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend, onClick }) => (
-    <Card 
-      onClick={onClick}
-      sx={{ 
-        bgcolor: cardBg, 
-        border: `1px solid ${borderColor}`,
-        borderRadius: 3,
-        height: '100%',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'transform 0.2s, box-shadow 0.2s',
-        '&:hover': {
-          transform: onClick ? 'translateY(-4px)' : 'translateY(-2px)',
-          boxShadow: mode === 'dark' 
-            ? '0 8px 25px rgba(0,0,0,0.4)' 
-            : '0 8px 25px rgba(0,0,0,0.1)',
-          borderColor: onClick ? color : borderColor,
-        }
-      }}
-    >
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5, fontWeight: 500 }}>
-              {title}
-            </Typography>
-            <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700, mb: 0.5 }}>
-              {value}
-            </Typography>
-            {subtitle && (
-              <Typography variant="caption" sx={{ color: textSecondary }}>
-                {subtitle}
-              </Typography>
-            )}
-            {trend && (
-              <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                <TrendingUpIcon sx={{ fontSize: 16, color: '#22c55e', mr: 0.5 }} />
-                <Typography variant="caption" sx={{ color: '#22c55e', fontWeight: 600 }}>
-                  {trend}
-                </Typography>
-              </Box>
-            )}
-            {onClick && (
-              <Typography variant="caption" sx={{ color: color, mt: 1, display: 'block' }}>
-                Click for details →
-              </Typography>
-            )}
-          </Box>
-          <Box 
-            sx={{ 
-              bgcolor: `${color}20`, 
-              borderRadius: 2, 
-              p: 1.5,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Icon sx={{ color, fontSize: 28 }} />
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-  StatCard.propTypes = { title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, icon: PropTypes.elementType, color: PropTypes.string, trend: PropTypes.node, onClick: PropTypes.func };
-
-  // Health Status Indicator
-  const HealthIndicator = ({ status, label }) => {
-    const isHealthy = status === 'connected' || status === 'configured' || status === true;
-    return (
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        {isHealthy ? (
-          <CheckIcon sx={{ color: '#22c55e', fontSize: 20 }} />
-        ) : (
-          <ErrorIcon sx={{ color: '#ef4444', fontSize: 20 }} />
-        )}
-        <Typography variant="body2" sx={{ color: textPrimary }}>
-          {label}
-        </Typography>
-        <Chip 
-          label={typeof status === 'boolean' ? (status ? 'OK' : 'Missing') : status}
-          size="small"
-          sx={{ 
-            bgcolor: isHealthy ? '#22c55e20' : '#ef444420',
-            color: isHealthy ? '#22c55e' : '#ef4444',
-            fontWeight: 600,
-            fontSize: '0.7rem'
-          }}
-        />
-      </Box>
-    );
-  };
-  HealthIndicator.propTypes = { status: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]), label: PropTypes.string };
+  // Theme props to pass to extracted components
+  const themeProps = { cardBg, textPrimary, textSecondary, borderColor, chartGridColor, mode };
 
   if (loading && !stats) {
     return (
@@ -410,6 +375,7 @@ const OwnerDashboard = () => {
               color="#6366f1"
               trend={stats?.users?.newThisMonth > 0 ? `+${stats?.users?.newThisMonth} this month` : null}
               onClick={() => navigate('/admin/users')}
+              {...themeProps}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -421,6 +387,7 @@ const OwnerDashboard = () => {
               color="#22c55e"
               trend={stats?.jobs?.thisWeek > 0 ? `+${stats?.jobs?.thisWeek} this week` : null}
               onClick={() => navigate('/admin/jobs-overview')}
+              {...themeProps}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -431,6 +398,7 @@ const OwnerDashboard = () => {
               icon={AIIcon}
               color="#f59e0b"
               onClick={() => navigate('/admin/ai-costs')}
+              {...themeProps}
             />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
@@ -441,6 +409,7 @@ const OwnerDashboard = () => {
               icon={MoneyIcon}
               color="#ef4444"
               onClick={() => navigate('/admin/ai-costs')}
+              {...themeProps}
             />
           </Grid>
         </Grid>
@@ -635,22 +604,10 @@ const OwnerDashboard = () => {
                 </Typography>
               </Box>
               
-              <HealthIndicator 
-                status={health?.database?.status} 
-                label="MongoDB" 
-              />
-              <HealthIndicator 
-                status={health?.storage?.status} 
-                label="R2 Storage" 
-              />
-              <HealthIndicator 
-                status={health?.environment?.hasOpenAIKey} 
-                label="OpenAI API Key" 
-              />
-              <HealthIndicator 
-                status={health?.environment?.hasJwtSecret} 
-                label="JWT Secret" 
-              />
+              <HealthIndicator status={health?.database?.status} label="MongoDB" textPrimary={textPrimary} />
+              <HealthIndicator status={health?.storage?.status} label="R2 Storage" textPrimary={textPrimary} />
+              <HealthIndicator status={health?.environment?.hasOpenAIKey} label="OpenAI API Key" textPrimary={textPrimary} />
+              <HealthIndicator status={health?.environment?.hasJwtSecret} label="JWT Secret" textPrimary={textPrimary} />
               
               <Divider sx={{ my: 2, borderColor }} />
               

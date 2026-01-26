@@ -40,6 +40,29 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 
+// Extracted StatCard component to avoid re-creation on each render
+const StatCard = ({ title, value, subtitle, icon: Icon, color, cardBg, textPrimary, textSecondary, borderColor }) => (
+  <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2, height: '100%' }}>
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
+          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
+          {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
+        </Box>
+        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
+          <Icon sx={{ color, fontSize: 24 }} />
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
+StatCard.propTypes = { 
+  title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, 
+  icon: PropTypes.elementType, color: PropTypes.string,
+  cardBg: PropTypes.string, textPrimary: PropTypes.string, textSecondary: PropTypes.string, borderColor: PropTypes.string
+};
+
 const AdminAICosts = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -90,23 +113,8 @@ const AdminAICosts = () => {
     );
   }
 
-  const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
-    <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2, height: '100%' }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
-            <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
-            {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
-          </Box>
-          <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
-            <Icon sx={{ color, fontSize: 24 }} />
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-  StatCard.propTypes = { title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, icon: PropTypes.elementType, color: PropTypes.string };
+  // Theme props to pass to StatCard
+  const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
 
   const dailyCosts = stats?.apiUsage?.dailyCosts || [];
   const openaiStats = stats?.apiUsage?.openai;
@@ -137,7 +145,8 @@ const AdminAICosts = () => {
               title="Total Cost (30d)" 
               value={`$${stats?.apiUsage?.totalCostThisMonthDollars || '0.00'}`}
               icon={MoneyIcon} 
-              color="#ef4444" 
+              color="#ef4444"
+              {...themeProps}
             />
           </Grid>
           <Grid item xs={6} sm={3}>
@@ -145,7 +154,8 @@ const AdminAICosts = () => {
               title="AI Extractions" 
               value={stats?.aiExtraction?.totalJobsProcessed || 0}
               icon={AIIcon} 
-              color="#f59e0b" 
+              color="#f59e0b"
+              {...themeProps}
             />
           </Grid>
           <Grid item xs={6} sm={3}>
@@ -153,7 +163,8 @@ const AdminAICosts = () => {
               title="Avg Processing" 
               value={`${((stats?.aiExtraction?.performance?.avgProcessingTimeMs || 0) / 1000).toFixed(1)}s`}
               icon={SpeedIcon} 
-              color="#6366f1" 
+              color="#6366f1"
+              {...themeProps}
             />
           </Grid>
           <Grid item xs={6} sm={3}>
@@ -162,7 +173,8 @@ const AdminAICosts = () => {
               value={openaiStats?.totalCalls || 0}
               subtitle={openaiStats ? `${openaiStats.successfulCalls || 0} successful` : ''}
               icon={TrendingUpIcon} 
-              color="#22c55e" 
+              color="#22c55e"
+              {...themeProps}
             />
           </Grid>
         </Grid>

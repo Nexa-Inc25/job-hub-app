@@ -101,7 +101,10 @@ const OfflineIndicator = ({ color = 'inherit' }) => {
 
   return (
     <>
-      <Tooltip title={isOnline ? (hasPendingItems ? `${pendingCounts.total} pending` : 'Online - All synced') : 'Offline Mode'}>
+      <Tooltip title={(() => {
+        if (!isOnline) return 'Offline Mode';
+        return hasPendingItems ? `${pendingCounts.total} pending` : 'Online - All synced';
+      })()}>
         <IconButton
           color={color}
           onClick={handleClick}

@@ -533,16 +533,8 @@ const CompanyOnboarding = () => {
                                     sx={{ 
                                       height: 20,
                                       fontSize: '0.65rem',
-                                      bgcolor: user.role === 'admin' || user.role === 'pm' 
-                                        ? '#6366f120' 
-                                        : user.role === 'gf'
-                                        ? '#f59e0b20'
-                                        : '#64748b20',
-                                      color: user.role === 'admin' || user.role === 'pm'
-                                        ? '#6366f1'
-                                        : user.role === 'gf'
-                                        ? '#f59e0b'
-                                        : textSecondary
+                                      bgcolor: { admin: '#6366f120', pm: '#6366f120', gf: '#f59e0b20' }[user.role] || '#64748b20',
+                                      color: { admin: '#6366f1', pm: '#6366f1', gf: '#f59e0b' }[user.role] || textSecondary
                                     }}
                                   />
                                 </Box>

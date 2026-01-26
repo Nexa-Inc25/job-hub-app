@@ -223,7 +223,10 @@ const CreateWorkOrder = ({ token }) => {
                   {file ? file.name : 'Upload Job Package (PDF)'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {extracting ? 'Extracting job details...' : (file ? 'Click to change file' : 'Click or drag to upload')}
+                  {(() => {
+                    if (extracting) return 'Extracting job details...';
+                    return file ? 'Click to change file' : 'Click or drag to upload';
+                  })()}
                 </Typography>
                 {extracting && <CircularProgress size={20} sx={{ mt: 1 }} />}
               </Box>

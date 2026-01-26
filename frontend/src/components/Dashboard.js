@@ -1356,8 +1356,8 @@ const Dashboard = () => {
                                 <Box sx={{ mt: 2 }}>
                                   <Typography variant="caption" color="text.secondary" fontWeight="bold">Dependencies:</Typography>
                                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                                    {job.dependencies.map((dep, i) => (
-                                      <Chip key={i} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
+                                    {job.dependencies.map((dep) => (
+                                      <Chip key={`${dep.type}-${dep.status}`} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
                                     ))}
                                   </Box>
                                 </Box>
@@ -1817,9 +1817,9 @@ const Dashboard = () => {
                         {/* Quick Dependencies Preview */}
                         {job.dependencies?.length > 0 && (
                           <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {job.dependencies.slice(0, 3).map((dep, i) => (
+                            {job.dependencies.slice(0, 3).map((dep) => (
                               <Chip 
-                                key={i}
+                                key={`${dep.type}-${dep.status}`}
                                 size="small"
                                 label={getDependencyTypeLabel(dep.type)}
                                 color={getDependencyStatusColor(dep.status)}
@@ -2059,8 +2059,8 @@ const Dashboard = () => {
                               </Typography>
                               <Box sx={{ mt: 0.5, maxHeight: 50, overflow: 'auto' }}>
                                 {details.notes && details.notes.length > 0 ? (
-                                  details.notes.slice(-2).map((note, i) => (
-                                    <Typography key={i} variant="caption" display="block" sx={{ 
+                                  details.notes.slice(-2).map((note) => (
+                                    <Typography key={note._id || note.createdAt} variant="caption" display="block" sx={{ 
                                       overflow: 'hidden', 
                                       textOverflow: 'ellipsis', 
                                       whiteSpace: 'nowrap' 

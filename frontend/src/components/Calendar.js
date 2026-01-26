@@ -125,6 +125,12 @@ const Calendar = () => {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const isDark = theme.palette.mode === 'dark';
 
+  // Helper: Get day cell background color
+  const getDayBgColor = (isToday) => {
+    if (isToday) return isDark ? 'primary.900' : 'primary.50';
+    return isDark ? 'grey.800' : 'white';
+  };
+
   // Helper: Render empty calendar cell
   const renderEmptyCell = (key) => (
     <Paper 
@@ -207,7 +213,7 @@ const Calendar = () => {
             minHeight: 140, p: 1, overflow: 'hidden',
             border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid',
             borderColor: isToday ? 'primary.main' : 'divider',
-            bgcolor: isToday ? (isDark ? 'primary.900' : 'primary.50') : (isDark ? 'grey.800' : 'white'),
+            bgcolor: getDayBgColor(isToday),
             borderRadius: 1,
             '&:hover': { bgcolor: isDark ? 'grey.700' : 'grey.50' }
           }}

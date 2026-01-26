@@ -41,6 +41,37 @@ import {
   Tooltip as RechartsTooltip,
 } from 'recharts';
 
+// Priority color lookup
+const PRIORITY_COLORS = {
+  emergency: '#ef4444',
+  high: '#f59e0b',
+  medium: '#6366f1',
+  low: '#22c55e',
+};
+
+// Extracted StatCard component
+const StatCard = ({ title, value, subtitle, icon: Icon, color, cardBg, textPrimary, textSecondary, borderColor }) => (
+  <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2 }}>
+    <CardContent>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
+          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
+          {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
+        </Box>
+        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
+          <Icon sx={{ color, fontSize: 24 }} />
+        </Box>
+      </Box>
+    </CardContent>
+  </Card>
+);
+StatCard.propTypes = { 
+  title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, 
+  icon: PropTypes.elementType, color: PropTypes.string,
+  cardBg: PropTypes.string, textPrimary: PropTypes.string, textSecondary: PropTypes.string, borderColor: PropTypes.string
+};
+
 const STATUS_COLORS = {
   new: '#3b82f6',
   assigned_to_gf: '#8b5cf6',
@@ -140,23 +171,8 @@ const AdminJobsOverview = () => {
 
   const trendData = stats?.jobs?.creationTrend || [];
 
-  const StatCard = ({ title, value, subtitle, icon: Icon, color }) => (
-    <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2 }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <Box>
-            <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
-            <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
-            {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
-          </Box>
-          <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
-            <Icon sx={{ color, fontSize: 24 }} />
-          </Box>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-  StatCard.propTypes = { title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, icon: PropTypes.elementType, color: PropTypes.string };
+  // Theme props to pass to StatCard
+  const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>
@@ -180,16 +196,16 @@ const AdminJobsOverview = () => {
         {/* Quick Stats */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid item xs={6} sm={3}>
-            <StatCard title="Total Jobs" value={stats?.jobs?.total || 0} icon={WorkIcon} color="#22c55e" />
+            <StatCard title="Total Jobs" value={stats?.jobs?.total || 0} icon={WorkIcon} color="#22c55e" {...themeProps} />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <StatCard title="This Week" value={stats?.jobs?.thisWeek || 0} icon={TrendingUpIcon} color="#6366f1" />
+            <StatCard title="This Week" value={stats?.jobs?.thisWeek || 0} icon={TrendingUpIcon} color="#6366f1" {...themeProps} />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <StatCard title="Today" value={stats?.jobs?.today || 0} icon={ScheduleIcon} color="#f59e0b" />
+            <StatCard title="Today" value={stats?.jobs?.today || 0} icon={ScheduleIcon} color="#f59e0b" {...themeProps} />
           </Grid>
           <Grid item xs={6} sm={3}>
-            <StatCard title="Emergency" value={stats?.jobs?.emergency || 0} icon={WarningIcon} color="#ef4444" />
+            <StatCard title="Emergency" value={stats?.jobs?.emergency || 0} icon={WarningIcon} color="#ef4444" {...themeProps} />
           </Grid>
         </Grid>
 
@@ -227,8 +243,8 @@ const AdminJobsOverview = () => {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    {statusData.map((entry, index) => (
-                      <RechartsCell key={`cell-${index}`} fill={STATUS_COLORS[entry.status] || '#64748b'} />
+                    {statusData.map((entry) => (
+                      <RechartsCell key={entry.status} fill={STATUS_COLORS[entry.status] || '#64748b'} />
                     ))}
                   </Pie>
                   <RechartsTooltip 
@@ -254,14 +270,10 @@ const AdminJobsOverview = () => {
                     contentStyle={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 8 }}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]}>
-                    {priorityData.map((entry, index) => (
+                    {priorityData.map((entry) => (
                       <RechartsCell 
-                        key={`cell-${index}`} 
-                        fill={
-                          entry.name === 'emergency' ? '#ef4444' :
-                          entry.name === 'high' ? '#f59e0b' :
-                          entry.name === 'medium' ? '#6366f1' : '#22c55e'
-                        } 
+                        key={entry.name} 
+                        fill={PRIORITY_COLORS[entry.name] || '#22c55e'} 
                       />
                     ))}
                   </Bar>
