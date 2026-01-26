@@ -1026,18 +1026,22 @@ const Dashboard = () => {
               {userName ? `Welcome back, ${userName.split(' ')[0]}! 👋` : 'Welcome Back!'}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
-              {userRole === 'foreman' || userRole === 'crew' 
-                ? 'My Assigned Jobs' 
-                : userRole === 'gf' 
-                  ? 'Jobs to Pre-Field & Review' 
-                  : 'Work Order Dashboard'}
+              {userRole === 'foreman' 
+                ? 'Field Dashboard' 
+                : userRole === 'crew'
+                  ? 'My Work'
+                  : userRole === 'gf' 
+                    ? 'Jobs to Pre-Field & Review' 
+                    : 'Work Order Dashboard'}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {userRole === 'foreman' || userRole === 'crew'
-                ? 'Your scheduled work and assigned jobs'
-                : userRole === 'gf'
-                  ? 'Pre-field, schedule, and review crew work'
-                  : 'Manage and track your work orders with AI-powered automation'}
+              {userRole === 'foreman'
+                ? 'View and manage your crew\'s scheduled work'
+                : userRole === 'crew'
+                  ? 'Your scheduled work for today'
+                  : userRole === 'gf'
+                    ? 'Pre-field, schedule, and review crew work'
+                    : 'Manage and track your work orders with AI-powered automation'}
             </Typography>
           </Box>
 
