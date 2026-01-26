@@ -154,6 +154,17 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Root endpoint - redirect to health check or show status
+app.get('/', (req, res) => {
+  res.json({
+    name: 'Job Hub API',
+    version: '1.0.0-pilot',
+    status: 'running',
+    health: '/api/health',
+    docs: 'Coming soon'
+  });
+});
+
 app.use(express.json({ limit: '150mb' }));
 app.use(express.urlencoded({ limit: '150mb', extended: true }));
 
