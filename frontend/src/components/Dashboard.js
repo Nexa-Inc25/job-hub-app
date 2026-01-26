@@ -675,7 +675,6 @@ const Dashboard = () => {
     const jobsExtracting = jobs.filter(j => j.aiExtractionStarted && !j.aiExtractionComplete);
     if (jobsExtracting.length === 0) return;
     
-    console.log(`Polling: ${jobsExtracting.length} job(s) still extracting...`);
     const pollInterval = setInterval(() => {
       fetchJobs();
     }, 10000); // Poll every 10 seconds
