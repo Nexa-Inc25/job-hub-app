@@ -1095,8 +1095,7 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
       quickResults = quickExtract(text);
     }
     
-    // Get quick extraction results first
-    const quickResults = quickExtract(text);
+    // Check if quick extraction found any results
     const hasQuickResults = Object.values(quickResults).some(v => v);
     
     // STEP 3: AI enhancement (with shorter timeout)
