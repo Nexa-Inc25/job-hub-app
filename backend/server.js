@@ -599,6 +599,20 @@ app.use('/api', authenticateUser, apiRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
+// Get current user profile
+app.get('/api/users/me', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('name email role isAdmin isSuperAdmin');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (err) {
+    console.error('Get user profile error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Get all users (for assignment dropdown) - Admin, PM, or GF
 app.get('/api/users', authenticateUser, async (req, res) => {
   try {

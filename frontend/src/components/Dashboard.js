@@ -110,7 +110,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
-  // Check user role from token
+  // Check user role from token and fetch name if needed
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (token) {
@@ -119,8 +119,17 @@ const Dashboard = () => {
         setIsAdmin(payload.isAdmin || false);
         setIsSuperAdmin(payload.isSuperAdmin || false);
         setUserRole(payload.role || null);
-        setUserName(payload.name || '');
         setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
+        
+        // Get name from token or fetch from API
+        if (payload.name) {
+          setUserName(payload.name);
+        } else {
+          // Fallback: fetch user profile if name not in token
+          api.get('/api/users/me').then(res => {
+            setUserName(res.data?.name || '');
+          }).catch(() => setUserName(''));
+        }
       } catch (e) {
         setIsAdmin(false);
         setIsSuperAdmin(false);
