@@ -1050,7 +1050,7 @@ const Dashboard = () => {
                   ? 'Your scheduled work for today'
                   : userRole === 'gf'
                     ? 'Pre-field, schedule, and review crew work'
-                    : 'Manage and track your work orders with AI-powered automation'}
+                    : 'Manage and track your work orders'}
             </Typography>
           </Box>
 

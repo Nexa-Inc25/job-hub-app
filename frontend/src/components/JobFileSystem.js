@@ -973,7 +973,7 @@ const JobFileSystem = () => {
                     
                     {job?.aiExtractionComplete && (
                       <Alert severity="info" sx={{ mt: 2, width: '100%' }}>
-                        AI has automatically extracted photos, drawings, and maps from the job package PDF
+                        Photos, drawings, and maps have been automatically extracted from the job package PDF
                       </Alert>
                     )}
                     
