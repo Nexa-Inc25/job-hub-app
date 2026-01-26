@@ -121,7 +121,7 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
       {/* Trigger Button */}
       {variant === 'icon' ? (
         <Tooltip title="Report Issue / Feedback">
-          <IconButton color={color} onClick={handleOpen} size="small">
+          <IconButton color={color} onClick={handleOpen} size="small" aria-label="Report issue or feedback">
             <FeedbackIcon />
           </IconButton>
         </Tooltip>
@@ -152,7 +152,7 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
               <FeedbackIcon color="primary" />
               <Typography variant="h6">Send Feedback</Typography>
             </Box>
-            <IconButton size="small" onClick={handleClose} disabled={loading}>
+            <IconButton size="small" onClick={handleClose} disabled={loading} aria-label="Close feedback">
               <CloseIcon />
             </IconButton>
           </Box>

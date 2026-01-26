@@ -330,7 +330,7 @@ const WorkOrderDetails = () => {
       {/* App Bar */}
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar>
-          <IconButton edge="start" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }}>
+          <IconButton edge="start" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }} aria-label="Back to dashboard">
             <ArrowBackIcon />
           </IconButton>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>
@@ -342,7 +342,7 @@ const WorkOrderDetails = () => {
             sx={{ mr: 2 }}
           />
           <Tooltip title="Refresh">
-            <IconButton onClick={fetchJobDetails}>
+            <IconButton onClick={fetchJobDetails} aria-label="Refresh">
               <RefreshIcon />
             </IconButton>
           </Tooltip>
@@ -711,6 +711,7 @@ const WorkOrderDetails = () => {
                         });
                         setDepDialogOpen(true);
                       }}
+                      aria-label="Add Dependency"
                     >
                       <AddIcon />
                     </IconButton>
@@ -753,10 +754,10 @@ const WorkOrderDetails = () => {
                             />
                           </Box>
                           <Box>
-                            <IconButton size="small" onClick={() => handleEditDependency(dep)}>
+                            <IconButton size="small" onClick={() => handleEditDependency(dep)} aria-label="Edit dependency">
                               <EditIcon fontSize="small" />
                             </IconButton>
-                            <IconButton size="small" onClick={() => handleDeleteDependency(dep._id)}>
+                            <IconButton size="small" onClick={() => handleDeleteDependency(dep._id)} aria-label="Delete dependency">
                               <DeleteIcon fontSize="small" />
                             </IconButton>
                           </Box>
@@ -872,7 +873,7 @@ const WorkOrderDetails = () => {
                       onChange={(e) => setNewNote(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
                     />
-                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()}>
+                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()} aria-label="Add note">
                       <SendIcon />
                     </IconButton>
                   </Box>

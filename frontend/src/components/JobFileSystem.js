@@ -711,7 +711,7 @@ const JobFileSystem = () => {
       <AppBar position="static">
         <Toolbar>
           <Tooltip title="Back to Dashboard">
-            <IconButton color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 1 }}>
+            <IconButton color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 1 }} aria-label="Back to Dashboard">
               <HomeIcon />
             </IconButton>
           </Tooltip>
@@ -727,7 +727,7 @@ const JobFileSystem = () => {
             sx={{ width: 300, mr: 2 }}
           />
           <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1 }}>
+            <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1 }} aria-label="Toggle dark mode">
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>
@@ -741,6 +741,7 @@ const JobFileSystem = () => {
               color="inherit" 
               onClick={() => setPhotoCaptureOpen(true)}
               sx={{ mr: 1 }}
+              aria-label="Capture Photo"
             >
               <Badge badgeContent={pendingPhotos.length} color="warning" max={9}>
                 <CameraAltIcon />
@@ -821,6 +822,7 @@ const JobFileSystem = () => {
                                 handleDeleteFolder(folder.name);
                               }}
                               sx={{ p: 0.5, color: 'error.main' }}
+                              aria-label="Delete folder"
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -850,6 +852,7 @@ const JobFileSystem = () => {
                                     handleDeleteFolder(subfolder.name, folder.name);
                                   }}
                                   sx={{ p: 0.25, color: 'error.main' }}
+                                  aria-label="Delete subfolder"
                                 >
                                   <DeleteIcon sx={{ fontSize: '0.875rem' }} />
                                 </IconButton>
@@ -1069,12 +1072,12 @@ const JobFileSystem = () => {
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <Tooltip title="Open">
-                                  <IconButton size="small" onClick={() => handleDocDoubleClick(doc)}>
+                                  <IconButton size="small" onClick={() => handleDocDoubleClick(doc)} aria-label="Open document">
                                     <VisibilityIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Download">
-                                  <IconButton size="small" onClick={() => handleDownload(doc)}>
+                                  <IconButton size="small" onClick={() => handleDownload(doc)} aria-label="Download document">
                                     <DownloadIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
@@ -1088,6 +1091,7 @@ const JobFileSystem = () => {
                                         color="success"
                                         onClick={(e) => { e.stopPropagation(); handleApproveDocument(doc); }}
                                         disabled={approvalLoading === doc._id}
+                                        aria-label="Approve document"
                                       >
                                         {approvalLoading === doc._id ? (
                                           <CircularProgress size={16} />
@@ -1102,6 +1106,7 @@ const JobFileSystem = () => {
                                         color="error"
                                         onClick={(e) => { e.stopPropagation(); handleRejectDocument(doc); }}
                                         disabled={approvalLoading === doc._id}
+                                        aria-label="Reject document"
                                       >
                                         <CancelIcon fontSize="small" />
                                       </IconButton>
@@ -1110,7 +1115,7 @@ const JobFileSystem = () => {
                                 )}
                                 
                                 <Tooltip title="More options">
-                                  <IconButton size="small" onClick={(e) => handleContextMenu(e, doc)}>
+                                  <IconButton size="small" onClick={(e) => handleContextMenu(e, doc)} aria-label="More options">
                                     <MoreVertIcon fontSize="small" />
                                   </IconButton>
                                 </Tooltip>
@@ -1204,7 +1209,7 @@ const JobFileSystem = () => {
                 {editorMode ? 'View Only' : 'Edit & Fill'}
               </Button>
               <Tooltip title="Download Original">
-                <IconButton onClick={() => viewingDoc && handleDownload(viewingDoc)}>
+                <IconButton onClick={() => viewingDoc && handleDownload(viewingDoc)} aria-label="Download">
                   <DownloadIcon />
                 </IconButton>
               </Tooltip>
@@ -1212,7 +1217,7 @@ const JobFileSystem = () => {
                 <IconButton onClick={() => {
                   setPdfViewerOpen(false);
                   setEditorMode(false);
-                }}>
+                }} aria-label="Close">
                   <CloseIcon />
                 </IconButton>
               </Tooltip>
@@ -1306,7 +1311,7 @@ const JobFileSystem = () => {
             <Typography variant="h6">{viewingImage?.name || 'Image'}</Typography>
             <Box>
               <Tooltip title="Download">
-                <IconButton onClick={() => viewingImage && handleDownload(viewingImage)} sx={{ color: 'white' }}>
+                <IconButton onClick={() => viewingImage && handleDownload(viewingImage)} sx={{ color: 'white' }} aria-label="Download">
                   <DownloadIcon />
                 </IconButton>
               </Tooltip>
@@ -1314,7 +1319,7 @@ const JobFileSystem = () => {
                 <IconButton onClick={() => {
                   setImageViewerOpen(false);
                   setViewingImage(null);
-                }} sx={{ color: 'white' }}>
+                }} sx={{ color: 'white' }} aria-label="Close">
                   <CloseIcon />
                 </IconButton>
               </Tooltip>

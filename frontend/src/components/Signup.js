@@ -70,7 +70,7 @@ const Signup = () => {
       {/* Theme Toggle */}
       <Box sx={{ position: 'absolute', top: 16, right: 16 }}>
         <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-          <IconButton onClick={toggleDarkMode} color="primary">
+          <IconButton onClick={toggleDarkMode} color="primary" aria-label="Toggle dark mode">
             {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
         </Tooltip>
@@ -133,6 +133,7 @@ const Signup = () => {
                     <IconButton
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>

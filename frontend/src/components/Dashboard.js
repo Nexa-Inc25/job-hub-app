@@ -979,7 +979,7 @@ const Dashboard = () => {
           {/* Owner Dashboard - Super Admin Only (Job Hub Owners) */}
           {isSuperAdmin && (
             <Tooltip title="Owner Dashboard">
-              <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }}>
+              <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }} aria-label="Admin Dashboard">
                 <AnalyticsIcon />
               </IconButton>
             </Tooltip>
@@ -987,14 +987,14 @@ const Dashboard = () => {
           
           {/* Calendar Button */}
           <Tooltip title="My Schedule">
-            <IconButton color="inherit" onClick={handleGoToCalendar} sx={{ mr: 1 }}>
+            <IconButton color="inherit" onClick={handleGoToCalendar} sx={{ mr: 1 }} aria-label="Calendar">
               <CalendarIcon />
             </IconButton>
           </Tooltip>
           
           {/* Dark Mode Toggle */}
           <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1 }}>
+            <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1 }} aria-label="Toggle dark mode">
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>
@@ -1007,7 +1007,7 @@ const Dashboard = () => {
           
           {/* Logout Button */}
           <Tooltip title="Logout">
-            <IconButton color="inherit" onClick={handleLogout} sx={{ ml: 1 }}>
+            <IconButton color="inherit" onClick={handleLogout} sx={{ ml: 1 }} aria-label="Logout">
               <LogoutIcon />
             </IconButton>
           </Tooltip>
@@ -1344,13 +1344,13 @@ const Dashboard = () => {
                             <Divider />
                             <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
                               <Tooltip title="Flip to see checklist">
-                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary">
+                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary" aria-label="Flip card">
                                   <FlipIcon />
                                 </IconButton>
                               </Tooltip>
                               <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
                               <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
-                              <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)}><MoreVertIcon /></IconButton>
+                              <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)} aria-label="Job options"><MoreVertIcon /></IconButton>
                             </CardActions>
                           </Card>
                         )}
@@ -1413,7 +1413,7 @@ const Dashboard = () => {
                             <Divider />
                             <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
                               <Tooltip title="Flip back">
-                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary">
+                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary" aria-label="Flip card">
                                   <FlipIcon />
                                 </IconButton>
                               </Tooltip>
@@ -1465,7 +1465,7 @@ const Dashboard = () => {
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -1504,7 +1504,7 @@ const Dashboard = () => {
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Button size="small" color="success" onClick={(e) => handleUnstickJob(job._id, e)}>Resume</Button>
-                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                       </Box>
                     </Box>
                   ))}
@@ -1548,7 +1548,7 @@ const Dashboard = () => {
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <Button size="small" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>Assign</Button>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -1609,7 +1609,7 @@ const Dashboard = () => {
                         Start Pre-Field
                       </Button>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>
                 ))}
@@ -1648,7 +1648,7 @@ const Dashboard = () => {
                       </Box>
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`}><MoreVertIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                       </Box>
                     </Box>
                   ))}
