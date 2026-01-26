@@ -104,8 +104,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
 
     console.log('Click at:', x, y, 'Tool:', currentTool, 'Text:', currentText);
 
-    // Generate unique ID using timestamp + random string to prevent collisions
-    const generateUniqueId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generate unique ID using timestamp + cryptographically secure random string
+    const generateUniqueId = () => {
+      const array = new Uint32Array(2);
+      crypto.getRandomValues(array);
+      return `${Date.now()}_${array[0].toString(36)}${array[1].toString(36)}`;
+    };
     
     if (currentTool === 'text') {
       if (currentText.trim()) {
