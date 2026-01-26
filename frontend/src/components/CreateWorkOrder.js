@@ -70,8 +70,11 @@ const CreateWorkOrder = ({ token }) => {
       // api module automatically adds Authorization header
       const formData = new FormData();
       formData.append('pdf', selectedFile);
-      api.post('/api/ai/extract', formData).then(response => {
-        console.log('AI extraction successful:', response.data);
+      
+      // AI extraction needs a longer timeout (3 minutes) for large PDFs
+      api.post('/api/ai/extract', formData, { 
+        timeout: 180000 // 3 minute timeout for AI processing
+      }).then(response => {
         if (response.data.success && response.data.structured) {
           const data = response.data.structured;
           if (data.pmNumber) setPmNumber(data.pmNumber);
@@ -84,15 +87,13 @@ const CreateWorkOrder = ({ token }) => {
           if (data.orderType) setOrderType(data.orderType);
         }
       }).catch(err => {
-        // Log detailed error for debugging
-        console.error('AI extraction error:', err.message || err);
-        if (err.response) {
-          console.error('Response status:', err.response.status);
-          console.error('Response data:', err.response.data);
-        } else if (err.request) {
-          console.error('No response received - network error or timeout');
+        // AI extraction is optional - user can fill fields manually
+        // Only log for debugging, don't show error to user
+        if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+          console.warn('AI extraction timed out - user can fill fields manually');
+        } else {
+          console.warn('AI extraction failed:', err.message);
         }
-        // Don't show error - extraction is optional, user can fill manually
       }).finally(() => {
         setExtracting(false);
       });

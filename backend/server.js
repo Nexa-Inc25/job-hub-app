@@ -1061,7 +1061,11 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     console.log('Extracted text length:', text.length);
     
     // Use OpenAI to extract structured data
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // Set a 2-minute timeout for AI processing
+    const openai = new OpenAI({ 
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 120000 // 2 minute timeout
+    });
     
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
