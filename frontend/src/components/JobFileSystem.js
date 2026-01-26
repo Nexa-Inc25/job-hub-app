@@ -85,8 +85,6 @@ const JobFileSystem = () => {
   // Admin/approval state
   const [isAdmin, setIsAdmin] = useState(false);
   const [canApprove, setCanApprove] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [userRole, setUserRole] = useState(null);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
   const [newFolderParent, setNewFolderParent] = useState('');
@@ -105,7 +103,6 @@ const JobFileSystem = () => {
       const payload = JSON.parse(atob(token.split('.')[1]));
       setIsAdmin(payload.isAdmin || false);
       setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
-      setUserRole(payload.role || null);
     } catch (err) {
       console.log('Could not parse token');
     }

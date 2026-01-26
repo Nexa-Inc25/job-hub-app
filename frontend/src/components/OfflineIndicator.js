@@ -80,7 +80,9 @@ const OfflineIndicator = ({ color = 'inherit' }) => {
     if (result.synced > 0 || result.failed > 0) {
       setSnackbar({
         open: true,
-        message: `Sync complete: ${result.synced} uploaded${result.failed > 0 ? `, ${result.failed} failed` : ''}`,
+        message: result.failed > 0 
+          ? `Sync complete: ${result.synced} uploaded, ${result.failed} failed`
+          : `Sync complete: ${result.synced} uploaded`,
         severity: result.failed > 0 ? 'warning' : 'success'
       });
     }
@@ -140,11 +142,10 @@ const OfflineIndicator = ({ color = 'inherit' }) => {
             )}
           </Box>
           <Typography variant="body2" color="text.secondary">
-            {isOnline 
-              ? hasPendingItems 
-                ? 'Some items are waiting to sync' 
-                : 'All data is synchronized'
-              : 'Data will sync when online'}
+            {(() => {
+              if (!isOnline) return 'Data will sync when online';
+              return hasPendingItems ? 'Some items are waiting to sync' : 'All data is synchronized';
+            })()}
           </Typography>
         </Box>
 

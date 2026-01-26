@@ -70,7 +70,8 @@ const TemplateManager = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setTemplates(response.data.templates || []);
-    } catch (err) {
+    } catch (error) {
+      console.error('Failed to load templates:', error);
       setError('Failed to load templates');
     } finally {
       setLoading(false);

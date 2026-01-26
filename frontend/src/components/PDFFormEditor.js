@@ -47,7 +47,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [annotations, setAnnotations] = useState([]);
   const [currentTool, setCurrentTool] = useState('text');
   const [fontSize, setFontSize] = useState(12);
-  const [zoom, setZoom] = useState(1.0);
+  const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');

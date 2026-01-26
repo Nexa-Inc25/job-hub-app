@@ -79,7 +79,9 @@ const AdminUsersList = () => {
           try {
             const usersRes = await api.get(`/api/superadmin/companies/${company._id}/users`);
             return { ...company, users: usersRes.data };
-          } catch (err) {
+          } catch (error) {
+            // Users fetch failed for this company, return empty array
+            console.warn(`Failed to fetch users for company ${company._id}:`, error.message);
             return { ...company, users: [] };
           }
         })

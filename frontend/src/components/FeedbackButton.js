@@ -226,13 +226,11 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
               {/* Subject */}
               <TextField
                 label="Subject"
-                placeholder={
-                  formData.type === 'bug' 
-                    ? "Brief description of the issue" 
-                    : formData.type === 'feature_request'
-                    ? "What feature would help you?"
-                    : "How can we help?"
-                }
+                placeholder={(() => {
+                  if (formData.type === 'bug') return "Brief description of the issue";
+                  if (formData.type === 'feature_request') return "What feature would help you?";
+                  return "How can we help?";
+                })()}
                 value={formData.subject}
                 onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
                 fullWidth
@@ -244,13 +242,11 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
               {/* Description */}
               <TextField
                 label="Description"
-                placeholder={
-                  formData.type === 'bug'
-                    ? "What happened? What were you trying to do? Include any error messages."
-                    : formData.type === 'feature_request'
-                    ? "Describe the feature and how it would help your work."
-                    : "Provide details..."
-                }
+                placeholder={(() => {
+                  if (formData.type === 'bug') return "What happened? What were you trying to do? Include any error messages.";
+                  if (formData.type === 'feature_request') return "Describe the feature and how it would help your work.";
+                  return "Provide details...";
+                })()}
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 fullWidth

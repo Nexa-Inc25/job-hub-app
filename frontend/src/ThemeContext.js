@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { getTheme, getDarkModePreference, setDarkModePreference } from './theme';
@@ -30,24 +31,24 @@ export const ThemeProvider = ({ children }) => {
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
-  const toggleDarkMode = () => {
+  const toggleDarkMode = useCallback(() => {
     setDarkMode((prev) => {
       const newValue = !prev;
       setDarkModePreference(newValue);
       return newValue;
     });
-  };
+  }, []);
 
   const theme = useMemo(() => getTheme(darkMode ? 'dark' : 'light'), [darkMode]);
 
-  const value = {
+  const value = useMemo(() => ({
     darkMode,
-    setDarkMode: (value) => {
-      setDarkMode(value);
-      setDarkModePreference(value);
+    setDarkMode: (val) => {
+      setDarkMode(val);
+      setDarkModePreference(val);
     },
     toggleDarkMode,
-  };
+  }), [darkMode, toggleDarkMode]);
 
   return (
     <ThemeContext.Provider value={value}>
@@ -57,6 +58,10 @@ export const ThemeProvider = ({ children }) => {
       </MuiThemeProvider>
     </ThemeContext.Provider>
   );
+};
+
+ThemeProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export default ThemeContext;

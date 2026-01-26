@@ -28,7 +28,8 @@ const getAdminStatus = () => {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload.isAdmin === true;
-    } catch (e) {
+    } catch (error) {
+      console.error('Failed to parse token:', error);
       return false;
     }
   }

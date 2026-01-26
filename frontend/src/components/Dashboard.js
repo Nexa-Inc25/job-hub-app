@@ -130,7 +130,8 @@ const Dashboard = () => {
             setUserName(res.data?.name || '');
           }).catch(() => setUserName(''));
         }
-      } catch (e) {
+      } catch (error) {
+        console.error('Failed to parse auth token:', error);
         setIsAdmin(false);
         setIsSuperAdmin(false);
         setUserRole(null);
@@ -1358,7 +1359,7 @@ const Dashboard = () => {
                               </Box>
                               
                               {/* Dependencies Preview */}
-                              {job.dependencies && job.dependencies.length > 0 && (
+                              {job.dependencies?.length > 0 && (
                                 <Box sx={{ mt: 2 }}>
                                   <Typography variant="caption" color="text.secondary" fontWeight="bold">Dependencies:</Typography>
                                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
@@ -1629,7 +1630,8 @@ const Dashboard = () => {
                             // Initialize checklist for this job
                             initPreFieldChecklist(job._id);
                             setSnackbar({ open: true, message: 'Started pre-fielding', severity: 'success' });
-                          } catch (err) {
+                          } catch (error) {
+                            console.error('Failed to start pre-field:', error);
                             setSnackbar({ open: true, message: 'Failed to start pre-field', severity: 'error' });
                           }
                         }}
@@ -1820,7 +1822,7 @@ const Dashboard = () => {
                         </Box>
                         
                         {/* Quick Dependencies Preview */}
-                        {job.dependencies && job.dependencies.length > 0 && (
+                        {job.dependencies?.length > 0 && (
                           <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                             {job.dependencies.slice(0, 3).map((dep, i) => (
                               <Chip 
