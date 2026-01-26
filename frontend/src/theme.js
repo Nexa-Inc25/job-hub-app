@@ -112,7 +112,7 @@ export const getDarkModePreference = () => {
     return stored === 'true';
   }
   // Default to system preference
-  return globalThis.matchMedia && globalThis.matchMedia('(prefers-color-scheme: dark)').matches;
+  return globalThis.matchMedia?.('(prefers-color-scheme: dark)')?.matches ?? false;
 };
 
 export const setDarkModePreference = (isDark) => {
