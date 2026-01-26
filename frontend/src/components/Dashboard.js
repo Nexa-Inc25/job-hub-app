@@ -979,6 +979,26 @@ const Dashboard = () => {
 
   const stats = getJobStats();
 
+  // Get dashboard title based on user role
+  const getDashboardTitle = () => {
+    switch (userRole) {
+      case 'foreman': return 'Field Dashboard';
+      case 'crew': return 'My Work';
+      case 'gf': return 'Jobs to Pre-Field & Review';
+      default: return 'Work Order Dashboard';
+    }
+  };
+
+  // Get dashboard subtitle based on user role
+  const getDashboardSubtitle = () => {
+    switch (userRole) {
+      case 'foreman': return "View and manage your crew's scheduled work";
+      case 'crew': return 'Your scheduled work for today';
+      case 'gf': return 'Pre-field, schedule, and review crew work';
+      default: return 'Manage and track your work orders';
+    }
+  };
+
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Top Navigation Bar */}
@@ -1035,22 +1055,10 @@ const Dashboard = () => {
               {userName ? `Welcome back, ${userName.split(' ')[0]}! 👋` : 'Welcome Back!'}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
-              {userRole === 'foreman' 
-                ? 'Field Dashboard' 
-                : userRole === 'crew'
-                  ? 'My Work'
-                  : userRole === 'gf' 
-                    ? 'Jobs to Pre-Field & Review' 
-                    : 'Work Order Dashboard'}
+              {getDashboardTitle()}
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {userRole === 'foreman'
-                ? 'View and manage your crew\'s scheduled work'
-                : userRole === 'crew'
-                  ? 'Your scheduled work for today'
-                  : userRole === 'gf'
-                    ? 'Pre-field, schedule, and review crew work'
-                    : 'Manage and track your work orders'}
+              {getDashboardSubtitle()}
             </Typography>
           </Box>
 
