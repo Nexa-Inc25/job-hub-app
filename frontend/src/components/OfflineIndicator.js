@@ -118,9 +118,7 @@ const OfflineIndicator = ({ color = 'inherit' }) => {
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
         onClose={handleClose}
-        PaperProps={{
-          sx: { minWidth: 280 }
-        }}
+        slotProps={{ paper: { sx: { minWidth: 280 } } }}
       >
         {/* Status header */}
         <Box sx={{ px: 2, py: 1.5 }}>

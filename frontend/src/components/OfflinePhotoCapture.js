@@ -242,12 +242,7 @@ const OfflinePhotoCapture = ({
       onClose={handleClose} 
       maxWidth="sm" 
       fullWidth
-      PaperProps={{
-        sx: { 
-          bgcolor: 'background.paper',
-          maxHeight: '90vh'
-        }
-      }}
+      slotProps={{ paper: { sx: { bgcolor: 'background.paper', maxHeight: '90vh' } } }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

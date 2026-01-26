@@ -1154,7 +1154,7 @@ const JobFileSystem = () => {
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleCloseMenu}
-            PaperProps={{ style: { width: 200 } }}
+            slotProps={{ paper: { style: { width: 200 } } }}
           >
             <MenuItem onClick={handlePreview}>
               <VisibilityIcon sx={{ mr: 1 }} /> Open / Edit
@@ -1178,12 +1178,7 @@ const JobFileSystem = () => {
           }}
           maxWidth="xl"
           fullWidth
-          PaperProps={{
-            sx: {
-              height: '95vh',
-              maxHeight: '95vh',
-            }
-          }}
+          slotProps={{ paper: { sx: { height: '95vh', maxHeight: '95vh' } } }}
         >
           <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1305,12 +1300,7 @@ const JobFileSystem = () => {
           }}
           maxWidth="lg"
           fullWidth
-          PaperProps={{
-            sx: {
-              bgcolor: 'black',
-              maxHeight: '95vh',
-            }
-          }}
+          slotProps={{ paper: { sx: { bgcolor: 'black', maxHeight: '95vh' } } }}
         >
           <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, bgcolor: 'rgba(0,0,0,0.8)', color: 'white' }}>
             <Typography variant="h6">{viewingImage?.name || 'Image'}</Typography>

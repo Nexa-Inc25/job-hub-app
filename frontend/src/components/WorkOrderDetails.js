@@ -870,7 +870,7 @@ const WorkOrderDetails = () => {
                       placeholder="Add a note..."
                       value={newNote}
                       onChange={(e) => setNewNote(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddNote()}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
                     />
                     <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()}>
                       <SendIcon />

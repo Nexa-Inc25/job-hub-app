@@ -144,9 +144,7 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
         maxWidth="sm"
         disableRestoreFocus
         fullWidth
-        PaperProps={{
-          sx: { borderRadius: 2 }
-        }}
+        slotProps={{ paper: { sx: { borderRadius: 2 } } }}
       >
         <DialogTitle sx={{ pb: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

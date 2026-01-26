@@ -811,7 +811,7 @@ const CompanyOnboarding = () => {
                   onChange={(e) => setNewFolderName(e.target.value)}
                   placeholder="e.g., Fuse Electric, Job Documents"
                   fullWidth
-                  onKeyPress={(e) => e.key === 'Enter' && addParentFolder()}
+                  onKeyDown={(e) => e.key === 'Enter' && addParentFolder()}
                   autoComplete="off"
                 />
                 <Button
@@ -908,7 +908,7 @@ const CompanyOnboarding = () => {
                           onFocus={() => setSelectedFolderIndex(folderIndex)}
                           placeholder="Add subfolder..."
                           sx={{ flex: 1 }}
-                          onKeyPress={(e) => {
+                          onKeyDown={(e) => {
                             if (e.key === 'Enter' && selectedFolderIndex === folderIndex) {
                               addSubfolder(folderIndex);
                             }

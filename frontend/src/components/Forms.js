@@ -1,6 +1,6 @@
-// frontend/src/components/Forms.js (already provided)
+// frontend/src/components/Forms.js
 import React from 'react';
-import { Typography, Box, List, ListItem, ListItemText } from '@mui/material';
+import { Typography, Box, List, ListItem, ListItemButton, ListItemText } from '@mui/material';
 
 const Forms = () => {
   const forms = ['Form A - Safety Checklist', 'Form B - Permit Request', 'Form C - Completion Report'];
@@ -10,8 +10,10 @@ const Forms = () => {
       <Typography variant="h4" gutterBottom>General Forms</Typography>
       <List>
         {forms.map((form, index) => (
-          <ListItem key={index} button onClick={() => alert(`Loading ${form}`)}>
-            <ListItemText primary={form} />
+          <ListItem key={index} disablePadding>
+            <ListItemButton onClick={() => alert(`Loading ${form}`)}>
+              <ListItemText primary={form} />
+            </ListItemButton>
           </ListItem>
         ))}
       </List>
