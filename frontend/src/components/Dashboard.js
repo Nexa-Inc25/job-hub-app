@@ -61,6 +61,7 @@ import {
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import FeedbackButton from './FeedbackButton';
+import OfflineIndicator from './OfflineIndicator';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
@@ -997,6 +998,9 @@ const Dashboard = () => {
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>
+          
+          {/* Offline Status Indicator */}
+          <OfflineIndicator color="inherit" />
           
           {/* Feedback Button - Critical for Pilot */}
           <FeedbackButton color="inherit" />

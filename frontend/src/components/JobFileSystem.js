@@ -33,6 +33,7 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Badge,
 } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
@@ -57,7 +58,10 @@ import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import PDFFormEditor from './PDFFormEditor';
 import FeedbackButton from './FeedbackButton';
+import OfflineIndicator from './OfflineIndicator';
+import OfflinePhotoCapture from './OfflinePhotoCapture';
 import { useThemeMode } from '../ThemeContext';
+import { useOffline } from '../hooks/useOffline';
 import { alpha } from '@mui/material/styles';
 import { red, blue } from '@mui/material/colors';
 
@@ -65,6 +69,7 @@ const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
+  const { cacheJob, getPendingPhotos } = useOffline();
   const [jobs, setJobs] = useState([]);
   const [job, setJob] = useState(null);
   const [selectedFolder, setSelectedFolder] = useState(null);
@@ -87,6 +92,10 @@ const JobFileSystem = () => {
   const [newFolderParent, setNewFolderParent] = useState('');
   const [isSubfolder, setIsSubfolder] = useState(false);
   const [approvalLoading, setApprovalLoading] = useState(null); // docId being approved/rejected
+  
+  // Offline photo capture
+  const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
+  const [pendingPhotos, setPendingPhotos] = useState([]);
 
   // Check user permissions from JWT
   useEffect(() => {
@@ -124,6 +133,12 @@ const JobFileSystem = () => {
         
         setJob(jobResponse.data);
         setJobs(jobsListResponse.data);
+        
+        // Cache job for offline viewing
+        cacheJob(jobResponse.data);
+        
+        // Load any pending photos for this job
+        getPendingPhotos(id).then(photos => setPendingPhotos(photos));
         
         if (jobResponse.data.folders?.length > 0) {
           setSelectedFolder(jobResponse.data.folders[0]); // Select first folder by default
@@ -716,6 +731,23 @@ const JobFileSystem = () => {
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>
+          
+          {/* Offline Status Indicator */}
+          <OfflineIndicator color="inherit" />
+          
+          {/* Camera Capture Button */}
+          <Tooltip title="Capture Photo">
+            <IconButton 
+              color="inherit" 
+              onClick={() => setPhotoCaptureOpen(true)}
+              sx={{ mr: 1 }}
+            >
+              <Badge badgeContent={pendingPhotos.length} color="warning" max={9}>
+                <CameraAltIcon />
+              </Badge>
+            </IconButton>
+          </Tooltip>
+          
           {/* Feedback Button - Critical for Pilot */}
           <FeedbackButton color="inherit" jobId={id} />
           <FormControlLabel
@@ -1368,6 +1400,18 @@ const JobFileSystem = () => {
             </Button>
           </DialogActions>
         </Dialog>
+        
+        {/* Offline Photo Capture Dialog */}
+        <OfflinePhotoCapture
+          open={photoCaptureOpen}
+          onClose={() => setPhotoCaptureOpen(false)}
+          jobId={id}
+          folders={job?.folders || []}
+          onPhotoSaved={(photoData) => {
+            // Add to pending photos list
+            setPendingPhotos(prev => [...prev, photoData]);
+          }}
+        />
       </Box>
   );
 };

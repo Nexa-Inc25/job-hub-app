@@ -1,17 +1,195 @@
-<!-- public/offline.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Offline</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Job Hub - Offline</title>
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-    h1 { color: #ff1744; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #fff;
+    }
+    
+    .container {
+      text-align: center;
+      max-width: 500px;
+      padding: 40px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      opacity: 0.9;
+    }
+    
+    h1 {
+      font-size: 28px;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+    
+    p {
+      font-size: 16px;
+      opacity: 0.85;
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+    
+    .features {
+      text-align: left;
+      margin: 24px 0;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+    }
+    
+    .features h3 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+      opacity: 0.7;
+    }
+    
+    .features ul {
+      list-style: none;
+    }
+    
+    .features li {
+      padding: 8px 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 15px;
+    }
+    
+    .features li::before {
+      content: '✓';
+      color: #4caf50;
+      font-weight: bold;
+    }
+    
+    .btn {
+      display: inline-block;
+      padding: 14px 32px;
+      background: #2196f3;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.3s ease;
+    }
+    
+    .btn:hover {
+      background: #1976d2;
+      transform: translateY(-2px);
+    }
+    
+    .status {
+      margin-top: 24px;
+      padding: 12px;
+      background: rgba(255, 193, 7, 0.2);
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    
+    .status.online {
+      background: rgba(76, 175, 80, 0.2);
+    }
+    
+    #statusText {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    
+    .pulse {
+      width: 10px;
+      height: 10px;
+      background: #ffc107;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    .pulse.online {
+      background: #4caf50;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
   </style>
 </head>
 <body>
-  <h1>You're Offline</h1>
-  <p>Please check your internet connection and try again.</p>
-  <p>Some cached content may still be available.</p>
+  <div class="container">
+    <div class="icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>Don't worry - Job Hub works offline! Your data is saved locally and will sync when you're back online.</p>
+    
+    <div class="features">
+      <h3>Available Offline</h3>
+      <ul>
+        <li>View cached job details</li>
+        <li>Capture photos with your camera</li>
+        <li>Fill out forms and checklists</li>
+        <li>All data syncs automatically</li>
+      </ul>
+    </div>
+    
+    <button class="btn" onclick="window.location.reload()">
+      Try Again
+    </button>
+    
+    <div class="status" id="statusContainer">
+      <div id="statusText">
+        <div class="pulse" id="statusIndicator"></div>
+        <span id="statusMessage">Waiting for connection...</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function updateStatus() {
+      const container = document.getElementById('statusContainer');
+      const indicator = document.getElementById('statusIndicator');
+      const message = document.getElementById('statusMessage');
+      
+      if (navigator.onLine) {
+        container.classList.add('online');
+        indicator.classList.add('online');
+        message.textContent = 'Connection restored! Reloading...';
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        container.classList.remove('online');
+        indicator.classList.remove('online');
+        message.textContent = 'Waiting for connection...';
+      }
+    }
+    
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+    updateStatus();
+  </script>
 </body>
 </html>
