@@ -340,7 +340,8 @@ app.post('/api/signup', async (req, res) => {
       isAdmin: user.isAdmin || false,
       isSuperAdmin: user.isSuperAdmin || false,
       role: user.role,
-      canApprove: user.canApprove || false
+      canApprove: user.canApprove || false,
+      name: user.name
     }, process.env.JWT_SECRET, { expiresIn: '24h' });
     
     console.log('User created successfully:', user._id, 'role:', userRole);
@@ -397,7 +398,8 @@ app.post('/api/login', async (req, res) => {
       isAdmin: user.isAdmin,
       isSuperAdmin: user.isSuperAdmin || false,
       role: user.role,
-      canApprove: user.canApprove || false
+      canApprove: user.canApprove || false,
+      name: user.name
     }, process.env.JWT_SECRET, { expiresIn: '24h' });
     
     res.json({ 

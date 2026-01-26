@@ -95,6 +95,7 @@ const Dashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Job Hub platform owners only
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
+  const [userName, setUserName] = useState('');
   const [canApprove, setCanApprove] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState([]);
   const [flippedCards, setFlippedCards] = useState({}); // Track which cards are flipped
@@ -118,11 +119,13 @@ const Dashboard = () => {
         setIsAdmin(payload.isAdmin || false);
         setIsSuperAdmin(payload.isSuperAdmin || false);
         setUserRole(payload.role || null);
+        setUserName(payload.name || '');
         setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
       } catch (e) {
         setIsAdmin(false);
         setIsSuperAdmin(false);
         setUserRole(null);
+        setUserName('');
         setCanApprove(false);
       }
     }
@@ -1018,14 +1021,18 @@ const Dashboard = () => {
         {/* Header Section */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
           <Box>
+            {/* Personalized Welcome Message */}
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
+              {userName ? `Welcome back, ${userName.split(' ')[0]}! 👋` : 'Welcome Back!'}
+            </Typography>
+            <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
               {userRole === 'foreman' || userRole === 'crew' 
                 ? 'My Assigned Jobs' 
                 : userRole === 'gf' 
                   ? 'Jobs to Pre-Field & Review' 
                   : 'Work Order Dashboard'}
             </Typography>
-            <Typography variant="body1" color="text.secondary">
+            <Typography variant="body2" color="text.secondary">
               {userRole === 'foreman' || userRole === 'crew'
                 ? 'Your scheduled work and assigned jobs'
                 : userRole === 'gf'
