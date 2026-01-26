@@ -104,7 +104,6 @@ const JobFileSystem = () => {
 
   useEffect(() => {
     const fetchJobData = async () => {
-      console.log('JobFileSystem: Fetching job with ID:', id);
       const token = localStorage.getItem('token');
       if (!token) {
         setError('No authentication token found. Please log in.');
@@ -118,12 +117,10 @@ const JobFileSystem = () => {
       }
       try {
         // Fetch the specific job by ID (includes folders) and job list (for switcher)
-        console.log('JobFileSystem: Making API calls...');
         const [jobResponse, jobsListResponse] = await Promise.all([
           api.get(`/api/jobs/${id}`),
           api.get('/api/jobs')
         ]);
-        console.log('JobFileSystem: API calls successful', { job: jobResponse.data, jobsCount: jobsListResponse.data.length });
         
         setJob(jobResponse.data);
         setJobs(jobsListResponse.data);
@@ -168,7 +165,6 @@ const JobFileSystem = () => {
     if (job.aiExtractionComplete === true) return;
     if (!job.aiExtractionStarted) return; // Only poll if extraction was actually started
     
-    console.log('Starting extraction poll for job:', job._id);
     
     const pollInterval = setInterval(async () => {
       try {
@@ -176,7 +172,6 @@ const JobFileSystem = () => {
         const updatedJob = response.data;
         
         if (updatedJob.aiExtractionComplete) {
-          console.log('Extraction complete, refreshing job data');
           setJob(updatedJob);
           // Update jobs list too
           setJobs(prev => prev.map(j => j._id === updatedJob._id ? updatedJob : j));
@@ -191,7 +186,6 @@ const JobFileSystem = () => {
     
     // Stop polling after 5 minutes max (extraction shouldn't take longer)
     const timeout = setTimeout(() => {
-      console.log('Extraction polling timeout - stopping');
       clearInterval(pollInterval);
     }, 5 * 60 * 1000);
     
@@ -444,7 +438,6 @@ const JobFileSystem = () => {
         }
       }
 
-      console.log('Document deleted successfully');
     } catch (err) {
       console.error('Error deleting document:', err);
       setError('Failed to delete document');
@@ -469,7 +462,7 @@ const JobFileSystem = () => {
     
     setApprovalLoading(doc._id);
     try {
-      const response = await api.post(`/api/jobs/${job._id}/documents/${doc._id}/approve`);
+      await api.post(`/api/jobs/${job._id}/documents/${doc._id}/approve`);
       
       // Refresh job data to get updated document
       const jobResponse = await api.get(`/api/jobs/${job._id}`);
@@ -483,7 +476,6 @@ const JobFileSystem = () => {
         }
       }
       
-      console.log('Document approved:', response.data);
     } catch (err) {
       console.error('Error approving document:', err);
       setError(err.response?.data?.error || 'Failed to approve document');
@@ -514,7 +506,6 @@ const JobFileSystem = () => {
         }
       }
       
-      console.log('Document rejected');
     } catch (err) {
       console.error('Error rejecting document:', err);
       setError(err.response?.data?.error || 'Failed to reject document');
@@ -576,8 +567,6 @@ const JobFileSystem = () => {
       resultUrl = doc.url || '';
     }
     
-    // Debug logging
-    console.log('getDocUrl:', { docName: doc.name, docUrl: doc.url, r2Key: doc.r2Key, apiBase, resultUrl });
     
     return resultUrl;
   };
@@ -640,11 +629,8 @@ const JobFileSystem = () => {
 
   // Handle double-click to open PDF viewer
   const handleDocDoubleClick = (doc) => {
-    console.log('Document clicked:', { name: doc.name, type: doc.type, url: doc.url });
-    
     // Check if it's an image file
     const isImage = doc.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.type === 'image' || doc.type === 'photo' || doc.type === 'drawing' || doc.type === 'map';
-    console.log('Is image:', isImage);
     
     if (isImage) {
       // Open image in modal viewer
@@ -662,7 +648,7 @@ const JobFileSystem = () => {
   const handleSaveEditedPdf = async (base64Data, documentName) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await api.post(`/api/jobs/${id}/save-edited-pdf`, {
+      await api.post(`/api/jobs/${id}/save-edited-pdf`, {
         pdfData: base64Data,
         originalName: documentName,
         folderName: selectedFolder?.parentFolder || selectedFolder?.name,
@@ -671,7 +657,6 @@ const JobFileSystem = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      console.log('PDF saved:', response.data);
       
       // Refresh job data to show the new document
       const jobResponse = await api.get(`/api/jobs/${id}`, {
@@ -988,10 +973,6 @@ const JobFileSystem = () => {
                     <TableBody>
                       {selectedFolder.documents.length > 0 ? (
                         selectedFolder.documents.map((doc, idx) => {
-                          // Debug: log document approval status
-                          if (doc.approvalStatus) {
-                            console.log('Document with approvalStatus:', doc.name, doc.approvalStatus);
-                          }
                           return (
                           <TableRow
                             key={doc.url || doc.name + idx}

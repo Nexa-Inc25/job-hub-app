@@ -710,10 +710,7 @@ const Dashboard = () => {
   };
 
   const handleDeleteJob = async () => {
-    if (!selectedJobId) {
-      console.log('No job selected for deletion');
-      return;
-    }
+    if (!selectedJobId) return;
     
     // Find the job to get its title for confirmation
     const jobToDelete = jobs.find(j => j._id === selectedJobId);
@@ -726,12 +723,8 @@ const Dashboard = () => {
     }
     
     try {
-      console.log('Deleting job:', selectedJobId);
-      
       // api module automatically adds Authorization header
-      const response = await api.delete(`/api/jobs/${selectedJobId}`);
-      
-      console.log('Delete response:', response.data);
+      await api.delete(`/api/jobs/${selectedJobId}`);
       
       // Remove from local state
       setJobs(jobs.filter(job => job._id !== selectedJobId));
