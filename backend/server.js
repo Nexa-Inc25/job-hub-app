@@ -119,7 +119,7 @@ const io = socketIo(server, {
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  console.log('CORS middleware - Origin:', origin, 'Method:', req.method);
+  // Only log non-GET requests or errors (reduce log noise in production)
   
   // Only allow whitelisted origins when using credentials
   if (origin && allowedOrigins.includes(origin)) {
@@ -135,9 +135,8 @@ app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
   res.setHeader('Access-Control-Max-Age', '86400');
   
-  // Handle preflight
+  // Handle preflight (no logging needed for OPTIONS)
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS preflight request');
     return res.status(204).end();
   }
   
@@ -248,7 +247,6 @@ const requireAdmin = (req, res, next) => {
 
 // Super Admin middleware (Job Hub platform owners only)
 const requireSuperAdmin = (req, res, next) => {
-  console.log('requireSuperAdmin check - userId:', req.userId, 'isSuperAdmin:', req.isSuperAdmin);
   if (!req.isSuperAdmin) {
     console.log('Super Admin access denied for user:', req.userId);
     return res.status(403).json({ error: 'Super Admin access required. This feature is for Job Hub platform owners only.' });
@@ -831,7 +829,7 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
 //   - Foreman/Crew: See only jobs assigned to them
 app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
-    console.log('GET /api/jobs - userId:', req.userId, 'role:', req.userRole, 'isAdmin:', req.isAdmin, 'isSuperAdmin:', req.isSuperAdmin);
+    // Reduced logging for high-frequency endpoint
     const { search, view, includeArchived, includeDeleted } = req.query;
     
     // Get user's company for multi-tenant filtering
@@ -857,7 +855,6 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
     // Super Admins see their own company's jobs (Job Hub) - they use Owner Dashboard for analytics
     if (userCompanyId) {
       query.companyId = userCompanyId;
-      console.log('Filtering jobs by companyId:', userCompanyId);
     } else {
       // User has no company - only see jobs they personally created
       query.userId = req.userId;
@@ -939,7 +936,6 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
       .populate('assignedToGF', 'name email _id')
       .sort({ createdAt: -1 })
       .lean(); // Use lean() for faster read-only queries
-    console.log('GET /api/jobs - returning', jobs.length, 'jobs for role:', req.userRole || 'unknown');
     res.json(jobs);
   } catch (err) {
     console.error('Error fetching jobs:', err);
@@ -2136,7 +2132,6 @@ app.get('/api/admin/pending-approvals', authenticateUser, async (req, res) => {
       }
     }
     
-    console.log(`Found ${pendingDocs.length} documents pending approval`);
     res.json({ pendingDocuments: pendingDocs, count: pendingDocs.length });
   } catch (err) {
     console.error('Error fetching pending approvals:', err);
