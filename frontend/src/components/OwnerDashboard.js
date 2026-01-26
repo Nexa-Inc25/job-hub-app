@@ -157,7 +157,8 @@ const OwnerDashboard = () => {
           setLoading(false);
           return;
         }
-      } catch (e) {
+      } catch (parseError) {
+        console.error('Token parse error:', parseError);
         navigate('/login');
         return;
       }
@@ -892,9 +893,7 @@ const OwnerDashboard = () => {
                     p: 2, 
                     borderRadius: 2,
                     borderLeft: `4px solid ${
-                      item.type === 'bug' ? '#ef4444' : 
-                      item.type === 'feature_request' ? '#f59e0b' : 
-                      item.type === 'question' ? '#3b82f6' : '#6b7280'
+                      { bug: '#ef4444', feature_request: '#f59e0b', question: '#3b82f6' }[item.type] || '#6b7280'
                     }`,
                     bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'
                   }}

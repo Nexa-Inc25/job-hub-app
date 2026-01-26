@@ -78,14 +78,20 @@ const CreateWorkOrder = ({ token }) => {
       }).then(response => {
         if (response.data.success && response.data.structured) {
           const data = response.data.structured;
-          if (data.pmNumber) setPmNumber(data.pmNumber);
-          if (data.woNumber) setWoNumber(data.woNumber);
-          if (data.notificationNumber) setNotificationNumber(data.notificationNumber);
-          if (data.address) setAddress(data.address);
-          if (data.city) setCity(data.city);
-          if (data.client) setClient(data.client);
-          if (data.projectName) setProjectName(data.projectName);
-          if (data.orderType) setOrderType(data.orderType);
+          // Apply extracted data to form fields
+          const fieldSetters = {
+            pmNumber: setPmNumber,
+            woNumber: setWoNumber,
+            notificationNumber: setNotificationNumber,
+            address: setAddress,
+            city: setCity,
+            client: setClient,
+            projectName: setProjectName,
+            orderType: setOrderType,
+          };
+          Object.entries(fieldSetters).forEach(([key, setter]) => {
+            if (data[key]) setter(data[key]);
+          });
         }
       }).catch(err => {
         // AI extraction is optional - user can fill fields manually

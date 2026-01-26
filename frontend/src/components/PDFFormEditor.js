@@ -342,44 +342,32 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const pages = pdfDoc.getPages();
 
-      // Add annotations to PDF
-      for (const annotation of annotations) {
-        const pageIndex = (annotation.page || 1) - 1;
-        if (pageIndex >= pages.length) continue;
+      // Helper to draw a single annotation on a page
+      const drawAnnotation = async (annotation, page, pageHeight, font, pdfDoc) => {
+        const y = pageHeight - annotation.y;
         
-        const page = pages[pageIndex];
-        const { height } = page.getSize();
-
         if (annotation.type === 'text') {
           page.drawText(annotation.text, {
-            x: annotation.x,
-            y: height - annotation.y, // Flip Y coordinate (PDF origin is bottom-left)
-            size: annotation.fontSize,
-            font: helveticaFont,
-            color: rgb(0, 0, 0),
+            x: annotation.x, y, size: annotation.fontSize, font, color: rgb(0, 0, 0),
           });
-        } else if (annotation.type === 'check') {
-          // Use 'X' instead of checkmark - WinAnsi encoding doesn't support ✓
+          return;
+        }
+        
+        if (annotation.type === 'check') {
           page.drawText('X', {
-            x: annotation.x,
-            y: height - annotation.y,
-            size: annotation.size,
-            font: helveticaFont,
-            color: rgb(0, 0, 0),
+            x: annotation.x, y, size: annotation.size, font, color: rgb(0, 0, 0),
           });
-        } else if (annotation.type === 'signature' && annotation.imageData) {
+          return;
+        }
+        
+        if (annotation.type === 'signature' && annotation.imageData) {
           try {
-            // Convert base64 to bytes
             const signatureBase64 = annotation.imageData.split(',')[1];
             const signatureBytes = Uint8Array.from(atob(signatureBase64), c => c.codePointAt(0));
-            
-            // Embed the PNG image
             const signatureImage = await pdfDoc.embedPng(signatureBytes);
-            
-            // Draw signature on page
             page.drawImage(signatureImage, {
               x: annotation.x,
-              y: height - annotation.y - annotation.height, // Adjust for image height
+              y: y - annotation.height,
               width: annotation.width,
               height: annotation.height,
             });
@@ -387,6 +375,16 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             console.error('Error embedding signature:', sigErr);
           }
         }
+      };
+
+      // Add annotations to PDF
+      for (const annotation of annotations) {
+        const pageIndex = (annotation.page || 1) - 1;
+        if (pageIndex >= pages.length) continue;
+        
+        const page = pages[pageIndex];
+        const { height } = page.getSize();
+        await drawAnnotation(annotation, page, height, helveticaFont, pdfDoc);
       }
 
       // Get the modified PDF bytes

@@ -123,6 +123,64 @@ const Calendar = () => {
   ];
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const isDark = theme.palette.mode === 'dark';
+
+  // Helper: Render empty calendar cell
+  const renderEmptyCell = (key) => (
+    <Paper 
+      key={key}
+      sx={{ 
+        minHeight: 140, p: 1, 
+        bgcolor: isDark ? 'grey.900' : 'grey.50',
+        opacity: 0.4, borderRadius: 1
+      }}
+    />
+  );
+
+  // Helper: Render job item in calendar
+  const renderJobItem = (job) => (
+    <Tooltip
+      key={job._id}
+      title={
+        <Box>
+          <Typography variant="body2"><strong>{job.pmNumber || job.woNumber}</strong></Typography>
+          <Typography variant="caption">{job.address}</Typography>
+          {isAdmin && viewAll && job.assignedTo && (
+            <Typography variant="caption" display="block" color="info.main">
+              Crew: {job.assignedTo.name || job.assignedTo.email}
+            </Typography>
+          )}
+          {job.dueDate && (
+            <Typography variant="caption" display="block" color="warning.main">
+              Due: {new Date(job.dueDate).toLocaleDateString()}
+            </Typography>
+          )}
+        </Box>
+      }
+      arrow
+      placement="right"
+    >
+      <Box
+        onClick={() => handleJobClick(job._id)}
+        sx={{
+          mb: 0.5, p: 0.5, cursor: 'pointer',
+          borderLeft: `3px solid ${getPriorityColor(job.priority)}`,
+          bgcolor: isDark ? 'grey.700' : 'grey.100',
+          borderRadius: '0 4px 4px 0',
+          '&:hover': { bgcolor: isDark ? 'grey.600' : 'grey.200' },
+        }}
+      >
+        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7rem' }}>
+          {job.pmNumber || job.woNumber || 'Job'}
+        </Typography>
+        {job.assignedTo && (
+          <Typography variant="caption" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.secondary', fontSize: '0.65rem' }}>
+            {job.assignedTo.name || job.assignedTo.email?.split('@')[0]}
+          </Typography>
+        )}
+      </Box>
+    </Tooltip>
+  );
 
   const renderCalendarDays = () => {
     const daysInMonth = getDaysInMonth(currentDate);
@@ -134,18 +192,7 @@ const Calendar = () => {
 
     // Empty cells for days before the first day of the month
     for (let i = 0; i < firstDay; i++) {
-      days.push(
-        <Paper 
-          key={`empty-${i}`}
-          sx={{ 
-            minHeight: 140, 
-            p: 1, 
-            bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
-            opacity: 0.4,
-            borderRadius: 1
-          }}
-        />
-      );
+      days.push(renderEmptyCell(`empty-${i}`));
     }
 
     // Days of the month
@@ -157,98 +204,19 @@ const Calendar = () => {
         <Paper
           key={day}
           sx={{
-            minHeight: 140,
-            p: 1,
-            overflow: 'hidden',
+            minHeight: 140, p: 1, overflow: 'hidden',
             border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid',
             borderColor: isToday ? 'primary.main' : 'divider',
-            bgcolor: isToday 
-              ? (theme.palette.mode === 'dark' ? 'primary.900' : 'primary.50')
-              : (theme.palette.mode === 'dark' ? 'grey.800' : 'white'),
+            bgcolor: isToday ? (isDark ? 'primary.900' : 'primary.50') : (isDark ? 'grey.800' : 'white'),
             borderRadius: 1,
-            '&:hover': {
-              bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.50'
-            }
+            '&:hover': { bgcolor: isDark ? 'grey.700' : 'grey.50' }
           }}
         >
-          <Typography
-            variant="body2"
-            sx={{
-              fontWeight: isToday ? 'bold' : 'medium',
-              color: isToday ? 'primary.main' : 'text.primary',
-              mb: 0.5
-            }}
-          >
+          <Typography variant="body2" sx={{ fontWeight: isToday ? 'bold' : 'medium', color: isToday ? 'primary.main' : 'text.primary', mb: 0.5 }}>
             {day}
           </Typography>
           <Box sx={{ overflow: 'auto', maxHeight: 110 }}>
-            {dayJobs.map((job) => (
-              <Tooltip
-                key={job._id}
-                title={
-                  <Box>
-                    <Typography variant="body2"><strong>{job.pmNumber || job.woNumber}</strong></Typography>
-                    <Typography variant="caption">{job.address}</Typography>
-                    {isAdmin && viewAll && job.assignedTo && (
-                      <Typography variant="caption" display="block" color="info.main">
-                        Crew: {job.assignedTo.name || job.assignedTo.email}
-                      </Typography>
-                    )}
-                    {job.dueDate && (
-                      <Typography variant="caption" display="block" color="warning.main">
-                        Due: {new Date(job.dueDate).toLocaleDateString()}
-                      </Typography>
-                    )}
-                  </Box>
-                }
-                arrow
-                placement="right"
-              >
-                <Box
-                  onClick={() => handleJobClick(job._id)}
-                  sx={{
-                    mb: 0.5,
-                    p: 0.5,
-                    cursor: 'pointer',
-                    borderLeft: `3px solid ${getPriorityColor(job.priority)}`,
-                    bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.100',
-                    borderRadius: '0 4px 4px 0',
-                    '&:hover': { 
-                      bgcolor: theme.palette.mode === 'dark' ? 'grey.600' : 'grey.200'
-                    },
-                  }}
-                >
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      fontWeight: 'bold',
-                      display: 'block',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      fontSize: '0.7rem'
-                    }}
-                  >
-                    {job.pmNumber || job.woNumber || 'Job'}
-                  </Typography>
-                  {job.assignedTo && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        display: 'block',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        color: 'text.secondary',
-                        fontSize: '0.65rem'
-                      }}
-                    >
-                      {job.assignedTo.name || job.assignedTo.email?.split('@')[0]}
-                    </Typography>
-                  )}
-                </Box>
-              </Tooltip>
-            ))}
+            {dayJobs.map(renderJobItem)}
           </Box>
         </Paper>
       );
@@ -259,18 +227,7 @@ const Calendar = () => {
     const remainingCells = 7 - (totalCells % 7);
     if (remainingCells < 7) {
       for (let i = 0; i < remainingCells; i++) {
-        days.push(
-          <Paper 
-            key={`empty-end-${i}`}
-            sx={{ 
-              minHeight: 140, 
-              p: 1, 
-              bgcolor: theme.palette.mode === 'dark' ? 'grey.900' : 'grey.50',
-              opacity: 0.4,
-              borderRadius: 1
-            }}
-          />
-        );
+        days.push(renderEmptyCell(`empty-end-${i}`));
       }
     }
 

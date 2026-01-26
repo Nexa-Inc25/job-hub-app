@@ -870,52 +870,45 @@ const Dashboard = () => {
     }
   };
 
+  // Transition rules by role group
+  const transitionRules = {
+    pmAdmin: {
+      new: { status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' },
+      pending: { status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' },
+      pending_pm_approval: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
+      ready_to_submit: { status: 'submitted', label: 'Mark as Submitted', icon: 'submit' },
+      submitted: { status: 'billed', label: 'Mark as Billed', icon: 'bill' },
+      billed: { status: 'invoiced', label: 'Mark as Invoiced', icon: 'invoice' },
+    },
+    gf: {
+      assigned_to_gf: { status: 'pre_fielding', label: 'Start Pre-Field', icon: 'prefield' },
+      pre_fielding: { status: 'scheduled', label: 'Schedule Crew', icon: 'schedule' },
+      pending_gf_review: { status: 'pending_pm_approval', label: 'Approve → Send to PM', icon: 'approve' },
+    },
+    field: {
+      scheduled: { status: 'in_progress', label: 'Start Work', icon: 'start' },
+      in_progress: { status: 'pending_gf_review', label: 'Submit for Review', icon: 'submit' },
+    },
+  };
+
   // Get next available status transitions based on current status and role
   const getAvailableTransitions = (job) => {
     if (!job) return [];
-    const status = job.status;
+    const { status } = job;
     const transitions = [];
     
-    // PM/Admin transitions
-    if (isAdmin || userRole === 'pm' || userRole === 'admin') {
-      if (status === 'new' || status === 'pending') {
-        transitions.push({ status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' });
-      }
-      if (status === 'pending_pm_approval') {
-        transitions.push({ status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' });
-      }
-      if (status === 'ready_to_submit') {
-        transitions.push({ status: 'submitted', label: 'Mark as Submitted', icon: 'submit' });
-      }
-      if (status === 'submitted') {
-        transitions.push({ status: 'billed', label: 'Mark as Billed', icon: 'bill' });
-      }
-      if (status === 'billed') {
-        transitions.push({ status: 'invoiced', label: 'Mark as Invoiced', icon: 'invoice' });
-      }
+    const isPmAdmin = isAdmin || userRole === 'pm' || userRole === 'admin';
+    const isGfOrAbove = isPmAdmin || userRole === 'gf';
+    const isFieldOrAbove = isGfOrAbove || userRole === 'foreman' || userRole === 'crew';
+
+    if (isPmAdmin && transitionRules.pmAdmin[status]) {
+      transitions.push(transitionRules.pmAdmin[status]);
     }
-    
-    // GF transitions
-    if (isAdmin || userRole === 'gf' || userRole === 'pm' || userRole === 'admin') {
-      if (status === 'assigned_to_gf') {
-        transitions.push({ status: 'pre_fielding', label: 'Start Pre-Field', icon: 'prefield' });
-      }
-      if (status === 'pre_fielding') {
-        transitions.push({ status: 'scheduled', label: 'Schedule Crew', icon: 'schedule' });
-      }
-      if (status === 'pending_gf_review') {
-        transitions.push({ status: 'pending_pm_approval', label: 'Approve → Send to PM', icon: 'approve' });
-      }
+    if (isGfOrAbove && transitionRules.gf[status]) {
+      transitions.push(transitionRules.gf[status]);
     }
-    
-    // Foreman/Crew transitions
-    if (isAdmin || userRole === 'foreman' || userRole === 'crew' || userRole === 'gf' || userRole === 'pm') {
-      if (status === 'scheduled') {
-        transitions.push({ status: 'in_progress', label: 'Start Work', icon: 'start' });
-      }
-      if (status === 'in_progress') {
-        transitions.push({ status: 'pending_gf_review', label: 'Submit for Review', icon: 'submit' });
-      }
+    if (isFieldOrAbove && transitionRules.field[status]) {
+      transitions.push(transitionRules.field[status]);
     }
     
     return transitions;
