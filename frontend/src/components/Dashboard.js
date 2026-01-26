@@ -1040,11 +1040,28 @@ const Dashboard = () => {
               <Button
                 variant="outlined"
                 startIcon={<DownloadIcon />}
-                onClick={() => {
-                  // Direct download via API
-                  const token = localStorage.getItem('token');
-                  const baseUrl = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-                  window.open(`${baseUrl}/api/jobs/export/csv?token=${token}`, '_blank');
+                onClick={async () => {
+                  // SECURITY: Use fetch with Authorization header instead of token in URL
+                  // Token in URL would be logged in browser history, server logs, and referer headers
+                  try {
+                    const response = await api.get('/api/jobs/export/csv', {
+                      responseType: 'blob'
+                    });
+                    
+                    // Create download link from blob
+                    const blob = new Blob([response.data], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = `jobs_export_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    window.URL.revokeObjectURL(url);
+                  } catch (err) {
+                    console.error('Export failed:', err);
+                    setSnackbar({ open: true, message: 'Export failed', severity: 'error' });
+                  }
                 }}
                 sx={{ borderRadius: 2 }}
               >

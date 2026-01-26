@@ -4777,15 +4777,13 @@ app.put('/api/admin/feedback/:id', authenticateUser, async (req, res) => {
 
 // ==================== CSV EXPORT FOR JOBS ====================
 // Essential for contractors to share data outside the system
-// Supports both header auth and query param token for direct download
+// Uses Authorization header only - tokens in URLs are a security risk
 
 app.get('/api/jobs/export/csv', async (req, res) => {
   try {
-    // Support auth via query param for direct download links
-    let token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token && req.query.token) {
-      token = req.query.token;
-    }
+    // SECURITY: Only accept tokens via Authorization header
+    // Query param tokens are logged in browser history, server logs, and referer headers
+    const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -4860,6 +4858,13 @@ app.get('/api/jobs/export/csv', async (req, res) => {
       'Assigned To'
     ];
     
+    // Format date to ISO format (YYYY-MM-DD) to avoid locale-specific commas
+    const formatDate = (date) => {
+      if (!date) return '';
+      const d = new Date(date);
+      return d.toISOString().split('T')[0]; // Returns YYYY-MM-DD format
+    };
+    
     const rows = jobs.map(job => [
       escapeCSVField(job.pmNumber),
       escapeCSVField(job.woNumber),
@@ -4870,10 +4875,10 @@ app.get('/api/jobs/export/csv', async (req, res) => {
       escapeCSVField(job.client),
       escapeCSVField(job.status),
       escapeCSVField(job.priority),
-      job.dueDate ? new Date(job.dueDate).toLocaleDateString() : '',
-      job.crewScheduledDate ? new Date(job.crewScheduledDate).toLocaleDateString() : '',
-      job.createdAt ? new Date(job.createdAt).toLocaleDateString() : '',
-      job.completedDate ? new Date(job.completedDate).toLocaleDateString() : '',
+      escapeCSVField(formatDate(job.dueDate)),
+      escapeCSVField(formatDate(job.crewScheduledDate)),
+      escapeCSVField(formatDate(job.createdAt)),
+      escapeCSVField(formatDate(job.completedDate)),
       escapeCSVField(job.assignedTo ? (job.assignedTo.name || job.assignedTo.email) : '')
     ]);
     
