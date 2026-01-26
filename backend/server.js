@@ -183,6 +183,28 @@ mongoose.connect(process.env.MONGO_URI)
     console.log('MongoDB connected successfully');
     // Run migration to set up default utility/company for existing data
     await runMigration();
+    
+    // === CLEANUP STUCK EXTRACTIONS ON STARTUP ===
+    // Reset any AI extractions that have been running for more than 30 minutes
+    // This prevents jobs from being permanently stuck if server crashed during extraction
+    try {
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+      const stuckExtractions = await Job.updateMany(
+        {
+          aiExtractionStarted: { $lt: thirtyMinutesAgo },
+          aiExtractionComplete: { $ne: true }
+        },
+        {
+          $unset: { aiExtractionStarted: 1, aiExtractionEnded: 1, aiProcessingTimeMs: 1 },
+          $set: { aiExtractionComplete: false }
+        }
+      );
+      if (stuckExtractions.modifiedCount > 0) {
+        console.log(`[CLEANUP] Reset ${stuckExtractions.modifiedCount} stuck AI extractions`);
+      }
+    } catch (cleanupErr) {
+      console.error('[CLEANUP] Error resetting stuck extractions:', cleanupErr.message);
+    }
   })
   .catch(err => console.error('MongoDB connection failed:', err));
 
@@ -1586,6 +1608,19 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     
   } catch (err) {
     console.error('Background asset extraction failed:', err);
+    
+    // Mark extraction as complete (with failure) so clients don't hang
+    try {
+      await Job.findByIdAndUpdate(jobId, {
+        aiExtractionComplete: true,
+        aiExtractionEnded: new Date(),
+        aiProcessingTimeMs: Date.now() - startTime
+      });
+      console.log('Marked job extraction as complete (failed) for:', jobId);
+    } catch (updateErr) {
+      console.error('Failed to update job after extraction error:', updateErr.message);
+    }
+    
     // Still try to clean up local file on error
     if (fs.existsSync(pdfPath)) {
       try {
