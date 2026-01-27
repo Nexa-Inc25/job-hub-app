@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['crew', 'foreman', 'gf', 'pm', 'admin'],
+    enum: ['crew', 'foreman', 'gf', 'qa', 'pm', 'admin'],
     default: 'crew'
   },
   // Computed admin check - gf, pm, and admin roles can approve documents

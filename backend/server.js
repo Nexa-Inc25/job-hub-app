@@ -21,6 +21,7 @@ const User = require('./models/User');
 const Job = require('./models/Job');
 const Utility = require('./models/Utility');
 const Company = require('./models/Company');
+const SpecDocument = require('./models/SpecDocument');
 const apiRoutes = require('./routes/api');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
@@ -28,6 +29,7 @@ const sharp = require('sharp');
 const heicConvert = require('heic-convert');
 const aiDataCapture = require('./utils/aiDataCapture');
 const documentAutoFill = require('./utils/documentAutoFill');
+const archiver = require('archiver');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -1018,7 +1020,8 @@ app.post('/api/jobs/emergency', authenticateUser, async (req, res) => {
           subfolders: [
             { name: 'Pre-Field Documents', documents: [], subfolders: [] },
             { name: 'Field As Built', documents: [], subfolders: [] },
-            { name: 'Job Photos', documents: [], subfolders: [] }
+            { name: 'Job Photos', documents: [], subfolders: [] },
+            { name: 'GF Audit', documents: [], subfolders: [] }
           ]
         },
         {
@@ -1287,7 +1290,8 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
                 { name: 'Circuit Maps', documents: [] }
               ]
             },
-            { name: 'General Forms', documents: [] }
+            { name: 'General Forms', documents: [] },
+            { name: 'GF Audit', documents: [] }
           ]
         },
         {
@@ -3634,6 +3638,126 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
   }
 });
 
+// ==================== EXPORT FOLDER TO EMAIL ====================
+// Export folder contents (photos) as a ZIP file for emailing to Project Coordinator
+// GF Audit workflow: GF takes prefield photos, uploads to GF Audit folder, exports to email PC
+app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req, res) => {
+  try {
+    const { id, folderName } = req.params;
+    const { subfolder } = req.query; // Optional subfolder path
+    
+    // Fetch job with company security
+    const currentUser = await User.findById(req.userId).select('companyId role');
+    const query = { _id: id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Find the folder
+    const folder = job.folders.find(f => f.name === folderName);
+    if (!folder) {
+      return res.status(404).json({ error: `Folder "${folderName}" not found` });
+    }
+    
+    // Get documents from folder or subfolder
+    let documents = [];
+    let exportFolderName = folderName;
+    
+    if (subfolder) {
+      // Navigate to subfolder
+      const subfolderParts = subfolder.split('/');
+      let currentFolder = folder;
+      
+      for (const part of subfolderParts) {
+        const nextFolder = currentFolder.subfolders?.find(sf => sf.name === part);
+        if (!nextFolder) {
+          return res.status(404).json({ error: `Subfolder "${part}" not found` });
+        }
+        currentFolder = nextFolder;
+      }
+      
+      documents = currentFolder.documents || [];
+      exportFolderName = subfolderParts[subfolderParts.length - 1];
+    } else {
+      documents = folder.documents || [];
+    }
+    
+    if (documents.length === 0) {
+      return res.status(400).json({ error: 'No documents to export in this folder' });
+    }
+    
+    // Create ZIP archive
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    
+    // Set response headers for ZIP download
+    const zipFilename = `${job.pmNumber || job.woNumber || 'Job'}_${exportFolderName}_${Date.now()}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+    
+    // Pipe archive to response
+    archive.pipe(res);
+    
+    // Add each document to the archive
+    for (const doc of documents) {
+      try {
+        let fileBuffer = null;
+        
+        // Get file from R2 or local storage
+        if (doc.r2Key && r2Storage.isR2Configured()) {
+          // Fetch from R2
+          const r2Response = await r2Storage.getFile(doc.r2Key);
+          if (r2Response?.Body) {
+            const chunks = [];
+            for await (const chunk of r2Response.Body) {
+              chunks.push(chunk);
+            }
+            fileBuffer = Buffer.concat(chunks);
+          }
+        } else if (doc.url) {
+          // Try to get from URL (could be external or local)
+          if (doc.url.startsWith('http://') || doc.url.startsWith('https://')) {
+            // External URL - fetch it
+            const fetch = (await import('node-fetch')).default;
+            const response = await fetch(doc.url);
+            if (response.ok) {
+              fileBuffer = Buffer.from(await response.arrayBuffer());
+            }
+          } else if (doc.url.startsWith('/uploads/')) {
+            // Local file
+            const localPath = path.join(__dirname, doc.url);
+            if (fs.existsSync(localPath)) {
+              fileBuffer = fs.readFileSync(localPath);
+            }
+          }
+        }
+        
+        if (fileBuffer) {
+          archive.append(fileBuffer, { name: doc.name });
+          console.log(`Added to ZIP: ${doc.name}`);
+        } else {
+          console.warn(`Could not fetch file: ${doc.name}`);
+        }
+      } catch (docErr) {
+        console.error(`Error adding ${doc.name} to ZIP:`, docErr.message);
+        // Continue with other files
+      }
+    }
+    
+    // Finalize archive
+    await archive.finalize();
+    console.log(`ZIP export complete: ${zipFilename} with ${documents.length} files`);
+    
+  } catch (err) {
+    console.error('Export folder error:', err);
+    res.status(500).json({ error: 'Failed to export folder', details: err.message });
+  }
+});
+
 // Helper function to recursively find and remove a document from nested folders
 function findAndRemoveDocument(folders, docId) {
   for (const folder of folders) {
@@ -4039,12 +4163,20 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
         if (submissionNotes) job.crewSubmissionNotes = submissionNotes;
         break;
         
-      case 'pending_pm_approval':
-        // GF approved, moving to PM review
+      case 'pending_qa_review':
+        // GF approved, moving to QA review
         job.gfReviewDate = new Date();
         job.gfReviewedBy = req.userId;
         job.gfReviewStatus = 'approved';
         if (reviewNotes) job.gfReviewNotes = reviewNotes;
+        break;
+        
+      case 'pending_pm_approval':
+        // QA approved, moving to PM review
+        job.qaReviewDate = new Date();
+        job.qaReviewedBy = req.userId;
+        job.qaReviewStatus = 'approved';
+        if (reviewNotes) job.qaReviewNotes = reviewNotes;
         break;
         
       case 'ready_to_submit':
@@ -4062,6 +4194,11 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
         job.utilitySubmittedDate = new Date();
         job.utilityVisible = true;
         job.utilityStatus = 'submitted';
+        break;
+        
+      case 'go_back':
+        // Utility issued a go-back - handled by separate endpoint
+        job.hasActiveGoBack = true;
         break;
         
       case 'billed':
@@ -4175,6 +4312,7 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
     }
     
     const isGF = ['gf'].includes(userRole) || job.assignedToGF?.toString() === req.userId;
+    const isQA = ['qa'].includes(userRole);
     const isPM = ['pm', 'admin'].includes(userRole) || job.userId?.toString() === req.userId;
     
     // Determine which review stage we're in
@@ -4186,13 +4324,34 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
       
       if (action === 'approve') {
         job.gfReviewStatus = 'approved';
-        job.status = 'pending_pm_approval';
+        job.status = 'pending_qa_review';  // Now goes to QA first
       } else if (action === 'reject') {
         job.gfReviewStatus = 'rejected';
         job.status = 'in_progress';  // Send back to crew
       } else if (action === 'request_revision') {
         job.gfReviewStatus = 'revision_requested';
         job.status = 'in_progress';
+      }
+    } else if (job.status === 'pending_qa_review' && (isQA || isPM)) {
+      // QA reviewing after GF approval
+      job.qaReviewDate = new Date();
+      job.qaReviewedBy = req.userId;
+      job.qaReviewNotes = notes;
+      
+      // Handle specs referenced during review
+      if (req.body.specsReferenced) {
+        job.qaSpecsReferenced = req.body.specsReferenced;
+      }
+      
+      if (action === 'approve') {
+        job.qaReviewStatus = 'approved';
+        job.status = 'pending_pm_approval';  // Now goes to PM
+      } else if (action === 'reject') {
+        job.qaReviewStatus = 'rejected';
+        job.status = 'pending_gf_review';  // Send back to GF for corrections
+      } else if (action === 'request_revision') {
+        job.qaReviewStatus = 'revision_requested';
+        job.status = 'pending_gf_review';
       }
     } else if (job.status === 'pending_pm_approval' && isPM) {
       // PM final approval
@@ -4207,10 +4366,10 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
         job.completedBy = req.userId;
       } else if (action === 'reject') {
         job.pmApprovalStatus = 'rejected';
-        job.status = 'pending_gf_review';  // Send back to GF
+        job.status = 'pending_qa_review';  // Send back to QA
       } else if (action === 'request_revision') {
         job.pmApprovalStatus = 'revision_requested';
-        job.status = 'pending_gf_review';
+        job.status = 'pending_qa_review';
       }
     } else {
       return res.status(400).json({ 
@@ -4303,6 +4462,813 @@ app.post('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
     console.error('Add note error:', err);
     res.status(500).json({ error: 'Failed to add note' });
   }
+});
+
+// === QA DASHBOARD ENDPOINTS ===
+
+// Get jobs pending QA review
+app.get('/api/qa/pending-review', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // QA and Admin can access QA dashboard (PM not involved in go-back workflow)
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'QA access required' });
+    }
+    
+    const query = { 
+      status: 'pending_qa_review',
+      isDeleted: { $ne: true }
+    };
+    
+    // Multi-tenant: filter by company unless super admin
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const jobs = await Job.find(query)
+      .populate('userId', 'name email')
+      .populate('assignedToGF', 'name email')
+      .populate('assignedTo', 'name email')
+      .sort({ crewSubmittedDate: -1 })
+      .lean();
+    
+    res.json(jobs);
+  } catch (err) {
+    console.error('QA pending review error:', err);
+    res.status(500).json({ error: 'Failed to get pending QA jobs' });
+  }
+});
+
+// Get jobs with failed audits (utility inspector found infractions)
+app.get('/api/qa/failed-audits', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // QA owns the failed audit workflow
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'QA access required' });
+    }
+    
+    const query = { 
+      hasFailedAudit: true,
+      isDeleted: { $ne: true }
+    };
+    
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const jobs = await Job.find(query)
+      .populate('userId', 'name email')
+      .populate('assignedToGF', 'name email')
+      .populate('auditHistory.correctionAssignedTo', 'name email')
+      .sort({ 'auditHistory.receivedDate': -1 })
+      .lean();
+    
+    res.json(jobs);
+  } catch (err) {
+    console.error('QA failed audits error:', err);
+    res.status(500).json({ error: 'Failed to get failed audit jobs' });
+  }
+});
+
+// Get QA dashboard stats
+app.get('/api/qa/stats', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // QA dashboard is for QA role
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'QA access required' });
+    }
+    
+    const baseQuery = { isDeleted: { $ne: true } };
+    if (user?.companyId && !user.isSuperAdmin) {
+      baseQuery.companyId = user.companyId;
+    }
+    
+    const [pendingReview, failedAudits, resolvedThisMonth, avgReviewTime] = await Promise.all([
+      Job.countDocuments({ ...baseQuery, status: 'pending_qa_review' }),
+      Job.countDocuments({ ...baseQuery, hasFailedAudit: true }),
+      Job.countDocuments({ 
+        ...baseQuery, 
+        qaReviewDate: { 
+          $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) 
+        }
+      }),
+      Job.aggregate([
+        { $match: { ...baseQuery, qaReviewDate: { $exists: true }, gfReviewDate: { $exists: true } } },
+        { $project: { 
+          reviewTime: { $subtract: ['$qaReviewDate', '$gfReviewDate'] } 
+        }},
+        { $group: { _id: null, avg: { $avg: '$reviewTime' } } }
+      ])
+    ]);
+    
+    res.json({
+      pendingReview,
+      failedAudits,
+      resolvedThisMonth,
+      avgReviewTimeHours: avgReviewTime[0]?.avg ? Math.round(avgReviewTime[0].avg / (1000 * 60 * 60)) : null
+    });
+  } catch (err) {
+    console.error('QA stats error:', err);
+    res.status(500).json({ error: 'Failed to get QA stats' });
+  }
+});
+
+// Record a utility field audit result (pass or fail)
+// Utility sends failed audits directly to QA - QA records them here
+app.post('/api/jobs/:id/audit', authenticateUser, async (req, res) => {
+  try {
+    const { 
+      result,  // 'pass' or 'fail'
+      auditNumber,
+      auditDate,
+      inspectorName,
+      inspectorId,
+      infractionType,
+      infractionDescription,
+      specReference
+    } = req.body;
+    
+    if (!result || !['pass', 'fail'].includes(result)) {
+      return res.status(400).json({ error: 'Audit result (pass/fail) is required' });
+    }
+    
+    if (result === 'fail' && !infractionDescription) {
+      return res.status(400).json({ error: 'Infraction description is required for failed audits' });
+    }
+    
+    const user = await User.findById(req.userId);
+    
+    // QA receives failed audits directly from utility - they record them
+    // Admin can also record for flexibility
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'QA access required - failed audits go directly to QA' });
+    }
+    
+    const query = { _id: req.params.id };
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const audit = {
+      auditNumber: auditNumber || null,
+      auditDate: auditDate ? new Date(auditDate) : new Date(),
+      receivedDate: new Date(),
+      inspectorName: inspectorName || null,
+      inspectorId: inspectorId || null,
+      result,
+      status: result === 'pass' ? 'closed' : 'pending_qa'
+    };
+    
+    // For failed audits, include infraction details
+    if (result === 'fail') {
+      audit.infractionType = infractionType || 'other';
+      audit.infractionDescription = infractionDescription;
+      audit.specReference = specReference || null;
+    }
+    
+    if (!job.auditHistory) job.auditHistory = [];
+    job.auditHistory.push(audit);
+    
+    if (result === 'fail') {
+      job.hasFailedAudit = true;
+      job.failedAuditCount = (job.failedAuditCount || 0) + 1;
+    } else {
+      job.passedAuditDate = new Date();
+    }
+    
+    await job.save();
+    
+    console.log(`Audit recorded for job ${job.pmNumber || job._id}: ${result.toUpperCase()}`);
+    res.status(201).json({ 
+      message: `Audit recorded: ${result.toUpperCase()}`, 
+      audit: job.auditHistory[job.auditHistory.length - 1],
+      job 
+    });
+  } catch (err) {
+    console.error('Record audit error:', err);
+    res.status(500).json({ error: 'Failed to record audit' });
+  }
+});
+
+// QA reviews a failed audit (accept infraction or dispute it)
+// This is QA's responsibility - PM is not involved in go-back workflow
+app.put('/api/jobs/:id/audit/:auditId/review', authenticateUser, async (req, res) => {
+  try {
+    const { id, auditId } = req.params;
+    const { decision, qaNotes, disputeReason, specsReferenced, assignToGF, correctionNotes } = req.body;
+    
+    if (!decision || !['accepted', 'disputed'].includes(decision)) {
+      return res.status(400).json({ error: 'Valid decision required (accepted or disputed)' });
+    }
+    
+    const user = await User.findById(req.userId);
+    
+    // QA handles all failed audit reviews - PM not involved
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'QA access required' });
+    }
+    
+    const query = { _id: id };
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const audit = job.auditHistory.id(auditId);
+    if (!audit) {
+      return res.status(404).json({ error: 'Audit not found' });
+    }
+    
+    // Update audit with QA review
+    audit.qaReviewedDate = new Date();
+    audit.qaReviewedBy = req.userId;
+    audit.qaDecision = decision;
+    audit.qaNotes = qaNotes || '';
+    
+    if (specsReferenced && specsReferenced.length > 0) {
+      audit.specsReferenced = specsReferenced;
+    }
+    
+    if (decision === 'accepted') {
+      // Infraction is valid - assign to GF for correction
+      audit.status = 'correction_assigned';
+      
+      if (assignToGF) {
+        audit.correctionAssignedTo = assignToGF;
+        audit.correctionAssignedDate = new Date();
+        audit.correctionNotes = correctionNotes || '';
+        job.assignedToGF = assignToGF;
+      }
+    } else if (decision === 'disputed') {
+      // Disputing the infraction with utility
+      audit.status = 'disputed';
+      audit.disputeReason = disputeReason || '';
+      
+      // Check if there are any other active failed audits
+      const activeAudits = job.auditHistory.filter(a => 
+        a.result === 'fail' && !['resolved', 'closed', 'disputed'].includes(a.status)
+      );
+      
+      // If all failed audits are disputed/resolved, job can proceed
+      if (activeAudits.length === 0) {
+        job.hasFailedAudit = false;
+      }
+    }
+    
+    await job.save();
+    
+    console.log(`Audit ${auditId} reviewed: ${decision} by ${user.email}`);
+    res.json({ message: `Audit ${decision}`, audit, job });
+  } catch (err) {
+    console.error('Review audit error:', err);
+    res.status(500).json({ error: 'Failed to review audit' });
+  }
+});
+
+// Submit correction with photo proof (GF/Crew uploads photos showing fix)
+app.post('/api/jobs/:id/audit/:auditId/correction', authenticateUser, upload.array('photos', 10), async (req, res) => {
+  try {
+    const { id, auditId } = req.params;
+    const { correctionDescription } = req.body;
+    
+    const user = await User.findById(req.userId);
+    
+    // GF, Foreman, PM, Admin can submit corrections
+    if (!['gf', 'foreman', 'pm', 'admin', 'qa'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    const query = { _id: id };
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const audit = job.auditHistory.id(auditId);
+    if (!audit) {
+      return res.status(404).json({ error: 'Audit not found' });
+    }
+    
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'Correction photos are required as proof' });
+    }
+    
+    // Upload photos to R2
+    const correctionPhotos = [];
+    for (const file of req.files) {
+      let photoData = {
+        name: file.originalname,
+        uploadDate: new Date(),
+        uploadedBy: req.userId
+      };
+      
+      if (r2Storage.isR2Configured()) {
+        const r2Result = await r2Storage.uploadJobFile(
+          file.path,
+          id,
+          'correction_photos',
+          file.originalname
+        );
+        photoData.r2Key = r2Result.key;
+        photoData.url = r2Storage.getPublicUrl(r2Result.key);
+        // Clean up local file
+        fs.unlinkSync(file.path);
+      } else {
+        photoData.url = `/uploads/${path.basename(file.path)}`;
+      }
+      
+      correctionPhotos.push(photoData);
+    }
+    
+    // Update audit with correction
+    audit.correctionPhotos = [...(audit.correctionPhotos || []), ...correctionPhotos];
+    audit.correctionDescription = correctionDescription || '';
+    audit.correctionCompletedDate = new Date();
+    audit.correctionCompletedBy = req.userId;
+    audit.status = 'correction_submitted';
+    
+    await job.save();
+    
+    console.log(`Correction submitted for audit ${auditId} with ${correctionPhotos.length} photos`);
+    res.json({ 
+      message: 'Correction submitted with photo proof', 
+      photos: correctionPhotos,
+      audit 
+    });
+  } catch (err) {
+    console.error('Submit correction error:', err);
+    res.status(500).json({ error: 'Failed to submit correction' });
+  }
+});
+
+// QA approves correction and resolves the failed audit
+// QA owns the entire go-back workflow - PM not involved
+app.put('/api/jobs/:id/audit/:auditId/resolve', authenticateUser, async (req, res) => {
+  try {
+    const { id, auditId } = req.params;
+    const { resolutionNotes } = req.body;
+    
+    const user = await User.findById(req.userId);
+    
+    // Only QA can approve corrections and resolve audits
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'QA access required' });
+    }
+    
+    const query = { _id: id };
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const audit = job.auditHistory.id(auditId);
+    if (!audit) {
+      return res.status(404).json({ error: 'Audit not found' });
+    }
+    
+    audit.status = 'resolved';
+    audit.resolvedDate = new Date();
+    audit.resolvedBy = req.userId;
+    audit.resolutionNotes = resolutionNotes || 'Correction approved';
+    
+    // Check remaining active failed audits
+    const activeAudits = job.auditHistory.filter(a => 
+      a.result === 'fail' && !['resolved', 'closed', 'disputed'].includes(a.status)
+    );
+    job.hasFailedAudit = activeAudits.length > 0;
+    
+    // If all audits resolved, job can be resubmitted to utility
+    if (!job.hasFailedAudit) {
+      job.status = 'ready_to_submit';
+    }
+    
+    await job.save();
+    
+    console.log(`Audit ${auditId} resolved by ${user.email}`);
+    res.json({ message: 'Audit resolved - correction approved', audit, job });
+  } catch (err) {
+    console.error('Resolve audit error:', err);
+    res.status(500).json({ error: 'Failed to resolve audit' });
+  }
+});
+
+// Get audit history for a job
+app.get('/api/jobs/:id/audits', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    const query = { _id: req.params.id };
+    if (user?.companyId && !user.isSuperAdmin) {
+      query.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(query)
+      .populate('auditHistory.qaReviewedBy', 'name email')
+      .populate('auditHistory.resolvedBy', 'name email')
+      .populate('auditHistory.correctionAssignedTo', 'name email')
+      .populate('auditHistory.correctionCompletedBy', 'name email')
+      .select('auditHistory hasFailedAudit failedAuditCount passedAuditDate pmNumber woNumber');
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    res.json({
+      auditHistory: job.auditHistory || [],
+      hasFailedAudit: job.hasFailedAudit,
+      failedAuditCount: job.failedAuditCount,
+      passedAuditDate: job.passedAuditDate,
+      jobInfo: { pmNumber: job.pmNumber, woNumber: job.woNumber }
+    });
+  } catch (err) {
+    console.error('Get audits error:', err);
+    res.status(500).json({ error: 'Failed to get audit history' });
+  }
+});
+
+// === SPEC LIBRARY MANAGEMENT (QA manages utility specs) ===
+
+// Multer setup for spec uploads (reusing existing upload config)
+const specUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadsDir),
+    filename: (req, file, cb) => cb(null, `spec_${Date.now()}${path.extname(file.originalname)}`)
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 },  // 50MB max for specs
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.pdf', '.doc', '.docx', '.xls', '.xlsx'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext) || file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF and Office documents are allowed'), false);
+    }
+  }
+});
+
+// Get all specs for a utility (with optional category filter)
+app.get('/api/specs', authenticateUser, async (req, res) => {
+  try {
+    const { utilityId, category, search } = req.query;
+    const user = await User.findById(req.userId);
+    
+    const query = { isDeleted: { $ne: true } };
+    
+    if (utilityId) {
+      query.utilityId = utilityId;
+    }
+    
+    if (category) {
+      query.category = category;
+    }
+    
+    // Multi-tenant filtering
+    if (user?.companyId && !user.isSuperAdmin) {
+      // Can see specs for their company OR utility-wide specs (no companyId)
+      query.$or = [
+        { companyId: user.companyId },
+        { companyId: { $exists: false } },
+        { companyId: null }
+      ];
+    }
+    
+    let specs;
+    if (search) {
+      // Text search
+      specs = await SpecDocument.find({
+        ...query,
+        $text: { $search: search }
+      })
+        .populate('utilityId', 'name shortName')
+        .populate('createdBy', 'name email')
+        .sort({ score: { $meta: 'textScore' } })
+        .lean();
+    } else {
+      specs = await SpecDocument.find(query)
+        .populate('utilityId', 'name shortName')
+        .populate('createdBy', 'name email')
+        .sort({ category: 1, name: 1 })
+        .lean();
+    }
+    
+    res.json(specs);
+  } catch (err) {
+    console.error('Get specs error:', err);
+    res.status(500).json({ error: 'Failed to get specs' });
+  }
+});
+
+// Get single spec with version history
+app.get('/api/specs/:id', authenticateUser, async (req, res) => {
+  try {
+    const spec = await SpecDocument.findById(req.params.id)
+      .populate('utilityId', 'name shortName')
+      .populate('createdBy', 'name email')
+      .populate('versions.uploadedBy', 'name email')
+      .populate('versions.supersededBy', 'name email');
+    
+    if (!spec || spec.isDeleted) {
+      return res.status(404).json({ error: 'Spec not found' });
+    }
+    
+    // Increment view count
+    spec.viewCount += 1;
+    spec.lastViewedAt = new Date();
+    await spec.save();
+    
+    res.json(spec);
+  } catch (err) {
+    console.error('Get spec error:', err);
+    res.status(500).json({ error: 'Failed to get spec' });
+  }
+});
+
+// Create a new spec document
+app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    // Only QA, PM, Admin can manage specs
+    if (!['qa', 'pm', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    const { 
+      name, description, documentNumber, category, subcategory, 
+      utilityId, effectiveDate, tags, versionNumber 
+    } = req.body;
+    
+    if (!name || !category || !utilityId) {
+      return res.status(400).json({ error: 'Name, category, and utility are required' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'File is required' });
+    }
+    
+    // Upload to R2
+    let r2Key = null;
+    let fileUrl = null;
+    
+    if (r2Storage.isR2Configured()) {
+      const r2Result = await r2Storage.uploadFile(
+        req.file.path,
+        `specs/${utilityId}/${category}/${Date.now()}_${req.file.originalname}`,
+        req.file.mimetype || 'application/pdf'
+      );
+      r2Key = r2Result.key;
+      fileUrl = r2Storage.getPublicUrl(r2Key);
+      
+      // Clean up local file
+      fs.unlinkSync(req.file.path);
+    } else {
+      r2Key = req.file.path;
+      fileUrl = `/uploads/${path.basename(req.file.path)}`;
+    }
+    
+    const version = versionNumber || '1.0';
+    
+    const spec = new SpecDocument({
+      name,
+      description,
+      documentNumber,
+      category,
+      subcategory,
+      utilityId,
+      companyId: user.companyId || null,
+      effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
+      tags: tags ? (typeof tags === 'string' ? tags.split(',').map(t => t.trim()) : tags) : [],
+      currentVersion: version,
+      r2Key,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      versions: [{
+        versionNumber: version,
+        r2Key,
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        uploadedBy: req.userId,
+        isActive: true,
+        notes: 'Initial upload'
+      }],
+      createdBy: req.userId
+    });
+    
+    await spec.save();
+    
+    console.log(`Spec created: ${name} (${category}) by ${user.email}`);
+    res.status(201).json(spec);
+  } catch (err) {
+    console.error('Create spec error:', err);
+    res.status(500).json({ error: 'Failed to create spec' });
+  }
+});
+
+// Upload new version of a spec (replaces old version)
+app.post('/api/specs/:id/versions', authenticateUser, specUpload.single('file'), async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    if (!['qa', 'pm', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'File is required' });
+    }
+    
+    const { versionNumber, notes } = req.body;
+    
+    if (!versionNumber) {
+      return res.status(400).json({ error: 'Version number is required' });
+    }
+    
+    const spec = await SpecDocument.findById(req.params.id);
+    if (!spec || spec.isDeleted) {
+      return res.status(404).json({ error: 'Spec not found' });
+    }
+    
+    // Upload new version to R2
+    let r2Key = null;
+    
+    if (r2Storage.isR2Configured()) {
+      const r2Result = await r2Storage.uploadFile(
+        req.file.path,
+        `specs/${spec.utilityId}/${spec.category}/${Date.now()}_${req.file.originalname}`,
+        req.file.mimetype || 'application/pdf'
+      );
+      r2Key = r2Result.key;
+      fs.unlinkSync(req.file.path);
+    } else {
+      r2Key = req.file.path;
+    }
+    
+    // Use the model method to handle version management
+    await spec.addVersion({
+      versionNumber,
+      r2Key,
+      fileName: req.file.originalname,
+      fileSize: req.file.size,
+      notes: notes || `Updated to version ${versionNumber}`
+    }, req.userId);
+    
+    console.log(`Spec ${spec.name} updated to version ${versionNumber} by ${user.email}`);
+    res.json({ message: 'New version uploaded', spec });
+  } catch (err) {
+    console.error('Upload spec version error:', err);
+    res.status(500).json({ error: 'Failed to upload new version' });
+  }
+});
+
+// Update spec metadata (not the file)
+app.put('/api/specs/:id', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    if (!['qa', 'pm', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    const { name, description, documentNumber, category, subcategory, effectiveDate, expirationDate, tags } = req.body;
+    
+    const spec = await SpecDocument.findById(req.params.id);
+    if (!spec || spec.isDeleted) {
+      return res.status(404).json({ error: 'Spec not found' });
+    }
+    
+    if (name) spec.name = name;
+    if (description !== undefined) spec.description = description;
+    if (documentNumber !== undefined) spec.documentNumber = documentNumber;
+    if (category) spec.category = category;
+    if (subcategory !== undefined) spec.subcategory = subcategory;
+    if (effectiveDate) spec.effectiveDate = new Date(effectiveDate);
+    if (expirationDate) spec.expirationDate = new Date(expirationDate);
+    if (tags) spec.tags = typeof tags === 'string' ? tags.split(',').map(t => t.trim()) : tags;
+    
+    spec.lastUpdatedBy = req.userId;
+    
+    await spec.save();
+    
+    res.json(spec);
+  } catch (err) {
+    console.error('Update spec error:', err);
+    res.status(500).json({ error: 'Failed to update spec' });
+  }
+});
+
+// Soft delete a spec
+app.delete('/api/specs/:id', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    
+    if (!['qa', 'pm', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      return res.status(403).json({ error: 'Permission denied' });
+    }
+    
+    const spec = await SpecDocument.findById(req.params.id);
+    if (!spec) {
+      return res.status(404).json({ error: 'Spec not found' });
+    }
+    
+    spec.isDeleted = true;
+    spec.deletedAt = new Date();
+    spec.deletedBy = req.userId;
+    
+    await spec.save();
+    
+    console.log(`Spec ${spec.name} deleted by ${user.email}`);
+    res.json({ message: 'Spec deleted' });
+  } catch (err) {
+    console.error('Delete spec error:', err);
+    res.status(500).json({ error: 'Failed to delete spec' });
+  }
+});
+
+// Get spec file (download)
+app.get('/api/specs/:id/download', authenticateUser, async (req, res) => {
+  try {
+    const { version } = req.query;  // Optional: specific version
+    
+    const spec = await SpecDocument.findById(req.params.id);
+    if (!spec || spec.isDeleted) {
+      return res.status(404).json({ error: 'Spec not found' });
+    }
+    
+    let r2Key = spec.r2Key;
+    let fileName = spec.fileName;
+    
+    // If specific version requested
+    if (version) {
+      const versionDoc = spec.versions.find(v => v.versionNumber === version);
+      if (!versionDoc) {
+        return res.status(404).json({ error: 'Version not found' });
+      }
+      r2Key = versionDoc.r2Key;
+      fileName = versionDoc.fileName;
+    }
+    
+    if (r2Storage.isR2Configured()) {
+      const fileData = await r2Storage.getFileStream(r2Key);
+      if (!fileData) {
+        return res.status(404).json({ error: 'File not found in storage' });
+      }
+      
+      res.setHeader('Content-Type', fileData.contentType || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      if (fileData.contentLength) {
+        res.setHeader('Content-Length', fileData.contentLength);
+      }
+      
+      fileData.stream.pipe(res);
+    } else {
+      // Local file
+      if (!fs.existsSync(r2Key)) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+      res.download(r2Key, fileName);
+    }
+  } catch (err) {
+    console.error('Download spec error:', err);
+    res.status(500).json({ error: 'Failed to download spec' });
+  }
+});
+
+// Get spec categories (for dropdowns)
+app.get('/api/specs/meta/categories', authenticateUser, async (req, res) => {
+  res.json([
+    { value: 'overhead', label: 'Overhead Construction' },
+    { value: 'underground', label: 'Underground Construction' },
+    { value: 'safety', label: 'Safety Standards' },
+    { value: 'equipment', label: 'Equipment Specs' },
+    { value: 'materials', label: 'Material Specifications' },
+    { value: 'procedures', label: 'Work Procedures' },
+    { value: 'forms', label: 'Required Forms' },
+    { value: 'traffic_control', label: 'Traffic Control Plans' },
+    { value: 'environmental', label: 'Environmental Requirements' },
+    { value: 'other', label: 'Other' }
+  ]);
 });
 
 // === JOB DEPENDENCIES MANAGEMENT ===

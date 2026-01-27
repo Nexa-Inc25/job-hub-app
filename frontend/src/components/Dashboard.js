@@ -58,6 +58,7 @@ import {
   Block as BlockIcon,
   Analytics as AnalyticsIcon,
   Download as DownloadIcon,
+  FactCheck as FactCheckIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import FeedbackButton from './FeedbackButton';
@@ -495,9 +496,11 @@ const Dashboard = () => {
     'stuck': 'error',
     'in_progress': 'primary',
     'pending_gf_review': 'warning',
+    'pending_qa_review': 'warning',
     'pending_pm_approval': 'warning',
     'ready_to_submit': 'success',
     'submitted': 'success',
+    'go_back': 'error',
     'billed': 'secondary',
     'invoiced': 'default',
     // Legacy statuses (backwards compatibility)
@@ -516,9 +519,11 @@ const Dashboard = () => {
     'stuck': 'Stuck',
     'in_progress': 'In Progress',
     'pending_gf_review': 'Awaiting GF Review',
+    'pending_qa_review': 'Awaiting QA Review',
     'pending_pm_approval': 'Awaiting PM Approval',
     'ready_to_submit': 'Ready to Submit',
     'submitted': 'Submitted',
+    'go_back': 'Go-Back',
     'billed': 'Billed',
     'invoiced': 'Invoiced',
     // Legacy
@@ -631,9 +636,11 @@ const Dashboard = () => {
     'stuck': <WarningIcon />,
     'in_progress': <DescriptionIcon />,
     'pending_gf_review': <ScheduleIcon />,
+    'pending_qa_review': <FactCheckIcon />,
     'pending_pm_approval': <ScheduleIcon />,
     'ready_to_submit': <CheckCircleIcon />,
     'submitted': <CheckCircleIcon />,
+    'go_back': <WarningIcon />,
     'billed': <CheckCircleIcon />,
     'invoiced': <CheckCircleIcon />,
     // Legacy statuses
@@ -883,7 +890,10 @@ const Dashboard = () => {
     gf: {
       assigned_to_gf: { status: 'pre_fielding', label: 'Start Pre-Field', icon: 'prefield' },
       pre_fielding: { status: 'scheduled', label: 'Schedule Crew', icon: 'schedule' },
-      pending_gf_review: { status: 'pending_pm_approval', label: 'Approve → Send to PM', icon: 'approve' },
+      pending_gf_review: { status: 'pending_qa_review', label: 'Approve → Send to QA', icon: 'approve' },
+    },
+    qa: {
+      pending_qa_review: { status: 'pending_pm_approval', label: 'Approve → Send to PM', icon: 'approve' },
     },
     field: {
       scheduled: { status: 'in_progress', label: 'Start Work', icon: 'start' },
@@ -898,11 +908,15 @@ const Dashboard = () => {
     const transitions = [];
     
     const isPmAdmin = isAdmin || userRole === 'pm' || userRole === 'admin';
+    const isQAOrAbove = isPmAdmin || userRole === 'qa';
     const isGfOrAbove = isPmAdmin || userRole === 'gf';
     const isFieldOrAbove = isGfOrAbove || userRole === 'foreman' || userRole === 'crew';
 
     if (isPmAdmin && transitionRules.pmAdmin[status]) {
       transitions.push(transitionRules.pmAdmin[status]);
+    }
+    if (isQAOrAbove && transitionRules.qa[status]) {
+      transitions.push(transitionRules.qa[status]);
     }
     if (isGfOrAbove && transitionRules.gf[status]) {
       transitions.push(transitionRules.gf[status]);
@@ -958,9 +972,9 @@ const Dashboard = () => {
       ['pre_fielding', 'pre-field', 'scheduled'].includes(job.status)
     ).length;
     
-    // "In Progress" = crew working or awaiting review
+    // "In Progress" = crew working or awaiting review (including QA review)
     const inProgress = filteredJobs.filter(job => 
-      ['in_progress', 'in-progress', 'pending_gf_review', 'pending_pm_approval'].includes(job.status)
+      ['in_progress', 'in-progress', 'pending_gf_review', 'pending_qa_review', 'pending_pm_approval'].includes(job.status)
     ).length;
     
     // "Completed" = ready to submit through invoiced
@@ -1007,6 +1021,15 @@ const Dashboard = () => {
             <Tooltip title="Owner Dashboard">
               <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }} aria-label="Admin Dashboard">
                 <AnalyticsIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* QA Dashboard - QA and Admin roles (PM not involved in go-back workflow) */}
+          {['qa', 'admin'].includes(userRole) && (
+            <Tooltip title="QA Dashboard">
+              <IconButton color="inherit" onClick={() => navigate('/qa/dashboard')} sx={{ mr: 1 }} aria-label="QA Dashboard">
+                <FactCheckIcon />
               </IconButton>
             </Tooltip>
           )}
@@ -1260,6 +1283,7 @@ const Dashboard = () => {
             <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— In Progress —</MenuItem>
             <MenuItem onClick={() => { setFilter('in_progress'); handleMenuClose(); }}>In Progress</MenuItem>
             <MenuItem onClick={() => { setFilter('pending_gf_review'); handleMenuClose(); }}>Awaiting GF Review</MenuItem>
+            <MenuItem onClick={() => { setFilter('pending_qa_review'); handleMenuClose(); }}>Awaiting QA Review</MenuItem>
             <MenuItem onClick={() => { setFilter('pending_pm_approval'); handleMenuClose(); }}>Awaiting PM Approval</MenuItem>
             <Divider />
             <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— Completed —</MenuItem>

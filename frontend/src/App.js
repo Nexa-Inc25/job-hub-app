@@ -16,6 +16,8 @@ import CompanyOnboarding from './components/CompanyOnboarding';
 import AdminUsersList from './components/AdminUsersList';
 import AdminJobsOverview from './components/AdminJobsOverview';
 import AdminAICosts from './components/AdminAICosts';
+import QADashboard from './components/QADashboard';
+import SpecLibrary from './components/SpecLibrary';
 import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
@@ -46,6 +48,8 @@ function App() {
             <Route path="/admin/users" element={<AdminUsersList />} />
             <Route path="/admin/jobs-overview" element={<AdminJobsOverview />} />
             <Route path="/admin/ai-costs" element={<AdminAICosts />} />
+            <Route path="/qa/dashboard" element={<QADashboard />} />
+            <Route path="/qa/spec-library" element={<SpecLibrary />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="*" element={<div>404 - Not Found</div>} />
           </Routes>

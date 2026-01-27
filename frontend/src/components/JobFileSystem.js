@@ -54,6 +54,7 @@ import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import HomeIcon from '@mui/icons-material/Home';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
+import EmailIcon from '@mui/icons-material/Email';
 import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import PDFFormEditor from './PDFFormEditor';
@@ -339,10 +340,60 @@ const JobFileSystem = () => {
                            selectedFolder?.name === 'Job Photos' ||
                            selectedFolder?.parentFolder === 'Pre-Field Documents';
   const isJobPhotosFolder = selectedFolder?.name === 'Job Photos';
+  const isGFAuditFolder = selectedFolder?.name === 'GF Audit';
+  
+  // State for export loading
+  const [exportLoading, setExportLoading] = useState(false);
   
   // Refs for photo uploads
   const preFieldPhotoInputRef = useRef(null);
   const preFieldCameraInputRef = useRef(null);
+  
+  // Refs for GF Audit photo uploads
+  const gfAuditPhotoInputRef = useRef(null);
+  const gfAuditCameraInputRef = useRef(null);
+
+  // Handle photo upload for GF Audit folder
+  const handleGFAuditPhotoUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      const ext = file.name.split('.').pop();
+      const timestamp = Date.now();
+      const newName = `${job?.division || 'DA'}_${job?.pmNumber || 'NOPM'}_GF_Audit_${timestamp}.${ext}`;
+      formData.append('files', file, newName);
+    });
+    
+    // Add subfolder info for GF Audit (it's a subfolder of ACI)
+    formData.append('subfolder', 'GF Audit');
+
+    try {
+      const token = localStorage.getItem('token');
+      await api.post(`/api/jobs/${id}/folders/ACI/upload`, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      // Refresh job data
+      const response = await api.get(`/api/jobs/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setJob(response.data);
+      
+      // Re-select the GF Audit folder to show new uploads
+      const aciFolder = response.data.folders.find((f) => f.name === 'ACI');
+      if (aciFolder) {
+        const gfAuditFolder = aciFolder.subfolders.find((sf) => sf.name === 'GF Audit');
+        if (gfAuditFolder) {
+          setSelectedFolder({ ...gfAuditFolder, parentFolder: 'ACI' });
+        }
+      }
+    } catch (err) {
+      console.error('GF Audit photo upload error:', err);
+      setError('Photo upload failed');
+    }
+  };
 
   // Handle photo upload for Pre-Field Documents
   const handlePreFieldPhotoUpload = async (e) => {
@@ -383,6 +434,64 @@ const JobFileSystem = () => {
     } catch (err) {
       console.error('Pre-field photo upload error:', err);
       setError('Photo upload failed');
+    }
+  };
+
+  // Handle GF Audit folder export to email
+  const handleExportToEmail = async () => {
+    if (!selectedFolder || !job) return;
+    
+    setExportLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
+      
+      // Build the export URL with proper folder path
+      let exportUrl = `${apiBase}/api/jobs/${job._id}/folders/${encodeURIComponent(selectedFolder.grandParentFolder || selectedFolder.parentFolder || selectedFolder.name)}/export`;
+      
+      // Add subfolder param if nested
+      if (selectedFolder.parentFolder && !selectedFolder.grandParentFolder) {
+        exportUrl += `?subfolder=${encodeURIComponent(selectedFolder.name)}`;
+      } else if (selectedFolder.grandParentFolder) {
+        exportUrl += `?subfolder=${encodeURIComponent(selectedFolder.parentFolder + '/' + selectedFolder.name)}`;
+      }
+      
+      // Fetch the ZIP file
+      const response = await fetch(exportUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Export failed');
+      }
+      
+      // Download the ZIP file
+      const blob = await response.blob();
+      const filename = `${job.pmNumber || job.woNumber || 'Job'}_GF_Audit_${Date.now()}.zip`;
+      
+      // Create download link
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+      
+      // Open email client with pre-filled subject
+      const subject = encodeURIComponent(`GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`);
+      const body = encodeURIComponent(`Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nThe photos are in the attached ZIP file: ${filename}\n\nPlease let me know if you have any questions.\n\nBest regards`);
+      
+      // Open Outlook/default email client
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      
+    } catch (err) {
+      console.error('Export to email error:', err);
+      setError(err.message || 'Failed to export folder');
+    } finally {
+      setExportLoading(false);
     }
   };
 
@@ -989,6 +1098,71 @@ const JobFileSystem = () => {
                       accept="image/*"
                       multiple
                       onChange={handlePreFieldPhotoUpload}
+                      style={{ display: 'none' }}
+                    />
+                  </Paper>
+                )}
+                
+                {/* GF Audit Folder Actions - Upload & Export to Email */}
+                {isGFAuditFolder && (
+                  <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', flexDirection: 'column', alignItems: 'center', bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      📋 GF Audit - Pre-Field Photos
+                    </Typography>
+                    <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+                      Upload photos taken during pre-fielding, then export to email your Project Coordinator
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<CameraAltIcon />}
+                        onClick={() => gfAuditCameraInputRef.current?.click()}
+                      >
+                        Take Photo
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+                        startIcon={<PhotoLibraryIcon />}
+                        onClick={() => gfAuditPhotoInputRef.current?.click()}
+                      >
+                        Upload from Library
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={exportLoading ? <CircularProgress size={20} color="inherit" /> : <EmailIcon />}
+                        onClick={handleExportToEmail}
+                        disabled={exportLoading || !selectedFolder?.documents?.length}
+                      >
+                        {exportLoading ? 'Exporting...' : 'Export to Email'}
+                      </Button>
+                    </Box>
+                    {selectedFolder?.documents?.length > 0 && (
+                      <Chip 
+                        label={`${selectedFolder.documents.length} photo${selectedFolder.documents.length !== 1 ? 's' : ''} ready to export`}
+                        color="success"
+                        sx={{ mt: 1 }}
+                      />
+                    )}
+                    
+                    {/* Hidden file inputs for GF Audit */}
+                    <input
+                      ref={gfAuditCameraInputRef}
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      multiple
+                      onChange={handleGFAuditPhotoUpload}
+                      style={{ display: 'none' }}
+                    />
+                    <input
+                      ref={gfAuditPhotoInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleGFAuditPhotoUpload}
                       style={{ display: 'none' }}
                     />
                   </Paper>

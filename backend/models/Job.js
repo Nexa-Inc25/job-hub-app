@@ -70,7 +70,9 @@ const jobSchema = new mongoose.Schema({
   matCode: String,
   // Job status workflow:
   // new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
-  // pending_gf_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced
+  // pending_gf_review → pending_qa_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced
+  //                                                                      ↓
+  //                                              go_back ←←← utility rejects
   status: { 
     type: String, 
     enum: [
@@ -81,9 +83,11 @@ const jobSchema = new mongoose.Schema({
       'stuck',                // Job has issues/discrepancies blocking work
       'in_progress',          // Crew is working on the job
       'pending_gf_review',    // Crew submitted, waiting for GF review
-      'pending_pm_approval',  // GF approved, waiting for PM final approval
+      'pending_qa_review',    // GF approved, waiting for QA review (NEW)
+      'pending_pm_approval',  // QA approved, waiting for PM final approval
       'ready_to_submit',      // PM approved, ready to submit to utility
       'submitted',            // Submitted to utility
+      'go_back',              // Utility rejected, QA needs to review (NEW)
       'billed',               // Invoice sent
       'invoiced',             // Payment received
       // Legacy statuses for backwards compatibility
@@ -176,11 +180,134 @@ const jobSchema = new mongoose.Schema({
   gfReviewStatus: { type: String, enum: ['approved', 'rejected', 'revision_requested', null], default: null },
   gfReviewNotes: String,
   
+  // QA Review (NEW - between GF and PM)
+  qaReviewDate: Date,
+  qaReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  qaReviewStatus: { type: String, enum: ['approved', 'rejected', 'revision_requested', null], default: null },
+  qaReviewNotes: String,
+  // Specs referenced during QA review
+  qaSpecsReferenced: [{
+    specId: { type: mongoose.Schema.Types.ObjectId, ref: 'SpecDocument' },
+    specName: String,
+    section: String  // Specific section referenced
+  }],
+  
   // PM Final Approval  
   pmApprovalDate: Date,
   pmApprovedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   pmApprovalStatus: { type: String, enum: ['approved', 'rejected', 'revision_requested', null], default: null },
   pmApprovalNotes: String,
+  
+  // === UTILITY AUDIT TRACKING (Field Inspections) ===
+  // Utility sends inspector to job site after documents submitted
+  // Inspector audits work against utility specs - Pass or Fail
+  auditHistory: [{
+    // Audit identification
+    auditNumber: String,         // Utility's audit/ticket number
+    
+    // When the audit occurred
+    auditDate: { type: Date, default: Date.now },
+    receivedDate: { type: Date, default: Date.now },  // When contractor received notification
+    
+    // Inspector info
+    inspectorName: String,
+    inspectorId: String,         // Utility inspector ID/badge
+    
+    // Audit result
+    result: {
+      type: String,
+      enum: ['pass', 'fail'],
+      required: true
+    },
+    
+    // For failed audits - infraction details
+    infractionType: {
+      type: String,
+      enum: [
+        'workmanship',      // Work not to spec
+        'materials',        // Wrong materials used
+        'safety',           // Safety violation
+        'incomplete',       // Work not completed
+        'as_built',         // As-built/paperwork errors
+        'photos',           // Missing/insufficient photos
+        'clearances',       // Clearance violations
+        'grounding',        // Grounding issues
+        'other'
+      ]
+    },
+    infractionDescription: String,    // Detailed description of what failed
+    specReference: String,            // Which spec section was violated
+    
+    // Photos from utility inspector (if any)
+    inspectorPhotos: [{
+      url: String,
+      r2Key: String,
+      description: String,
+      uploadDate: Date
+    }],
+    
+    // === QA REVIEW (Internal contractor review) ===
+    qaReviewedDate: Date,
+    qaReviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    qaDecision: {
+      type: String,
+      enum: ['accepted', 'disputed', null],  // Accept infraction or dispute it
+      default: null
+    },
+    qaNotes: String,
+    disputeReason: String,            // If disputing, explain why
+    
+    // Specs referenced during QA review
+    specsReferenced: [{
+      specId: { type: mongoose.Schema.Types.ObjectId, ref: 'SpecDocument' },
+      specName: String,
+      section: String
+    }],
+    
+    // === CORRECTION WORKFLOW ===
+    // Assigned back to field for correction
+    correctionAssignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },  // GF
+    correctionAssignedDate: Date,
+    correctionNotes: String,          // Instructions for crew
+    
+    // Correction completion & photo proof
+    correctionCompletedDate: Date,
+    correctionCompletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    correctionPhotos: [{              // Photo proof of correction
+      url: String,
+      r2Key: String,
+      name: String,
+      description: String,
+      uploadDate: { type: Date, default: Date.now },
+      uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    }],
+    correctionDescription: String,    // What was done to fix it
+    
+    // Resolution status
+    status: {
+      type: String,
+      enum: [
+        'pending_qa',           // Waiting for QA review
+        'accepted',             // QA accepted, needs correction
+        'disputed',             // QA disputing with utility
+        'correction_assigned',  // Assigned to GF for correction
+        'correction_submitted', // Crew submitted correction photos
+        'resolved',             // Correction approved, ready to resubmit
+        'closed'                // Fully closed
+      ],
+      default: 'pending_qa'
+    },
+    
+    // Final resolution
+    resolvedDate: Date,
+    resolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    resolutionNotes: String
+  }],
+  
+  // Quick-access flags for dashboard filtering
+  hasFailedAudit: { type: Boolean, default: false },
+  failedAuditCount: { type: Number, default: 0 },
+  passedAuditDate: Date,  // Date of most recent passed audit
   
   // Completion tracking
   completedDate: Date,
@@ -242,5 +369,9 @@ jobSchema.index({ utilityId: 1, utilityVisible: 1, createdAt: -1 }); // Utility 
 // Soft delete & archive indexes - filter out deleted/archived from normal queries
 jobSchema.index({ isDeleted: 1, isArchived: 1 }); // Fast filtering
 jobSchema.index({ companyId: 1, isArchived: 1, archivedAt: -1 }); // Archived jobs listing
+// QA Dashboard indexes
+jobSchema.index({ status: 1, companyId: 1 }); // For filtering by status
+jobSchema.index({ hasFailedAudit: 1, companyId: 1 }); // Failed audits needing attention
+jobSchema.index({ 'auditHistory.status': 1 }); // Audit status filtering
 
 module.exports = mongoose.model('Job', jobSchema);
