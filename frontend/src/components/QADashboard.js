@@ -357,6 +357,220 @@ AuditReviewDialog.propTypes = {
   onSubmit: PropTypes.func.isRequired,
 };
 
+// Upload Failed Audit Dialog - Extract from PG&E audit PDF
+const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+  const fileInputRef = useRef(null);
+  const { mode } = useThemeMode();
+
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.pdf')) {
+      setError('Please upload a PDF file');
+      return;
+    }
+
+    setUploading(true);
+    setError('');
+    setResult(null);
+
+    const formData = new FormData();
+    formData.append('pdf', file);
+
+    try {
+      const response = await api.post('/api/qa/extract-audit', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      if (response.data.success) {
+        setResult(response.data);
+      } else {
+        setError(response.data.error || 'Failed to extract audit');
+        if (response.data.extracted) {
+          setResult({ extracted: response.data.extracted, requiresManualEntry: true });
+        }
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      setError(err.response?.data?.error || 'Failed to upload and extract audit');
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleClose = () => {
+    setResult(null);
+    setError('');
+    onClose();
+    if (result?.success) {
+      onSuccess();
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <CloudUploadIcon sx={{ color: '#6366f1' }} />
+        Upload Failed Audit from PG&E
+      </DialogTitle>
+      <DialogContent sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', pt: 2 }}>
+        {!result && !uploading && (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Upload the failed audit PDF received from PG&E. The system will:
+            </Typography>
+            <Box component="ul" sx={{ pl: 2, mb: 3, color: 'text.secondary' }}>
+              <li>Extract PM number and find the original work order</li>
+              <li>Extract inspector name, infraction details, and spec references</li>
+              <li>Create the failed audit record on the job</li>
+              <li>Upload the PDF to the &quot;QA Go Back&quot; folder</li>
+            </Box>
+
+            <input
+              type="file"
+              ref={fileInputRef}
+              style={{ display: 'none' }}
+              accept=".pdf"
+              onChange={handleFileSelect}
+            />
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<CloudUploadIcon />}
+              onClick={() => fileInputRef.current?.click()}
+              sx={{ 
+                py: 3, 
+                borderStyle: 'dashed',
+                borderColor: '#6366f1',
+                color: '#6366f1',
+                '&:hover': { borderColor: '#4f46e5', bgcolor: '#6366f110' }
+              }}
+            >
+              Select PG&E Audit PDF
+            </Button>
+          </>
+        )}
+
+        {uploading && (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <CircularProgress size={48} sx={{ color: '#6366f1', mb: 2 }} />
+            <Typography variant="body1">Extracting audit information...</Typography>
+            <Typography variant="caption" color="text.secondary">
+              Finding job by PM number and creating audit record
+            </Typography>
+          </Box>
+        )}
+
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
+        {result?.success && (
+          <Box>
+            <Alert severity="success" sx={{ mb: 2 }}>
+              Audit extracted and recorded successfully!
+            </Alert>
+            
+            <Paper sx={{ p: 2, bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc', mb: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Job Found: {result.job?.pmNumber}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {result.job?.address}, {result.job?.city}
+              </Typography>
+            </Paper>
+
+            <Paper sx={{ p: 2, bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#ef4444' }}>
+                Failed Audit Details
+              </Typography>
+              <Grid container spacing={1}>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Audit #</Typography>
+                  <Typography variant="body2">{result.extracted?.auditNumber || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Inspector</Typography>
+                  <Typography variant="body2">{result.extracted?.inspectorName || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Infraction Type</Typography>
+                  <Typography variant="body2">
+                    {INFRACTION_TYPE_LABELS[result.extracted?.infractionType] || result.extracted?.infractionType || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">Spec Reference</Typography>
+                  <Typography variant="body2">{result.extracted?.specReference || 'N/A'}</Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary">Description</Typography>
+                  <Typography variant="body2">{result.extracted?.infractionDescription || 'N/A'}</Typography>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Box>
+        )}
+
+        {result?.requiresManualEntry && (
+          <Box>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Could not automatically match to a job. Please review the extracted data.
+            </Alert>
+            
+            <Paper sx={{ p: 2, bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+              <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+                Extracted Data (needs manual entry)
+              </Typography>
+              <Typography variant="body2">
+                PM Number: {result.extracted?.pmNumber || 'Not found'}
+              </Typography>
+              <Typography variant="body2">
+                Inspector: {result.extracted?.inspectorName || 'Not found'}
+              </Typography>
+              <Typography variant="body2">
+                Description: {result.extracted?.infractionDescription || 'Not found'}
+              </Typography>
+            </Paper>
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', p: 2 }}>
+        <Button onClick={handleClose}>
+          {result?.success ? 'Done' : 'Cancel'}
+        </Button>
+        {result?.success && (
+          <Button
+            variant="contained"
+            onClick={() => {
+              handleClose();
+              // Navigate to the job
+              window.location.href = `/jobs/${result.job?._id}`;
+            }}
+            sx={{ bgcolor: '#6366f1', '&:hover': { bgcolor: '#4f46e5' } }}
+          >
+            View Job
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
+};
+UploadAuditDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSuccess: PropTypes.func.isRequired,
+};
+
 const QADashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [stats, setStats] = useState(null);
@@ -366,6 +580,7 @@ const QADashboard = () => {
   const [error, setError] = useState('');
   const [reviewDialog, setReviewDialog] = useState({ open: false, job: null });
   const [auditDialog, setAuditDialog] = useState({ open: false, job: null, audit: null });
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   
   const navigate = useNavigate();
   const { mode } = useThemeMode();
@@ -451,6 +666,14 @@ const QADashboard = () => {
           <Typography variant="h6" sx={{ flexGrow: 1, color: textPrimary, fontWeight: 700 }}>
             QA Dashboard
           </Typography>
+          <Button
+            variant="contained"
+            startIcon={<CloudUploadIcon />}
+            onClick={() => setUploadDialogOpen(true)}
+            sx={{ mr: 2, bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }}
+          >
+            Upload Failed Audit
+          </Button>
           <Button
             variant="outlined"
             startIcon={<MenuBookIcon />}
@@ -714,6 +937,13 @@ const QADashboard = () => {
         audit={auditDialog.audit}
         onClose={() => setAuditDialog({ open: false, job: null, audit: null })}
         onSubmit={handleAuditReview}
+      />
+
+      {/* Upload Failed Audit Dialog */}
+      <UploadAuditDialog
+        open={uploadDialogOpen}
+        onClose={() => setUploadDialogOpen(false)}
+        onSuccess={fetchData}
       />
     </Box>
   );

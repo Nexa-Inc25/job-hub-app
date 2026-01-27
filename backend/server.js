@@ -3788,9 +3788,26 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
     archive.on('warning', (err) => console.warn('Archive warning:', err.message));
     archive.on('error', (err) => { throw err; });
     
-    // Add all files to archive
+    // Track filenames to avoid duplicates (which can corrupt ZIP extraction)
+    const usedNames = new Set();
+    
+    // Add all files to archive with unique names
     for (const file of filesToZip) {
-      archive.append(file.buffer, { name: file.name });
+      let fileName = file.name;
+      
+      // If duplicate, add counter suffix
+      if (usedNames.has(fileName)) {
+        const ext = path.extname(fileName);
+        const base = path.basename(fileName, ext);
+        let counter = 2;
+        while (usedNames.has(`${base}_${counter}${ext}`)) {
+          counter++;
+        }
+        fileName = `${base}_${counter}${ext}`;
+      }
+      
+      usedNames.add(fileName);
+      archive.append(file.buffer, { name: fileName });
     }
     
     // Finalize and wait for completion
