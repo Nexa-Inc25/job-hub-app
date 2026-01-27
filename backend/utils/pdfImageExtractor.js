@@ -162,10 +162,11 @@ JSON only: [{"page":1,"category":"FORM"}...]`;
     // Parse JSON response
     const responseText = response.choices[0].message.content.trim();
     try {
-      // Extract JSON array from response (might have markdown)
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      // Extract JSON array from response using safe string operations (no regex backtracking)
+      const firstBracket = responseText.indexOf('[');
+      const lastBracket = responseText.lastIndexOf(']');
+      if (firstBracket !== -1 && lastBracket > firstBracket) {
+        const parsed = JSON.parse(responseText.slice(firstBracket, lastBracket + 1));
         parsed.forEach(item => {
           const idx = item.page - 1; // Convert 1-based to 0-based
           if (idx >= 0 && idx < pagesWithImages.length) {

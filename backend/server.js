@@ -14,6 +14,7 @@ const mongoSanitize = require('express-mongo-sanitize');
 const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
+const crypto = require('node:crypto');
 const http = require('http');
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -3111,7 +3112,8 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
     }
     
     // Generate temporary password (user will reset on first login)
-    const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+    // Use crypto.randomBytes for cryptographically secure randomness
+    const tempPassword = crypto.randomBytes(6).toString('base64url') + 'A1!';
     
     const validRoles = ['crew', 'foreman', 'gf', 'pm'];
     const userRole = validRoles.includes(role) ? role : 'crew';
@@ -4191,7 +4193,7 @@ app.put('/api/jobs/:id/documents/:docId', authenticateUser, async (req, res) => 
     if (pdfData) {
       const pdfBuffer = Buffer.from(pdfData, 'base64');
       // Use timestamp + docId + random suffix to prevent filename collisions
-      const randomSuffix = Math.random().toString(36).substr(2, 6);
+      const randomSuffix = crypto.randomBytes(4).toString('hex');
       const filename = `edited_${docId}_${Date.now()}_${randomSuffix}.pdf`;
       const newPath = path.join(__dirname, 'uploads', filename);
       fs.writeFileSync(newPath, pdfBuffer);

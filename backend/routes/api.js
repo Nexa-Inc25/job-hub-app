@@ -181,11 +181,23 @@ EXAMPLE OUTPUT:
 
     let structured = null;
     try {
-      const jsonMatch = typeof result.extractedInfo === 'string'
-        ? result.extractedInfo.match(/```json\s*([\s\S]*?)```/i) || result.extractedInfo.match(/\{[\s\S]*\}/)
-        : null;
-      if (jsonMatch) {
-        structured = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      if (typeof result.extractedInfo === 'string') {
+        let jsonStr = result.extractedInfo;
+        // Remove markdown code fences if present (safe string operations, no regex backtracking)
+        const codeBlockStart = jsonStr.indexOf('```json');
+        if (codeBlockStart !== -1) {
+          const contentStart = jsonStr.indexOf('\n', codeBlockStart) + 1;
+          const codeBlockEnd = jsonStr.indexOf('```', contentStart);
+          if (codeBlockEnd !== -1) {
+            jsonStr = jsonStr.slice(contentStart, codeBlockEnd).trim();
+          }
+        }
+        // Find first { and last } for object extraction
+        const firstBrace = jsonStr.indexOf('{');
+        const lastBrace = jsonStr.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace > firstBrace) {
+          structured = JSON.parse(jsonStr.slice(firstBrace, lastBrace + 1));
+        }
       }
     } catch {
       // JSON parsing failed, structured remains null
