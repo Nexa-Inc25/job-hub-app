@@ -189,44 +189,34 @@ const TemplateManager = () => {
           <Chip label={templates.length} size="small" sx={{ ml: 1 }} />
         </Typography>
 
-        {loading ? (
-          <CircularProgress />
-        ) : !templates.length ? (
-          <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-            No templates uploaded yet. Upload your PG&E forms above.
-          </Typography>
-        ) : (
-          <List>
-            {templates.map((template) => (
-              <ListItem 
-                key={template._id || template.name}
-                sx={{ 
-                  bgcolor: 'background.paper',
-                  mb: 1,
-                  borderRadius: 1,
-                  border: '1px solid',
-                  borderColor: 'divider'
-                }}
-              >
-                <ListItemIcon>
-                  <PictureAsPdfIcon color="error" />
-                </ListItemIcon>
-                <ListItemText 
-                  primary={template.name}
-                  secondary={template.url}
-                />
-                <Button 
-                  variant="outlined" 
-                  size="small"
-                  href={template.url}
-                  target="_blank"
+        {(() => {
+          if (loading) return <CircularProgress />;
+          if (templates.length === 0) {
+            return (
+              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                No templates uploaded yet. Upload your PG&E forms above.
+              </Typography>
+            );
+          }
+          return (
+            <List>
+              {templates.map((template) => (
+                <ListItem 
+                  key={template._id || template.name}
+                  sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
                 >
-                  Preview
-                </Button>
-              </ListItem>
-            ))}
-          </List>
-        )}
+                  <ListItemIcon>
+                    <PictureAsPdfIcon color="error" />
+                  </ListItemIcon>
+                  <ListItemText primary={template.name} secondary={template.url} />
+                  <Button variant="outlined" size="small" href={template.url} target="_blank">
+                    Preview
+                  </Button>
+                </ListItem>
+              ))}
+            </List>
+          );
+        })()}
 
         <Divider sx={{ my: 3 }} />
 
