@@ -196,6 +196,8 @@ const fileFilter = (req, file, cb) => {
     'image/png',
     'image/gif',
     'image/webp',
+    'image/heic',      // iPhone photos
+    'image/heif',      // iPhone photos alternative
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
