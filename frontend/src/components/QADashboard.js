@@ -53,7 +53,6 @@ import {
   ThumbUp as ThumbUpIcon,
   ThumbDown as ThumbDownIcon,
   CloudUpload as CloudUploadIcon,
-  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
 
@@ -554,7 +553,7 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
             onClick={() => {
               handleClose();
               // Navigate to the job
-              window.location.href = `/jobs/${result.job?._id}`;
+              globalThis.location.href = `/jobs/${result.job?._id}`;
             }}
             sx={{ bgcolor: '#6366f1', '&:hover': { bgcolor: '#4f46e5' } }}
           >

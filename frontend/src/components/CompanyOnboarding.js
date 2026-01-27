@@ -501,17 +501,25 @@ const CompanyOnboarding = () => {
                       </Box>
                     </Box>
 
-                    {!companyUsers[company._id] ? (
-                      <Box sx={{ textAlign: 'center', py: 3 }}>
-                        <CircularProgress size={24} />
-                      </Box>
-                    ) : companyUsers[company._id].length === 0 ? (
-                      <Typography variant="body2" sx={{ color: textSecondary, textAlign: 'center', py: 3 }}>
-                        No employees yet. Click "Add Employee" to add the first one.
-                      </Typography>
-                    ) : (
-                      <List dense>
-                        {companyUsers[company._id].map((user) => (
+                    {(() => {
+                      const users = companyUsers[company._id];
+                      if (!users) {
+                        return (
+                          <Box sx={{ textAlign: 'center', py: 3 }}>
+                            <CircularProgress size={24} />
+                          </Box>
+                        );
+                      }
+                      if (users.length === 0) {
+                        return (
+                          <Typography variant="body2" sx={{ color: textSecondary, textAlign: 'center', py: 3 }}>
+                            No employees yet. Click &quot;Add Employee&quot; to add the first one.
+                          </Typography>
+                        );
+                      }
+                      return (
+                        <List dense>
+                          {users.map((user) => (
                           <ListItem 
                             key={user._id}
                             sx={{ 
@@ -553,8 +561,9 @@ const CompanyOnboarding = () => {
                             </ListItemSecondaryAction>
                           </ListItem>
                         ))}
-                      </List>
-                    )}
+                        </List>
+                      );
+                    })()}
                   </Box>
                 </Collapse>
               </Paper>
@@ -830,7 +839,7 @@ const CompanyOnboarding = () => {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {folderTemplate.map((folder, folderIndex) => (
                   <Paper 
-                    key={folderIndex}
+                    key={folder.name || `folder-${folderIndex}`}
                     sx={{ 
                       p: 2, 
                       border: `1px solid ${selectedFolderIndex === folderIndex ? '#6366f1' : borderColor}`,

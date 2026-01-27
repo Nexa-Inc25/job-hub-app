@@ -104,12 +104,20 @@ StatCard.propTypes = {
 // Extracted HealthIndicator component
 const HealthIndicator = ({ status, label, textPrimary }) => {
   const isHealthy = status === 'connected' || status === 'configured' || status === true;
+  
+  const getStatusLabel = () => {
+    if (typeof status === 'boolean') {
+      return status ? 'OK' : 'Missing';
+    }
+    return status;
+  };
+  
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
       {isHealthy ? <CheckIcon sx={{ color: '#22c55e', fontSize: 20 }} /> : <ErrorIcon sx={{ color: '#ef4444', fontSize: 20 }} />}
       <Typography variant="body2" sx={{ color: textPrimary }}>{label}</Typography>
       <Chip 
-        label={typeof status === 'boolean' ? (status ? 'OK' : 'Missing') : status}
+        label={getStatusLabel()}
         size="small"
         sx={{ bgcolor: isHealthy ? '#22c55e20' : '#ef444420', color: isHealthy ? '#22c55e' : '#ef4444', fontWeight: 600, fontSize: '0.7rem' }}
       />

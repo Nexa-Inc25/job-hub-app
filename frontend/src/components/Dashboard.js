@@ -2211,7 +2211,7 @@ const Dashboard = () => {
         {/* Unstick option for stuck jobs */}
         {(isAdmin || ['gf', 'pm'].includes(userRole)) && selectedJobId && (() => {
           const job = jobs.find(j => j._id === selectedJobId);
-          if (!job || job.status !== 'stuck') return null;
+          if (job?.status !== 'stuck') return null;
           return (
             <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
               <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />

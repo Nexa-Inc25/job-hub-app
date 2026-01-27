@@ -308,7 +308,8 @@ const JobFileSystem = () => {
         console.warn('Could not find updated folder, keeping current selection');
         setSelectedFolder(prev => ({ ...prev, documents: [] }));
       }
-    } catch (err) {
+    } catch (error_) {
+      console.error('File upload error:', error_);
       setError('File upload failed');
     }
   };
@@ -494,7 +495,7 @@ const JobFileSystem = () => {
       
       // Try Web Share API first (works on mobile and some desktops)
       // This allows direct sharing to email apps with file attached
-      if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'application/zip' })] })) {
+      if (navigator.canShare?.({ files: [new File([blob], filename, { type: 'application/zip' })] })) {
         try {
           const file = new File([blob], filename, { type: 'application/zip' });
           await navigator.share({
@@ -504,10 +505,10 @@ const JobFileSystem = () => {
           });
           console.log('Shared via Web Share API');
           return; // Success - don't fall through to mailto
-        } catch (shareErr) {
+        } catch (error_) {
           // User cancelled or share failed - fall through to download + mailto
-          if (shareErr.name !== 'AbortError') {
-            console.log('Web Share failed, falling back to download:', shareErr.message);
+          if (error_.name !== 'AbortError') {
+            console.log('Web Share failed, falling back to download:', error_.message);
           }
         }
       }
