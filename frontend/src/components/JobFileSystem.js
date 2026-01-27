@@ -196,6 +196,7 @@ const JobFileSystem = () => {
   // Offline photo capture
   const [photoCaptureOpen, setPhotoCaptureOpen] = useState(false);
   const [pendingPhotos, setPendingPhotos] = useState([]);
+  const [deleteLoading, setDeleteLoading] = useState(false); // Prevent double-click deletes
 
   // Check user permissions from JWT
   useEffect(() => {
@@ -561,7 +562,7 @@ const JobFileSystem = () => {
   };
 
   const handleDeleteDoc = async () => {
-    if (!contextDoc || !job) {
+    if (!contextDoc || !job || deleteLoading) {
       handleCloseMenu();
       return;
     }
@@ -572,6 +573,7 @@ const JobFileSystem = () => {
       return;
     }
 
+    setDeleteLoading(true);
     try {
       const token = localStorage.getItem('token');
       await api.delete(`/api/jobs/${job._id}/documents/${contextDoc._id}`, {
@@ -595,9 +597,25 @@ const JobFileSystem = () => {
       }
 
     } catch (err) {
-      console.error('Error deleting document:', err);
-      setError('Failed to delete document');
+      // Handle 404 gracefully - document may already be deleted
+      if (err.response?.status === 404) {
+        console.log('Document already deleted or not found, refreshing...');
+        // Still refresh to get current state
+        try {
+          const token = localStorage.getItem('token');
+          const response = await api.get(`/api/jobs/${job._id}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setJob(response.data);
+        } catch {
+          // Ignore refresh errors
+        }
+      } else {
+        console.error('Error deleting document:', err);
+        setError('Failed to delete document');
+      }
     } finally {
+      setDeleteLoading(false);
       handleCloseMenu();
     }
   };
