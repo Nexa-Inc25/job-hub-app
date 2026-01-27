@@ -201,31 +201,50 @@ const OwnerDashboard = () => {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  // Helper to validate super admin token
+  const validateSuperAdminToken = useCallback(() => {
+    const token = localStorage.getItem('token');
+    if (!token) return { valid: false, redirect: true };
+    
     try {
-      setLoading(true);
-      setError('');
-      
-      const token = localStorage.getItem('token');
-      if (!token) {
-        navigate('/login');
-        return;
-      }
-      
-      // Check if user is super admin (frontend check - backend also validates)
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        if (!payload.isSuperAdmin) {
-          setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
-          setLoading(false);
-          return;
-        }
-      } catch (parseError) {
-        console.error('Token parse error:', parseError);
-        navigate('/login');
-        return;
-      }
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return { valid: payload.isSuperAdmin === true, redirect: false };
+    } catch {
+      return { valid: false, redirect: true };
+    }
+  }, []);
 
+  // Helper to handle fetch errors
+  const handleFetchError = useCallback((err) => {
+    console.error('Error fetching owner stats:', err);
+    const status = err.response?.status;
+    
+    if (status === 403) {
+      return 'Super Admin access required. This dashboard is only for Job Hub platform owners.';
+    }
+    if (status === 401) {
+      navigate('/login');
+      return null;
+    }
+    return 'Failed to load dashboard data. Please try again.';
+  }, [navigate]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    
+    const tokenCheck = validateSuperAdminToken();
+    if (tokenCheck.redirect) {
+      navigate('/login');
+      return;
+    }
+    if (!tokenCheck.valid) {
+      setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
+      setLoading(false);
+      return;
+    }
+
+    try {
       const [statsRes, healthRes, feedbackRes] = await Promise.all([
         api.get('/api/admin/owner-stats'),
         api.get('/api/admin/system-health'),
@@ -238,18 +257,12 @@ const OwnerDashboard = () => {
       setFeedbackCounts(feedbackRes.data.counts || {});
       setLastRefresh(new Date());
     } catch (err) {
-      console.error('Error fetching owner stats:', err);
-      if (err.response?.status === 403) {
-        setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
-      } else if (err.response?.status === 401) {
-        navigate('/login');
-      } else {
-        setError('Failed to load dashboard data. Please try again.');
-      }
+      const errorMsg = handleFetchError(err);
+      if (errorMsg) setError(errorMsg);
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, validateSuperAdminToken, handleFetchError]);
 
   useEffect(() => {
     fetchData();

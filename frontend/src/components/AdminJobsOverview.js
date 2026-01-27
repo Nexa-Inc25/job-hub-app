@@ -108,57 +108,19 @@ const STATUS_LABELS = {
   pending: 'Pending',
 };
 
-const AdminJobsOverview = () => {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const navigate = useNavigate();
-  const { mode } = useThemeMode();
+// Helper to get theme colors based on mode
+const getThemeColors = (mode) => ({
+  cardBg: mode === 'dark' ? '#1e1e2e' : '#ffffff',
+  textPrimary: mode === 'dark' ? '#e2e8f0' : '#1e293b',
+  textSecondary: mode === 'dark' ? '#94a3b8' : '#64748b',
+  borderColor: mode === 'dark' ? '#334155' : '#e2e8f0',
+  chartGridColor: mode === 'dark' ? '#334155' : '#e5e7eb',
+  pageBg: mode === 'dark' ? '#0f0f1a' : '#f8fafc',
+  containerBg: mode === 'dark' ? '#0f0f1a' : '#f1f5f9',
+});
 
-  const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';
-  const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
-  const chartGridColor = mode === 'dark' ? '#334155' : '#e5e7eb';
-
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/api/admin/owner-stats');
-      setStats(response.data);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      if (err.response?.status === 403) {
-        setError('Super Admin access required');
-      } else {
-        setError('Failed to load job statistics');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  if (loading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
-        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc', p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
-  }
-
-  // Prepare chart data
+// Helper to prepare chart data from stats
+const prepareChartData = (stats) => {
   const statusData = stats?.jobs?.byStatus 
     ? Object.entries(stats.jobs.byStatus)
         .map(([status, count]) => ({ 
@@ -174,12 +136,61 @@ const AdminJobsOverview = () => {
     : [];
 
   const trendData = stats?.jobs?.creationTrend || [];
+  
+  return { statusData, priorityData, trendData };
+};
 
-  // Theme props to pass to StatCard
+const AdminJobsOverview = () => {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { mode } = useThemeMode();
+
+  const theme = getThemeColors(mode);
+  const { cardBg, textPrimary, textSecondary, borderColor, chartGridColor } = theme;
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/admin/owner-stats');
+      setStats(response.data);
+    } catch (err) {
+      console.error('Error fetching data:', err);
+      const errorMsg = err.response?.status === 403 
+        ? 'Super Admin access required' 
+        : 'Failed to load job statistics';
+      setError(errorMsg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  if (loading) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: theme.pageBg }}>
+        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: theme.pageBg, p: 3 }}>
+        <Alert severity="error">{error}</Alert>
+      </Box>
+    );
+  }
+
+  const { statusData, priorityData, trendData } = prepareChartData(stats);
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: theme.containerBg }}>
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#ffffff', borderBottom: `1px solid ${borderColor}` }}>
         <Toolbar>
           <IconButton onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 2, color: textPrimary }}>

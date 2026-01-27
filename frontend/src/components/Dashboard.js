@@ -111,36 +111,46 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
-  // Check user role from token and fetch name if needed
-  useEffect(() => {
+  // Helper to parse user info from JWT token
+  const parseTokenPayload = useCallback(() => {
     const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setIsAdmin(payload.isAdmin || false);
-        setIsSuperAdmin(payload.isSuperAdmin || false);
-        setUserRole(payload.role || null);
-        setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
-        
-        // Get name from token or fetch from API
-        if (payload.name) {
-          setUserName(payload.name);
-        } else {
-          // Fallback: fetch user profile if name not in token
-          api.get('/api/users/me').then(res => {
-            setUserName(res.data?.name || '');
-          }).catch(() => setUserName(''));
-        }
-      } catch (error) {
-        console.error('Failed to parse auth token:', error);
-        setIsAdmin(false);
-        setIsSuperAdmin(false);
-        setUserRole(null);
-        setUserName('');
-        setCanApprove(false);
-      }
+    if (!token) return null;
+    
+    try {
+      return JSON.parse(atob(token.split('.')[1]));
+    } catch {
+      console.error('Failed to parse auth token');
+      return null;
     }
   }, []);
+
+  // Check user role from token and fetch name if needed
+  useEffect(() => {
+    const payload = parseTokenPayload();
+    
+    if (!payload) {
+      setIsAdmin(false);
+      setIsSuperAdmin(false);
+      setUserRole(null);
+      setUserName('');
+      setCanApprove(false);
+      return;
+    }
+
+    setIsAdmin(payload.isAdmin || false);
+    setIsSuperAdmin(payload.isSuperAdmin || false);
+    setUserRole(payload.role || null);
+    setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
+    
+    // Get name from token or fetch from API
+    if (payload.name) {
+      setUserName(payload.name);
+    } else {
+      api.get('/api/users/me')
+        .then(res => setUserName(res.data?.name || ''))
+        .catch(() => setUserName(''));
+    }
+  }, [parseTokenPayload]);
 
   // Fetch pending approvals for GF/PM/Admin
   const fetchPendingApprovals = useCallback(async () => {

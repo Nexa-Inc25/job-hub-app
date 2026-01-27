@@ -681,6 +681,74 @@ const JobFileSystem = () => {
     return null;
   };
 
+  // Helper to render nested subfolder tree item (extracted to reduce nesting)
+  const renderNestedSubfolder = (nestedSubfolder, subfolder, folder) => (
+    <TreeItem
+      key={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
+      itemId={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
+      label={
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <FolderIcon sx={{ mr: 1, fontSize: '0.875rem', color: 'secondary.main' }} />
+          <Typography sx={{ flexGrow: 1, fontSize: '0.8rem' }}>{nestedSubfolder.name}</Typography>
+          <Chip 
+            label={nestedSubfolder.documents?.length || 0} 
+            size="small" 
+            color="secondary"
+            sx={{ height: 16, fontSize: '0.65rem' }} 
+          />
+        </Box>
+      }
+      onClick={(e) => {
+        e.stopPropagation();
+        handleFolderSelect({ 
+          ...nestedSubfolder, 
+          parentFolder: subfolder.name,
+          grandParentFolder: folder.name
+        });
+      }}
+    />
+  );
+
+  // Helper to render subfolder tree item (extracted to reduce nesting)
+  const renderSubfolder = (subfolder, folder) => (
+    <TreeItem 
+      key={`${folder.name}-${subfolder.name}`} 
+      itemId={`${folder.name}-${subfolder.name}`}
+      label={
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <FolderIcon sx={{ mr: 1, fontSize: '1rem' }} />
+          <Typography sx={{ flexGrow: 1, fontSize: '0.875rem' }}>{subfolder.name}</Typography>
+          <Chip 
+            label={(subfolder.documents?.length || 0) + (subfolder.subfolders?.length || 0)} 
+            size="small" 
+            sx={{ mr: 1, height: 18, fontSize: '0.7rem' }} 
+          />
+          {isAdmin && (
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteFolder(subfolder.name, folder.name);
+              }}
+              sx={{ p: 0.25, color: 'error.main' }}
+              aria-label="Delete subfolder"
+            >
+              <DeleteIcon sx={{ fontSize: '0.875rem' }} />
+            </IconButton>
+          )}
+        </Box>
+      }
+      onClick={(e) => {
+        e.stopPropagation();
+        handleFolderSelect({ ...subfolder, parentFolder: folder.name });
+      }}
+    >
+      {subfolder.subfolders?.map((nestedSubfolder) => 
+        renderNestedSubfolder(nestedSubfolder, subfolder, folder)
+      )}
+    </TreeItem>
+  );
+
   // Get the correct URL for a document
   const getDocUrl = (doc) => {
     if (!doc) return '';
@@ -968,68 +1036,7 @@ const JobFileSystem = () => {
                       }
                       onClick={() => handleFolderSelect({ ...folder, isParent: true })}
                     >
-                      {folder.subfolders?.map((subfolder) => (
-                        <TreeItem 
-                          key={`${folder.name}-${subfolder.name}`} 
-                          itemId={`${folder.name}-${subfolder.name}`}
-                          label={
-                            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                              <FolderIcon sx={{ mr: 1, fontSize: '1rem' }} />
-                              <Typography sx={{ flexGrow: 1, fontSize: '0.875rem' }}>{subfolder.name}</Typography>
-                              <Chip 
-                                label={(subfolder.documents?.length || 0) + (subfolder.subfolders?.length || 0)} 
-                                size="small" 
-                                sx={{ mr: 1, height: 18, fontSize: '0.7rem' }} 
-                              />
-                              {isAdmin && (
-                                <IconButton
-                                  size="small"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteFolder(subfolder.name, folder.name);
-                                  }}
-                                  sx={{ p: 0.25, color: 'error.main' }}
-                                  aria-label="Delete subfolder"
-                                >
-                                  <DeleteIcon sx={{ fontSize: '0.875rem' }} />
-                                </IconButton>
-                              )}
-                            </Box>
-                          }
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFolderSelect({ ...subfolder, parentFolder: folder.name });
-                          }}
-                        >
-                          {/* Render nested subfolders (e.g., Job Photos, Construction Drawings under Pre-Field Documents) */}
-                          {subfolder.subfolders?.map((nestedSubfolder) => (
-                            <TreeItem
-                              key={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
-                              itemId={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
-                              label={
-                                <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                                  <FolderIcon sx={{ mr: 1, fontSize: '0.875rem', color: 'secondary.main' }} />
-                                  <Typography sx={{ flexGrow: 1, fontSize: '0.8rem' }}>{nestedSubfolder.name}</Typography>
-                                  <Chip 
-                                    label={nestedSubfolder.documents?.length || 0} 
-                                    size="small" 
-                                    color="secondary"
-                                    sx={{ height: 16, fontSize: '0.65rem' }} 
-                                  />
-                                </Box>
-                              }
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleFolderSelect({ 
-                                  ...nestedSubfolder, 
-                                  parentFolder: subfolder.name,
-                                  grandParentFolder: folder.name
-                                });
-                              }}
-                            />
-                          ))}
-                        </TreeItem>
-                      ))}
+                      {folder.subfolders?.map((subfolder) => renderSubfolder(subfolder, folder))}
                     </TreeItem>
                   ))}
               </TreeItem>

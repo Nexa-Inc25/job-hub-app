@@ -104,6 +104,71 @@ const CompanyOnboarding = () => {
   const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
   const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
 
+  // Helper to render company users list (extracted to reduce nesting)
+  const renderCompanyUsers = (companyId) => {
+    const users = companyUsers[companyId];
+    if (!users) {
+      return (
+        <Box sx={{ textAlign: 'center', py: 3 }}>
+          <CircularProgress size={24} />
+        </Box>
+      );
+    }
+    if (users.length === 0) {
+      return (
+        <Typography variant="body2" sx={{ color: textSecondary, textAlign: 'center', py: 3 }}>
+          No employees yet. Click &quot;Add Employee&quot; to add the first one.
+        </Typography>
+      );
+    }
+    return (
+      <List dense>
+        {users.map((user) => (
+          <ListItem 
+            key={user._id}
+            sx={{ 
+              bgcolor: cardBg, 
+              borderRadius: 2, 
+              mb: 1,
+              border: `1px solid ${borderColor}`
+            }}
+          >
+            <ListItemText
+              primary={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography sx={{ fontWeight: 500, color: textPrimary }}>
+                    {user.name}
+                  </Typography>
+                  <Chip 
+                    label={user.role.toUpperCase()} 
+                    size="small"
+                    sx={{ 
+                      height: 20,
+                      fontSize: '0.65rem',
+                      bgcolor: { admin: '#6366f120', pm: '#6366f120', gf: '#f59e0b20' }[user.role] || '#64748b20',
+                      color: { admin: '#6366f1', pm: '#6366f1', gf: '#f59e0b' }[user.role] || textSecondary
+                    }}
+                  />
+                </Box>
+              }
+              secondary={user.email}
+              secondaryTypographyProps={{ sx: { color: textSecondary } }}
+            />
+            <ListItemSecondaryAction>
+              <IconButton 
+                size="small" 
+                onClick={() => openResetPasswordDialog(user)}
+                sx={{ color: textSecondary }}
+              >
+                <KeyIcon fontSize="small" />
+              </IconButton>
+            </ListItemSecondaryAction>
+          </ListItem>
+        ))}
+      </List>
+    );
+  };
+
   const fetchCompanies = useCallback(async () => {
     try {
       setLoading(true);
@@ -501,69 +566,7 @@ const CompanyOnboarding = () => {
                       </Box>
                     </Box>
 
-                    {(() => {
-                      const users = companyUsers[company._id];
-                      if (!users) {
-                        return (
-                          <Box sx={{ textAlign: 'center', py: 3 }}>
-                            <CircularProgress size={24} />
-                          </Box>
-                        );
-                      }
-                      if (users.length === 0) {
-                        return (
-                          <Typography variant="body2" sx={{ color: textSecondary, textAlign: 'center', py: 3 }}>
-                            No employees yet. Click &quot;Add Employee&quot; to add the first one.
-                          </Typography>
-                        );
-                      }
-                      return (
-                        <List dense>
-                          {users.map((user) => (
-                          <ListItem 
-                            key={user._id}
-                            sx={{ 
-                              bgcolor: cardBg, 
-                              borderRadius: 2, 
-                              mb: 1,
-                              border: `1px solid ${borderColor}`
-                            }}
-                          >
-                            <ListItemText
-                              primary={
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  <Typography sx={{ fontWeight: 500, color: textPrimary }}>
-                                    {user.name}
-                                  </Typography>
-                                  <Chip 
-                                    label={user.role.toUpperCase()} 
-                                    size="small"
-                                    sx={{ 
-                                      height: 20,
-                                      fontSize: '0.65rem',
-                                      bgcolor: { admin: '#6366f120', pm: '#6366f120', gf: '#f59e0b20' }[user.role] || '#64748b20',
-                                      color: { admin: '#6366f1', pm: '#6366f1', gf: '#f59e0b' }[user.role] || textSecondary
-                                    }}
-                                  />
-                                </Box>
-                              }
-                              secondary={user.email}
-                              secondaryTypographyProps={{ sx: { color: textSecondary } }}
-                            />
-                            <ListItemSecondaryAction>
-                              <IconButton 
-                                size="small" 
-                                onClick={() => openResetPasswordDialog(user)}
-                                sx={{ color: textSecondary }}
-                              >
-                                <KeyIcon fontSize="small" />
-                              </IconButton>
-                            </ListItemSecondaryAction>
-                          </ListItem>
-                        ))}
-                        </List>
-                      );
-                    })()}
+                    {renderCompanyUsers(company._id)}
                   </Box>
                 </Collapse>
               </Paper>

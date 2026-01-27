@@ -188,56 +188,57 @@ const Calendar = () => {
     </Tooltip>
   );
 
+  // Helper to render a single day cell
+  const renderDayCell = (day, isToday, dayJobs) => (
+    <Paper
+      key={day}
+      sx={{
+        minHeight: 140, p: 1, overflow: 'hidden',
+        border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid',
+        borderColor: isToday ? 'primary.main' : 'divider',
+        bgcolor: getDayBgColor(isToday),
+        borderRadius: 1,
+        '&:hover': { bgcolor: isDark ? 'grey.700' : 'grey.50' }
+      }}
+    >
+      <Typography variant="body2" sx={{ fontWeight: isToday ? 'bold' : 'medium', color: isToday ? 'primary.main' : 'text.primary', mb: 0.5 }}>
+        {day}
+      </Typography>
+      <Box sx={{ overflow: 'auto', maxHeight: 110 }}>
+        {dayJobs.map(renderJobItem)}
+      </Box>
+    </Paper>
+  );
+
+  // Helper to generate trailing empty cells
+  const getTrailingEmptyCells = (firstDay, daysInMonth) => {
+    const totalCells = firstDay + daysInMonth;
+    const remainingCells = 7 - (totalCells % 7);
+    if (remainingCells >= 7) return [];
+    return Array.from({ length: remainingCells }, (_, i) => renderEmptyCell(`empty-end-${i}`));
+  };
+
   const renderCalendarDays = () => {
     const daysInMonth = getDaysInMonth(currentDate);
     const firstDay = getFirstDayOfMonth(currentDate);
-    const days = [];
     const today = new Date();
     const isCurrentMonth = today.getMonth() === currentDate.getMonth() && 
                           today.getFullYear() === currentDate.getFullYear();
 
-    // Empty cells for days before the first day of the month
-    for (let i = 0; i < firstDay; i++) {
-      days.push(renderEmptyCell(`empty-${i}`));
-    }
+    // Leading empty cells
+    const leadingEmpties = Array.from({ length: firstDay }, (_, i) => renderEmptyCell(`empty-${i}`));
 
-    // Days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const dayJobs = getJobsForDay(day);
+    // Day cells
+    const dayCells = Array.from({ length: daysInMonth }, (_, i) => {
+      const day = i + 1;
       const isToday = isCurrentMonth && today.getDate() === day;
+      return renderDayCell(day, isToday, getJobsForDay(day));
+    });
 
-      days.push(
-        <Paper
-          key={day}
-          sx={{
-            minHeight: 140, p: 1, overflow: 'hidden',
-            border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid',
-            borderColor: isToday ? 'primary.main' : 'divider',
-            bgcolor: getDayBgColor(isToday),
-            borderRadius: 1,
-            '&:hover': { bgcolor: isDark ? 'grey.700' : 'grey.50' }
-          }}
-        >
-          <Typography variant="body2" sx={{ fontWeight: isToday ? 'bold' : 'medium', color: isToday ? 'primary.main' : 'text.primary', mb: 0.5 }}>
-            {day}
-          </Typography>
-          <Box sx={{ overflow: 'auto', maxHeight: 110 }}>
-            {dayJobs.map(renderJobItem)}
-          </Box>
-        </Paper>
-      );
-    }
+    // Trailing empty cells
+    const trailingEmpties = getTrailingEmptyCells(firstDay, daysInMonth);
 
-    // Fill remaining cells to complete the grid
-    const totalCells = firstDay + daysInMonth;
-    const remainingCells = 7 - (totalCells % 7);
-    if (remainingCells < 7) {
-      for (let i = 0; i < remainingCells; i++) {
-        days.push(renderEmptyCell(`empty-end-${i}`));
-      }
-    }
-
-    return days;
+    return [...leadingEmpties, ...dayCells, ...trailingEmpties];
   };
 
   return (
