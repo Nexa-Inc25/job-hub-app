@@ -947,7 +947,7 @@ const JobFileSystem = () => {
             getOptionLabel={(option) => option.title}
             value={job}
             onChange={handleJobChange}
-            renderInput={(params) => <TextField {...params} label="Select Job" variant="outlined" size="small" />}
+            renderInput={(params) => <TextField {...params} id="job-selector" label="Select Job" variant="outlined" size="small" />}
             sx={{ width: 300, mr: 2 }}
           />
           <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
@@ -999,6 +999,7 @@ const JobFileSystem = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
               <SearchIcon sx={{ mr: 1 }} />
               <TextField
+                id="search-folders-files"
                 fullWidth
                 size="small"
                 placeholder="Search folders/files..."
@@ -1578,6 +1579,7 @@ const JobFileSystem = () => {
           <DialogContent>
             <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
+                id="new-folder-name"
                 fullWidth
                 label="Folder Name"
                 value={newFolderName}
@@ -1599,7 +1601,7 @@ const JobFileSystem = () => {
                   value={newFolderParent}
                   onChange={(e, val) => setNewFolderParent(val || '')}
                   renderInput={(params) => (
-                    <TextField {...params} label="Parent Folder" placeholder="Select parent folder" />
+                    <TextField {...params} id="parent-folder-select" label="Parent Folder" placeholder="Select parent folder" />
                   )}
                 />
               )}
