@@ -5078,15 +5078,32 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
       jobQuery.companyId = user.companyId;
     }
     
-    const job = await Job.findOne(jobQuery);
+    let job = await Job.findOne(jobQuery);
+    let isNewAuditJob = false;
     
+    // If job not found, create a new "audit work order"
     if (!job) {
-      return res.json({
-        success: false,
-        error: `No job found with PM number: ${extracted.pmNumber}`,
-        extracted,
-        requiresManualEntry: true
+      console.log(`No existing job found for PM ${extracted.pmNumber}, creating audit work order`);
+      
+      job = new Job({
+        pmNumber: extracted.pmNumber,
+        woNumber: extracted.woNumber || null,
+        address: extracted.address || 'Address pending from audit',
+        city: extracted.city || '',
+        status: 'submitted', // These are already submitted jobs that got audited
+        companyId: user?.companyId,
+        utilityId: user?.utilityId,
+        createdBy: req.userId,
+        createdFromAudit: true, // Flag to indicate this was created from an audit
+        notes: `Created from utility audit - PM ${extracted.pmNumber} was audited but not found in system.`,
+        folders: [
+          { name: 'ACI', documents: [], subfolders: [] },
+          { name: 'Job Package', documents: [], subfolders: [] },
+          { name: 'QA Go Back', documents: [], subfolders: [] }
+        ]
       });
+      
+      isNewAuditJob = true;
     }
     
     // STEP 4: Upload the PDF to "QA Go Back" folder
@@ -5151,18 +5168,25 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     
     await job.save();
     
-    console.log(`Failed audit extracted and recorded for job ${job.pmNumber}: ${extracted.infractionType}`);
+    const logMessage = isNewAuditJob 
+      ? `Created new audit work order for PM ${job.pmNumber}: ${extracted.infractionType}`
+      : `Failed audit extracted and recorded for job ${job.pmNumber}: ${extracted.infractionType}`;
+    console.log(logMessage);
     
     res.json({
       success: true,
-      message: 'Audit extracted and recorded successfully',
+      message: isNewAuditJob 
+        ? 'Audit work order created - original job was not in system'
+        : 'Audit extracted and recorded successfully',
+      isNewAuditJob,
       extracted,
       job: {
         _id: job._id,
         pmNumber: job.pmNumber,
         woNumber: job.woNumber,
         address: job.address,
-        city: job.city
+        city: job.city,
+        createdFromAudit: job.createdFromAudit
       },
       audit: job.auditHistory[job.auditHistory.length - 1],
       pdfUrl

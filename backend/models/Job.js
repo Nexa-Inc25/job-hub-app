@@ -308,6 +308,7 @@ const jobSchema = new mongoose.Schema({
   hasFailedAudit: { type: Boolean, default: false },
   failedAuditCount: { type: Number, default: 0 },
   passedAuditDate: Date,  // Date of most recent passed audit
+  createdFromAudit: { type: Boolean, default: false }, // Job was created from a failed audit (original WO not in system)
   
   // Completion tracking
   completedDate: Date,
