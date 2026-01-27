@@ -3783,10 +3783,15 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
     const archive = archiver('zip', { zlib: { level: 5 } });
     const zipChunks = [];
     
+    // Set up promise to wait for end event BEFORE finalizing (avoid race condition)
+    const archiveEndPromise = new Promise((resolve, reject) => {
+      archive.on('end', resolve);
+      archive.on('error', reject);
+    });
+    
     // Collect ZIP data into memory
     archive.on('data', (chunk) => zipChunks.push(chunk));
     archive.on('warning', (err) => console.warn('Archive warning:', err.message));
-    archive.on('error', (err) => { throw err; });
     
     // Track filenames to avoid duplicates (which can corrupt ZIP extraction)
     const usedNames = new Set();
@@ -3810,11 +3815,9 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
       archive.append(file.buffer, { name: fileName });
     }
     
-    // Finalize and wait for completion
-    await archive.finalize();
-    
-    // Wait for all data to be collected
-    await new Promise((resolve) => archive.on('end', resolve));
+    // Finalize and wait for all data to be collected
+    archive.finalize();
+    await archiveEndPromise;
     
     // Combine all chunks into final ZIP buffer
     const zipBuffer = Buffer.concat(zipChunks);
