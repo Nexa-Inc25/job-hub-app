@@ -484,8 +484,10 @@ const JobFileSystem = () => {
         throw new Error(errorData.error || 'Export failed');
       }
       
-      // Get the ZIP file as blob
-      const blob = await response.blob();
+      // Get the ZIP file as blob with explicit MIME type
+      // Using arrayBuffer + explicit type ensures correct MIME type is preserved
+      const arrayBuffer = await response.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: 'application/zip' });
       const filename = `${job.pmNumber || job.woNumber || 'Job'}_GF_Audit_${Date.now()}.zip`;
       const emailSubject = `GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`;
       const emailBody = `Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nPlease let me know if you have any questions.\n\nBest regards`;
@@ -523,7 +525,7 @@ const JobFileSystem = () => {
       // Open email client with pre-filled subject/body
       // Note: mailto cannot attach files - user must attach the downloaded ZIP
       const subject = encodeURIComponent(emailSubject);
-      const body = encodeURIComponent(emailBody + `\n\n📎 Please attach the downloaded file: ${filename}`);
+      const body = encodeURIComponent(emailBody + `\n\nPlease attach the downloaded file: ${filename}`);
       globalThis.location.href = `mailto:?subject=${subject}&body=${body}`;
       
     } catch (err) {
