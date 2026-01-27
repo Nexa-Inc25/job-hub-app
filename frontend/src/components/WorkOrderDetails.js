@@ -807,9 +807,9 @@ const WorkOrderDetails = () => {
                     </Typography>
                   ) : (
                     <List dense>
-                      {notes.map((note, index) => (
+                      {notes.map((note) => (
                         <ListItem 
-                          key={index}
+                          key={note._id || note.createdAt}
                           sx={{ 
                             bgcolor: 'action.hover', 
                             borderRadius: 1, 

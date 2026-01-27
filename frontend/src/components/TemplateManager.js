@@ -161,7 +161,11 @@ const TemplateManager = () => {
         >
           <CloudUploadIcon sx={{ fontSize: 48, color: isDragging ? 'success.main' : 'primary.main', mb: 1 }} />
           <Typography variant="h6">
-            {uploading ? 'Uploading...' : isDragging ? 'Drop files here!' : 'Click or drag PDF templates here'}
+            {(() => {
+              if (uploading) return 'Uploading...';
+              if (isDragging) return 'Drop files here!';
+              return 'Click or drag PDF templates here';
+            })()}
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Supported: PDF files (FUCA, Tailboard, Safety Forms, etc.)
@@ -187,15 +191,15 @@ const TemplateManager = () => {
 
         {loading ? (
           <CircularProgress />
-        ) : templates.length === 0 ? (
+        ) : !templates.length ? (
           <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             No templates uploaded yet. Upload your PG&E forms above.
           </Typography>
         ) : (
           <List>
-            {templates.map((template, index) => (
+            {templates.map((template) => (
               <ListItem 
-                key={index}
+                key={template._id || template.name}
                 sx={{ 
                   bgcolor: 'background.paper',
                   mb: 1,

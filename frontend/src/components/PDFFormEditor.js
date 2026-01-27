@@ -569,9 +569,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
             Quick Fill (click to add to text field):
           </Typography>
-          {quickFillOptions.map((opt, idx) => (
+          {quickFillOptions.map((opt) => (
             <Button
-              key={idx}
+              key={opt.label}
               size="small"
               variant="outlined"
               sx={{ mr: 0.5, mb: 0.5, textTransform: 'none' }}
@@ -683,33 +683,21 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                 onMouseDown={(e) => handleDragStart(e, annotation.id)}
                 onTouchStart={(e) => handleDragStart(e, annotation.id)}
               >
-                {annotation.type === 'text' ? (
-                  <Typography
-                    sx={{
-                      fontSize: annotation.fontSize * zoom,
-                      fontFamily: 'Helvetica, Arial, sans-serif',
-                      color: 'black',
-                      whiteSpace: 'nowrap',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {annotation.text}
-                  </Typography>
-                ) : annotation.type === 'signature' ? (
-                  <img 
-                    src={annotation.imageData} 
-                    alt="Signature"
-                    style={{
-                      width: annotation.width * zoom,
-                      height: annotation.height * zoom,
-                      pointerEvents: 'none',
-                    }}
-                  />
-                ) : (
-                  <Typography sx={{ fontSize: annotation.size * zoom, color: 'green', lineHeight: 1 }}>
-                    ✓
-                  </Typography>
-                )}
+                {(() => {
+                  if (annotation.type === 'text') {
+                    return (
+                      <Typography sx={{ fontSize: annotation.fontSize * zoom, fontFamily: 'Helvetica, Arial, sans-serif', color: 'black', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                        {annotation.text}
+                      </Typography>
+                    );
+                  }
+                  if (annotation.type === 'signature') {
+                    return (
+                      <img src={annotation.imageData} alt="Signature" style={{ width: annotation.width * zoom, height: annotation.height * zoom, pointerEvents: 'none' }} />
+                    );
+                  }
+                  return <Typography sx={{ fontSize: annotation.size * zoom, color: 'green', lineHeight: 1 }}>✓</Typography>;
+                })()}
                 {selectedAnnotation === annotation.id && (
                   <IconButton
                     size="small"

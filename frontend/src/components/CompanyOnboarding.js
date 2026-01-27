@@ -857,9 +857,9 @@ const CompanyOnboarding = () => {
                     <Box sx={{ pl: 4 }}>
                       {folder.subfolders && folder.subfolders.length > 0 && (
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-                          {folder.subfolders.map((subfolder, subIndex) => (
+                          {folder.subfolders.map((subfolder) => (
                             <Box 
-                              key={subIndex}
+                              key={subfolder.name}
                               sx={{ 
                                 display: 'flex', 
                                 alignItems: 'center', 

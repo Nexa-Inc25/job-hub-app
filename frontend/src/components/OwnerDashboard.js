@@ -490,10 +490,10 @@ const OwnerDashboard = () => {
                     label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
                     labelLine={{ stroke: textSecondary }}
                   >
-                    {jobStatusData.map((entry, index) => (
+                    {jobStatusData.map((entry) => (
                       <RechartsCell 
-                        key={`cell-${index}`} 
-                        fill={STATUS_COLORS[entry.name] || COLORS[index % COLORS.length]} 
+                        key={entry.name} 
+                        fill={STATUS_COLORS[entry.name] || '#64748b'} 
                       />
                     ))}
                   </Pie>
@@ -576,8 +576,8 @@ const OwnerDashboard = () => {
                     }}
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Users">
-                    {userRoleData.map((entry, index) => (
-                      <RechartsCell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {userRoleData.map((entry) => (
+                      <RechartsCell key={entry.name} fill={COLORS[userRoleData.indexOf(entry) % COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -852,7 +852,7 @@ const OwnerDashboard = () => {
                     borderLeft: `4px solid ${
                       { bug: '#ef4444', feature_request: '#f59e0b', question: '#3b82f6' }[item.type] || '#6b7280'
                     }`,
-                    bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'
+                    bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'  // eslint-disable-line -- ternary acceptable for simple bg
                   }}
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
@@ -868,7 +868,7 @@ const OwnerDashboard = () => {
                       <Chip 
                         label={item.status} 
                         size="small" 
-                        color={item.status === 'new' ? 'error' : item.status === 'resolved' ? 'success' : 'default'}
+                        color={{ new: 'error', resolved: 'success' }[item.status] || 'default'}
                         sx={{ fontSize: '0.65rem', height: 20 }}
                       />
                       {item.priority === 'critical' && (
