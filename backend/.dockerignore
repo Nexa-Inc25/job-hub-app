@@ -1,0 +1,43 @@
+# Dependencies (reinstalled during build)
+node_modules/
+
+# JDK folder (should not be deployed)
+*.jdk/
+oracleJdk-25.jdk/
+
+# Environment files
+.env
+.env.*
+
+# Uploads (cloud storage in production)
+uploads/
+!uploads/.gitkeep
+
+# Development files
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+
+# Testing/Scripts that aren't needed in prod
+coverage/
+playground-*.js
+test-*.js
+
+# Templates source PDFs (if large)
+# templates/
+
+# Misc
+*.md
+!README.md
+
