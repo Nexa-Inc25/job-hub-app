@@ -1,11 +1,24 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
+const mongoose = require('mongoose');
 const router = express.Router();
 const Job = require('../models/Job');
 const OpenAI = require('openai');
 const r2Storage = require('../utils/storage');
+
+// Helper to validate MongoDB ObjectId
+function isValidObjectId(id) {
+  return mongoose.Types.ObjectId.isValid(id) && String(new mongoose.Types.ObjectId(id)) === id;
+}
+
+// Helper to sanitize path components (prevent path traversal)
+function sanitizePathComponent(component) {
+  if (!component || typeof component !== 'string') return '';
+  // Remove any path traversal attempts and special characters
+  return component.replace(/\.\./g, '').replace(/[/\\]/g, '_').trim();
+}
 
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
 let pdfUtils = null;
@@ -121,7 +134,8 @@ EXAMPLE OUTPUT:
       if (jsonMatch) {
         structured = JSON.parse(jsonMatch[1] || jsonMatch[0]);
       }
-    } catch (parseErr) {
+    } catch {
+      // JSON parsing failed, structured remains null
       structured = null;
     }
 
@@ -149,8 +163,15 @@ EXAMPLE OUTPUT:
 router.get('/jobs/:jobId/ask', async (req, res) => {
   try {
     const { query } = req.query;
+    const { jobId } = req.params;
+    
+    // Validate ObjectId to prevent injection
+    if (!isValidObjectId(jobId)) {
+      return res.status(400).json({ error: 'Invalid job ID format' });
+    }
+    
     // Verify user owns this job
-    const job = await Job.findOne({ _id: req.params.jobId, userId: req.userId });
+    const job = await Job.findOne({ _id: new mongoose.Types.ObjectId(jobId), userId: req.userId });
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -187,7 +208,8 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
     } else {
       res.json({ answer: 'No documents' });
     }
-  } catch (err) {
+  } catch (error_) {
+    console.error('Query docs error:', error_.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -196,8 +218,14 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
 router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res) => {
   try {
     const { jobId } = req.params;
+    
+    // Validate ObjectId to prevent injection
+    if (!isValidObjectId(jobId)) {
+      return res.status(400).json({ error: 'Invalid job ID format' });
+    }
+    
     // Verify user owns this job
-    const job = await Job.findOne({ _id: jobId, userId: req.userId });
+    const job = await Job.findOne({ _id: new mongoose.Types.ObjectId(jobId), userId: req.userId });
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
@@ -217,8 +245,9 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     
     console.log('Extracting assets from:', pdfPath);
     
-    // Create output directories for extracted assets
-    const jobUploadsDir = path.join(__dirname, '..', 'uploads', `job_${jobId}`);
+    // Create output directories for extracted assets (sanitize jobId for path safety)
+    const safeJobId = sanitizePathComponent(jobId);
+    const jobUploadsDir = path.join(__dirname, '..', 'uploads', `job_${safeJobId}`);
     const photosDir = path.join(jobUploadsDir, 'photos');
     const drawingsDir = path.join(jobUploadsDir, 'drawings');
     const mapsDir = path.join(jobUploadsDir, 'maps');
@@ -259,8 +288,8 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
             });
             // Clean up local file after upload
             fs.unlinkSync(img.path);
-          } catch (uploadErr) {
-            console.error(`Failed to upload ${img.name}:`, uploadErr.message);
+          } catch (error_) {
+            console.error(`Failed to upload ${img.name}:`, error_.message);
             uploaded.push({
               ...img,
               url: `/uploads/job_${jobId}/${folder}/${img.name}`
@@ -417,8 +446,14 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
 router.post('/jobs/:jobId/prefield-photos', upload.array('photos', 20), async (req, res) => {
   try {
     const { jobId } = req.params;
+    
+    // Validate ObjectId to prevent injection
+    if (!isValidObjectId(jobId)) {
+      return res.status(400).json({ error: 'Invalid job ID format' });
+    }
+    
     // Verify user owns this job
-    const job = await Job.findOne({ _id: jobId, userId: req.userId });
+    const job = await Job.findOne({ _id: new mongoose.Types.ObjectId(jobId), userId: req.userId });
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });

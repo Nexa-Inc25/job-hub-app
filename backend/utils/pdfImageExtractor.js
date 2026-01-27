@@ -1,13 +1,25 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 const OpenAI = require('openai');
+
+// Helper to sanitize directory paths (prevent path traversal)
+function sanitizePath(dirPath, baseDir) {
+  // Resolve the full path and ensure it's within the expected base directory
+  const resolvedPath = path.resolve(dirPath);
+  const resolvedBase = path.resolve(baseDir || process.cwd());
+  
+  if (!resolvedPath.startsWith(resolvedBase)) {
+    throw new Error('Invalid path: attempted path traversal');
+  }
+  return resolvedPath;
+}
 
 // API Usage tracking for owner dashboard
 let APIUsage = null;
 try {
   APIUsage = require('../models/APIUsage');
-} catch (err) {
-  console.warn('APIUsage model not available - usage tracking disabled');
+} catch {
+  // APIUsage model not available - usage tracking disabled
 }
 
 // Helper to log OpenAI usage
@@ -65,11 +77,9 @@ try {
     }
     
     destroy(canvasAndContext) {
-      if (canvasAndContext && canvasAndContext.canvas) {
+      if (canvasAndContext?.canvas) {
         canvasAndContext.canvas.width = 0;
         canvasAndContext.canvas.height = 0;
-      }
-      if (canvasAndContext) {
         canvasAndContext.canvas = null;
         canvasAndContext.context = null;
       }
@@ -166,7 +176,8 @@ JSON only: [{"page":1,"category":"FORM"}...]`;
           }
         });
       }
-    } catch (parseErr) {
+    } catch {
+      // Failed to parse vision response, results may be incomplete
       console.error('  Failed to parse vision response:', responseText);
     }
     
@@ -207,7 +218,7 @@ async function renderPageToBase64(pdf, pageNum, scale = 0.5) {
     }).promise;
     
     // Low quality to reduce base64 size and token usage
-    const buffer = canvasAndContext.canvas.toBuffer('image/jpeg', { quality: 0.5 });
+    const buffer = canvasAndContext.canvas.toBuffer('image/jpeg', { quality: 0.5 }); // NOSONAR - 0.5 is intentional
     canvasFactory.destroy(canvasAndContext);
     
     return buffer.toString('base64');
@@ -220,7 +231,7 @@ async function renderPageToBase64(pdf, pageNum, scale = 0.5) {
 /**
  * Render a specific PDF page to an image file
  */
-async function renderPageToImage(pdf, pageNum, outputPath, scale = 2.0) {
+async function renderPageToImage(pdf, pageNum, outputPath, scale = 2) {
   if (!pdfExtractionAvailable) {
     console.warn('PDF extraction not available - skipping page render for page', pageNum);
     return false;
@@ -313,8 +324,8 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
         
         // Count image operations
         let imageCount = 0;
-        for (let i = 0; i < ops.fnArray.length; i++) {
-          if (ops.fnArray[i] === 85 || ops.fnArray[i] === 82 || ops.fnArray[i] === 83) {
+        for (const fnCode of ops.fnArray) {
+          if (fnCode === 85 || fnCode === 82 || fnCode === 83) {
             imageCount++;
           }
         }
@@ -325,7 +336,7 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
           textLength,
           imageCount
         });
-      } catch (pageErr) {
+      } catch {
         // Skip pages that can't be analyzed
       }
     }
@@ -367,19 +378,13 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
       
       // Debug: Log pages that have potential map/sketch indicators
       if (hasMapKeywords || hasDrawingKeywords || hasTcpMapKeywords) {
-        console.log(`  Page ${pageNum}: hasMap=${hasMapKeywords}, hasTcpMap=${hasTcpMapKeywords}, hasDrawing=${hasDrawingKeywords}, textLen=${textLength}, snippet="${text.substring(0, 100).replace(/\n/g, ' ')}"`);
+        console.log(`  Page ${pageNum}: hasMap=${hasMapKeywords}, hasTcpMap=${hasTcpMapKeywords}, hasDrawing=${hasDrawingKeywords}, textLen=${textLength}, snippet="${text.substring(0, 100).replaceAll('\n', ' ')}"`);
       }
       
-      // === PHOTO DETECTION ===
-      // Photos have picture-related keywords or are in field notes sections
-      const hasPhotoKeywords = /picture|full pole|photos:|field photo|pictures:/i.test(text);
-      const hasFieldNotes = /field notes|field date|oh field notes|confidential.*field/i.test(text);
-      
       // === CATEGORIZE BASED ON CONTENT ===
+      // Note: hasPhotoKeywords, hasFieldNotes, isImageOnly, isImageHeavy, isConfidentialOnly
+      // were removed as unused - vision analysis handles these cases now
       const hasImages = imageCount > 0;
-      const isImageOnly = imageCount > 0 && textLength < 50;  // Pure image, almost no text
-      const isImageHeavy = imageCount > 0 && textLength < 2000; // Increased threshold - CMCS pages can have 500-1500 chars
-      const isConfidentialOnly = textLength < 20 && /confidential/i.test(text); // Just "Confidential" watermark
       
       // Debug: log every page's categorization decision
       console.log(`  Page ${pageNum}: images=${imageCount}, textLen=${textLength}, isForm=${isFormPage}`);
@@ -516,9 +521,10 @@ async function convertPagesToImages(pdfPath, pageNumbers, outputDir, prefix = 'p
     }
     const pdf = await pdfjsLib.getDocument(loadingOptions).promise;
     
-    // Ensure output directory exists
-    if (!fs.existsSync(outputDir)) {
-      fs.mkdirSync(outputDir, { recursive: true });
+    // Ensure output directory exists (validate path to prevent traversal)
+    const safeOutputDir = sanitizePath(outputDir, path.join(__dirname, '..'));
+    if (!fs.existsSync(safeOutputDir)) {
+      fs.mkdirSync(safeOutputDir, { recursive: true });
     }
     
     for (const pageNum of pageNumbers) {
@@ -529,7 +535,7 @@ async function convertPagesToImages(pdfPath, pageNumbers, outputDir, prefix = 'p
       const filename = `${prefix}_page_${pageNum}.jpg`;
       const outputPath = path.join(outputDir, filename);
       
-      const success = await renderPageToImage(pdf, pageNum, outputPath, 2.0);
+      const success = await renderPageToImage(pdf, pageNum, outputPath, 2);
       
       if (success) {
         convertedImages.push({

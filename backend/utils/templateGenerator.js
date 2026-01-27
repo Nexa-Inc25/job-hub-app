@@ -1,6 +1,6 @@
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 /**
  * Generate a Bid Sheet PDF template with job info pre-filled
@@ -119,7 +119,7 @@ async function generateCrewSchedule(jobData) {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   
-  const { woNumber, pmNumber, address, city, client } = jobData;
+  const { woNumber, pmNumber, address, city } = jobData;
   
   // Header
   page.drawText('CREW SCHEDULE', { x: 230, y: 750, size: 20, font: boldFont });

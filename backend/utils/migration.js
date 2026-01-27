@@ -24,7 +24,9 @@ async function runMigration() {
     
     // Step 1: Create default PG&E utility if it doesn't exist
     let pgeUtility = await Utility.findOne({ slug: 'pge' });
-    if (!pgeUtility) {
+    if (pgeUtility) {
+      console.log('PG&E utility already exists:', pgeUtility._id);
+    } else {
       console.log('Creating default PG&E utility...');
       pgeUtility = await Utility.create({
         name: 'Pacific Gas & Electric',
@@ -45,8 +47,6 @@ async function runMigration() {
         isActive: true
       });
       console.log('Created PG&E utility:', pgeUtility._id);
-    } else {
-      console.log('PG&E utility already exists:', pgeUtility._id);
     }
     
     // Step 2: Create default company for existing users if needed

@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('node:fs');
 const OpenAI = require('openai');
 
 // Initialize OpenAI client lazily
@@ -23,7 +23,7 @@ function extractTextFromPDF(buffer) {
   const text = buffer.toString('utf-8');
 
   // Clean up the text - remove non-printable characters
-  const cleanText = text.replace(/[^\x20-\x7E\n\r\t]/g, ' ').replace(/\s+/g, ' ');
+  const cleanText = text.replaceAll(/[^\x20-\x7E\n\r\t]/g, ' ').replaceAll(/\s+/g, ' ');
 
   // If we got meaningful text, return it
   if (cleanText.length > 100) {
@@ -48,7 +48,7 @@ async function getPdfTextFromBuffer(dataBuffer) {
     // Use pdf-parse v1.1.1 - simple function call
     const data = await pdfParse(dataBuffer);
     
-    if (data && data.text && data.text.trim().length > 10) {
+    if (data?.text?.trim().length > 10) {
       console.log('PDF parsed successfully with pdf-parse, pages:', data.numpages, 'text length:', data.text.length);
       return data.text;
     } else {
@@ -58,8 +58,8 @@ async function getPdfTextFromBuffer(dataBuffer) {
       console.log('Fallback extraction completed, text length:', extractedText.length);
       return extractedText;
     }
-  } catch (pdfParseErr) {
-    console.log('pdf-parse failed with error:', pdfParseErr.message);
+  } catch (error_) {
+    console.log('pdf-parse failed with error:', error_.message);
     
     // Fallback: basic text extraction
     const extractedText = extractTextFromPDF(dataBuffer);

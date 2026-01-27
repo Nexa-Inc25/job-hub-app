@@ -1,7 +1,7 @@
 const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const fs = require('fs');
-const path = require('path');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'job-hub-uploads';
 // Cloudflare Worker URL for direct file serving (bypasses Railway for faster loads)

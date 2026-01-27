@@ -42,22 +42,22 @@ const DOCUMENT_TEMPLATES = {
     name: 'Completion Work Confirmation',
     fields: {
       // From Job Package (100% accurate)
-      pm_number: { source: 'job', field: 'pmNumber', confidence: 1.0 },
-      wo_number: { source: 'job', field: 'woNumber', confidence: 1.0 },
-      notification_number: { source: 'job', field: 'notificationNumber', confidence: 1.0 },
-      address: { source: 'job', field: 'address', confidence: 1.0 },
-      city: { source: 'job', field: 'city', confidence: 1.0 },
-      order_type: { source: 'job', field: 'orderType', confidence: 1.0 },
-      mat_code: { source: 'job', field: 'matCode', confidence: 1.0 },
+      pm_number: { source: 'job', field: 'pmNumber', confidence: 1 },
+      wo_number: { source: 'job', field: 'woNumber', confidence: 1 },
+      notification_number: { source: 'job', field: 'notificationNumber', confidence: 1 },
+      address: { source: 'job', field: 'address', confidence: 1 },
+      city: { source: 'job', field: 'city', confidence: 1 },
+      order_type: { source: 'job', field: 'orderType', confidence: 1 },
+      mat_code: { source: 'job', field: 'matCode', confidence: 1 },
       
       // From Context (90%+)
       date: { source: 'context', generator: 'today', confidence: 0.95 },
-      foreman_name: { source: 'user', field: 'name', confidence: 1.0 },
-      foreman_id: { source: 'user', field: 'employeeId', confidence: 1.0 },
+      foreman_name: { source: 'user', field: 'name', confidence: 1 },
+      foreman_id: { source: 'user', field: 'employeeId', confidence: 1 },
       
       // From Patterns (learned)
       excavation_depth: { source: 'pattern', field: 'excavation_depth', confidence: 0.75 },
-      backfill_type: { source: 'pattern', field: 'backfill_type', confidence: 0.80 },
+      backfill_type: { source: 'pattern', field: 'backfill_type', confidence: 0.8 },
       compaction_method: { source: 'pattern', field: 'compaction_method', confidence: 0.85 },
       
       // Requires Human Input
@@ -70,15 +70,15 @@ const DOCUMENT_TEMPLATES = {
   'AS_BUILT': {
     name: 'As-Built Documentation',
     fields: {
-      pm_number: { source: 'job', field: 'pmNumber', confidence: 1.0 },
-      address: { source: 'job', field: 'address', confidence: 1.0 },
+      pm_number: { source: 'job', field: 'pmNumber', confidence: 1 },
+      address: { source: 'job', field: 'address', confidence: 1 },
       date: { source: 'context', generator: 'today', confidence: 0.95 },
-      foreman_name: { source: 'user', field: 'name', confidence: 1.0 },
+      foreman_name: { source: 'user', field: 'name', confidence: 1 },
       
       // These are often the same for similar job types
       pipe_size: { source: 'pattern', field: 'pipe_size', confidence: 0.85 },
       pipe_type: { source: 'pattern', field: 'pipe_type', confidence: 0.85 },
-      depth_of_cover: { source: 'pattern', field: 'depth_of_cover', confidence: 0.70 },
+      depth_of_cover: { source: 'pattern', field: 'depth_of_cover', confidence: 0.7 },
       
       // Must be filled by human
       measurements: { source: 'human', confidence: 0 },
@@ -89,14 +89,14 @@ const DOCUMENT_TEMPLATES = {
   'DAILY_REPORT': {
     name: 'Daily Work Report',
     fields: {
-      date: { source: 'context', generator: 'today', confidence: 1.0 },
-      foreman_name: { source: 'user', field: 'name', confidence: 1.0 },
-      crew_size: { source: 'job', field: 'crewSize', confidence: 0.90 },
+      date: { source: 'context', generator: 'today', confidence: 1 },
+      foreman_name: { source: 'user', field: 'name', confidence: 1 },
+      crew_size: { source: 'job', field: 'crewSize', confidence: 0.9 },
       
       // These can be learned
       start_time: { source: 'pattern', field: 'start_time', defaultValue: '07:00', confidence: 0.85 },
-      end_time: { source: 'pattern', field: 'end_time', defaultValue: '15:30', confidence: 0.80 },
-      weather: { source: 'context', generator: 'weather', confidence: 0.90 },
+      end_time: { source: 'pattern', field: 'end_time', defaultValue: '15:30', confidence: 0.8 },
+      weather: { source: 'context', generator: 'weather', confidence: 0.9 },
       
       // Must be filled
       work_description: { source: 'human', confidence: 0 },
@@ -107,16 +107,16 @@ const DOCUMENT_TEMPLATES = {
   'PRE_FIELD_REPORT': {
     name: 'Pre-Field Assessment',
     fields: {
-      pm_number: { source: 'job', field: 'pmNumber', confidence: 1.0 },
-      address: { source: 'job', field: 'address', confidence: 1.0 },
-      date: { source: 'context', generator: 'today', confidence: 1.0 },
-      gf_name: { source: 'user', field: 'name', confidence: 1.0 },
+      pm_number: { source: 'job', field: 'pmNumber', confidence: 1 },
+      address: { source: 'job', field: 'address', confidence: 1 },
+      date: { source: 'context', generator: 'today', confidence: 1 },
+      gf_name: { source: 'user', field: 'name', confidence: 1 },
       
       // Learned from similar locations
       usa_dig_required: { source: 'pattern', field: 'usa_dig_required', confidence: 0.85 },
-      traffic_control_needed: { source: 'pattern', field: 'traffic_control_needed', confidence: 0.80 },
+      traffic_control_needed: { source: 'pattern', field: 'traffic_control_needed', confidence: 0.8 },
       permit_required: { source: 'pattern', field: 'permit_required', confidence: 0.75 },
-      estimated_crew_size: { source: 'pattern', field: 'crew_size', confidence: 0.70 },
+      estimated_crew_size: { source: 'pattern', field: 'crew_size', confidence: 0.7 },
       estimated_hours: { source: 'pattern', field: 'estimated_hours', confidence: 0.65 },
       
       // Human assessment
@@ -184,7 +184,7 @@ async function generateAutoFill(documentType, jobId, userId) {
         value = generateContextValue(fieldDef.generator, job);
         break;
       
-      case 'pattern':
+      case 'pattern': {
         const patternResult = patterns[fieldDef.field];
         if (patternResult) {
           value = patternResult.value;
@@ -194,6 +194,7 @@ async function generateAutoFill(documentType, jobId, userId) {
           confidence = 0.5;  // Lower confidence for defaults
         }
         break;
+      }
       
       case 'human':
         // Can't auto-fill, requires human input
