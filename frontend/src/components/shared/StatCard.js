@@ -15,9 +15,21 @@ const StatCard = ({
   textPrimary, 
   textSecondary, 
   borderColor,
-  height = '100%'
+  height = '100%',
+  onClick
 }) => (
-  <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2, height }}>
+  <Card 
+    onClick={onClick}
+    sx={{ 
+      bgcolor: cardBg, 
+      border: `1px solid ${borderColor}`, 
+      borderRadius: 2, 
+      height,
+      cursor: onClick ? 'pointer' : 'default',
+      transition: 'transform 0.2s, box-shadow 0.2s',
+      '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 4 } : {}
+    }}
+  >
     <CardContent>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
@@ -44,6 +56,7 @@ StatCard.propTypes = {
   textSecondary: PropTypes.string.isRequired,
   borderColor: PropTypes.string.isRequired,
   height: PropTypes.string,
+  onClick: PropTypes.func,
 };
 
 export default StatCard;

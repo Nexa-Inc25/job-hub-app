@@ -61,6 +61,7 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
+import { getThemeColors } from './shared';
 
 // Category icons and colors
 const CATEGORY_CONFIG = {
@@ -539,11 +540,7 @@ const SpecLibrary = () => {
   const navigate = useNavigate();
   const { mode } = useThemeMode();
 
-  const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';
-  const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
-
+  const { cardBg, textPrimary, textSecondary, borderColor } = getThemeColors(mode);
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
 
   const fetchData = useCallback(async () => {

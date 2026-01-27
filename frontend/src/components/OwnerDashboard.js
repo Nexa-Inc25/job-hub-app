@@ -61,6 +61,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
+import { getThemeColors, CHART_COLORS, STATUS_COLORS } from './shared';
 
 // Extracted StatCard component
 const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend, onClick, cardBg, textPrimary, textSecondary, borderColor, mode }) => (
@@ -126,23 +127,6 @@ const HealthIndicator = ({ status, label, textPrimary }) => {
 };
 HealthIndicator.propTypes = { status: PropTypes.oneOfType([PropTypes.string, PropTypes.bool]), label: PropTypes.string, textPrimary: PropTypes.string };
 
-// Color palette for charts
-const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-const STATUS_COLORS = {
-  new: '#3b82f6',
-  assigned_to_gf: '#8b5cf6',
-  pre_fielding: '#f59e0b',
-  scheduled: '#06b6d4',
-  in_progress: '#22c55e',
-  pending_gf_review: '#eab308',
-  pending_pm_approval: '#f97316',
-  ready_to_submit: '#10b981',
-  submitted: '#6366f1',
-  billed: '#8b5cf6',
-  invoiced: '#22c55e',
-  stuck: '#ef4444',
-};
-
 // Status message map for feedback updates
 const statusMessages = {
   'acknowledged': 'Feedback acknowledged! User will know you\'ve seen their report.',
@@ -177,15 +161,6 @@ const handleFetchError = (err, navigate) => {
   }
   return 'Failed to load dashboard data. Please try again.';
 };
-
-// Helper to get theme-aware colors
-const getThemeColors = (mode) => ({
-  cardBg: mode === 'dark' ? '#1e1e2e' : '#ffffff',
-  textPrimary: mode === 'dark' ? '#e2e8f0' : '#1e293b',
-  textSecondary: mode === 'dark' ? '#94a3b8' : '#64748b',
-  borderColor: mode === 'dark' ? '#334155' : '#e2e8f0',
-  chartGridColor: mode === 'dark' ? '#334155' : '#e5e7eb',
-});
 
 const OwnerDashboard = () => {
   const [stats, setStats] = useState(null);
@@ -603,7 +578,7 @@ const OwnerDashboard = () => {
                   />
                   <Bar dataKey="value" radius={[0, 4, 4, 0]} name="Users">
                     {userRoleData.map((entry) => (
-                      <RechartsCell key={entry.name} fill={COLORS[userRoleData.indexOf(entry) % COLORS.length]} />
+                      <RechartsCell key={entry.name} fill={CHART_COLORS[userRoleData.indexOf(entry) % CHART_COLORS.length]} />
                     ))}
                   </Bar>
                 </BarChart>

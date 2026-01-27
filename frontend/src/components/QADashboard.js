@@ -55,20 +55,7 @@ import {
   CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
-
-// Status colors
-const STATUS_COLORS = {
-  pending_qa_review: '#f59e0b',
-  pending_gf_review: '#eab308',
-  // Audit statuses
-  pending_qa: '#f59e0b',
-  accepted: '#ef4444',
-  disputed: '#22c55e',
-  correction_assigned: '#8b5cf6',
-  correction_submitted: '#06b6d4',
-  resolved: '#22c55e',
-  closed: '#6366f1',
-};
+import { StatCard, getThemeColors, STATUS_COLORS } from './shared';
 
 const INFRACTION_TYPE_LABELS = {
   workmanship: 'Workmanship Issue',
@@ -80,44 +67,6 @@ const INFRACTION_TYPE_LABELS = {
   clearances: 'Clearance Violation',
   grounding: 'Grounding Issue',
   other: 'Other',
-};
-
-// Stat Card Component
-const StatCard = ({ title, value, icon: Icon, color, cardBg, textPrimary, textSecondary, borderColor, onClick }) => (
-  <Card 
-    sx={{ 
-      bgcolor: cardBg, 
-      border: `1px solid ${borderColor}`, 
-      borderRadius: 2,
-      cursor: onClick ? 'pointer' : 'default',
-      transition: 'transform 0.2s, box-shadow 0.2s',
-      '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 4 } : {}
-    }}
-    onClick={onClick}
-  >
-    <CardContent>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
-          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
-        </Box>
-        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
-          <Icon sx={{ color, fontSize: 24 }} />
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
-StatCard.propTypes = {
-  title: PropTypes.string.isRequired,
-  value: PropTypes.node.isRequired,
-  icon: PropTypes.elementType.isRequired,
-  color: PropTypes.string.isRequired,
-  cardBg: PropTypes.string.isRequired,
-  textPrimary: PropTypes.string.isRequired,
-  textSecondary: PropTypes.string.isRequired,
-  borderColor: PropTypes.string.isRequired,
-  onClick: PropTypes.func,
 };
 
 // Review Dialog Component
@@ -584,11 +533,7 @@ const QADashboard = () => {
   const navigate = useNavigate();
   const { mode } = useThemeMode();
 
-  const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';
-  const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
-
+  const { cardBg, textPrimary, textSecondary, borderColor, pageBg, dialogBg } = getThemeColors(mode);
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
 
   const fetchData = useCallback(async () => {
@@ -640,7 +585,7 @@ const QADashboard = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg }}>
         <CircularProgress size={48} sx={{ color: '#6366f1' }} />
       </Box>
     );
@@ -648,15 +593,15 @@ const QADashboard = () => {
 
   if (error) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg, p: 3 }}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#ffffff', borderBottom: `1px solid ${borderColor}` }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
+      <AppBar position="sticky" elevation={0} sx={{ bgcolor: cardBg, borderBottom: `1px solid ${borderColor}` }}>
         <Toolbar>
           <IconButton onClick={() => navigate('/dashboard')} sx={{ mr: 2, color: textPrimary }}>
             <ArrowBackIcon />
