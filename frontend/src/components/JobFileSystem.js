@@ -121,6 +121,30 @@ const findUpdatedFolder = (jobData, selectedFolder) => {
   return null;
 };
 
+// Helper to get subfolder path for uploads
+const getSubfolderPath = (folder) => {
+  if (folder?.grandParentFolder) {
+    return `${folder.parentFolder}/${folder.name}`;
+  }
+  if (folder?.parentFolder) {
+    return folder.name;
+  }
+  return null;
+};
+
+// Helper to get the root folder name for API calls
+const getRootFolderName = (folder) => {
+  return folder?.grandParentFolder || folder?.parentFolder || folder?.name;
+};
+
+// Helper to check if extraction polling should run
+const shouldPollForExtraction = (job) => {
+  if (!job) return false;
+  if (job.aiExtractionComplete === true) return false;
+  if (!job.aiExtractionStarted) return false;
+  return true;
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -203,15 +227,8 @@ const JobFileSystem = () => {
   }, [id]);
 
   // Poll for extraction completion if extraction is actively in progress
-  // Only poll if aiExtractionStarted is set but aiExtractionComplete is false
   useEffect(() => {
-    // Don't poll if:
-    // - No job loaded
-    // - Extraction is already complete
-    // - Extraction was never started (old jobs or jobs without PDF upload)
-    if (!job) return;
-    if (job.aiExtractionComplete === true) return;
-    if (!job.aiExtractionStarted) return; // Only poll if extraction was actually started
+    if (!shouldPollForExtraction(job)) return;
     
     
     const pollInterval = setInterval(async () => {
@@ -265,20 +282,15 @@ const JobFileSystem = () => {
     const formData = new FormData();
     Array.from(files).forEach((file) => formData.append('files', file));
     
-    // If this is a subfolder, include the subfolder path
-    // For nested subfolders (grandParentFolder exists), use the full path
-    if (selectedFolder.grandParentFolder) {
-      // Nested subfolder: e.g., ACI > Pre-Field Documents > Job Photos
-      formData.append('subfolder', `${selectedFolder.parentFolder}/${selectedFolder.name}`);
-    } else if (selectedFolder.parentFolder) {
-      // Direct subfolder: e.g., ACI > Photos
-      formData.append('subfolder', selectedFolder.name);
+    // Add subfolder path if applicable
+    const subfolderPath = getSubfolderPath(selectedFolder);
+    if (subfolderPath) {
+      formData.append('subfolder', subfolderPath);
     }
 
     try {
       const token = localStorage.getItem('token');
-      // Use grandParentFolder for nested subfolders, parentFolder for direct subfolders, or folder name for top-level
-      const folderName = selectedFolder.grandParentFolder || selectedFolder.parentFolder || selectedFolder.name;
+      const folderName = getRootFolderName(selectedFolder);
       await api.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
