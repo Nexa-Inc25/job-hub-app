@@ -52,7 +52,6 @@ import {
   Replay as ReplayIcon,
   ThumbUp as ThumbUpIcon,
   ThumbDown as ThumbDownIcon,
-  HelpOutline as HelpOutlineIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
 
