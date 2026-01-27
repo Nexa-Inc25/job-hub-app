@@ -466,13 +466,12 @@ const JobFileSystem = () => {
       const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
       
       // Build the export URL with proper folder path
-      let exportUrl = `${apiBase}/api/jobs/${job._id}/folders/${encodeURIComponent(selectedFolder.grandParentFolder || selectedFolder.parentFolder || selectedFolder.name)}/export`;
+      let exportUrl = `${apiBase}/api/jobs/${job._id}/folders/${encodeURIComponent(getRootFolderName(selectedFolder))}/export`;
       
       // Add subfolder param if nested
-      if (selectedFolder.parentFolder && !selectedFolder.grandParentFolder) {
-        exportUrl += `?subfolder=${encodeURIComponent(selectedFolder.name)}`;
-      } else if (selectedFolder.grandParentFolder) {
-        exportUrl += `?subfolder=${encodeURIComponent(selectedFolder.parentFolder + '/' + selectedFolder.name)}`;
+      const subfolderPath = getSubfolderPath(selectedFolder);
+      if (subfolderPath) {
+        exportUrl += `?subfolder=${encodeURIComponent(subfolderPath)}`;
       }
       
       // Fetch the ZIP file
@@ -485,11 +484,33 @@ const JobFileSystem = () => {
         throw new Error(errorData.error || 'Export failed');
       }
       
-      // Download the ZIP file
+      // Get the ZIP file as blob
       const blob = await response.blob();
       const filename = `${job.pmNumber || job.woNumber || 'Job'}_GF_Audit_${Date.now()}.zip`;
+      const emailSubject = `GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`;
+      const emailBody = `Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nPlease let me know if you have any questions.\n\nBest regards`;
       
-      // Create download link
+      // Try Web Share API first (works on mobile and some desktops)
+      // This allows direct sharing to email apps with file attached
+      if (navigator.canShare && navigator.canShare({ files: [new File([blob], filename, { type: 'application/zip' })] })) {
+        try {
+          const file = new File([blob], filename, { type: 'application/zip' });
+          await navigator.share({
+            title: emailSubject,
+            text: emailBody,
+            files: [file]
+          });
+          console.log('Shared via Web Share API');
+          return; // Success - don't fall through to mailto
+        } catch (shareErr) {
+          // User cancelled or share failed - fall through to download + mailto
+          if (shareErr.name !== 'AbortError') {
+            console.log('Web Share failed, falling back to download:', shareErr.message);
+          }
+        }
+      }
+      
+      // Fallback: Download ZIP and open mailto (user manually attaches)
       const downloadUrl = globalThis.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
@@ -499,11 +520,10 @@ const JobFileSystem = () => {
       a.remove();
       globalThis.URL.revokeObjectURL(downloadUrl);
       
-      // Open email client with pre-filled subject
-      const subject = encodeURIComponent(`GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`);
-      const body = encodeURIComponent(`Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nThe photos are in the attached ZIP file: ${filename}\n\nPlease let me know if you have any questions.\n\nBest regards`);
-      
-      // Open Outlook/default email client
+      // Open email client with pre-filled subject/body
+      // Note: mailto cannot attach files - user must attach the downloaded ZIP
+      const subject = encodeURIComponent(emailSubject);
+      const body = encodeURIComponent(emailBody + `\n\n📎 Please attach the downloaded file: ${filename}`);
       globalThis.location.href = `mailto:?subject=${subject}&body=${body}`;
       
     } catch (err) {
