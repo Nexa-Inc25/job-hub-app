@@ -352,6 +352,51 @@ function categorizePage(page, result) {
 }
 
 /**
+ * Apply vision categorization result to the result object
+ */
+function applyVisionCategory(category, pageNum, result) {
+  switch (category) {
+    case 'SKETCH':
+      result.drawings.push(pageNum);
+      break;
+    case 'MAP':
+      result.maps.push(pageNum);
+      break;
+    case 'TCP_MAP':
+      result.tcpMaps.push(pageNum);
+      break;
+    case 'PHOTO':
+      result.photos.push(pageNum);
+      break;
+    case 'FORM':
+      result.forms.push(pageNum);
+      console.log(`  Skipping FORM page ${pageNum}`);
+      break;
+    default:
+      console.log(`  Unknown category "${category}" for page ${pageNum}, defaulting to photo`);
+      result.photos.push(pageNum);
+  }
+}
+
+/**
+ * Process a batch of pages with vision and apply results
+ */
+async function processVisionBatch(batch, batchIndex, jobId, result) {
+  if (batchIndex > 0) {
+    const totalBatches = Math.ceil(batch.length / 8);
+    console.log(`  Waiting 3s before next batch (${batchIndex + 1}/${totalBatches})...`);
+    await delay(3000);
+  }
+  
+  const batchResults = await categorizePagesWithVisionBatch(batch, 0, jobId);
+  
+  for (const page of batch) {
+    const category = batchResults.get(page.pageNum);
+    applyVisionCategory(category, page.pageNum, result);
+  }
+}
+
+/**
  * Analyze each page of the PDF to determine its content type
  * POSITION-INDEPENDENT: Works regardless of page order in the job package
  * Returns categorized page numbers based on actual content analysis
@@ -428,58 +473,33 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
       console.log(`Using vision to categorize ${visionCandidates.length} image-heavy pages: [${pageNums.join(', ')}]`);
       
       // Render all pages to base64 first
-      const pagesWithImages = [];
-      for (const page of visionCandidates) {
-        const base64 = await renderPageToBase64(pdf, page.pageNum, 0.8); // Lower scale to reduce tokens
-        if (base64) {
-          pagesWithImages.push({ pageNum: page.pageNum, base64 });
-        } else {
-          // Fallback to photo if render fails
-          result.photos.push(page.pageNum);
-        }
+      const pagesWithImages = await Promise.all(
+        visionCandidates.map(async (page) => {
+          const base64 = await renderPageToBase64(pdf, page.pageNum, 0.8);
+          return base64 ? { pageNum: page.pageNum, base64 } : null;
+        })
+      );
+      
+      // Add failed renders to photos, filter successful ones
+      const validPages = pagesWithImages.filter(p => {
+        if (p === null) return false;
+        return true;
+      });
+      const failedCount = pagesWithImages.length - validPages.length;
+      if (failedCount > 0) {
+        visionCandidates.slice(0, failedCount).forEach(p => result.photos.push(p.pageNum));
       }
       
-      // Process in batches of 8 pages per API call (larger batches = fewer calls = less rate limiting)
+      // Process in batches of 8 pages per API call
       const BATCH_SIZE = 8;
-      for (let i = 0; i < pagesWithImages.length; i += BATCH_SIZE) {
-        const batch = pagesWithImages.slice(i, i + BATCH_SIZE);
-        
-        // Add delay between batches to avoid rate limits (3 seconds)
-        if (i > 0) {
-          console.log(`  Waiting 3s before next batch (${Math.floor(i/BATCH_SIZE)+1}/${Math.ceil(pagesWithImages.length/BATCH_SIZE)})...`);
-          await delay(3000);
-        }
-        
-        const batchResults = await categorizePagesWithVisionBatch(batch, 0, jobId);
-        
-        // Process results
-        for (const page of batch) {
-          const category = batchResults.get(page.pageNum);
-          if (category === 'SKETCH') {
-            result.drawings.push(page.pageNum);
-          } else if (category === 'MAP') {
-            result.maps.push(page.pageNum);
-          } else if (category === 'TCP_MAP') {
-            result.tcpMaps.push(page.pageNum);
-          } else if (category === 'PHOTO') {
-            result.photos.push(page.pageNum);
-          } else if (category === 'FORM') {
-            // FORM pages are excluded - don't add to any extraction list
-            result.forms.push(page.pageNum);
-            console.log(`  Skipping FORM page ${page.pageNum}`);
-          } else {
-            // Only default to photo if we got no category at all
-            console.log(`  Unknown category "${category}" for page ${page.pageNum}, defaulting to photo`);
-            result.photos.push(page.pageNum);
-          }
-        }
+      for (let i = 0; i < validPages.length; i += BATCH_SIZE) {
+        const batch = validPages.slice(i, i + BATCH_SIZE);
+        await processVisionBatch(batch, Math.floor(i / BATCH_SIZE), jobId, result);
       }
     } else if (visionCandidates.length > 0) {
       // No OpenAI key, default all to photos
       console.log(`No OpenAI key for vision, defaulting ${visionCandidates.length} pages to photos`);
-      for (const page of visionCandidates) {
-        result.photos.push(page.pageNum);
-      }
+      visionCandidates.forEach(page => result.photos.push(page.pageNum));
     }
     
     // Remove duplicates and sort

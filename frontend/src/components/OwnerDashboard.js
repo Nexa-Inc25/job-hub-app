@@ -143,6 +143,50 @@ const STATUS_COLORS = {
   stuck: '#ef4444',
 };
 
+// Status message map for feedback updates
+const statusMessages = {
+  'acknowledged': 'Feedback acknowledged! User will know you\'ve seen their report.',
+  'in_progress': 'Marked as in progress.',
+  'resolved': 'Marked as resolved!'
+};
+
+// Helper to validate super admin token
+const validateSuperAdminToken = () => {
+  const token = localStorage.getItem('token');
+  if (!token) return { valid: false, redirect: true };
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return { valid: payload.isSuperAdmin === true, redirect: false };
+  } catch {
+    return { valid: false, redirect: true };
+  }
+};
+
+// Helper to handle fetch errors
+const handleFetchError = (err, navigate) => {
+  console.error('Error fetching owner stats:', err);
+  const status = err.response?.status;
+  
+  if (status === 403) {
+    return 'Super Admin access required. This dashboard is only for Job Hub platform owners.';
+  }
+  if (status === 401) {
+    navigate('/login');
+    return null;
+  }
+  return 'Failed to load dashboard data. Please try again.';
+};
+
+// Helper to get theme-aware colors
+const getThemeColors = (mode) => ({
+  cardBg: mode === 'dark' ? '#1e1e2e' : '#ffffff',
+  textPrimary: mode === 'dark' ? '#e2e8f0' : '#1e293b',
+  textSecondary: mode === 'dark' ? '#94a3b8' : '#64748b',
+  borderColor: mode === 'dark' ? '#334155' : '#e2e8f0',
+  chartGridColor: mode === 'dark' ? '#334155' : '#e5e7eb',
+});
+
 const OwnerDashboard = () => {
   const [stats, setStats] = useState(null);
   const [health, setHealth] = useState(null);
@@ -178,12 +222,6 @@ const OwnerDashboard = () => {
         };
       });
       
-      const statusMessages = {
-        'acknowledged': 'Feedback acknowledged! User will know you\'ve seen their report.',
-        'in_progress': 'Marked as in progress.',
-        'resolved': 'Marked as resolved!'
-      };
-      
       setSnackbar({ 
         open: true, 
         message: statusMessages[newStatus] || `Status updated to ${newStatus}`, 
@@ -200,34 +238,6 @@ const OwnerDashboard = () => {
       setUpdatingFeedback(null);
     }
   };
-
-  // Helper to validate super admin token
-  const validateSuperAdminToken = useCallback(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return { valid: false, redirect: true };
-    
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return { valid: payload.isSuperAdmin === true, redirect: false };
-    } catch {
-      return { valid: false, redirect: true };
-    }
-  }, []);
-
-  // Helper to handle fetch errors
-  const handleFetchError = useCallback((err) => {
-    console.error('Error fetching owner stats:', err);
-    const status = err.response?.status;
-    
-    if (status === 403) {
-      return 'Super Admin access required. This dashboard is only for Job Hub platform owners.';
-    }
-    if (status === 401) {
-      navigate('/login');
-      return null;
-    }
-    return 'Failed to load dashboard data. Please try again.';
-  }, [navigate]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -257,12 +267,12 @@ const OwnerDashboard = () => {
       setFeedbackCounts(feedbackRes.data.counts || {});
       setLastRefresh(new Date());
     } catch (err) {
-      const errorMsg = handleFetchError(err);
+      const errorMsg = handleFetchError(err, navigate);
       if (errorMsg) setError(errorMsg);
     } finally {
       setLoading(false);
     }
-  }, [navigate, validateSuperAdminToken, handleFetchError]);
+  }, [navigate]);
 
   useEffect(() => {
     fetchData();
@@ -272,11 +282,7 @@ const OwnerDashboard = () => {
   }, [fetchData]);
 
   // Theme-aware colors
-  const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';
-  const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
-  const chartGridColor = mode === 'dark' ? '#334155' : '#e5e7eb';
+  const { cardBg, textPrimary, textSecondary, borderColor, chartGridColor } = getThemeColors(mode);
 
   // Theme props to pass to extracted components
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor, chartGridColor, mode };

@@ -93,11 +93,14 @@ async function captureFormCompletion(jobId, formType, fields, completionTimeSeco
       return 'text';
     };
 
+    // Helper to extract value from field data
+    const extractValue = (data) => (data.value === undefined ? data : data.value);
+
     // Convert fields object to array of field entries
     const fieldEntries = Object.entries(fields).map(([fieldName, fieldData]) => ({
       fieldName,
       fieldType: getFieldType(fieldData),
-      value: fieldData.value !== undefined ? fieldData.value : fieldData,
+      value: extractValue(fieldData),
       wasAISuggested: fieldData.wasAISuggested || false,
       wasAccepted: fieldData.wasAccepted !== false,
       userOverride: fieldData.userOverride || null,

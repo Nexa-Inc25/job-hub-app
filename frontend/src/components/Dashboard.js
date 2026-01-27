@@ -74,6 +74,71 @@ import FormControlLabel from '@mui/material/FormControlLabel';
 import Collapse from '@mui/material/Collapse';
 import { useThemeMode } from '../ThemeContext';
 
+// Helper functions extracted to reduce component complexity
+const needsPreField = (status) => {
+  return ['new', 'assigned_to_gf', 'pending', 'pre_fielding', 'pre-field'].includes(status);
+};
+
+const getDependencyStatusColor = (status) => {
+  const colorMap = {
+    'not_required': 'success',
+    'scheduled': 'info',
+    'required': 'warning',
+    'check': 'default'
+  };
+  return colorMap[status] || 'default';
+};
+
+const getDependencyStatusLabel = (status) => {
+  const labels = {
+    'required': 'REQUIRED',
+    'check': 'CHECK',
+    'scheduled': 'SCHEDULED',
+    'not_required': 'NOT REQUIRED',
+  };
+  return labels[status] || status;
+};
+
+const getDependencyTypeLabel = (type) => {
+  const labels = {
+    'usa': 'USA',
+    'vegetation': 'Vegetation',
+    'traffic_control': 'Traffic Control',
+    'no_parks': 'No Parks',
+    'cwc': 'CWC',
+    'afw_type': 'AFW Type',
+    'special_equipment': 'Special Equipment',
+    'civil': 'Civil'
+  };
+  return labels[type] || type;
+};
+
+// Pre-field checklist items - static data
+const preFieldItems = [
+  { key: 'usa', label: 'USA', description: 'Underground utility locate needed' },
+  { key: 'vegetation', label: 'Vegetation', description: 'Vegetation management needed' },
+  { key: 'traffic_control', label: 'Traffic Control', description: 'TC plan or flaggers needed' },
+  { key: 'no_parks', label: 'No Parks', description: 'No parks restriction applies' },
+  { key: 'cwc', label: 'CWC', description: 'CWC coordination required' },
+  { key: 'afw_type', label: 'AFW Type', description: 'AFW type specification (if CWC)' },
+  { key: 'special_equipment', label: 'Special Equipment', description: 'Special equipment needed' },
+  { key: 'civil', label: 'Civil', description: 'Trenching, boring, or excavation' },
+];
+
+// Status cycle for dependency toggling
+const statusCycle = ['required', 'check', 'scheduled', 'not_required'];
+
+// Parse JWT token payload
+const parseTokenPayload = (token) => {
+  if (!token) return null;
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch {
+    console.error('Failed to parse auth token');
+    return null;
+  }
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -111,22 +176,9 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
 
-  // Helper to parse user info from JWT token
-  const parseTokenPayload = useCallback(() => {
-    const token = localStorage.getItem('token');
-    if (!token) return null;
-    
-    try {
-      return JSON.parse(atob(token.split('.')[1]));
-    } catch {
-      console.error('Failed to parse auth token');
-      return null;
-    }
-  }, []);
-
   // Check user role from token and fetch name if needed
   useEffect(() => {
-    const payload = parseTokenPayload();
+    const payload = parseTokenPayload(localStorage.getItem('token'));
     
     if (!payload) {
       setIsAdmin(false);
@@ -150,7 +202,7 @@ const Dashboard = () => {
         .then(res => setUserName(res.data?.name || ''))
         .catch(() => setUserName(''));
     }
-  }, [parseTokenPayload]);
+  }, []);
 
   // Fetch pending approvals for GF/PM/Admin
   const fetchPendingApprovals = useCallback(async () => {
@@ -219,53 +271,6 @@ const Dashboard = () => {
     // Release lock after animation completes
     setTimeout(() => setFlipLock(false), 700);
   };
-
-  // Format dependency status
-  const getDependencyStatusColor = (status) => {
-    switch (status) {
-      case 'not_required': return 'success';
-      case 'scheduled': return 'info';
-      case 'required': return 'warning';
-      case 'check': return 'default';
-      default: return 'default';
-    }
-  };
-
-  const getDependencyStatusLabel = (status) => {
-    const labels = {
-      'required': 'REQUIRED',
-      'check': 'CHECK',
-      'scheduled': 'SCHEDULED',
-      'not_required': 'NOT REQUIRED',
-    };
-    return labels[status] || status;
-  };
-
-  const getDependencyTypeLabel = (type) => {
-    const labels = {
-      'usa': 'USA',
-      'vegetation': 'Vegetation',
-      'traffic_control': 'Traffic Control',
-      'no_parks': 'No Parks',
-      'cwc': 'CWC',
-      'afw_type': 'AFW Type',
-      'special_equipment': 'Special Equipment',
-      'civil': 'Civil'
-    };
-    return labels[type] || type;
-  };
-
-  // Pre-field checklist items
-  const preFieldItems = [
-    { key: 'usa', label: 'USA', description: 'Underground utility locate needed' },
-    { key: 'vegetation', label: 'Vegetation', description: 'Vegetation management needed' },
-    { key: 'traffic_control', label: 'Traffic Control', description: 'TC plan or flaggers needed' },
-    { key: 'no_parks', label: 'No Parks', description: 'No parks restriction applies' },
-    { key: 'cwc', label: 'CWC', description: 'CWC coordination required' },
-    { key: 'afw_type', label: 'AFW Type', description: 'AFW type specification (if CWC)' },
-    { key: 'special_equipment', label: 'Special Equipment', description: 'Special equipment needed' },
-    { key: 'civil', label: 'Civil', description: 'Trenching, boring, or excavation' },
-  ];
 
   // Initialize pre-field checklist for a job
   const initPreFieldChecklist = (jobId) => {
@@ -351,11 +356,6 @@ const Dashboard = () => {
     }
   };
 
-  // Check if job shows pre-field checklist (including jobs actively being pre-fielded)
-  const needsPreField = (status) => {
-    return ['new', 'assigned_to_gf', 'pending', 'pre_fielding', 'pre-field'].includes(status);
-  };
-
   // Handle marking a job as stuck
   const handleOpenStuckDialog = (jobId, e) => {
     if (e) e.stopPropagation();
@@ -418,7 +418,6 @@ const Dashboard = () => {
   const handleDependencyStatusClick = async (jobId, depId, currentStatus, e) => {
     e.stopPropagation(); // Prevent card flip
     
-    const statusCycle = ['required', 'check', 'scheduled', 'not_required'];
     const currentIndex = statusCycle.indexOf(currentStatus);
     const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
     

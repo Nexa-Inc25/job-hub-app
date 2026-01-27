@@ -20,6 +20,42 @@ function sanitizePathComponent(component) {
   return component.replaceAll('..', '').replaceAll(/[/\\]/g, '_').trim();
 }
 
+// Helper to upload extracted images to R2 or use local path
+async function uploadExtractedImages(images, folder, jobId) {
+  const uploaded = [];
+  for (const img of images) {
+    if (r2Storage.isR2Configured() && fs.existsSync(img.path)) {
+      try {
+        const result = await r2Storage.uploadJobFile(
+          img.path, 
+          jobId.toString(), 
+          folder, 
+          img.name
+        );
+        uploaded.push({
+          ...img,
+          url: `/api/files/${result.key}`,
+          r2Key: result.key
+        });
+        // Clean up local file after upload
+        fs.unlinkSync(img.path);
+      } catch (error_) {
+        console.error(`Failed to upload ${img.name}:`, error_.message);
+        uploaded.push({
+          ...img,
+          url: `/uploads/job_${jobId}/${folder}/${img.name}`
+        });
+      }
+    } else {
+      uploaded.push({
+        ...img,
+        url: `/uploads/job_${jobId}/${folder}/${img.name}`
+      });
+    }
+  }
+  return uploaded;
+}
+
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
 let pdfUtils = null;
 let pdfImageExtractor = null;
@@ -268,42 +304,6 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     const pageAnalysis = await getPdfImageExtractor().analyzePagesByContent(pdfPath);
     console.log('Page analysis result:', pageAnalysis);
     
-    // Helper to upload extracted images to R2
-    async function uploadExtractedImages(images, folder) {
-      const uploaded = [];
-      for (const img of images) {
-        if (r2Storage.isR2Configured() && fs.existsSync(img.path)) {
-          try {
-            const result = await r2Storage.uploadJobFile(
-              img.path, 
-              jobId.toString(), 
-              folder, 
-              img.name
-            );
-            uploaded.push({
-              ...img,
-              url: `/api/files/${result.key}`,
-              r2Key: result.key
-            });
-            // Clean up local file after upload
-            fs.unlinkSync(img.path);
-          } catch (error_) {
-            console.error(`Failed to upload ${img.name}:`, error_.message);
-            uploaded.push({
-              ...img,
-              url: `/uploads/job_${jobId}/${folder}/${img.name}`
-            });
-          }
-        } else {
-          uploaded.push({
-            ...img,
-            url: `/uploads/job_${jobId}/${folder}/${img.name}`
-          });
-        }
-      }
-      return uploaded;
-    }
-    
     // 2. Convert identified drawings to images
     if (pageAnalysis.drawings?.length > 0) {
       console.log('Converting drawing pages:', pageAnalysis.drawings);
@@ -313,7 +313,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
         drawingsDir, 
         'drawing'
       );
-      extractedAssets.drawings = await uploadExtractedImages(drawings, 'drawings');
+      extractedAssets.drawings = await uploadExtractedImages(drawings, 'drawings', jobId);
     }
     
     // 3. Convert identified maps to images
@@ -325,7 +325,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
         mapsDir, 
         'map'
       );
-      extractedAssets.maps = await uploadExtractedImages(maps, 'maps');
+      extractedAssets.maps = await uploadExtractedImages(maps, 'maps', jobId);
     }
     
     // 4. Convert identified photos to images
@@ -337,7 +337,7 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
         photosDir, 
         'photo'
       );
-      extractedAssets.photos = await uploadExtractedImages(photos, 'photos');
+      extractedAssets.photos = await uploadExtractedImages(photos, 'photos', jobId);
     }
     
     // 4. Update job with extracted assets
