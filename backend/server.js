@@ -2285,22 +2285,27 @@ app.get('/api/admin/owner-stats', authenticateUser, requireSuperAdmin, async (re
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
     // === USER METRICS ===
-    const totalUsers = await User.countDocuments();
+    // Only count users with a companyId (excludes super admins and orphaned users)
+    const userFilter = { companyId: { $exists: true, $ne: null }, isSuperAdmin: { $ne: true } };
+    const totalUsers = await User.countDocuments(userFilter);
     const newUsersThisMonth = await User.countDocuments({ 
+      ...userFilter,
       createdAt: { $gte: thirtyDaysAgo } 
     });
     const newUsersThisWeek = await User.countDocuments({ 
+      ...userFilter,
       createdAt: { $gte: sevenDaysAgo } 
     });
     
-    // Users by role
+    // Users by role (only company users)
     const usersByRole = await User.aggregate([
+      { $match: userFilter },
       { $group: { _id: '$role', count: { $sum: 1 } } }
     ]);
     
-    // User growth trend (last 30 days)
+    // User growth trend (last 30 days, only company users)
     const userGrowth = await User.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $match: { ...userFilter, createdAt: { $gte: thirtyDaysAgo } } },
       {
         $group: {
           _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
