@@ -5103,6 +5103,8 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
         ]
       });
       
+      // Save new job first so it has an _id for file uploads
+      await job.save();
       isNewAuditJob = true;
     }
     
