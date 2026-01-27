@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const OpenAI = require('openai');
 
 // Helper to sanitize directory paths (prevent path traversal)
@@ -186,7 +187,7 @@ JSON only: [{"page":1,"category":"FORM"}...]`;
   } catch (err) {
     // Handle rate limit with exponential backoff (base 2s + jitter)
     if (err.message?.includes('429') && retryCount < 5) {
-      const backoffMs = Math.min(2000 * Math.pow(2, retryCount), 60000) + Math.random() * 2000;
+      const backoffMs = Math.min(2000 * Math.pow(2, retryCount), 60000) + crypto.randomInt(2000);
       console.log(`  Rate limited, waiting ${(backoffMs/1000).toFixed(1)}s and retrying (attempt ${retryCount + 1}/5)...`);
       await delay(backoffMs);
       return categorizePagesWithVisionBatch(pagesWithImages, retryCount + 1, jobId);
