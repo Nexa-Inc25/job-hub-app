@@ -1046,7 +1046,7 @@ const Dashboard = () => {
           <Box>
             {/* Personalized Welcome Message */}
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-              {userName ? `Welcome back, ${userName.split(' ')[0]}! 👋` : 'Welcome Back!'}
+              {userName ? `Welcome back, ${userName.split(' ')[0]}!` : 'Welcome Back!'}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
               {getDashboardTitle()}
@@ -1341,7 +1341,7 @@ const Dashboard = () => {
                               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                                 {job.userId && (
                                   <Typography variant="caption" color="text.secondary">
-                                    📝 Created by {job.userId.name || job.userId.email}
+                                    Created by {job.userId.name || job.userId.email}
                                   </Typography>
                                 )}
                                 {job.dueDate && (
@@ -1771,7 +1771,7 @@ const Dashboard = () => {
                         <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           {/* Created By */}
                           <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
-                            📝 Created: {formatDate(job.createdAt)}
+                            Created: {formatDate(job.createdAt)}
                             {job.userId && (
                               <span style={{ fontWeight: 'bold' }}>
                                 {' '}by {job.userId.name || job.userId.email || 'Unknown'}

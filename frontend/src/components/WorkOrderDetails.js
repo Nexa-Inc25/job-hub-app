@@ -476,7 +476,7 @@ const WorkOrderDetails = () => {
                   {job.createdAt && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
-                        📋 Job Created
+                        Job Created
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.createdAt)}
@@ -580,7 +580,7 @@ const WorkOrderDetails = () => {
                   {job.gfReviewDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color={job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main'}>
-                        {job.gfReviewStatus === 'approved' ? '✅' : '❌'} GF Review: {job.gfReviewStatus?.toUpperCase()}
+                        GF Review: {job.gfReviewStatus?.toUpperCase()}
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.gfReviewDate)}
@@ -603,7 +603,7 @@ const WorkOrderDetails = () => {
                   {job.pmApprovalDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color={job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main'}>
-                        {job.pmApprovalStatus === 'approved' ? '✅' : '❌'} PM Approval: {job.pmApprovalStatus?.toUpperCase()}
+                        PM Approval: {job.pmApprovalStatus?.toUpperCase()}
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.pmApprovalDate)}
@@ -626,7 +626,7 @@ const WorkOrderDetails = () => {
                   {job.completedDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
-                        🎉 Completed
+                        Completed
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.completedDate)}

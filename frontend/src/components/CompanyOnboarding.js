@@ -381,7 +381,7 @@ const CompanyOnboarding = () => {
           borderRadius: 3
         }}>
           <Typography variant="h6" sx={{ color: '#6366f1', mb: 1, fontWeight: 600 }}>
-            📋 How to Add a New Customer
+            How to Add a New Customer
           </Typography>
           <Typography variant="body1" sx={{ color: textPrimary }}>
             1. Click <strong>"Add New Company"</strong> and enter the company name<br/>

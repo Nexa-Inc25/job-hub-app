@@ -78,7 +78,7 @@ class ErrorBoundary extends Component {
             }}
           >
             <Typography variant="h4" gutterBottom sx={{ color: 'error.main' }}>
-              ⚠️ Something went wrong
+              Something went wrong
             </Typography>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
