@@ -17,7 +17,7 @@ function isValidObjectId(id) {
 function sanitizePathComponent(component) {
   if (!component || typeof component !== 'string') return '';
   // Remove any path traversal attempts and special characters
-  return component.replace(/\.\./g, '').replace(/[/\\]/g, '_').trim();
+  return component.replaceAll('..', '').replaceAll(/[/\\]/g, '_').trim();
 }
 
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)

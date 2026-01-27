@@ -145,6 +145,28 @@ const shouldPollForExtraction = (job) => {
   return true;
 };
 
+// Helper to fetch job data - extracted to reduce component complexity
+const fetchJobDataHelper = async (id, navigate) => {
+  const token = localStorage.getItem('token');
+  if (!token) {
+    return { error: 'No authentication token found. Please log in.' };
+  }
+  if (!id) {
+    return { error: 'No job ID provided' };
+  }
+  
+  try {
+    const [jobResponse, jobsListResponse] = await Promise.all([
+      api.get(`/api/jobs/${id}`),
+      api.get('/api/jobs')
+    ]);
+    return { job: jobResponse.data, jobs: jobsListResponse.data };
+  } catch (err) {
+    console.error('Error fetching job data:', err);
+    return { error: getApiErrorMessage(err, navigate) };
+  }
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -184,45 +206,26 @@ const JobFileSystem = () => {
   }, []);
 
   useEffect(() => {
-    const fetchJobData = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('No authentication token found. Please log in.');
+    const loadJobData = async () => {
+      const result = await fetchJobDataHelper(id, navigate);
+      
+      if (result.error) {
+        setError(result.error);
         setLoading(false);
         return;
       }
-      if (!id) {
-        setError('No job ID provided');
-        setLoading(false);
-        return;
+      
+      setJob(result.job);
+      setJobs(result.jobs);
+      cacheJob(result.job);
+      getPendingPhotos(id).then(photos => setPendingPhotos(photos));
+      
+      if (result.job.folders?.length > 0) {
+        setSelectedFolder(result.job.folders[0]);
       }
-      try {
-        // Fetch the specific job by ID (includes folders) and job list (for switcher)
-        const [jobResponse, jobsListResponse] = await Promise.all([
-          api.get(`/api/jobs/${id}`),
-          api.get('/api/jobs')
-        ]);
-        
-        setJob(jobResponse.data);
-        setJobs(jobsListResponse.data);
-        
-        // Cache job for offline viewing
-        cacheJob(jobResponse.data);
-        
-        // Load any pending photos for this job
-        getPendingPhotos(id).then(photos => setPendingPhotos(photos));
-        
-        if (jobResponse.data.folders?.length > 0) {
-          setSelectedFolder(jobResponse.data.folders[0]); // Select first folder by default
-        }
-      } catch (err) {
-        console.error('Error fetching job data:', err);
-        setError(getApiErrorMessage(err, navigate));
-      } finally {
-        setLoading(false);
-      }
+      setLoading(false);
     };
-    fetchJobData();
+    loadJobData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
