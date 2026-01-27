@@ -17,8 +17,6 @@ import {
   CircularProgress,
   Alert,
   Grid,
-  Card,
-  CardContent,
   Button,
   Tab,
   Tabs,
@@ -533,7 +531,7 @@ const QADashboard = () => {
   const navigate = useNavigate();
   const { mode } = useThemeMode();
 
-  const { cardBg, textPrimary, textSecondary, borderColor, pageBg, dialogBg } = getThemeColors(mode);
+  const { cardBg, textPrimary, textSecondary, borderColor, pageBg } = getThemeColors(mode);
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
 
   const fetchData = useCallback(async () => {
