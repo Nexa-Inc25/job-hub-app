@@ -2,7 +2,6 @@
 // Detailed view of all jobs across all companies
 
 import React, { useState, useEffect, useCallback } from 'react';
-import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -17,8 +16,6 @@ import {
   CircularProgress,
   Alert,
   Grid,
-  Card,
-  CardContent,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -40,6 +37,7 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
 } from 'recharts';
+import { StatCard } from './shared';
 
 // Priority color lookup
 const PRIORITY_COLORS = {
@@ -47,29 +45,6 @@ const PRIORITY_COLORS = {
   high: '#f59e0b',
   medium: '#6366f1',
   low: '#22c55e',
-};
-
-// Extracted StatCard component
-const StatCard = ({ title, value, subtitle, icon: Icon, color, cardBg, textPrimary, textSecondary, borderColor }) => (
-  <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2 }}>
-    <CardContent>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
-          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
-          {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
-        </Box>
-        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
-          <Icon sx={{ color, fontSize: 24 }} />
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
-StatCard.propTypes = { 
-  title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, 
-  icon: PropTypes.elementType, color: PropTypes.string,
-  cardBg: PropTypes.string, textPrimary: PropTypes.string, textSecondary: PropTypes.string, borderColor: PropTypes.string
 };
 
 const STATUS_COLORS = {
