@@ -5095,7 +5095,13 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
         utilityId: user?.utilityId,
         createdBy: req.userId,
         createdFromAudit: true, // Flag to indicate this was created from an audit
-        notes: `Created from utility audit - PM ${extracted.pmNumber} was audited but not found in system.`,
+        notes: [{
+          message: `Created from utility audit - PM ${extracted.pmNumber} was audited but original work order was not found in system.`,
+          userId: req.userId,
+          userName: user?.name || 'QA System',
+          userRole: user?.role || 'qa',
+          noteType: 'update'
+        }],
         folders: [
           { name: 'ACI', documents: [], subfolders: [] },
           { name: 'Job Package', documents: [], subfolders: [] },
