@@ -3727,18 +3727,10 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
       return res.status(400).json({ error: 'No documents to export in this folder' });
     }
     
-    // Create ZIP archive
-    const archive = archiver('zip', { zlib: { level: 5 } });
-    
-    // Set response headers for ZIP download
     const zipFilename = `${job.pmNumber || job.woNumber || 'Job'}_${exportFolderName}_${Date.now()}.zip`;
-    res.setHeader('Content-Type', 'application/zip');
-    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
     
-    // Pipe archive to response
-    archive.pipe(res);
-    
-    // Add each document to the archive
+    // First, fetch all files into memory
+    const filesToZip = [];
     for (const doc of documents) {
       try {
         let fileBuffer = null;
@@ -3773,20 +3765,50 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
         }
         
         if (fileBuffer) {
-          archive.append(fileBuffer, { name: doc.name });
-          console.log(`Added to ZIP: ${doc.name}`);
+          filesToZip.push({ name: doc.name, buffer: fileBuffer });
+          console.log(`Prepared for ZIP: ${doc.name}`);
         } else {
           console.warn(`Could not fetch file: ${doc.name}`);
         }
       } catch (docErr) {
-        console.error(`Error adding ${doc.name} to ZIP:`, docErr.message);
-        // Continue with other files
+        console.error(`Error fetching ${doc.name}:`, docErr.message);
       }
     }
     
-    // Finalize archive
+    if (filesToZip.length === 0) {
+      return res.status(400).json({ error: 'Could not fetch any files to export' });
+    }
+    
+    // Create ZIP archive in memory first to ensure it's valid
+    const archive = archiver('zip', { zlib: { level: 5 } });
+    const zipChunks = [];
+    
+    // Collect ZIP data into memory
+    archive.on('data', (chunk) => zipChunks.push(chunk));
+    archive.on('warning', (err) => console.warn('Archive warning:', err.message));
+    archive.on('error', (err) => { throw err; });
+    
+    // Add all files to archive
+    for (const file of filesToZip) {
+      archive.append(file.buffer, { name: file.name });
+    }
+    
+    // Finalize and wait for completion
     await archive.finalize();
-    console.log(`ZIP export complete: ${zipFilename} with ${documents.length} files`);
+    
+    // Wait for all data to be collected
+    await new Promise((resolve) => archive.on('end', resolve));
+    
+    // Combine all chunks into final ZIP buffer
+    const zipBuffer = Buffer.concat(zipChunks);
+    
+    // Send the complete, valid ZIP
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
+    res.setHeader('Content-Length', zipBuffer.length);
+    res.send(zipBuffer);
+    
+    console.log(`ZIP export complete: ${zipFilename} with ${filesToZip.length} files, size: ${zipBuffer.length} bytes`);
     
   } catch (err) {
     console.error('Export folder error:', err);
@@ -4907,6 +4929,232 @@ app.put('/api/jobs/:id/audit/:auditId/resolve', authenticateUser, async (req, re
   } catch (err) {
     console.error('Resolve audit error:', err);
     res.status(500).json({ error: 'Failed to resolve audit' });
+  }
+});
+
+// ==================== QA AUDIT PDF EXTRACTION ====================
+// Upload and extract failed audit PDF from utility (e.g., PG&E)
+// Finds the original job by PM number and creates the audit record
+app.post('/api/qa/extract-audit', authenticateUser, upload.single('pdf'), async (req, res) => {
+  const startTime = Date.now();
+  const APIUsage = require('./models/APIUsage');
+  let pdfPath = null;
+  
+  try {
+    const user = await User.findById(req.userId);
+    
+    // Only QA can upload failed audits
+    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
+      if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {}
+      return res.status(403).json({ error: 'QA access required' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No PDF file provided' });
+    }
+    
+    pdfPath = req.file.path;
+    
+    // STEP 1: Parse PDF text
+    let text = '';
+    try {
+      const pdfParse = require('pdf-parse');
+      const pdfBuffer = fs.readFileSync(pdfPath);
+      const pdfData = await pdfParse(pdfBuffer, { max: 3 }); // First 3 pages
+      text = pdfData.text.substring(0, 8000);
+    } catch (parseErr) {
+      console.warn('PDF parsing failed:', parseErr.message);
+      text = req.file.originalname || '';
+    }
+    
+    // STEP 2: AI extraction with audit-specific prompt
+    if (!process.env.OPENAI_API_KEY) {
+      try { fs.unlinkSync(pdfPath); } catch (e) {}
+      return res.status(500).json({ error: 'AI extraction not configured' });
+    }
+    
+    const openai = new OpenAI({ 
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 60000
+    });
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: `You are extracting data from a PG&E (or utility) QA audit / go-back document.
+          
+Extract and return ONLY valid JSON with these fields:
+- pmNumber: The PM Order number (7-8 digits, e.g., "35611981")
+- woNumber: Work Order number if different from PM
+- auditNumber: Audit or inspection number/reference
+- auditDate: Date of inspection (YYYY-MM-DD format)
+- inspectorName: Name of the utility inspector
+- inspectorId: Inspector ID/badge number if present
+- result: "pass" or "fail" (if this is a go-back/failed audit, it's "fail")
+- infractionType: One of: workmanship, materials, safety, incomplete, as_built, photos, clearances, grounding, other
+- infractionDescription: Detailed description of the issue/infraction
+- specReference: Spec or standard reference cited (e.g., "TD-2305M-001")
+- address: Job site address
+- city: City
+
+Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown or explanation.`
+        },
+        {
+          role: 'user',
+          content: text
+        }
+      ],
+      temperature: 0,
+      max_tokens: 800
+    });
+    
+    // Log API usage
+    const usage = response.usage || {};
+    await APIUsage.logOpenAIUsage({
+      operation: 'audit-extraction',
+      model: 'gpt-4o-mini',
+      promptTokens: usage.prompt_tokens || 0,
+      completionTokens: usage.completion_tokens || 0,
+      success: true,
+      responseTimeMs: Date.now() - startTime,
+      userId: req.userId,
+      companyId: user?.companyId,
+      metadata: { textLength: text.length }
+    });
+    
+    // Parse the AI response
+    let extracted = {};
+    try {
+      const content = response.choices[0]?.message?.content || '{}';
+      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      extracted = JSON.parse(cleanContent);
+    } catch (parseErr) {
+      console.error('Failed to parse AI response:', parseErr);
+      // Try basic regex extraction for PM number
+      const pmMatch = text.match(/(?:PM|PM#|PM Number|Order)[:\s#]*(\d{7,8})/i);
+      extracted = { pmNumber: pmMatch ? pmMatch[1] : '' };
+    }
+    
+    console.log('Extracted audit data:', extracted);
+    
+    // STEP 3: Find the job by PM number
+    if (!extracted.pmNumber) {
+      // Don't delete PDF - let user try again or enter manually
+      return res.json({
+        success: false,
+        error: 'Could not extract PM number from document',
+        extracted,
+        requiresManualEntry: true
+      });
+    }
+    
+    const jobQuery = { 
+      pmNumber: extracted.pmNumber,
+      isDeleted: { $ne: true }
+    };
+    if (user?.companyId) {
+      jobQuery.companyId = user.companyId;
+    }
+    
+    const job = await Job.findOne(jobQuery);
+    
+    if (!job) {
+      return res.json({
+        success: false,
+        error: `No job found with PM number: ${extracted.pmNumber}`,
+        extracted,
+        requiresManualEntry: true
+      });
+    }
+    
+    // STEP 4: Upload the PDF to "QA Go Back" folder
+    let pdfUrl = `/uploads/${path.basename(pdfPath)}`;
+    let r2Key = null;
+    
+    // Ensure QA Go Back folder exists on the job
+    let qaFolder = job.folders.find(f => f.name === 'QA Go Back');
+    if (!qaFolder) {
+      job.folders.push({
+        name: 'QA Go Back',
+        documents: [],
+        subfolders: []
+      });
+      qaFolder = job.folders[job.folders.length - 1];
+    }
+    
+    // Upload to R2 if configured
+    const auditFileName = `Audit_${extracted.auditNumber || Date.now()}_${extracted.pmNumber}.pdf`;
+    if (r2Storage.isR2Configured()) {
+      try {
+        const result = await r2Storage.uploadJobFile(pdfPath, job._id.toString(), 'QA_Go_Back', auditFileName);
+        pdfUrl = r2Storage.getPublicUrl(result.key);
+        r2Key = result.key;
+        // Clean up local file
+        if (fs.existsSync(pdfPath)) {
+          fs.unlinkSync(pdfPath);
+        }
+      } catch (uploadErr) {
+        console.error('Failed to upload audit PDF to R2:', uploadErr.message);
+      }
+    }
+    
+    // Add document to QA Go Back folder
+    qaFolder.documents.push({
+      name: auditFileName,
+      url: pdfUrl,
+      r2Key: r2Key,
+      type: 'pdf',
+      uploadDate: new Date(),
+      uploadedBy: req.userId
+    });
+    
+    // STEP 5: Create the audit record
+    const audit = {
+      auditNumber: extracted.auditNumber || null,
+      auditDate: extracted.auditDate ? new Date(extracted.auditDate) : new Date(),
+      receivedDate: new Date(),
+      inspectorName: extracted.inspectorName || null,
+      inspectorId: extracted.inspectorId || null,
+      result: extracted.result || 'fail',
+      status: 'pending_qa',
+      infractionType: extracted.infractionType || 'other',
+      infractionDescription: extracted.infractionDescription || '',
+      specReference: extracted.specReference || null
+    };
+    
+    if (!job.auditHistory) job.auditHistory = [];
+    job.auditHistory.push(audit);
+    job.hasFailedAudit = true;
+    job.failedAuditCount = (job.failedAuditCount || 0) + 1;
+    
+    await job.save();
+    
+    console.log(`Failed audit extracted and recorded for job ${job.pmNumber}: ${extracted.infractionType}`);
+    
+    res.json({
+      success: true,
+      message: 'Audit extracted and recorded successfully',
+      extracted,
+      job: {
+        _id: job._id,
+        pmNumber: job.pmNumber,
+        woNumber: job.woNumber,
+        address: job.address,
+        city: job.city
+      },
+      audit: job.auditHistory[job.auditHistory.length - 1],
+      pdfUrl
+    });
+    
+  } catch (err) {
+    console.error('Audit extraction error:', err);
+    // Clean up file on error
+    if (pdfPath && fs.existsSync(pdfPath)) {
+      try { fs.unlinkSync(pdfPath); } catch (e) {}
+    }
+    res.status(500).json({ error: 'Failed to extract audit', details: err.message });
   }
 });
 

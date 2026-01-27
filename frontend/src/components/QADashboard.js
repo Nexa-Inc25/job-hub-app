@@ -1,7 +1,7 @@
 // src/components/QADashboard.js
 // QA Dashboard - Review jobs, manage go-backs, access spec library
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
@@ -52,6 +52,8 @@ import {
   Replay as ReplayIcon,
   ThumbUp as ThumbUpIcon,
   ThumbDown as ThumbDownIcon,
+  CloudUpload as CloudUploadIcon,
+  Description as DescriptionIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
 
