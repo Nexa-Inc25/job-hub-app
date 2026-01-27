@@ -66,6 +66,31 @@ import { useOffline } from '../hooks/useOffline';
 import { alpha } from '@mui/material/styles';
 import { red, blue } from '@mui/material/colors';
 
+// Helper to parse user permissions from JWT token
+const parseUserPermissions = (token) => {
+  if (!token) return { isAdmin: false, canApprove: false };
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return {
+      isAdmin: payload.isAdmin || false,
+      canApprove: payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role)
+    };
+  } catch {
+    return { isAdmin: false, canApprove: false };
+  }
+};
+
+// Helper to handle API errors and return error message
+const getApiErrorMessage = (err, navigate) => {
+  if (err.response?.status === 404) return 'Job not found';
+  if (err.response?.status === 401) {
+    localStorage.removeItem('token');
+    navigate('/login');
+    return 'Session expired. Please log in again.';
+  }
+  return err.response?.data?.error || err.message || 'Failed to fetch job data';
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -99,14 +124,9 @@ const JobFileSystem = () => {
   // Check user permissions from JWT
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token) return;
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      setIsAdmin(payload.isAdmin || false);
-      setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
-    } catch (err) {
-      console.log('Could not parse token');
-    }
+    const permissions = parseUserPermissions(token);
+    setIsAdmin(permissions.isAdmin);
+    setCanApprove(permissions.canApprove);
   }, []);
 
   useEffect(() => {
@@ -143,22 +163,7 @@ const JobFileSystem = () => {
         }
       } catch (err) {
         console.error('Error fetching job data:', err);
-        console.error('Error details:', {
-          status: err.response?.status,
-          data: err.response?.data,
-          message: err.message
-        });
-        if (err.response?.status === 404) {
-          setError('Job not found');
-        } else if (err.response?.status === 401) {
-          setError('Session expired. Please log in again.');
-          localStorage.removeItem('token');
-          navigate('/login');
-        } else {
-          const errorMsg = err.response?.data?.error || err.message || 'Failed to fetch job data';
-          console.error('Setting error:', errorMsg);
-          setError(errorMsg);
-        }
+        setError(getApiErrorMessage(err, navigate));
       } finally {
         setLoading(false);
       }
@@ -1141,7 +1146,7 @@ const JobFileSystem = () => {
                     </Box>
                     {selectedFolder?.documents?.length > 0 && (
                       <Chip 
-                        label={`${selectedFolder.documents.length} photo${selectedFolder.documents.length !== 1 ? 's' : ''} ready to export`}
+                        label={`${selectedFolder.documents.length} photo${selectedFolder.documents.length === 1 ? '' : 's'} ready to export`}
                         color="success"
                         sx={{ mt: 1 }}
                       />
