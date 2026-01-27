@@ -878,7 +878,7 @@ const CompanyOnboarding = () => {
                               </Box>
                               <IconButton 
                                 size="small" 
-                                onClick={() => removeSubfolder(folderIndex, subIndex)}
+                                onClick={() => removeSubfolder(folderIndex, folder.subfolders.indexOf(subfolder))}
                                 sx={{ color: '#ef4444' }}
                               >
                                 <DeleteIcon fontSize="small" />
