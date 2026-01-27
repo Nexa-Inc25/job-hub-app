@@ -1684,7 +1684,34 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       firstPhotoUrl: jobPhotosCheck?.documents?.[0]?.url
     });
     
-    await job.save();
+    // Mark folders as modified and save with retry for version conflicts
+    job.markModified('folders');
+    job.markModified('aiExtractedAssets');
+    
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        await job.save();
+        break;
+      } catch (saveErr) {
+        if (saveErr.name === 'VersionError' && retries > 1) {
+          console.log(`Version conflict in background extraction for job ${jobId}, retrying...`);
+          // Use atomic update instead of save on conflict
+          await Job.findByIdAndUpdate(jobId, {
+            $set: {
+              aiExtractionComplete: true,
+              aiExtractionEnded: new Date(),
+              aiProcessingTimeMs: Date.now() - startTime,
+              aiExtractedAssets: job.aiExtractedAssets
+            }
+          });
+          console.log('Used atomic update for extraction metadata');
+          break;
+        } else {
+          throw saveErr;
+        }
+      }
+    }
     
     console.log('Background asset extraction complete for job:', jobId, {
       photos: extractedAssets.photos.length,
@@ -3512,7 +3539,49 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     }
     
     targetDocuments.push(...uploadedDocs);
-    await job.save();
+    
+    // Retry save with version conflict handling
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        job.markModified('folders'); // Ensure Mongoose detects nested changes
+        await job.save();
+        break; // Success
+      } catch (saveErr) {
+        if (saveErr.name === 'VersionError' && retries > 1) {
+          console.log(`Version conflict saving job ${job._id}, retrying... (${retries - 1} left)`);
+          // Reload the job and re-apply the documents
+          const freshJob = await Job.findById(job._id);
+          if (freshJob) {
+            // Re-find the target folder/subfolder
+            const freshFolder = freshJob.folders.find(f => f.name === folderName);
+            if (freshFolder) {
+              let freshTarget = freshFolder.documents;
+              if (subfolder) {
+                const parts = subfolder.split('/');
+                let curr = freshFolder;
+                for (const part of parts) {
+                  curr = curr.subfolders?.find(sf => sf.name === part);
+                  if (!curr) break;
+                }
+                if (curr) freshTarget = curr.documents;
+              }
+              // Only add docs that aren't already there (by r2Key or name)
+              for (const doc of uploadedDocs) {
+                const exists = freshTarget.some(d => d.r2Key === doc.r2Key || d.name === doc.name);
+                if (!exists) {
+                  freshTarget.push(doc);
+                }
+              }
+              job = freshJob;
+            }
+          }
+          retries--;
+        } else {
+          throw saveErr;
+        }
+      }
+    }
     
     res.json({ message: 'Files uploaded successfully', documents: uploadedDocs });
   } catch (err) {
@@ -5146,6 +5215,7 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     }
     
     // Add document to QA Go Back folder
+    console.log(`Adding audit PDF to job ${job._id} (PM: ${job.pmNumber}), folder: QA Go Back`);
     qaFolder.documents.push({
       name: auditFileName,
       url: pdfUrl,
@@ -5154,6 +5224,9 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
       uploadDate: new Date(),
       uploadedBy: req.userId
     });
+    
+    // Mark folders as modified for Mongoose to detect nested array changes
+    job.markModified('folders');
     
     // STEP 5: Create the audit record
     const audit = {
@@ -5174,7 +5247,11 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     job.hasFailedAudit = true;
     job.failedAuditCount = (job.failedAuditCount || 0) + 1;
     
+    // Mark audit history as modified
+    job.markModified('auditHistory');
+    
     await job.save();
+    console.log(`Saved audit to job ${job._id}, folders count: ${job.folders.length}, QA Go Back docs: ${qaFolder.documents.length}`);
     
     const logMessage = isNewAuditJob 
       ? `Created new audit work order for PM ${job.pmNumber}: ${extracted.infractionType}`
