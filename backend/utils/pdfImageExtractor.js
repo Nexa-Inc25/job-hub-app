@@ -278,6 +278,79 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2) {
   }
 }
 
+// === PAGE DETECTION HELPERS (extracted to reduce complexity) ===
+
+// Form detection patterns (split for maintainability)
+const FORM_PATTERNS = [
+  'face sheet', 'crew material', 'equipment information', 'checklist',
+  'feedback to estimating', 'tag sheet', 'totals as of', 'crew instruction',
+  'sign.?off', 'billing', 'progress billing', 'paving form',
+  'environmental release', 'best management', 'job package checklist',
+  'utility standard', 'contractor work checklist', 'no parking sign', 'tree trimming'
+];
+const USA_PATTERNS = ['usa ticket', 'usa north', 'underground service alert', 'dig alert', 'call before you dig', 'one call', '811', 'excavation notice', 'locate request', 'utility locate'];
+const TCP_FORM_PATTERNS = ['traffic control', 'traffic plan', 'tcp', 'lane closure', 'road closure', 'detour', 'flagging', 'barricade'];
+
+// Check if page is a form (not visual content)
+function isFormPage(text) {
+  const allPatterns = [...FORM_PATTERNS, ...USA_PATTERNS, ...TCP_FORM_PATTERNS];
+  const regex = new RegExp(allPatterns.join('|'), 'i');
+  return regex.test(text);
+}
+
+// Check if page has drawing keywords
+function hasDrawingKeywords(text, textLength) {
+  const drawingMatch = /construction sketch|pole sheet drawing|plan view drawing/i.test(text);
+  if (!drawingMatch) return false;
+  if (text.includes('checklist')) return false;
+  if (/pole sheet drawing\s*:/i.test(text)) return false;
+  return textLength < 500;
+}
+
+// Check if page has map keywords  
+function hasMapKeywords(text) {
+  if (/cmcs|circuit map change sheet|adhoc|cirmap/i.test(text)) return true;
+  return /circuit map/i.test(text) && !/circuit map:/i.test(text);
+}
+
+// Check if page has TCP map keywords
+function hasTcpMapKeywords(text, textLength) {
+  const hasTcp = /traffic control plan.*map|tcp.*diagram|lane closure.*map|detour.*route|cone.*placement|sign.*placement/i.test(text);
+  return hasTcp && textLength < 500;
+}
+
+// Categorize a single page based on its content
+function categorizePage(page, result) {
+  const { pageNum, text, textLength, imageCount } = page;
+  
+  if (isFormPage(text)) {
+    result.forms.push(pageNum);
+    return 'form';
+  }
+  
+  if (hasDrawingKeywords(text, textLength)) {
+    result.drawings.push(pageNum);
+    return 'drawing';
+  }
+  
+  if (hasTcpMapKeywords(text, textLength)) {
+    result.tcpMaps.push(pageNum);
+    return 'tcp_map';
+  }
+  
+  if (hasMapKeywords(text)) {
+    result.maps.push(pageNum);
+    return 'map';
+  }
+  
+  if (imageCount > 0) {
+    page.needsVision = true;
+    return 'needs_vision';
+  }
+  
+  return 'skipped';
+}
+
 /**
  * Analyze each page of the PDF to determine its content type
  * POSITION-INDEPENDENT: Works regardless of page order in the job package
@@ -341,78 +414,10 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
       }
     }
     
-    // Second pass: categorize each page based on content ONLY (not position)
+    // Second pass: categorize each page using extracted helper functions
     for (const page of pageData) {
-      const { pageNum, text, textLength, imageCount } = page;
-      
-      // === FORM DETECTION (EXCLUDE these pages) ===
-      // Forms have specific headers/titles - these are data sheets, not visual content
-      // USA dig/ticket documents have addresses but are NOT maps
-      // Traffic control plans are forms, not sketches
-      const isFormPage = /face sheet|crew material|equipment information|checklist|feedback to estimating|tag sheet|totals as of|crew instruction|sign.?off|billing|progress billing|paving form|environmental release|best management|job package checklist|utility standard|contractor work checklist|no parking sign|tree trimming|usa ticket|usa north|underground service alert|dig alert|call before you dig|one call|811|excavation notice|locate request|utility locate|traffic control|traffic plan|tcp|lane closure|road closure|detour|flagging|barricade/i.test(text);
-      
-      if (isFormPage) {
-        result.forms.push(pageNum);
-        continue;
-      }
-      
-      // === DRAWING DETECTION ===
-      // Only detect pages that ARE drawings (not forms that reference drawings)
-      // Exclude if text ends with ":" (it's a form label) or contains "checklist"
-      const drawingMatch = text.match(/construction sketch|pole sheet drawing|plan view drawing/i);
-      const hasDrawingKeywords = drawingMatch && 
-                                 !text.includes('checklist') && 
-                                 !text.match(/pole sheet drawing\s*:/i) && // Exclude form labels like "Pole Sheet Drawing:"
-                                 textLength < 500; // Actual drawings have minimal text
-      
-      // === MAP DETECTION ===
-      // Detect CMCS and circuit map pages - check full text for these specific patterns
-      const hasMapKeywords = /cmcs|circuit map change sheet|adhoc|cirmap/i.test(text) || 
-                             (/circuit map/i.test(text) && !/circuit map:/i.test(text));
-      
-      // === TCP MAP DETECTION ===
-      // Traffic Control Plan maps show cone/sign placement, lane closures as diagrams
-      // Look for visual TCP indicators (NOT the form/permit pages)
-      const hasTcpMapKeywords = /traffic control plan.*map|tcp.*diagram|lane closure.*map|detour.*route|cone.*placement|sign.*placement/i.test(text) &&
-                                 textLength < 500; // Real TCP maps have minimal text, mostly visual
-      
-      // Debug: Log pages that have potential map/sketch indicators
-      if (hasMapKeywords || hasDrawingKeywords || hasTcpMapKeywords) {
-        console.log(`  Page ${pageNum}: hasMap=${hasMapKeywords}, hasTcpMap=${hasTcpMapKeywords}, hasDrawing=${hasDrawingKeywords}, textLen=${textLength}, snippet="${text.substring(0, 100).replaceAll('\n', ' ')}"`);
-      }
-      
-      // === CATEGORIZE BASED ON CONTENT ===
-      // Note: hasPhotoKeywords, hasFieldNotes, isImageOnly, isImageHeavy, isConfidentialOnly
-      // were removed as unused - vision analysis handles these cases now
-      const hasImages = imageCount > 0;
-      
-      // Debug: log every page's categorization decision
-      console.log(`  Page ${pageNum}: images=${imageCount}, textLen=${textLength}, isForm=${isFormPage}`);
-      
-      // Priority 1: Explicit keywords for drawings/maps (these are reliable)
-      if (hasDrawingKeywords) {
-        console.log(`    -> DRAWING (text match)`);
-        result.drawings.push(pageNum);
-      } else if (hasTcpMapKeywords) {
-        console.log(`    -> TCP_MAP (text match: traffic control plan map)`);
-        result.tcpMaps.push(pageNum);
-      } else if (hasMapKeywords) {
-        const matchedKeyword = text.match(/cmcs|circuit map change sheet|adhoc|circuit map|cirmap/i)?.[0];
-        console.log(`    -> MAP (text match: "${matchedKeyword}")`);
-        result.maps.push(pageNum);
-      }
-      // Priority 2: Any page with images needs vision analysis to verify category
-      // Photo keywords like "photos:" or "pictures:" can appear in FORMS as labels
-      // Even "confidential only" pages need vision check if they have images
-      else if (hasImages) {
-        // Store for vision analysis
-        page.needsVision = true;
-        console.log(`    -> Queued for vision (${imageCount} images, ${textLength} chars)`);
-      }
-      // No images and no keywords = skip this page (likely a text-only form or blank)
-      else {
-        console.log(`    -> Skipped (no images, no keywords)`);
-      }
+      const category = categorizePage(page, result);
+      console.log(`  Page ${page.pageNum}: images=${page.imageCount}, textLen=${page.textLength} -> ${category}`);
     }
     
     // Vision pass: Use AI to categorize image-heavy pages without text clues

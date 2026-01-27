@@ -36,6 +36,23 @@ function getPdfImageExtractor() {
   return pdfImageExtractor;
 }
 
+// Helper to fetch PDF buffer from R2 or local storage
+async function getPdfBufferFromDocument(doc) {
+  if (doc.r2Key && r2Storage.isR2Configured()) {
+    const fileData = await r2Storage.getFileStream(doc.r2Key);
+    if (!fileData) return null;
+    const chunks = [];
+    for await (const chunk of fileData.stream) {
+      chunks.push(chunk);
+    }
+    return Buffer.concat(chunks);
+  }
+  if (doc.path && fs.existsSync(doc.path)) {
+    return fs.readFileSync(doc.path);
+  }
+  return null;
+}
+
 // Ensure uploads directory exists (use absolute path relative to backend folder)
 const uploadsDir = path.join(__dirname, '..', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -165,49 +182,31 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
     const { query } = req.query;
     const { jobId } = req.params;
     
-    // Validate ObjectId to prevent injection
     if (!isValidObjectId(jobId)) {
       return res.status(400).json({ error: 'Invalid job ID format' });
     }
     
-    // Verify user owns this job
     const job = await Job.findOne({ _id: new mongoose.Types.ObjectId(jobId), userId: req.userId });
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
-    if (job.folders[0].documents?.[0]) {
-      const doc = job.folders[0].documents[0];
-      let pdfBuffer;
-      
-      // If file is in R2, fetch it; otherwise read from local path
-      if (doc.r2Key && r2Storage.isR2Configured()) {
-        // Fetch from R2
-        const fileData = await r2Storage.getFileStream(doc.r2Key);
-        if (!fileData) {
-          return res.status(404).json({ error: 'Document not found in storage' });
-        }
-        // Convert stream to buffer
-        const chunks = [];
-        for await (const chunk of fileData.stream) {
-          chunks.push(chunk);
-        }
-        pdfBuffer = Buffer.concat(chunks);
-      } else if (doc.path && fs.existsSync(doc.path)) {
-        // Read from local file
-        pdfBuffer = fs.readFileSync(doc.path);
-      } else {
-        return res.status(404).json({ error: 'Document file not accessible' });
-      }
-      
-      const text = await getPdfUtils().getPdfTextFromBuffer(pdfBuffer);
-      const chunks = getPdfUtils().getTextChunks(text);
-      const store = await getPdfUtils().getVectorStore(chunks);
-      const chain = getPdfUtils().getConversationalChain(store);
-      const answer = await chain.ask(query);
-      res.json({ answer });
-    } else {
-      res.json({ answer: 'No documents' });
+    
+    const doc = job.folders[0]?.documents?.[0];
+    if (!doc) {
+      return res.json({ answer: 'No documents' });
     }
+    
+    const pdfBuffer = await getPdfBufferFromDocument(doc);
+    if (!pdfBuffer) {
+      return res.status(404).json({ error: 'Document file not accessible' });
+    }
+    
+    const text = await getPdfUtils().getPdfTextFromBuffer(pdfBuffer);
+    const textChunks = getPdfUtils().getTextChunks(text);
+    const store = await getPdfUtils().getVectorStore(textChunks);
+    const chain = getPdfUtils().getConversationalChain(store);
+    const answer = await chain.ask(query);
+    res.json({ answer });
   } catch (error_) {
     console.error('Query docs error:', error_.message);
     res.status(500).json({ error: 'Server error' });

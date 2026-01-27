@@ -126,6 +126,30 @@ const DOCUMENT_TEMPLATES = {
   }
 };
 
+// Helper to get field value based on source type
+function getFieldValue(fieldDef, job, user, patterns) {
+  switch (fieldDef.source) {
+    case 'job':
+      return { value: getNestedValue(job, fieldDef.field), confidence: fieldDef.confidence };
+    case 'user':
+      return { value: user ? getNestedValue(user, fieldDef.field) : null, confidence: fieldDef.confidence };
+    case 'context':
+      return { value: generateContextValue(fieldDef.generator, job), confidence: fieldDef.confidence };
+    case 'pattern': {
+      const patternResult = patterns[fieldDef.field];
+      if (patternResult) {
+        return { value: patternResult.value, confidence: patternResult.confidence };
+      }
+      if (fieldDef.defaultValue) {
+        return { value: fieldDef.defaultValue, confidence: 0.5 };
+      }
+      return { value: null, confidence: 0 };
+    }
+    default:
+      return { value: null, confidence: 0 };
+  }
+}
+
 /**
  * Generate auto-fill values for a document
  * 
@@ -149,8 +173,6 @@ async function generateAutoFill(documentType, jobId, userId) {
   }
 
   const user = await User.findById(userId);
-  
-  // Get pattern data from similar jobs
   const patterns = await getPatternData(job);
 
   const result = {
@@ -162,64 +184,22 @@ async function generateAutoFill(documentType, jobId, userId) {
   };
 
   let autoFillCount = 0;
-  let totalFields = 0;
+  const entries = Object.entries(template.fields);
+  const totalFields = entries.length;
 
-  for (const [fieldName, fieldDef] of Object.entries(template.fields)) {
-    totalFields++;
-    let value = null;
-    let confidence = fieldDef.confidence;
-
-    switch (fieldDef.source) {
-      case 'job':
-        value = getNestedValue(job, fieldDef.field);
-        break;
-      
-      case 'user':
-        if (user) {
-          value = getNestedValue(user, fieldDef.field);
-        }
-        break;
-      
-      case 'context':
-        value = generateContextValue(fieldDef.generator, job);
-        break;
-      
-      case 'pattern': {
-        const patternResult = patterns[fieldDef.field];
-        if (patternResult) {
-          value = patternResult.value;
-          confidence = patternResult.confidence;
-        } else if (fieldDef.defaultValue) {
-          value = fieldDef.defaultValue;
-          confidence = 0.5;  // Lower confidence for defaults
-        }
-        break;
-      }
-      
-      case 'human':
-        // Can't auto-fill, requires human input
-        result.humanInputRequired.push(fieldName);
-        break;
+  for (const [fieldName, fieldDef] of entries) {
+    if (fieldDef.source === 'human') {
+      result.humanInputRequired.push(fieldName);
+      continue;
     }
+
+    const { value, confidence } = getFieldValue(fieldDef, job, user, patterns);
 
     if (value !== null && value !== undefined) {
       autoFillCount++;
-      result.fields[fieldName] = {
-        value,
-        confidence,
-        source: fieldDef.source,
-        canOverride: true,
-        isAutoFilled: true,
-      };
-    } else if (fieldDef.source !== 'human') {
-      result.fields[fieldName] = {
-        value: null,
-        confidence: 0,
-        source: fieldDef.source,
-        canOverride: true,
-        isAutoFilled: false,
-        needsInput: true,
-      };
+      result.fields[fieldName] = { value, confidence, source: fieldDef.source, canOverride: true, isAutoFilled: true };
+    } else {
+      result.fields[fieldName] = { value: null, confidence: 0, source: fieldDef.source, canOverride: true, isAutoFilled: false, needsInput: true };
     }
   }
 
@@ -339,8 +319,8 @@ function generateContextValue(generator, job) {
       return new Date().toISOString().split('T')[0];
     
     case 'weather':
-      // TODO: Integrate with weather API
-      return 'Clear';  // Placeholder
+      // Weather API integration planned for future release - using default for now
+      return 'Clear';
     
     case 'time_now':
       return new Date().toTimeString().slice(0, 5);

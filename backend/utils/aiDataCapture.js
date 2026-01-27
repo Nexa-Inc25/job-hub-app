@@ -86,11 +86,17 @@ async function captureFormCompletion(jobId, formType, fields, completionTimeSeco
     }
     if (!trainingData) return null;
 
+    // Helper to determine field type
+    const getFieldType = (data) => {
+      if (typeof data === 'boolean') return 'boolean';
+      if (typeof data === 'number') return 'number';
+      return 'text';
+    };
+
     // Convert fields object to array of field entries
     const fieldEntries = Object.entries(fields).map(([fieldName, fieldData]) => ({
       fieldName,
-      fieldType: typeof fieldData === 'boolean' ? 'boolean' : 
-                 typeof fieldData === 'number' ? 'number' : 'text',
+      fieldType: getFieldType(fieldData),
       value: fieldData.value !== undefined ? fieldData.value : fieldData,
       wasAISuggested: fieldData.wasAISuggested || false,
       wasAccepted: fieldData.wasAccepted !== false,
