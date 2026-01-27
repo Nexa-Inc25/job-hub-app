@@ -3452,15 +3452,49 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     for (const file of req.files) {
       let docUrl = `/uploads/${path.basename(file.path)}`;
       let r2Key = null;
+      let finalName = file.originalname;
+      let fileToUpload = file.path;
+      let tempConvertedFile = null;
+      
+      // Convert HEIC to JPEG (iPhone photos)
+      const isHeic = file.originalname.toLowerCase().endsWith('.heic') || 
+                     file.originalname.toLowerCase().endsWith('.heif') ||
+                     file.mimetype === 'image/heic' || 
+                     file.mimetype === 'image/heif';
+      
+      if (isHeic) {
+        try {
+          console.log('Converting HEIC to JPEG:', file.originalname);
+          tempConvertedFile = file.path + '.jpg';
+          const inputBuffer = fs.readFileSync(file.path);
+          const outputBuffer = await heicConvert({
+            buffer: inputBuffer,
+            format: 'JPEG',
+            quality: 0.9
+          });
+          fs.writeFileSync(tempConvertedFile, Buffer.from(outputBuffer));
+          fileToUpload = tempConvertedFile;
+          // Update filename to .jpg
+          finalName = file.originalname.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+          console.log('HEIC converted successfully:', finalName);
+        } catch (convertErr) {
+          console.error('Failed to convert HEIC:', convertErr.message);
+          // Continue with original file
+        }
+      }
       
       if (r2Storage.isR2Configured()) {
         try {
           const folderPath = subfolder ? `${folderName}/${subfolder}` : folderName;
-          const result = await r2Storage.uploadJobFile(file.path, id, folderPath, file.originalname);
+          const result = await r2Storage.uploadJobFile(fileToUpload, id, folderPath, finalName);
           docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
+          // Clean up local files
           if (fs.existsSync(file.path)) {
             fs.unlinkSync(file.path);
+          }
+          if (tempConvertedFile && fs.existsSync(tempConvertedFile)) {
+            fs.unlinkSync(tempConvertedFile);
           }
         } catch (uploadErr) {
           console.error('Failed to upload to R2:', uploadErr.message);
@@ -3468,10 +3502,10 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
       }
       
       uploadedDocs.push({
-        name: file.originalname,
+        name: finalName,
         url: docUrl,
         r2Key: r2Key,
-        type: file.mimetype.includes('pdf') ? 'pdf' : file.mimetype.includes('image') ? 'image' : 'other',
+        type: file.mimetype.includes('pdf') ? 'pdf' : file.mimetype.includes('image') || isHeic ? 'image' : 'other',
         uploadDate: new Date(),
         uploadedBy: req.userId
       });
