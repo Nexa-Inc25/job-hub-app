@@ -201,6 +201,19 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
 
   const isEdit = Boolean(spec);
   const isNewVersion = Boolean(spec && file);
+  
+  // Pre-compute labels to avoid nested ternaries
+  const getDialogTitle = () => {
+    if (!isEdit) return 'Add New Spec';
+    return isNewVersion ? 'Upload New Version' : 'Edit Spec';
+  };
+  const getFileButtonLabel = () => {
+    if (file) return file.name;
+    return isEdit ? 'Upload New Version (optional)' : 'Select File';
+  };
+  const getSubmitButtonLabel = () => {
+    return isEdit ? 'Save' : 'Upload';
+  };
 
   useEffect(() => {
     if (spec) {
@@ -288,7 +301,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff' }}>
-        {isEdit ? (isNewVersion ? 'Upload New Version' : 'Edit Spec') : 'Add New Spec'}
+        {getDialogTitle()}
       </DialogTitle>
       <DialogContent sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', pt: 2 }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -415,7 +428,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
                 color: file ? '#22c55e' : undefined
               }}
             >
-              {file ? file.name : (isEdit ? 'Upload New Version (optional)' : 'Select File')}
+              {getFileButtonLabel()}
             </Button>
           </Grid>
         </Grid>
@@ -428,7 +441,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
           disabled={loading}
           sx={{ bgcolor: '#6366f1', '&:hover': { bgcolor: '#4f46e5' } }}
         >
-          {loading ? <CircularProgress size={20} color="inherit" /> : (isEdit ? 'Save' : 'Upload')}
+          {loading ? <CircularProgress size={20} color="inherit" /> : getSubmitButtonLabel()}
         </Button>
       </DialogActions>
     </Dialog>
@@ -565,7 +578,7 @@ const SpecLibrary = () => {
   const handleDownload = async (spec) => {
     try {
       const response = await api.get(`/api/specs/${spec._id}/download`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = globalThis.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', spec.fileName || `${spec.name}.pdf`);
@@ -583,7 +596,7 @@ const SpecLibrary = () => {
         params: { version },
         responseType: 'blob' 
       });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = globalThis.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `spec_v${version}.pdf`);

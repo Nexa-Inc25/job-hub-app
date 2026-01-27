@@ -471,21 +471,21 @@ const JobFileSystem = () => {
       const filename = `${job.pmNumber || job.woNumber || 'Job'}_GF_Audit_${Date.now()}.zip`;
       
       // Create download link
-      const downloadUrl = window.URL.createObjectURL(blob);
+      const downloadUrl = globalThis.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = downloadUrl;
       a.download = filename;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(downloadUrl);
+      a.remove();
+      globalThis.URL.revokeObjectURL(downloadUrl);
       
       // Open email client with pre-filled subject
       const subject = encodeURIComponent(`GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`);
       const body = encodeURIComponent(`Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nThe photos are in the attached ZIP file: ${filename}\n\nPlease let me know if you have any questions.\n\nBest regards`);
       
       // Open Outlook/default email client
-      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+      globalThis.location.href = `mailto:?subject=${subject}&body=${body}`;
       
     } catch (err) {
       console.error('Export to email error:', err);

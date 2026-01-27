@@ -126,6 +126,18 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
   const [loading, setLoading] = useState(false);
   const { mode: themeMode } = useThemeMode();
 
+  // Button color helpers to avoid nested ternaries
+  const getButtonBgColor = (actionType) => {
+    if (actionType === 'approve') return '#22c55e';
+    if (actionType === 'reject') return '#ef4444';
+    return '#f59e0b';
+  };
+  const getButtonHoverColor = (actionType) => {
+    if (actionType === 'approve') return '#16a34a';
+    if (actionType === 'reject') return '#dc2626';
+    return '#d97706';
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
@@ -191,8 +203,8 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
           onClick={handleSubmit} 
           disabled={loading}
           sx={{ 
-            bgcolor: action === 'approve' ? '#22c55e' : action === 'reject' ? '#ef4444' : '#f59e0b',
-            '&:hover': { bgcolor: action === 'approve' ? '#16a34a' : action === 'reject' ? '#dc2626' : '#d97706' }
+            bgcolor: getButtonBgColor(action),
+            '&:hover': { bgcolor: getButtonHoverColor(action) }
           }}
         >
           {loading ? <CircularProgress size={20} color="inherit" /> : 'Submit Review'}

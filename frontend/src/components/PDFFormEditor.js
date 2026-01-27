@@ -371,8 +371,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
               width: annotation.width,
               height: annotation.height,
             });
-          } catch (sigErr) {
-            console.error('Error embedding signature:', sigErr);
+          } catch (error_) {
+            console.error('Error embedding signature:', error_);
           }
         }
       };

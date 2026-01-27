@@ -315,8 +315,8 @@ const Dashboard = () => {
       try {
         await api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist });
         console.log('[AI Training] Pre-field checklist captured for job', jobId);
-      } catch (aiErr) {
-        console.warn('[AI Training] Failed to capture pre-field data:', aiErr);
+      } catch (error_) {
+        console.warn('[AI Training] Failed to capture pre-field data:', error_);
         // Don't fail the main operation if AI capture fails
       }
 
