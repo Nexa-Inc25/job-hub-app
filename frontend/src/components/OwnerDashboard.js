@@ -34,7 +34,6 @@ import {
   AttachMoney as MoneyIcon,
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
-  TrendingUp as TrendingUpIcon,
   Memory as MemoryIcon,
   Cloud as CloudIcon,
   ArrowBack as ArrowBackIcon,
