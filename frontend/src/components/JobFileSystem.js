@@ -229,40 +229,38 @@ const JobFileSystem = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
+  // Helper to update job in list
+  const updateJobInList = useCallback((updatedJob) => {
+    setJobs(prev => prev.map(j => j._id === updatedJob._id ? updatedJob : j));
+  }, []);
+
   // Poll for extraction completion if extraction is actively in progress
   useEffect(() => {
     if (!shouldPollForExtraction(job)) return;
-    
-    
-    const pollInterval = setInterval(async () => {
+
+    const pollForExtractionComplete = async (intervalId) => {
       try {
         const response = await api.get(`/api/jobs/${job._id}`);
-        const updatedJob = response.data;
-        
-        if (updatedJob.aiExtractionComplete) {
-          setJob(updatedJob);
-          // Update jobs list too
-          setJobs(prev => prev.map(j => j._id === updatedJob._id ? updatedJob : j));
-          clearInterval(pollInterval);
+        if (response.data.aiExtractionComplete) {
+          setJob(response.data);
+          updateJobInList(response.data);
+          clearInterval(intervalId);
         }
       } catch (err) {
         console.error('Error polling for extraction:', err);
-        // Stop polling on error to prevent infinite loops
-        clearInterval(pollInterval);
+        clearInterval(intervalId);
       }
-    }, 5000); // Poll every 5 seconds (was 3, increased to reduce load)
+    };
     
-    // Stop polling after 5 minutes max (extraction shouldn't take longer)
-    const timeout = setTimeout(() => {
-      clearInterval(pollInterval);
-    }, 5 * 60 * 1000);
+    const pollInterval = setInterval(() => pollForExtractionComplete(pollInterval), 5000);
+    const timeout = setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000);
     
     return () => {
       clearInterval(pollInterval);
       clearTimeout(timeout);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?._id, job?.aiExtractionStarted, job?.aiExtractionComplete]);
+  }, [job?._id, job?.aiExtractionStarted, job?.aiExtractionComplete, updateJobInList]);
 
   const handleJobChange = (event, newValue) => {
     if (newValue) {
