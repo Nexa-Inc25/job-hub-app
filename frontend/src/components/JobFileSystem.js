@@ -91,6 +91,36 @@ const getApiErrorMessage = (err, navigate) => {
   return err.response?.data?.error || err.message || 'Failed to fetch job data';
 };
 
+// Helper to find and select updated folder after upload/changes
+const findUpdatedFolder = (jobData, selectedFolder) => {
+  if (!selectedFolder || !jobData?.folders) return null;
+  
+  // Nested subfolder: e.g., ACI > Pre-Field Documents > Job Photos
+  if (selectedFolder.grandParentFolder) {
+    const grandParent = jobData.folders.find(f => f.name === selectedFolder.grandParentFolder);
+    const parent = grandParent?.subfolders?.find(sf => sf.name === selectedFolder.parentFolder);
+    const folder = parent?.subfolders?.find(nsf => nsf.name === selectedFolder.name);
+    if (folder) {
+      return { ...folder, parentFolder: selectedFolder.parentFolder, grandParentFolder: selectedFolder.grandParentFolder };
+    }
+  }
+  // Direct subfolder: e.g., ACI > Photos  
+  else if (selectedFolder.parentFolder) {
+    const parent = jobData.folders.find(f => f.name === selectedFolder.parentFolder);
+    const folder = parent?.subfolders?.find(sf => sf.name === selectedFolder.name);
+    if (folder) {
+      return { ...folder, parentFolder: selectedFolder.parentFolder };
+    }
+  }
+  // Top-level folder
+  else {
+    const folder = jobData.folders.find(f => f.name === selectedFolder.name);
+    if (folder) return folder;
+  }
+  
+  return null;
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -259,40 +289,12 @@ const JobFileSystem = () => {
       setJob(response.data);
       
       // Re-select the folder to show updated documents
-      if (selectedFolder.grandParentFolder) {
-        // Nested subfolder: e.g., ACI > Pre-Field Documents > Job Photos
-        const grandParentFolder = response.data.folders?.find((f) => f.name === selectedFolder.grandParentFolder);
-        const parentSubfolder = grandParentFolder?.subfolders?.find((sf) => sf.name === selectedFolder.parentFolder);
-        const updatedNestedSubfolder = parentSubfolder?.subfolders?.find((nsf) => nsf.name === selectedFolder.name);
-        if (updatedNestedSubfolder) {
-          setSelectedFolder({ 
-            ...updatedNestedSubfolder, 
-            parentFolder: selectedFolder.parentFolder,
-            grandParentFolder: selectedFolder.grandParentFolder
-          });
-        } else {
-          console.warn('Could not find updated nested subfolder, keeping current selection');
-          setSelectedFolder(prev => ({ ...prev, documents: [] }));
-        }
-      } else if (selectedFolder.parentFolder) {
-        // Direct subfolder: e.g., ACI > Photos
-        const parentFolder = response.data.folders?.find((f) => f.name === selectedFolder.parentFolder);
-        const updatedSubfolder = parentFolder?.subfolders?.find((sf) => sf.name === selectedFolder.name);
-        if (updatedSubfolder) {
-          setSelectedFolder({ ...updatedSubfolder, parentFolder: selectedFolder.parentFolder });
-        } else {
-          console.warn('Could not find updated subfolder, keeping current selection');
-          setSelectedFolder(prev => ({ ...prev, documents: [] }));
-        }
+      const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
+      if (updatedFolder) {
+        setSelectedFolder(updatedFolder);
       } else {
-        // Top-level folder
-        const updatedFolder = response.data.folders?.find((f) => f.name === selectedFolder.name);
-        if (updatedFolder) {
-          setSelectedFolder(updatedFolder);
-        } else {
-          console.warn('Could not find updated folder, keeping current selection');
-          setSelectedFolder(prev => ({ ...prev, documents: [] }));
-        }
+        console.warn('Could not find updated folder, keeping current selection');
+        setSelectedFolder(prev => ({ ...prev, documents: [] }));
       }
     } catch (err) {
       setError('File upload failed');
@@ -551,17 +553,9 @@ const JobFileSystem = () => {
       setJob(response.data);
 
       // Re-select folder to show updated documents
-      if (selectedFolder?.parentFolder) {
-        const parentFolder = response.data.folders?.find((f) => f.name === selectedFolder.parentFolder);
-        const updatedSubfolder = parentFolder?.subfolders?.find((sf) => sf.name === selectedFolder.name);
-        if (updatedSubfolder) {
-          setSelectedFolder({ ...updatedSubfolder, parentFolder: selectedFolder.parentFolder });
-        }
-      } else {
-        const updatedFolder = response.data.folders?.find((f) => f.name === selectedFolder.name);
-        if (updatedFolder) {
-          setSelectedFolder(updatedFolder);
-        }
+      const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
+      if (updatedFolder) {
+        setSelectedFolder(updatedFolder);
       }
 
     } catch (err) {
@@ -791,12 +785,9 @@ const JobFileSystem = () => {
       setJob(jobResponse.data);
       
       // Update selected folder
-      if (selectedFolder?.parentFolder) {
-        const parentFolder = jobResponse.data.folders.find((f) => f.name === selectedFolder.parentFolder);
-        const updatedSubfolder = parentFolder?.subfolders?.find((sf) => sf.name === selectedFolder.name);
-        if (updatedSubfolder) {
-          setSelectedFolder({ ...updatedSubfolder, parentFolder: selectedFolder.parentFolder });
-        }
+      const updatedFolder = findUpdatedFolder(jobResponse.data, selectedFolder);
+      if (updatedFolder) {
+        setSelectedFolder(updatedFolder);
       }
       
       return true;
