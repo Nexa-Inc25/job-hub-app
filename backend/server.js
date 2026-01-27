@@ -3745,11 +3745,11 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
         
         // Get file from R2 or local storage
         if (doc.r2Key && r2Storage.isR2Configured()) {
-          // Fetch from R2
-          const r2Response = await r2Storage.getFile(doc.r2Key);
-          if (r2Response?.Body) {
+          // Fetch from R2 using getFileStream
+          const r2Response = await r2Storage.getFileStream(doc.r2Key);
+          if (r2Response?.stream) {
             const chunks = [];
-            for await (const chunk of r2Response.Body) {
+            for await (const chunk of r2Response.stream) {
               chunks.push(chunk);
             }
             fileBuffer = Buffer.concat(chunks);
