@@ -635,7 +635,7 @@ const QADashboard = () => {
                             </TableCell>
                             <TableCell>
                               <Chip 
-                                label={audit.status.replace(/_/g, ' ').toUpperCase()}
+                                label={audit.status.replaceAll('_', ' ').toUpperCase()}
                                 size="small"
                                 sx={{ 
                                   bgcolor: `${STATUS_COLORS[audit.status] || '#64748b'}20`,

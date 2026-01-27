@@ -235,7 +235,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
   const incrementVersion = (version) => {
     const parts = version.split('.');
     if (parts.length >= 2) {
-      parts[1] = String(parseInt(parts[1] || '0') + 1);
+      parts[1] = String(Number.parseInt(parts[1] || '0', 10) + 1);
       return parts.join('.');
     }
     return `${version}.1`;
