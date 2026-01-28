@@ -242,6 +242,50 @@ const generatePhotoFilename = (job, prefix, extension) => {
   return `${division}_${pmNumber}_${prefix}_${timestamp}.${extension}`;
 };
 
+// Helper to determine folder types - extracted to reduce component complexity
+const getFolderTypes = (selectedFolder) => ({
+  isPhotosFolder: selectedFolder?.name === 'Photos',
+  isPreFieldFolder: selectedFolder?.name === 'Pre-Field Documents' || 
+                    selectedFolder?.name === 'Job Photos' ||
+                    selectedFolder?.parentFolder === 'Pre-Field Documents',
+  isJobPhotosFolder: selectedFolder?.name === 'Job Photos',
+  isGFAuditFolder: selectedFolder?.name === 'GF Audit'
+});
+
+// Generic photo upload handler factory - reduces code duplication
+const createPhotoUploadHandler = (id, job, uploadEndpoint, subfolderName, setJob, setSelectedFolder, setError) => {
+  return async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const formData = new FormData();
+    const prefix = subfolderName === 'GF Audit' ? 'GF_Audit' : 'PreField_Photo';
+    
+    Array.from(files).forEach((file) => {
+      const ext = file.name.split('.').pop();
+      const key = subfolderName ? 'files' : 'photos';
+      formData.append(key, file, generatePhotoFilename(job, prefix, ext));
+    });
+    
+    if (subfolderName) {
+      formData.append('subfolder', subfolderName);
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      await api.post(uploadEndpoint, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const response = await api.get(`/api/jobs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+      setJob(response.data);
+      selectSubfolderAfterRefresh(response.data, 'ACI', subfolderName || 'Photos', setSelectedFolder);
+    } catch (err) {
+      console.error(`${subfolderName || 'Photo'} upload error:`, err);
+      setError('Photo upload failed');
+    }
+  };
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -368,13 +412,8 @@ const JobFileSystem = () => {
     }
   };
 
-  // Check if current folder is Photos or Pre-Field Documents (or Job Photos subfolder)
-  const isPhotosFolder = selectedFolder?.name === 'Photos';
-  const isPreFieldFolder = selectedFolder?.name === 'Pre-Field Documents' || 
-                           selectedFolder?.name === 'Job Photos' ||
-                           selectedFolder?.parentFolder === 'Pre-Field Documents';
-  const isJobPhotosFolder = selectedFolder?.name === 'Job Photos';
-  const isGFAuditFolder = selectedFolder?.name === 'GF Audit';
+  // Check folder types using extracted helper
+  const { isPhotosFolder, isPreFieldFolder, isJobPhotosFolder, isGFAuditFolder } = getFolderTypes(selectedFolder);
   
   // State for export loading
   const [exportLoading, setExportLoading] = useState(false);
@@ -387,31 +426,11 @@ const JobFileSystem = () => {
   const gfAuditPhotoInputRef = useRef(null);
   const gfAuditCameraInputRef = useRef(null);
 
-  // Handle photo upload for GF Audit folder
-  const handleGFAuditPhotoUpload = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const formData = new FormData();
-    Array.from(files).forEach((file) => {
-      const ext = file.name.split('.').pop();
-      formData.append('files', file, generatePhotoFilename(job, 'GF_Audit', ext));
-    });
-    formData.append('subfolder', 'GF Audit');
-
-    try {
-      const token = localStorage.getItem('token');
-      await api.post(`/api/jobs/${id}/folders/ACI/upload`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const response = await api.get(`/api/jobs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
-      setJob(response.data);
-      selectSubfolderAfterRefresh(response.data, 'ACI', 'GF Audit', setSelectedFolder);
-    } catch (err) {
-      console.error('GF Audit photo upload error:', err);
-      setError('Photo upload failed');
-    }
-  };
+  // Handle photo upload for GF Audit folder - using factory
+  const handleGFAuditPhotoUpload = useCallback(
+    createPhotoUploadHandler(id, job, `/api/jobs/${id}/folders/ACI/upload`, 'GF Audit', setJob, setSelectedFolder, setError),
+    [id, job]
+  );
 
   // Handle photo upload for Pre-Field Documents
   const handlePreFieldPhotoUpload = async (e) => {
