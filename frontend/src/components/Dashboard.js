@@ -175,6 +175,34 @@ const applyUserPermissions = (perms, setters) => {
   setters.setCanApprove(perms.canApprove);
 };
 
+// Handle card flip logic - separated to reduce component complexity
+const processCardFlip = async (jobId, jobs, flippedCards, jobDetails, preFieldChecklist, callbacks) => {
+  const { setFlippedCards, setJobDetails, initChecklist } = callbacks;
+  const isCurrentlyFlipped = flippedCards[jobId];
+  const job = jobs.find(j => j._id === jobId);
+  
+  // Toggle flip state immediately
+  setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
+  
+  // If flipping to back side, load data
+  if (isCurrentlyFlipped) return;
+  
+  // Initialize pre-field checklist if job needs pre-fielding
+  if (job && needsPreField(job.status)) {
+    initChecklist(jobId);
+  }
+  
+  // Fetch full details if not already cached
+  if (jobDetails[jobId]) return;
+  
+  try {
+    const response = await api.get(`/api/jobs/${jobId}/full-details`);
+    setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
+  } catch (err) {
+    console.error('Error fetching job details:', err);
+  }
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -255,36 +283,15 @@ const Dashboard = () => {
 
   // Handle card flip - load full details on first flip
   const handleCardFlip = (jobId) => {
-    // Prevent rapid clicking
     if (flipLock) return;
     setFlipLock(true);
     
-    const isCurrentlyFlipped = flippedCards[jobId];
-    const job = jobs.find(j => j._id === jobId);
+    processCardFlip(jobId, jobs, flippedCards, jobDetails, preFieldChecklist, {
+      setFlippedCards,
+      setJobDetails,
+      initChecklist: initPreFieldChecklist
+    });
     
-    // Toggle flip state immediately
-    setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
-    
-    // If flipping to back side, load data
-    if (!isCurrentlyFlipped) {
-      // Initialize pre-field checklist if job needs pre-fielding
-      if (job && needsPreField(job.status)) {
-        initPreFieldChecklist(jobId);
-      }
-      
-      // Fetch full details if not already cached (don't await - fire and forget)
-      if (!jobDetails[jobId]) {
-        api.get(`/api/jobs/${jobId}/full-details`)
-          .then(response => {
-            setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
-          })
-          .catch(err => {
-            console.error('Error fetching job details:', err);
-          });
-      }
-    }
-    
-    // Release lock after animation completes
     setTimeout(() => setFlipLock(false), 700);
   };
 

@@ -205,6 +205,27 @@ const createExtractionPoller = (jobId, setJob, updateJobInList) => {
   };
 };
 
+// Helper to upload files and refresh job data - extracted to reduce complexity
+const uploadFilesAndRefresh = async (id, folderName, formData, selectedFolder, setters) => {
+  const token = localStorage.getItem('token');
+  await api.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  
+  const response = await api.get(`/api/jobs/${id}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  setters.setJob(response.data);
+  
+  const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
+  if (updatedFolder) {
+    setters.setSelectedFolder(updatedFolder);
+  } else {
+    console.warn('Could not find updated folder, keeping current selection');
+    setters.setSelectedFolder(prev => ({ ...prev, documents: [] }));
+  }
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -293,32 +314,12 @@ const JobFileSystem = () => {
     const formData = new FormData();
     Array.from(files).forEach((file) => formData.append('files', file));
     
-    // Add subfolder path if applicable
     const subfolderPath = getSubfolderPath(selectedFolder);
-    if (subfolderPath) {
-      formData.append('subfolder', subfolderPath);
-    }
+    if (subfolderPath) formData.append('subfolder', subfolderPath);
 
     try {
-      const token = localStorage.getItem('token');
       const folderName = getRootFolderName(selectedFolder);
-      await api.post(`/api/jobs/${id}/folders/${folderName}/upload`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // Refresh job data
-      const response = await api.get(`/api/jobs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setJob(response.data);
-      
-      // Re-select the folder to show updated documents
-      const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
-      if (updatedFolder) {
-        setSelectedFolder(updatedFolder);
-      } else {
-        console.warn('Could not find updated folder, keeping current selection');
-        setSelectedFolder(prev => ({ ...prev, documents: [] }));
-      }
+      await uploadFilesAndRefresh(id, folderName, formData, selectedFolder, { setJob, setSelectedFolder });
     } catch (error_) {
       console.error('File upload error:', error_);
       setError('File upload failed');
