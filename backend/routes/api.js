@@ -91,6 +91,66 @@ function setupAssetFolders(job) {
   };
 }
 
+// Helper to resolve PDF path from request
+function resolvePdfPath(req) {
+  if (req.file?.path) return req.file.path;
+  if (req.body.documentUrl) {
+    return path.join(__dirname, '..', req.body.documentUrl.replace(/^\//, ''));
+  }
+  return null;
+}
+
+// Helper to setup extraction directories
+function setupExtractionDirs(jobId) {
+  const safeJobId = sanitizePathComponent(jobId);
+  const jobUploadsDir = path.join(__dirname, '..', 'uploads', `job_${safeJobId}`);
+  const dirs = {
+    photos: path.join(jobUploadsDir, 'photos'),
+    drawings: path.join(jobUploadsDir, 'drawings'),
+    maps: path.join(jobUploadsDir, 'maps')
+  };
+  Object.values(dirs).forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  });
+  return dirs;
+}
+
+// Helper to build extracted assets summary
+function buildAssetsSummary(extractedAssets) {
+  return {
+    aiExtractedAssets: [
+      ...extractedAssets.photos.map(p => ({ type: 'photo', name: p.name, url: p.url, extractedAt: new Date() })),
+      ...extractedAssets.drawings.map(d => ({ type: 'drawing', name: d.name, url: d.url, extractedAt: new Date() })),
+      ...extractedAssets.maps.map(m => ({ type: 'map', name: m.name, url: m.url, extractedAt: new Date() }))
+    ],
+    summary: {
+      photosCount: extractedAssets.photos.length,
+      drawingsCount: extractedAssets.drawings.length,
+      mapsCount: extractedAssets.maps.length
+    }
+  };
+}
+
+// Helper to add documents to asset folders
+function addDocsToAssetFolders(assetFolders, extractedAssets, pdfBasename) {
+  if (!assetFolders) return;
+  
+  const addDocs = (folder, assets, type, includePageNumber = false) => {
+    assets.forEach(asset => {
+      const doc = {
+        name: asset.name, path: asset.path, url: asset.url,
+        type, extractedFrom: pdfBasename, uploadDate: new Date()
+      };
+      if (includePageNumber) doc.pageNumber = asset.pageNumber;
+      folder.documents.push(doc);
+    });
+  };
+  
+  addDocs(assetFolders.jobPhotosFolder, extractedAssets.photos, 'image');
+  addDocs(assetFolders.drawingsFolder, extractedAssets.drawings, 'drawing', true);
+  addDocs(assetFolders.mapsFolder, extractedAssets.maps, 'map', true);
+}
+
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
 let pdfUtils = null;
 let pdfImageExtractor = null;
@@ -314,37 +374,16 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     }
     
     // Get the PDF path - either from upload or from existing job document
-    let pdfPath = req.file?.path;
-    
-    if (!pdfPath && req.body.documentUrl) {
-      // Use existing document
-      pdfPath = path.join(__dirname, '..', req.body.documentUrl.replace(/^\//, ''));
-    }
-    
+    const pdfPath = resolvePdfPath(req);
     if (!pdfPath || !fs.existsSync(pdfPath)) {
       return res.status(400).json({ error: 'No PDF file provided or file not found' });
     }
     
     console.log('Extracting assets from:', pdfPath);
     
-    // Create output directories for extracted assets (sanitize jobId for path safety)
-    const safeJobId = sanitizePathComponent(jobId);
-    const jobUploadsDir = path.join(__dirname, '..', 'uploads', `job_${safeJobId}`);
-    const photosDir = path.join(jobUploadsDir, 'photos');
-    const drawingsDir = path.join(jobUploadsDir, 'drawings');
-    const mapsDir = path.join(jobUploadsDir, 'maps');
-    
-    [photosDir, drawingsDir, mapsDir].forEach(dir => {
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-    });
-    
-    const extractedAssets = {
-      photos: [],
-      drawings: [],
-      maps: []
-    };
+    // Create output directories for extracted assets
+    const dirs = setupExtractionDirs(jobId);
+    const extractedAssets = { photos: [], drawings: [], maps: [] };
     
     // 1. Analyze PDF pages by content (position-independent)
     console.log('Analyzing PDF pages by content...');
@@ -353,9 +392,9 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     
     // 2-4. Convert and upload all asset types in parallel
     const [drawings, maps, photos] = await Promise.all([
-      convertAndUploadAssets(pageAnalysis.drawings, pdfPath, drawingsDir, 'drawing', 'drawings', jobId),
-      convertAndUploadAssets(pageAnalysis.maps, pdfPath, mapsDir, 'map', 'maps', jobId),
-      convertAndUploadAssets(pageAnalysis.photos, pdfPath, photosDir, 'photo', 'photos', jobId)
+      convertAndUploadAssets(pageAnalysis.drawings, pdfPath, dirs.drawings, 'drawing', 'drawings', jobId),
+      convertAndUploadAssets(pageAnalysis.maps, pdfPath, dirs.maps, 'map', 'maps', jobId),
+      convertAndUploadAssets(pageAnalysis.photos, pdfPath, dirs.photos, 'photo', 'photos', jobId)
     ]);
     
     extractedAssets.drawings = drawings;
@@ -364,56 +403,20 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     
     // 4. Update job with extracted assets
     const assetFolders = setupAssetFolders(job);
-    if (assetFolders) {
-      const pdfBasename = path.basename(pdfPath);
-      
-      // Add extracted assets to their respective folders
-      extractedAssets.photos.forEach(photo => {
-        assetFolders.jobPhotosFolder.documents.push({
-          name: photo.name, path: photo.path, url: photo.url,
-          type: 'image', extractedFrom: pdfBasename, uploadDate: new Date()
-        });
-      });
-      
-      extractedAssets.drawings.forEach(drawing => {
-        assetFolders.drawingsFolder.documents.push({
-          name: drawing.name, path: drawing.path, url: drawing.url,
-          type: 'drawing', pageNumber: drawing.pageNumber, extractedFrom: pdfBasename, uploadDate: new Date()
-        });
-      });
-      
-      extractedAssets.maps.forEach(map => {
-        assetFolders.mapsFolder.documents.push({
-          name: map.name, path: map.path, url: map.url,
-          type: 'map', pageNumber: map.pageNumber, extractedFrom: pdfBasename, uploadDate: new Date()
-        });
-      });
-    }
+    addDocsToAssetFolders(assetFolders, extractedAssets, path.basename(pdfPath));
     
+    const assetsSummary = buildAssetsSummary(extractedAssets);
     job.aiExtractionComplete = true;
-    job.aiExtractedAssets = [
-      ...extractedAssets.photos.map(p => ({ type: 'photo', name: p.name, url: p.url, extractedAt: new Date() })),
-      ...extractedAssets.drawings.map(d => ({ type: 'drawing', name: d.name, url: d.url, extractedAt: new Date() })),
-      ...extractedAssets.maps.map(m => ({ type: 'map', name: m.name, url: m.url, extractedAt: new Date() }))
-    ];
-    
+    job.aiExtractedAssets = assetsSummary.aiExtractedAssets;
     await job.save();
     
-    console.log('Asset extraction complete:', {
-      photos: extractedAssets.photos.length,
-      drawings: extractedAssets.drawings.length,
-      maps: extractedAssets.maps.length
-    });
+    console.log('Asset extraction complete:', assetsSummary.summary);
     
     res.json({
       success: true,
       message: 'Assets extracted successfully',
       extractedAssets,
-      summary: {
-        photosCount: extractedAssets.photos.length,
-        drawingsCount: extractedAssets.drawings.length,
-        mapsCount: extractedAssets.maps.length
-      }
+      summary: assetsSummary.summary
     });
     
   } catch (err) {
