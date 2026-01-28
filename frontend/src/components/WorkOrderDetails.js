@@ -32,8 +32,6 @@ import {
   AppBar,
   Toolbar,
   LinearProgress,
-  ImageList,
-  ImageListItem,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
