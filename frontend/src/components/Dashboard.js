@@ -1234,7 +1234,7 @@ const Dashboard = () => {
                   <Typography color="text.secondary" gutterBottom>
                     Total Orders
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="h4" component="p" fontWeight="bold">
                     {stats.total}
                   </Typography>
                 </Box>
@@ -1252,7 +1252,7 @@ const Dashboard = () => {
                   <Typography color="text.secondary" gutterBottom>
                     In Progress
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="info.main">
+                  <Typography variant="h4" component="p" fontWeight="bold" color="info.main">
                     {stats.inProgress}
                   </Typography>
                 </Box>
@@ -1270,7 +1270,7 @@ const Dashboard = () => {
                   <Typography color="text.secondary" gutterBottom>
                     Completed
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="success.main">
+                  <Typography variant="h4" component="p" fontWeight="bold" color="success.main">
                     {stats.completed}
                   </Typography>
                 </Box>
@@ -1288,7 +1288,7 @@ const Dashboard = () => {
                   <Typography color="text.secondary" gutterBottom>
                     Pre-Field
                   </Typography>
-                  <Typography variant="h4" fontWeight="bold" color="info.main">
+                  <Typography variant="h4" component="p" fontWeight="bold" color="info.main">
                     {stats.preField}
                   </Typography>
                 </Box>

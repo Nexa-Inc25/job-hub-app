@@ -205,19 +205,19 @@ const AdminAICosts = () => {
           <Grid container spacing={3}>
             <Grid item xs={4}>
               <Typography variant="body2" sx={{ color: textSecondary }}>Total Records</Typography>
-              <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>
+              <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700 }}>
                 {stats?.aiTraining?.totalRecords || 0}
               </Typography>
             </Grid>
             <Grid item xs={4}>
               <Typography variant="body2" sx={{ color: textSecondary }}>Complete</Typography>
-              <Typography variant="h4" sx={{ color: '#22c55e', fontWeight: 700 }}>
+              <Typography variant="h4" component="p" sx={{ color: '#22c55e', fontWeight: 700 }}>
                 {stats?.aiTraining?.completeRecords || 0}
               </Typography>
             </Grid>
             <Grid item xs={4}>
               <Typography variant="body2" sx={{ color: textSecondary }}>Completion Rate</Typography>
-              <Typography variant="h4" sx={{ color: '#6366f1', fontWeight: 700 }}>
+              <Typography variant="h4" component="p" sx={{ color: '#6366f1', fontWeight: 700 }}>
                 {stats?.aiTraining?.completionRate || '0%'}
               </Typography>
             </Grid>

@@ -40,7 +40,7 @@ self.addEventListener('install', event => {
       .then(cache => {
         console.log('[SW] Precaching static assets');
         return cache.addAll(PRECACHE_ASSETS);
-      })
+    })
       .then(() => self.skipWaiting())
   );
 });
@@ -215,8 +215,8 @@ async function handleStaticRequest(request) {
     .then(networkResponse => {
       if (networkResponse.ok) {
         cache.put(request, networkResponse.clone());
-      }
-      return networkResponse;
+            }
+            return networkResponse;
     })
     .catch(() => null);
 

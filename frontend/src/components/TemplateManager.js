@@ -193,28 +193,28 @@ const TemplateManager = () => {
           if (loading) return <CircularProgress />;
           if (templates.length === 0) {
             return (
-              <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                No templates uploaded yet. Upload your PG&E forms above.
-              </Typography>
+          <Typography color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+            No templates uploaded yet. Upload your PG&E forms above.
+          </Typography>
             );
           }
           return (
-            <List>
+          <List>
               {templates.map((template) => (
-                <ListItem 
+              <ListItem 
                   key={template._id || template.name}
                   sx={{ bgcolor: 'background.paper', mb: 1, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}
-                >
-                  <ListItemIcon>
-                    <PictureAsPdfIcon color="error" />
-                  </ListItemIcon>
+              >
+                <ListItemIcon>
+                  <PictureAsPdfIcon color="error" />
+                </ListItemIcon>
                   <ListItemText primary={template.name} secondary={template.url} />
                   <Button variant="outlined" size="small" href={template.url} target="_blank">
-                    Preview
-                  </Button>
-                </ListItem>
-              ))}
-            </List>
+                  Preview
+                </Button>
+              </ListItem>
+            ))}
+          </List>
           );
         })()}
 

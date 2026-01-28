@@ -85,7 +85,7 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
           <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5, fontWeight: 500 }}>{title}</Typography>
-          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700, mb: 0.5 }}>{value}</Typography>
+          <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700, mb: 0.5 }}>{value}</Typography>
           {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
           {trend}
         </Box>

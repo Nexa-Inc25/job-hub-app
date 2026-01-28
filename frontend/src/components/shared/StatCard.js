@@ -34,7 +34,7 @@ const StatCard = ({
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
           <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
-          <Typography variant="h4" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
+          <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
           {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
         </Box>
         <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>

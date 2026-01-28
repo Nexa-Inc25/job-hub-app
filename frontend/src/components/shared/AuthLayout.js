@@ -33,7 +33,7 @@ const AuthLayout = ({ children, title }) => {
           }}
         >
           <Box sx={{ textAlign: 'center', mb: 4 }}>
-            <Typography variant="h4" fontWeight={700} gutterBottom>
+            <Typography variant="h4" component="h1" fontWeight={700} gutterBottom>
               JobHub
             </Typography>
             <Typography variant="body1" color="text.secondary">

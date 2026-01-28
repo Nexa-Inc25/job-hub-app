@@ -7,12 +7,12 @@ const Forms = () => {
 
   return (
     <Box sx={{ p: 3 }}>
-      <Typography variant="h4" gutterBottom>General Forms</Typography>
+      <Typography variant="h4" component="h1" gutterBottom>General Forms</Typography>
       <List>
         {forms.map((form) => (
           <ListItem key={form} disablePadding>
             <ListItemButton onClick={() => alert(`Loading ${form}`)}>
-              <ListItemText primary={form} />
+            <ListItemText primary={form} />
             </ListItemButton>
           </ListItem>
         ))}

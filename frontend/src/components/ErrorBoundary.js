@@ -77,7 +77,7 @@ class ErrorBoundary extends Component {
               borderRadius: 3
             }}
           >
-            <Typography variant="h4" gutterBottom sx={{ color: 'error.main' }}>
+            <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'error.main' }}>
               Something went wrong
             </Typography>
             
