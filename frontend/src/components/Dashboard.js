@@ -292,6 +292,42 @@ const processCardFlip = (jobId, jobs, flippedCards, jobDetails, callbacks) => {
   }
 };
 
+// Extract assignment data from job - reduces component complexity
+const getAssignmentDataFromJob = (job) => {
+  const assignedToId = job?.assignedTo?._id || job?.assignedTo || '';
+  return {
+    assignedTo: assignedToId,
+    crewScheduledDate: job?.crewScheduledDate ? job.crewScheduledDate.split('T')[0] : '',
+    crewScheduledEndDate: job?.crewScheduledEndDate ? job.crewScheduledEndDate.split('T')[0] : '',
+    assignmentNotes: job?.assignmentNotes || ''
+  };
+};
+
+// Prepare assignment data for API - handles timezone issues
+const prepareAssignmentDataForApi = (assignmentData) => {
+  const dataToSend = { ...assignmentData };
+  if (dataToSend.crewScheduledDate) {
+    dataToSend.crewScheduledDate = new Date(dataToSend.crewScheduledDate + 'T12:00:00').toISOString();
+  }
+  if (dataToSend.crewScheduledEndDate) {
+    dataToSend.crewScheduledEndDate = new Date(dataToSend.crewScheduledEndDate + 'T12:00:00').toISOString();
+  }
+  return dataToSend;
+};
+
+// Empty assignment data - avoids recreation on each render
+const EMPTY_ASSIGNMENT_DATA = {
+  assignedTo: '',
+  crewScheduledDate: '',
+  crewScheduledEndDate: '',
+  assignmentNotes: ''
+};
+
+// Get display title for a job
+const getJobDisplayTitle = (job) => {
+  return job?.title || job?.pmNumber || 'this work order';
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -796,36 +832,19 @@ const Dashboard = () => {
 
   const handleDeleteJob = async () => {
     if (!selectedJobId) return;
-    
-    // Find the job to get its title for confirmation
     const jobToDelete = jobs.find(j => j._id === selectedJobId);
-    const jobTitle = jobToDelete?.title || jobToDelete?.pmNumber || 'this work order';
-    
-    // Confirm deletion
+    const jobTitle = getJobDisplayTitle(jobToDelete);
     if (!globalThis.confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
       handleJobMenuClose();
       return;
     }
-    
     try {
-      // api module automatically adds Authorization header
       await api.delete(`/api/jobs/${selectedJobId}`);
-      
-      // Remove from local state
       setJobs(jobs.filter(job => job._id !== selectedJobId));
-      setSnackbar({
-        open: true,
-        message: 'Work order deleted successfully',
-        severity: 'success'
-      });
+      setSnackbar({ open: true, message: 'Work order deleted successfully', severity: 'success' });
     } catch (err) {
       console.error('Error deleting job:', err);
-      console.error('Error response:', err.response?.data);
-      setSnackbar({
-        open: true,
-        message: err.response?.data?.error || 'Failed to delete work order',
-        severity: 'error'
-      });
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to delete work order', severity: 'error' });
     } finally {
       handleJobMenuClose();
     }
@@ -845,64 +864,31 @@ const Dashboard = () => {
     handleJobMenuClose();
   };
 
-  // Assignment handlers
+  // Assignment handlers - use extracted helpers
   const handleOpenAssignDialog = () => {
     fetchForemen();
     const job = jobs.find(j => j._id === selectedJobId);
-    // Handle assignedTo being either a populated object or a string ID
-    const assignedToId = job?.assignedTo?._id || job?.assignedTo || '';
-    setAssignmentData({
-      assignedTo: assignedToId,
-      crewScheduledDate: job?.crewScheduledDate ? job.crewScheduledDate.split('T')[0] : '',
-      crewScheduledEndDate: job?.crewScheduledEndDate ? job.crewScheduledEndDate.split('T')[0] : '',
-      assignmentNotes: job?.assignmentNotes || ''
-    });
+    setAssignmentData(getAssignmentDataFromJob(job));
     setAssignDialogOpen(true);
-    // Close menu but keep selectedJobId (dialog is now open so handleJobMenuClose won't clear it)
     setJobMenuAnchor(null);
   };
 
   const handleCloseAssignDialog = () => {
     setAssignDialogOpen(false);
-    setSelectedJobId(null); // Clear selection when dialog closes
-    setAssignmentData({
-      assignedTo: '',
-      crewScheduledDate: '',
-      crewScheduledEndDate: '',
-      assignmentNotes: ''
-    });
+    setSelectedJobId(null);
+    setAssignmentData(EMPTY_ASSIGNMENT_DATA);
   };
 
   const handleAssignJob = async () => {
     try {
-      // Fix timezone issue: set dates at noon local time to avoid day boundary shifts
-      const dataToSend = { ...assignmentData };
-      if (dataToSend.crewScheduledDate) {
-        // Create date at noon local time
-        dataToSend.crewScheduledDate = new Date(dataToSend.crewScheduledDate + 'T12:00:00').toISOString();
-      }
-      if (dataToSend.crewScheduledEndDate) {
-        dataToSend.crewScheduledEndDate = new Date(dataToSend.crewScheduledEndDate + 'T12:00:00').toISOString();
-      }
-      
-      // api module automatically adds Authorization header
+      const dataToSend = prepareAssignmentDataForApi(assignmentData);
       await api.put(`/api/jobs/${selectedJobId}/assign`, dataToSend);
-      
-      // Refresh jobs list
       fetchJobs();
-      setSnackbar({
-        open: true,
-        message: 'Job assigned successfully',
-        severity: 'success'
-      });
+      setSnackbar({ open: true, message: 'Job assigned successfully', severity: 'success' });
       handleCloseAssignDialog();
     } catch (err) {
       console.error('Error assigning job:', err);
-      setSnackbar({
-        open: true,
-        message: err.response?.data?.error || 'Failed to assign job',
-        severity: 'error'
-      });
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to assign job', severity: 'error' });
     }
   };
 
