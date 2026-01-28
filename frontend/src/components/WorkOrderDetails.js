@@ -446,7 +446,190 @@ const WorkOrderDetails = () => {
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Grid container spacing={3}>
-          {/* Left Column - Job Info & Schedule */}
+
+          {/* TOP ROW: Notes/Chat - Front and Center */}
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 2 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+                  <ChatIcon color="primary" />
+                  Job Notes ({notes.length})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {/* Add Note Form - At top for quick access */}
+                <Box sx={{ mb: 2 }}>
+                  <Box display="flex" gap={1}>
+                    <FormControl size="small" sx={{ minWidth: 100 }}>
+                      <Select
+                        value={noteType}
+                        onChange={(e) => setNoteType(e.target.value)}
+                        displayEmpty
+                      >
+                        <MenuItem value="update">Update</MenuItem>
+                        <MenuItem value="issue">Issue</MenuItem>
+                        <MenuItem value="question">Question</MenuItem>
+                        <MenuItem value="resolution">Resolution</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Add a note or update..."
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
+                    />
+                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()} aria-label="Add note">
+                      <SendIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+                
+                {/* Notes List */}
+                <Box sx={{ overflow: 'auto', maxHeight: 200 }}>
+                  {notes.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                      No notes yet. Add updates, issues, or questions above.
+                    </Typography>
+                  ) : (
+                    <List dense sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      {notes.slice(0, 6).map((note) => (
+                        <ListItem 
+                          key={note._id || note.createdAt}
+                          sx={{ 
+                            bgcolor: 'action.hover', 
+                            borderRadius: 1,
+                            width: { xs: '100%', sm: 'calc(50% - 4px)', md: 'calc(33.33% - 6px)' },
+                            flexDirection: 'column',
+                            alignItems: 'flex-start'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={0.5} width="100%">
+                            <Typography variant="caption" fontWeight="bold">
+                              {note.userName || 'User'}
+                            </Typography>
+                            {note.noteType && (
+                              <Chip 
+                                size="small" 
+                                label={note.noteType}
+                                color={getNoteTypeColor(note.noteType)}
+                                sx={{ height: 16, fontSize: '0.6rem' }}
+                              />
+                            )}
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                              {formatDateTime(note.createdAt)}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ mt: 0.5 }} noWrap>
+                            {note.message}
+                          </Typography>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                  {notes.length > 6 && (
+                    <Typography variant="caption" color="primary" textAlign="center" display="block" sx={{ mt: 1, cursor: 'pointer' }}>
+                      + {notes.length - 6} more notes
+                    </Typography>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* PRE-FIELD PHOTOS - Show when in pre-fielding workflow */}
+          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 2 }}>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
+                      <CameraAltIcon color="primary" />
+                      Pre-Field Photos ({preFieldPhotos.length})
+                    </Typography>
+                    <Box display="flex" gap={1}>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                        id="prefield-photo-upload-top"
+                        name="prefield-photo-upload-top"
+                      />
+                      <Button
+                        variant="contained"
+                        startIcon={<CloudUploadIcon />}
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={photoUploading}
+                      >
+                        Upload Photos
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<PhotoLibraryIcon />}
+                        onClick={() => navigate(`/job-file-system/${jobId}`)}
+                      >
+                        Open File System
+                      </Button>
+                    </Box>
+                  </Box>
+                  
+                  {photoUploading && (
+                    <Box sx={{ mb: 2 }}>
+                      <LinearProgress variant="determinate" value={photoUploadProgress} />
+                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
+                        Uploading... {photoUploadProgress}%
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {preFieldPhotos.length === 0 ? (
+                    <Box 
+                      sx={{ 
+                        py: 3, 
+                        textAlign: 'center',
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                      }}
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <CameraAltIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No pre-field photos yet - Click to upload
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <ImageList cols={8} gap={8} sx={{ maxHeight: 150, overflow: 'auto', m: 0 }}>
+                      {preFieldPhotos.map((photo, idx) => (
+                        <ImageListItem key={photo._id || idx}>
+                          <img
+                            src={getPhotoUrl(photo)}
+                            alt={photo.name || `Pre-field photo ${idx + 1}`}
+                            loading="lazy"
+                            style={{ 
+                              height: 70, 
+                              objectFit: 'cover', 
+                              borderRadius: 4,
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
+                          />
+                        </ImageListItem>
+                      ))}
+                    </ImageList>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {/* LEFT COLUMN - Job Info & Schedule */}
           <Grid item xs={12} md={4}>
             {/* Job Info Card */}
             <Card sx={{ mb: 3, borderRadius: 2 }}>
@@ -611,230 +794,6 @@ const WorkOrderDetails = () => {
               </CardContent>
             </Card>
 
-            {/* Workflow Progress */}
-            <Card sx={{ borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
-                  <CheckCircleIcon color="primary" />
-                  Workflow Progress
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                {/* Audit Trail - Who did what and when */}
-                <Box sx={{ '& > *': { mb: 1.5 } }}>
-                  {/* Job Created */}
-                  {job.createdAt && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
-                        Job Created
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.createdAt)}
-                      </Typography>
-                      {job.userId && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.userId.name || job.userId.email || 'Unknown'}
-                          {job.userId._id && <span style={{ opacity: 0.6 }}> (ID: {job.userId._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* Assigned to GF */}
-                  {job.assignedToGFDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
-                        Assigned to GF
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.assignedToGFDate)}
-                      </Typography>
-                      {job.assignedToGFBy && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.assignedToGFBy.name || job.assignedToGFBy.email || 'Unknown'}
-                          {job.assignedToGFBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedToGFBy._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                      {job.assignedToGF && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          To: <strong>{job.assignedToGF.name || job.assignedToGF.email}</strong>
-                          {job.assignedToGF._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedToGF._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* Pre-fielded */}
-                  {job.preFieldDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
-                        Pre-Fielded
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.preFieldDate)}
-                      </Typography>
-                      {job.assignedToGF && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.assignedToGF.name || job.assignedToGF.email}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* Crew Assigned */}
-                  {job.assignedDate && job.assignedTo && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
-                        Crew Assigned
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.assignedDate)}
-                      </Typography>
-                      {job.assignedBy && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.assignedBy.name || job.assignedBy.email || 'Unknown'}
-                          {job.assignedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedBy._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                      <Typography variant="caption" display="block" color="text.primary">
-                        To: <strong>{job.assignedTo.name || job.assignedTo.email}</strong>
-                        {job.assignedTo._id && <span style={{ opacity: 0.6 }}> (ID: {job.assignedTo._id.toString().slice(-6)})</span>}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Crew Submitted */}
-                  {job.crewSubmittedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'warning.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="warning.main">
-                        Crew Submitted
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.crewSubmittedDate)}
-                      </Typography>
-                      {job.crewSubmittedBy && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.crewSubmittedBy.name || job.crewSubmittedBy.email || 'Unknown'}
-                          {job.crewSubmittedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.crewSubmittedBy._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                      {job.crewSubmissionNotes && (
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
-                          "{job.crewSubmissionNotes}"
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* GF Reviewed */}
-                  {job.gfReviewDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color={job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main'}>
-                        GF Review: {job.gfReviewStatus?.toUpperCase()}
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.gfReviewDate)}
-                      </Typography>
-                      {job.gfReviewedBy && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.gfReviewedBy.name || job.gfReviewedBy.email || 'Unknown'}
-                          {job.gfReviewedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.gfReviewedBy._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                      {job.gfReviewNotes && (
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
-                          "{job.gfReviewNotes}"
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* PM Approved */}
-                  {job.pmApprovalDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color={job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main'}>
-                        PM Approval: {job.pmApprovalStatus?.toUpperCase()}
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.pmApprovalDate)}
-                      </Typography>
-                      {job.pmApprovedBy && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.pmApprovedBy.name || job.pmApprovedBy.email || 'Unknown'}
-                          {job.pmApprovedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.pmApprovedBy._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                      {job.pmApprovalNotes && (
-                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontStyle: 'italic', mt: 0.5 }}>
-                          "{job.pmApprovalNotes}"
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* Completed */}
-                  {job.completedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
-                        Completed
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.completedDate)}
-                      </Typography>
-                      {job.completedBy && (
-                        <Typography variant="caption" display="block" color="text.primary">
-                          By: {job.completedBy.name || job.completedBy.email || 'Unknown'}
-                          {job.completedBy._id && <span style={{ opacity: 0.6 }}> (ID: {job.completedBy._id.toString().slice(-6)})</span>}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-
-                  {/* Submitted to Utility */}
-                  {job.utilitySubmittedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
-                        Submitted to Utility
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.utilitySubmittedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Billed */}
-                  {job.billedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
-                        Billed
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.billedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Invoiced */}
-                  {job.invoicedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main' }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
-                        Invoiced (Paid)
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.invoicedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* No activity yet */}
-                  {!job.assignedToGFDate && !job.preFieldDate && !job.crewSubmittedDate && (
-                    <Typography variant="caption" color="text.secondary" textAlign="center" display="block">
-                      No workflow activity yet
-                    </Typography>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
           </Grid>
 
           {/* Middle Column - Dependencies */}
@@ -939,190 +898,144 @@ const WorkOrderDetails = () => {
             </Card>
           </Grid>
 
-          {/* Pre-Field Photos Section - Show when in pre-fielding or assigned_to_gf status */}
-          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
-            <Grid item xs={12}>
-              <Card sx={{ borderRadius: 2, mb: 3 }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
-                      <CameraAltIcon color="primary" />
-                      Pre-Field Photos ({preFieldPhotos.length})
-                    </Typography>
-                    <Box display="flex" gap={1}>
-                      <input
-                        ref={photoInputRef}
-                        type="file"
-                        accept="image/*,.heic,.heif"
-                        multiple
-                        onChange={handlePhotoUpload}
-                        style={{ display: 'none' }}
-                        id="prefield-photo-upload"
-                        name="prefield-photo-upload"
-                      />
-                      <Button
-                        variant="contained"
-                        startIcon={<CloudUploadIcon />}
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={photoUploading}
-                      >
-                        Upload Photos
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<PhotoLibraryIcon />}
-                        onClick={() => navigate(`/job-file-system/${jobId}`)}
-                      >
-                        Open File System
-                      </Button>
-                    </Box>
-                  </Box>
-                  
-                  {photoUploading && (
-                    <Box sx={{ mb: 2 }}>
-                      <LinearProgress variant="determinate" value={photoUploadProgress} />
-                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
-                        Uploading... {photoUploadProgress}%
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  <Divider sx={{ mb: 2 }} />
-                  
-                  {preFieldPhotos.length === 0 ? (
-                    <Box 
-                      sx={{ 
-                        py: 4, 
-                        textAlign: 'center',
-                        border: '2px dashed',
-                        borderColor: 'divider',
-                        borderRadius: 2,
-                        cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
-                      }}
-                      onClick={() => photoInputRef.current?.click()}
-                    >
-                      <CameraAltIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No pre-field photos yet
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Click to upload or drag and drop photos
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <ImageList cols={6} gap={8} sx={{ maxHeight: 200, overflow: 'auto' }}>
-                      {preFieldPhotos.map((photo, idx) => (
-                        <ImageListItem key={photo._id || idx}>
-                          <img
-                            src={getPhotoUrl(photo)}
-                            alt={photo.name || `Pre-field photo ${idx + 1}`}
-                            loading="lazy"
-                            style={{ 
-                              height: 80, 
-                              objectFit: 'cover', 
-                              borderRadius: 4,
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
-                          />
-                        </ImageListItem>
-                      ))}
-                    </ImageList>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
-          {/* Right Column - Notes/Chat */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{ borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* BOTTOM: Workflow Progress - Collapsible timeline */}
+          <Grid item xs={12}>
+            <Card sx={{ borderRadius: 2 }}>
+              <CardContent>
                 <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
-                  <ChatIcon color="primary" />
-                  Job Notes ({notes.length})
+                  <CheckCircleIcon color="primary" />
+                  Workflow Progress
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 
-                {/* Notes List */}
-                <Box sx={{ flexGrow: 1, overflow: 'auto', maxHeight: 400, mb: 2 }}>
-                  {notes.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" textAlign="center" py={4}>
-                      No notes yet. Add updates, issues, or questions.
-                    </Typography>
-                  ) : (
-                    <List dense>
-                      {notes.map((note) => (
-                        <ListItem 
-                          key={note._id || note.createdAt}
-                          sx={{ 
-                            bgcolor: 'action.hover', 
-                            borderRadius: 1, 
-                            mb: 1,
-                            flexDirection: 'column',
-                            alignItems: 'flex-start'
-                          }}
-                        >
-                          <Box display="flex" alignItems="center" gap={1} width="100%">
-                            <Typography variant="caption" fontWeight="bold">
-                              {note.userName || 'User'}
-                            </Typography>
-                            {note.userRole && (
-                              <Chip 
-                                size="small" 
-                                label={note.userRole.toUpperCase()}
-                                sx={{ height: 16, fontSize: '0.6rem' }}
-                              />
-                            )}
-                            {note.noteType && (
-                              <Chip 
-                                size="small" 
-                                label={note.noteType}
-                                color={getNoteTypeColor(note.noteType)}
-                                sx={{ height: 16, fontSize: '0.6rem' }}
-                              />
-                            )}
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                              {formatDateTime(note.createdAt)}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body2" sx={{ mt: 0.5 }}>
-                            {note.message}
-                          </Typography>
-                        </ListItem>
-                      ))}
-                    </List>
+                {/* Horizontal timeline for workflow */}
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                  {/* Job Created */}
+                  {job.createdAt && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
+                        Job Created
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.createdAt)}
+                      </Typography>
+                    </Box>
                   )}
-                </Box>
-                
-                {/* Add Note Form */}
-                <Box>
-                  <Box display="flex" gap={1} mb={1}>
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                      <Select
-                        value={noteType}
-                        onChange={(e) => setNoteType(e.target.value)}
-                        displayEmpty
-                      >
-                        <MenuItem value="update">Update</MenuItem>
-                        <MenuItem value="issue">Issue</MenuItem>
-                        <MenuItem value="question">Question</MenuItem>
-                        <MenuItem value="resolution">Resolution</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="Add a note..."
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                    />
-                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()} aria-label="Add note">
-                      <SendIcon />
-                    </IconButton>
-                  </Box>
+
+                  {/* Assigned to GF */}
+                  {job.assignedToGFDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
+                        Assigned to GF
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.assignedToGFDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Pre-fielded */}
+                  {job.preFieldDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
+                        Pre-Fielded
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.preFieldDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Crew Assigned */}
+                  {job.assignedDate && job.assignedTo && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
+                        Crew Assigned
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.assignedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Crew Submitted */}
+                  {job.crewSubmittedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'warning.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="warning.main">
+                        Crew Submitted
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.crewSubmittedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* GF Reviewed */}
+                  {job.gfReviewDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color={job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main'}>
+                        GF Review: {job.gfReviewStatus?.toUpperCase()}
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.gfReviewDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* PM Approved */}
+                  {job.pmApprovalDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color={job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main'}>
+                        PM Approval: {job.pmApprovalStatus?.toUpperCase()}
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.pmApprovalDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Completed */}
+                  {job.completedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
+                        Completed
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.completedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Billed */}
+                  {job.billedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
+                        Billed
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.billedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* Invoiced */}
+                  {job.invoicedDate && (
+                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main', minWidth: 150 }}>
+                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
+                        Invoiced (Paid)
+                      </Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">
+                        {formatDateTime(job.invoicedDate)}
+                      </Typography>
+                    </Box>
+                  )}
+
+                  {/* No activity yet */}
+                  {!job.assignedToGFDate && !job.preFieldDate && !job.crewSubmittedDate && (
+                    <Typography variant="caption" color="text.secondary">
+                      No workflow activity yet
+                    </Typography>
+                  )}
                 </Box>
               </CardContent>
             </Card>
