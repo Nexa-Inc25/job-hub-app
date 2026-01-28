@@ -27,6 +27,7 @@ import {
   Error as ErrorIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
+import { getThemeColors } from './shared/themeUtils';
 import {
   AreaChart,
   Area,
@@ -44,12 +45,7 @@ const AdminAICosts = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
   const { mode } = useThemeMode();
-
-  const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';
-  const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
-  const chartGridColor = mode === 'dark' ? '#334155' : '#e5e7eb';
+  const { cardBg, textPrimary, textSecondary, borderColor, chartGridColor, pageBg } = getThemeColors(mode);
 
   const fetchData = useCallback(async () => {
     try {
@@ -74,7 +70,7 @@ const AdminAICosts = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg }}>
         <CircularProgress size={48} sx={{ color: '#6366f1' }} />
       </Box>
     );
@@ -82,7 +78,7 @@ const AdminAICosts = () => {
 
   if (error) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg, p: 3 }}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
@@ -95,8 +91,8 @@ const AdminAICosts = () => {
   const openaiStats = stats?.apiUsage?.openai;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#ffffff', borderBottom: `1px solid ${borderColor}` }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
+      <AppBar position="sticky" elevation={0} sx={{ bgcolor: cardBg, borderBottom: `1px solid ${borderColor}` }}>
         <Toolbar>
           <IconButton onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 2, color: textPrimary }}>
             <ArrowBackIcon />

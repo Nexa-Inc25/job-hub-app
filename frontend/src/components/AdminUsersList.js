@@ -36,6 +36,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
+import { getThemeColors } from './shared/themeUtils';
 
 const ROLE_COLORS = {
   admin: '#6366f1',
@@ -62,11 +63,7 @@ const AdminUsersList = () => {
   const [stats, setStats] = useState({ totalUsers: 0, totalCompanies: 0 });
   const navigate = useNavigate();
   const { mode } = useThemeMode();
-
-  const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';
-  const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = mode === 'dark' ? '#334155' : '#e2e8f0';
+  const { cardBg, textPrimary, textSecondary, borderColor, pageBg } = getThemeColors(mode);
 
   const fetchData = useCallback(async () => {
     try {
