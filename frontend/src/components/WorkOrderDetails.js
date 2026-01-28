@@ -1,5 +1,6 @@
 // src/components/WorkOrderDetails.js - Full Job Details & Management Page
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import {
@@ -80,6 +81,13 @@ const WorkflowTimelineItem = ({ date, label, color, status }) => {
   );
 };
 
+WorkflowTimelineItem.propTypes = {
+  date: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  label: PropTypes.string.isRequired,
+  color: PropTypes.string.isRequired,
+  status: PropTypes.string
+};
+
 // Workflow Progress Timeline component
 const WorkflowProgressTimeline = ({ job }) => {
   const hasActivity = job.assignedToGFDate || job.preFieldDate || job.crewSubmittedDate;
@@ -105,6 +113,24 @@ const WorkflowProgressTimeline = ({ job }) => {
       )}
     </Box>
   );
+};
+
+WorkflowProgressTimeline.propTypes = {
+  job: PropTypes.shape({
+    createdAt: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    assignedToGFDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    preFieldDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    assignedDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    assignedTo: PropTypes.object,
+    crewSubmittedDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    gfReviewDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    gfReviewStatus: PropTypes.string,
+    pmApprovalDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    pmApprovalStatus: PropTypes.string,
+    completedDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    billedDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    invoicedDate: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)])
+  }).isRequired
 };
 
 const WorkOrderDetails = () => {
@@ -1180,10 +1206,10 @@ const WorkOrderDetails = () => {
                                     globalThis.open(getDocumentUrl(sketch), '_blank');
                                   }}
                                 />
-                              </Box>
+                  </Box>
                             </Box>
                           ))}
-                        </Box>
+                </Box>
                       </CardContent>
                     </Card>
                   </Grid>
