@@ -1,5 +1,5 @@
 // src/components/JobFileSystem.js
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -427,8 +427,8 @@ const JobFileSystem = () => {
   const gfAuditCameraInputRef = useRef(null);
 
   // Handle photo upload for GF Audit folder - using factory
-  const handleGFAuditPhotoUpload = useCallback(
-    createPhotoUploadHandler(id, job, `/api/jobs/${id}/folders/ACI/upload`, 'GF Audit', setJob, setSelectedFolder, setError),
+  const handleGFAuditPhotoUpload = useMemo(
+    () => createPhotoUploadHandler(id, job, `/api/jobs/${id}/folders/ACI/upload`, 'GF Audit', setJob, setSelectedFolder, setError),
     [id, job]
   );
 
