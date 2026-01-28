@@ -445,100 +445,11 @@ const WorkOrderDetails = () => {
       </AppBar>
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
 
-          {/* TOP ROW: Notes/Chat - Front and Center */}
-          <Grid item xs={12}>
-            <Card sx={{ borderRadius: 2 }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
-                  <ChatIcon color="primary" />
-                  Job Notes ({notes.length})
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                {/* Add Note Form - At top for quick access */}
-                <Box sx={{ mb: 2 }}>
-                  <Box display="flex" gap={1}>
-                    <FormControl size="small" sx={{ minWidth: 100 }}>
-                      <Select
-                        value={noteType}
-                        onChange={(e) => setNoteType(e.target.value)}
-                        displayEmpty
-                      >
-                        <MenuItem value="update">Update</MenuItem>
-                        <MenuItem value="issue">Issue</MenuItem>
-                        <MenuItem value="question">Question</MenuItem>
-                        <MenuItem value="resolution">Resolution</MenuItem>
-                      </Select>
-                    </FormControl>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      placeholder="Add a note or update..."
-                      value={newNote}
-                      onChange={(e) => setNewNote(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                    />
-                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()} aria-label="Add note">
-                      <SendIcon />
-                    </IconButton>
-                  </Box>
-                </Box>
-                
-                {/* Notes List */}
-                <Box sx={{ overflow: 'auto', maxHeight: 200 }}>
-                  {notes.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
-                      No notes yet. Add updates, issues, or questions above.
-                    </Typography>
-                  ) : (
-                    <List dense sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                      {notes.slice(0, 6).map((note) => (
-                        <ListItem 
-                          key={note._id || note.createdAt}
-                          sx={{ 
-                            bgcolor: 'action.hover', 
-                            borderRadius: 1,
-                            width: { xs: '100%', sm: 'calc(50% - 4px)', md: 'calc(33.33% - 6px)' },
-                            flexDirection: 'column',
-                            alignItems: 'flex-start'
-                          }}
-                        >
-                          <Box display="flex" alignItems="center" gap={0.5} width="100%">
-                            <Typography variant="caption" fontWeight="bold">
-                              {note.userName || 'User'}
-                            </Typography>
-                            {note.noteType && (
-                              <Chip 
-                                size="small" 
-                                label={note.noteType}
-                                color={getNoteTypeColor(note.noteType)}
-                                sx={{ height: 16, fontSize: '0.6rem' }}
-                              />
-                            )}
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-                              {formatDateTime(note.createdAt)}
-                            </Typography>
-                          </Box>
-                          <Typography variant="body2" sx={{ mt: 0.5 }} noWrap>
-                            {note.message}
-                          </Typography>
-                        </ListItem>
-                      ))}
-                    </List>
-                  )}
-                  {notes.length > 6 && (
-                    <Typography variant="caption" color="primary" textAlign="center" display="block" sx={{ mt: 1, cursor: 'pointer' }}>
-                      + {notes.length - 6} more notes
-                    </Typography>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* LEFT COLUMN - Job Info & Schedule */}
+          {/* ROW 1: Three vertical columns - Job Info | Dependencies | Notes */}
+          
+          {/* COLUMN 1 - Job Info & Schedule */}
           <Grid item xs={12} md={4}>
             {/* Job Info Card */}
             <Card sx={{ mb: 3, borderRadius: 2 }}>
@@ -807,7 +718,189 @@ const WorkOrderDetails = () => {
             </Card>
           </Grid>
 
-          {/* BOTTOM: Workflow Progress - Collapsible timeline */}
+          {/* COLUMN 3 - Notes/Chat */}
+          <Grid item xs={12} md={4}>
+            <Card sx={{ borderRadius: 2, height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
+                  <ChatIcon color="primary" />
+                  Job Notes ({notes.length})
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {/* Add Note Form */}
+                <Box sx={{ mb: 2 }}>
+                  <Box display="flex" gap={1}>
+                    <FormControl size="small" sx={{ minWidth: 80 }}>
+                      <Select
+                        value={noteType}
+                        onChange={(e) => setNoteType(e.target.value)}
+                        displayEmpty
+                      >
+                        <MenuItem value="update">Update</MenuItem>
+                        <MenuItem value="issue">Issue</MenuItem>
+                        <MenuItem value="question">Question</MenuItem>
+                        <MenuItem value="resolution">Resolution</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      placeholder="Add a note..."
+                      value={newNote}
+                      onChange={(e) => setNewNote(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
+                    />
+                    <IconButton color="primary" onClick={handleAddNote} disabled={!newNote.trim()} aria-label="Add note">
+                      <SendIcon />
+                    </IconButton>
+                  </Box>
+                </Box>
+                
+                {/* Notes List */}
+                <Box sx={{ overflow: 'auto', maxHeight: 300 }}>
+                  {notes.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+                      No notes yet.
+                    </Typography>
+                  ) : (
+                    <List dense>
+                      {notes.map((note) => (
+                        <ListItem 
+                          key={note._id || note.createdAt}
+                          sx={{ 
+                            bgcolor: 'action.hover', 
+                            borderRadius: 1,
+                            mb: 1,
+                            flexDirection: 'column',
+                            alignItems: 'flex-start'
+                          }}
+                        >
+                          <Box display="flex" alignItems="center" gap={0.5} width="100%">
+                            <Typography variant="caption" fontWeight="bold">
+                              {note.userName || 'User'}
+                            </Typography>
+                            {note.noteType && (
+                              <Chip 
+                                size="small" 
+                                label={note.noteType}
+                                color={getNoteTypeColor(note.noteType)}
+                                sx={{ height: 16, fontSize: '0.6rem' }}
+                              />
+                            )}
+                            <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                              {formatDateTime(note.createdAt)}
+                            </Typography>
+                          </Box>
+                          <Typography variant="body2" sx={{ mt: 0.5 }}>
+                            {note.message}
+                          </Typography>
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* ROW 2: Pre-Field Photos - Horizontal full width */}
+          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 2 }}>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
+                      <CameraAltIcon color="primary" />
+                      Pre-Field Photos ({preFieldPhotos.length})
+                    </Typography>
+                    <Box display="flex" gap={1}>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                        id="prefield-photo-upload"
+                        name="prefield-photo-upload"
+                      />
+                      <Button
+                        variant="contained"
+                        startIcon={<CloudUploadIcon />}
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={photoUploading}
+                        size="large"
+                      >
+                        Upload Photos
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<PhotoLibraryIcon />}
+                        onClick={() => navigate(`/job-file-system/${jobId}`)}
+                      >
+                        Open File System
+                      </Button>
+                    </Box>
+                  </Box>
+                  
+                  {photoUploading && (
+                    <Box sx={{ mb: 2 }}>
+                      <LinearProgress variant="determinate" value={photoUploadProgress} />
+                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
+                        Uploading... {photoUploadProgress}%
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {preFieldPhotos.length === 0 ? (
+                    <Box 
+                      sx={{ 
+                        py: 3, 
+                        textAlign: 'center',
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                      }}
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <CameraAltIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No pre-field photos yet - Click to upload
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <ImageList cols={10} gap={8} sx={{ maxHeight: 120, overflow: 'auto', m: 0 }}>
+                      {preFieldPhotos.map((photo, idx) => (
+                        <ImageListItem key={photo._id || idx}>
+                          <IconButton 
+                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
+                            sx={{ p: 0, borderRadius: 1 }}
+                            aria-label={`View ${photo.name || `photo ${idx + 1}`}`}
+                          >
+                            <img
+                              src={getPhotoUrl(photo)}
+                              alt={photo.name || `Pre-field photo ${idx + 1}`}
+                              loading="lazy"
+                              style={{ 
+                                height: 60, 
+                                objectFit: 'cover', 
+                                borderRadius: 4
+                              }}
+                            />
+                          </IconButton>
+                        </ImageListItem>
+                      ))}
+                    </ImageList>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
+
+          {/* ROW 3: Workflow Progress - Horizontal timeline */}
           <Grid item xs={12}>
             <Card sx={{ borderRadius: 2 }}>
               <CardContent>
@@ -949,102 +1042,6 @@ const WorkOrderDetails = () => {
               </CardContent>
             </Card>
           </Grid>
-
-          {/* BOTTOM: Pre-Field Photos - Show when in pre-fielding workflow */}
-          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
-            <Grid item xs={12}>
-              <Card sx={{ borderRadius: 2 }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
-                      <CameraAltIcon color="primary" />
-                      Pre-Field Photos ({preFieldPhotos.length})
-                    </Typography>
-                    <Box display="flex" gap={1}>
-                      <input
-                        ref={photoInputRef}
-                        type="file"
-                        accept="image/*,.heic,.heif"
-                        multiple
-                        onChange={handlePhotoUpload}
-                        style={{ display: 'none' }}
-                        id="prefield-photo-upload"
-                        name="prefield-photo-upload"
-                      />
-                      <Button
-                        variant="contained"
-                        startIcon={<CloudUploadIcon />}
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={photoUploading}
-                        size="large"
-                      >
-                        Upload Photos
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<PhotoLibraryIcon />}
-                        onClick={() => navigate(`/job-file-system/${jobId}`)}
-                      >
-                        Open File System
-                      </Button>
-                    </Box>
-                  </Box>
-                  
-                  {photoUploading && (
-                    <Box sx={{ mb: 2 }}>
-                      <LinearProgress variant="determinate" value={photoUploadProgress} />
-                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
-                        Uploading... {photoUploadProgress}%
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {preFieldPhotos.length === 0 ? (
-                    <Box 
-                      sx={{ 
-                        py: 3, 
-                        textAlign: 'center',
-                        border: '2px dashed',
-                        borderColor: 'divider',
-                        borderRadius: 2,
-                        cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
-                      }}
-                      onClick={() => photoInputRef.current?.click()}
-                    >
-                      <CameraAltIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No pre-field photos yet - Click to upload
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <ImageList cols={8} gap={8} sx={{ maxHeight: 150, overflow: 'auto', m: 0 }}>
-                      {preFieldPhotos.map((photo, idx) => (
-                        <ImageListItem key={photo._id || idx}>
-                          <IconButton 
-                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
-                            sx={{ p: 0, borderRadius: 1 }}
-                            aria-label={`View ${photo.name || `photo ${idx + 1}`}`}
-                          >
-                            <img
-                              src={getPhotoUrl(photo)}
-                              alt={photo.name || `Pre-field photo ${idx + 1}`}
-                              loading="lazy"
-                              style={{ 
-                                height: 70, 
-                                objectFit: 'cover', 
-                                borderRadius: 4
-                              }}
-                            />
-                          </IconButton>
-                        </ImageListItem>
-                      ))}
-                    </ImageList>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
         </Grid>
       </Container>
 
