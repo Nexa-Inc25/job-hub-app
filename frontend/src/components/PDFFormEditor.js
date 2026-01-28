@@ -461,7 +461,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
       {/* Toolbar - responsive for tablets */}
       <Paper sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', overflowX: 'auto' }}>
         {/* Tool Selection */}
@@ -634,8 +634,11 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           bgcolor: 'grey.300',
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'flex-start', // Align to top for proper scrolling
           p: { xs: 1, sm: 2 },
           WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
+          touchAction: 'pan-x pan-y', // Explicitly allow touch scrolling
+          minHeight: 0, // Prevent flex item from overflowing
         }}
       >
         <Box
@@ -649,7 +652,10 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           <Box
             ref={pageRef}
             onClick={handlePageClick}
-            sx={{ position: 'relative' }}
+            sx={{ 
+              position: 'relative',
+              touchAction: 'pan-x pan-y', // Allow touch scrolling
+            }}
           >
             {loading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: '100%', maxWidth: 600, bgcolor: 'white' }}>
