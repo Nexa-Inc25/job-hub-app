@@ -63,11 +63,18 @@ import {
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 
+// Helper to determine status color (avoids nested ternary)
+const getTimelineStatusColor = (status, defaultColor) => {
+  if (status === 'approved') return 'success.main';
+  if (status === 'rejected') return 'error.main';
+  return defaultColor;
+};
+
 // Extracted component to reduce cognitive complexity
 const WorkflowTimelineItem = ({ date, label, color, status }) => {
   if (!date) return null;
-  const statusColor = status === 'approved' ? 'success.main' : status === 'rejected' ? 'error.main' : color;
-  const displayLabel = status ? `${label}: ${status.toUpperCase()}` : label;
+  const statusColor = getTimelineStatusColor(status, color);
+  const displayLabel = status ? label + ': ' + status.toUpperCase() : label;
   
   return (
     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: statusColor, minWidth: 150 }}>
