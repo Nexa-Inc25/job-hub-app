@@ -13,13 +13,14 @@ import {
   TextField,
   Paper,
   Typography,
-  Slider,
   ToggleButton,
   ToggleButtonGroup,
   CircularProgress,
   Alert,
   Snackbar,
-  Divider,
+  Menu,
+  MenuItem,
+  Chip,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
@@ -31,6 +32,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import GestureIcon from '@mui/icons-material/Gesture';
 import DrawIcon from '@mui/icons-material/Draw';
 import CloseIcon from '@mui/icons-material/Close';
+import AutoFixHighIcon from '@mui/icons-material/AutoFixHigh';
+import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -55,6 +59,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
   const [savedSignature, setSavedSignature] = useState(null); // Base64 image of signature
   const [isDrawing, setIsDrawing] = useState(false);
+  const [quickFillAnchor, setQuickFillAnchor] = useState(null);
   // Drag state for moving annotations
   const [isDragging, setIsDragging] = useState(false);
   const [dragAnnotationId, setDragAnnotationId] = useState(null);
@@ -457,156 +462,149 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-      {/* Toolbar - responsive for tablets */}
-      <Paper sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', overflowX: 'auto' }}>
-        {/* Tool Selection */}
+      {/* Compact Toolbar */}
+      <Paper sx={{ px: 1, py: 0.5, mb: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'nowrap', overflowX: 'auto' }}>
+        {/* Tool Selection - compact */}
         <ToggleButtonGroup
           value={currentTool}
           exclusive
           onChange={(e, val) => val && setCurrentTool(val)}
           size="small"
+          sx={{ '& .MuiToggleButton-root': { px: 1, py: 0.5 } }}
         >
           <ToggleButton value="text">
-            <Tooltip title="Add Text">
-              <TextFieldsIcon />
-            </Tooltip>
+            <Tooltip title="Text"><TextFieldsIcon fontSize="small" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="check">
-            <Tooltip title="Add Checkmark">
-              <CheckBoxIcon />
-            </Tooltip>
+            <Tooltip title="Check"><CheckBoxIcon fontSize="small" /></Tooltip>
           </ToggleButton>
           <ToggleButton value="signature">
-            <Tooltip title="Add Signature">
-              <GestureIcon />
+            <Tooltip title={savedSignature ? "Signature ready" : "Draw signature"}>
+              <GestureIcon fontSize="small" color={savedSignature ? "success" : "inherit"} />
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
 
-        {/* Signature status */}
-        {currentTool === 'signature' && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            {savedSignature ? (
-              <>
-                <Typography variant="caption" color="success.main">
-                  ✓ Signature ready - click on PDF to place
-                </Typography>
-                <Button 
-                  size="small" 
-                  onClick={() => setSignatureDialogOpen(true)}
-                  startIcon={<DrawIcon />}
-                >
-                  Redraw
-                </Button>
-              </>
-            ) : (
-              <Button 
-                size="small" 
-                variant="outlined"
-                onClick={() => setSignatureDialogOpen(true)}
-                startIcon={<DrawIcon />}
-              >
-                Draw Signature
-              </Button>
-            )}
-          </Box>
+        {/* Signature: compact redraw button */}
+        {currentTool === 'signature' && !savedSignature && (
+          <Tooltip title="Draw your signature">
+            <IconButton size="small" onClick={() => setSignatureDialogOpen(true)} color="primary">
+              <DrawIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
         )}
 
-        <Divider orientation="vertical" flexItem />
-
-        {/* Text Input */}
+        {/* Text Input - inline, compact */}
         {currentTool === 'text' && (
           <TextField
             size="small"
-            placeholder="Type text, then click on PDF"
+            placeholder="Type text..."
             value={currentText}
             onChange={(e) => setCurrentText(e.target.value)}
-            sx={{ minWidth: 200 }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-              }
+            sx={{ 
+              width: 140,
+              '& .MuiInputBase-input': { py: 0.5, fontSize: '0.85rem' }
             }}
+            onKeyDown={(e) => e.key === 'Enter' && e.preventDefault()}
           />
         )}
 
-        {/* Font Size */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 150 }}>
-          <Typography variant="caption">Size:</Typography>
-          <Slider
-            value={fontSize}
-            onChange={(e, val) => setFontSize(val)}
-            min={8}
-            max={24}
-            size="small"
-            sx={{ width: 80 }}
-          />
-          <Typography variant="caption">{fontSize}</Typography>
+        {/* Quick Fill Menu */}
+        {quickFillOptions.length > 0 && currentTool === 'text' && (
+          <>
+            <Tooltip title="Quick fill job info">
+              <IconButton 
+                size="small" 
+                onClick={(e) => setQuickFillAnchor(e.currentTarget)}
+                color={quickFillAnchor ? "primary" : "default"}
+              >
+                <AutoFixHighIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={quickFillAnchor}
+              open={Boolean(quickFillAnchor)}
+              onClose={() => setQuickFillAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+            >
+              {quickFillOptions.map((opt) => (
+                <MenuItem 
+                  key={opt.label} 
+                  onClick={() => { setCurrentText(opt.value); setQuickFillAnchor(null); }}
+                  sx={{ fontSize: '0.85rem', py: 0.5 }}
+                >
+                  <strong>{opt.label}:</strong>&nbsp;{opt.value}
+                </MenuItem>
+              ))}
+            </Menu>
+          </>
+        )}
+
+        {/* Font Size - compact */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, ml: 0.5 }}>
+          <Tooltip title="Decrease size">
+            <IconButton size="small" onClick={() => setFontSize(s => Math.max(8, s - 2))}>
+              <RemoveIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
+          <Chip label={fontSize} size="small" sx={{ minWidth: 28, height: 22, fontSize: '0.75rem' }} />
+          <Tooltip title="Increase size">
+            <IconButton size="small" onClick={() => setFontSize(s => Math.min(24, s + 2))}>
+              <AddIcon sx={{ fontSize: 14 }} />
+            </IconButton>
+          </Tooltip>
         </Box>
 
-        <Divider orientation="vertical" flexItem />
-
-        {/* Zoom */}
-        <IconButton size="small" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
-          <ZoomOutIcon />
-        </IconButton>
-        <Typography variant="caption">{Math.round(zoom * 100)}%</Typography>
-        <IconButton size="small" onClick={() => setZoom(z => Math.min(2, z + 0.1))}>
-          <ZoomInIcon />
-        </IconButton>
-
-        <Divider orientation="vertical" flexItem />
+        {/* Zoom - compact */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, borderLeft: 1, borderColor: 'divider', pl: 0.5, ml: 0.5 }}>
+          <Tooltip title="Zoom out">
+            <IconButton size="small" onClick={() => setZoom(z => Math.max(0.5, z - 0.1))}>
+              <ZoomOutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Typography variant="caption" sx={{ minWidth: 32, textAlign: 'center' }}>{Math.round(zoom * 100)}%</Typography>
+          <Tooltip title="Zoom in">
+            <IconButton size="small" onClick={() => setZoom(z => Math.min(2, z + 0.1))}>
+              <ZoomInIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
 
         {/* Undo */}
-        <Tooltip title="Undo">
+        <Tooltip title="Undo last">
           <span>
             <IconButton size="small" onClick={handleUndo} disabled={annotations.length === 0}>
-              <UndoIcon />
+              <UndoIcon fontSize="small" />
             </IconButton>
           </span>
         </Tooltip>
 
-        {/* Save */}
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={saving ? <CircularProgress size={16} /> : <SaveIcon />}
-          onClick={handleSave}
-          disabled={saving || annotations.length === 0}
-          sx={{ ml: 'auto' }}
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </Button>
-      </Paper>
-
-      {/* Quick Fill Buttons */}
-      {quickFillOptions.length > 0 && (
-        <Paper sx={{ p: 1, mb: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ mr: 1 }}>
-            Quick Fill (click to add to text field):
+        {/* Page count indicator - compact */}
+        {numPages > 1 && (
+          <Typography variant="caption" color="text.secondary" sx={{ mx: 0.5, whiteSpace: 'nowrap' }}>
+            {numPages} pg
           </Typography>
-          {quickFillOptions.map((opt) => (
-            <Button
-              key={opt.label}
-              size="small"
-              variant="outlined"
-              sx={{ mr: 0.5, mb: 0.5, textTransform: 'none' }}
-              onClick={() => setCurrentText(opt.value)}
+        )}
+
+        {/* Save - compact */}
+        <Tooltip title={annotations.length === 0 ? "No changes to save" : "Save changes to PDF"}>
+          <span style={{ marginLeft: 'auto' }}>
+            <IconButton
+              color="primary"
+              onClick={handleSave}
+              disabled={saving || annotations.length === 0}
+              sx={{ 
+                bgcolor: annotations.length > 0 ? 'primary.main' : 'transparent',
+                color: annotations.length > 0 ? 'white' : 'inherit',
+                '&:hover': { bgcolor: annotations.length > 0 ? 'primary.dark' : undefined },
+                '&.Mui-disabled': { bgcolor: 'action.disabledBackground' }
+              }}
             >
-              {opt.label}: {opt.value}
-            </Button>
-          ))}
-        </Paper>
-      )}
-
-      {/* Page Indicator */}
-      {numPages && numPages > 1 && (
-        <Paper sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            📄 {numPages} pages - scroll to view all
-          </Typography>
-        </Paper>
-      )}
+              {saving ? <CircularProgress size={18} color="inherit" /> : <SaveIcon fontSize="small" />}
+            </IconButton>
+          </span>
+        </Tooltip>
+      </Paper>
 
       {/* PDF Display with Annotations Overlay */}
       <Box
@@ -776,16 +774,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         </Box>
       </Box>
 
-      {/* Instructions */}
-      <Paper sx={{ p: 1, mt: 1, bgcolor: 'info.light' }}>
-        <Typography variant="body2" color="text.primary">
-          <strong>How to edit:</strong> 1) Select <strong>Text</strong>, <strong>Checkmark</strong>, or <strong>Signature</strong> tool → 
-          2) For text: type in the field above → 
-          3) <strong>Click directly on the PDF</strong> where you want to place it → 
-          4) <strong>Drag to reposition</strong> if needed → 
-          5) Click <strong>Save Changes</strong> when done
+      {/* Compact Instructions */}
+      <Box sx={{ px: 1, py: 0.5, bgcolor: 'grey.100', borderTop: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary">
+          Select tool → Type/draw → Click PDF to place → Drag to move → Save
         </Typography>
-      </Paper>
+      </Box>
 
       {/* Signature Drawing Dialog */}
       <Dialog 
