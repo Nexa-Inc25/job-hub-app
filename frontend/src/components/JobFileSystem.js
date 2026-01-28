@@ -252,6 +252,59 @@ const getFolderTypes = (selectedFolder) => ({
   isGFAuditFolder: selectedFolder?.name === 'GF Audit'
 });
 
+// Helper to refresh job data after document operations - extracted to reduce complexity
+const refreshJobAfterDocOperation = async (jobId, setJob, selectedFolder, setSelectedFolder, findFolderFn) => {
+  const token = localStorage.getItem('token');
+  const response = await api.get(`/api/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } });
+  setJob(response.data);
+  if (selectedFolder && findFolderFn) {
+    const updatedFolder = findFolderFn(response.data.folders, selectedFolder.name);
+    if (updatedFolder) setSelectedFolder(updatedFolder);
+  }
+  return response.data;
+};
+
+// Helper to handle document approval/rejection - extracted to reduce complexity
+const handleDocumentApproval = async (jobId, docId, action, reason, setJob, selectedFolder, setSelectedFolder, findFolderFn, setApprovalLoading, setError) => {
+  if (!docId) return;
+  setApprovalLoading(docId);
+  try {
+    const endpoint = `/api/jobs/${jobId}/documents/${docId}/${action}`;
+    const payload = action === 'reject' ? { reason } : undefined;
+    await api.post(endpoint, payload);
+    await refreshJobAfterDocOperation(jobId, setJob, selectedFolder, setSelectedFolder, findFolderFn);
+  } catch (err) {
+    console.error(`Error ${action}ing document:`, err);
+    setError(err.response?.data?.error || `Failed to ${action} document`);
+  } finally {
+    setApprovalLoading(null);
+  }
+};
+
+// Helper to delete a document and refresh - extracted to reduce complexity
+const deleteDocumentAndRefresh = async (jobId, docId, folderInfo, setJob, selectedFolder, setSelectedFolder, setError) => {
+  const token = localStorage.getItem('token');
+  try {
+    await api.delete(`/api/jobs/${jobId}/documents/${docId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      data: folderInfo
+    });
+  } catch (err) {
+    // 404 is acceptable - document may already be deleted
+    if (err.response?.status !== 404) {
+      console.error('Error deleting document:', err);
+      setError('Failed to delete document');
+      throw err;
+    }
+    console.log('Document already deleted or not found, refreshing...');
+  }
+  // Always refresh to get current state
+  const response = await api.get(`/api/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } });
+  setJob(response.data);
+  const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
+  if (updatedFolder) setSelectedFolder(updatedFolder);
+};
+
 // Generic photo upload handler factory - reduces code duplication
 const createPhotoUploadHandler = (id, job, uploadEndpoint, subfolderName, setJob, setSelectedFolder, setError) => {
   return async (e) => {
@@ -581,54 +634,19 @@ const JobFileSystem = () => {
       handleCloseMenu();
       return;
     }
-
-    // Confirm deletion
     if (!globalThis.confirm(`Are you sure you want to delete "${contextDoc.name}"?`)) {
       handleCloseMenu();
       return;
     }
-
     setDeleteLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      await api.delete(`/api/jobs/${job._id}/documents/${contextDoc._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        data: {
-          folderName: selectedFolder?.parentFolder || selectedFolder?.name,
-          subfolderName: selectedFolder?.parentFolder ? selectedFolder?.name : null
-        }
-      });
-
-      // Refresh job data
-      const response = await api.get(`/api/jobs/${job._id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setJob(response.data);
-
-      // Re-select folder to show updated documents
-      const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
-        if (updatedFolder) {
-          setSelectedFolder(updatedFolder);
-      }
-
-    } catch (err) {
-      // Handle 404 gracefully - document may already be deleted
-      if (err.response?.status === 404) {
-        console.log('Document already deleted or not found, refreshing...');
-        // Still refresh to get current state
-        try {
-          const token = localStorage.getItem('token');
-          const response = await api.get(`/api/jobs/${job._id}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setJob(response.data);
-        } catch {
-          // Ignore refresh errors
-        }
-      } else {
-      console.error('Error deleting document:', err);
-      setError('Failed to delete document');
-      }
+      const folderInfo = {
+        folderName: selectedFolder?.parentFolder || selectedFolder?.name,
+        subfolderName: selectedFolder?.parentFolder ? selectedFolder?.name : null
+      };
+      await deleteDocumentAndRefresh(job._id, contextDoc._id, folderInfo, setJob, selectedFolder, setSelectedFolder, setError);
+    } catch {
+      // Error already handled in helper
     } finally {
       setDeleteLoading(false);
       handleCloseMenu();
@@ -645,62 +663,16 @@ const JobFileSystem = () => {
     setAnchorEl(null);
   };
 
-  // Approve a draft document
-  const handleApproveDocument = async (doc) => {
-    if (!doc?._id) return;
-    
-    setApprovalLoading(doc._id);
-    try {
-      await api.post(`/api/jobs/${job._id}/documents/${doc._id}/approve`);
-      
-      // Refresh job data to get updated document
-      const jobResponse = await api.get(`/api/jobs/${job._id}`);
-      setJob(jobResponse.data);
-      
-      // Update selected folder if viewing the same folder
-      if (selectedFolder) {
-        const updatedFolder = findFolderByName(jobResponse.data.folders, selectedFolder.name);
-        if (updatedFolder) {
-          setSelectedFolder(updatedFolder);
-        }
-      }
-      
-    } catch (err) {
-      console.error('Error approving document:', err);
-      setError(err.response?.data?.error || 'Failed to approve document');
-    } finally {
-      setApprovalLoading(null);
-    }
+  // Approve a draft document - uses extracted helper
+  const handleApproveDocument = (doc) => {
+    handleDocumentApproval(job._id, doc?._id, 'approve', null, setJob, selectedFolder, setSelectedFolder, findFolderByName, setApprovalLoading, setError);
   };
 
-  // Reject a draft document
-  const handleRejectDocument = async (doc, reason) => {
-    if (!doc?._id) return;
-    
+  // Reject a draft document - uses extracted helper
+  const handleRejectDocument = (doc, reason) => {
     const rejectReason = reason || globalThis.prompt('Enter rejection reason:');
-    if (!rejectReason) return; // User cancelled
-    
-    setApprovalLoading(doc._id);
-    try {
-      await api.post(`/api/jobs/${job._id}/documents/${doc._id}/reject`, { reason: rejectReason });
-      
-      // Refresh job data
-      const jobResponse = await api.get(`/api/jobs/${job._id}`);
-      setJob(jobResponse.data);
-      
-      if (selectedFolder) {
-        const updatedFolder = findFolderByName(jobResponse.data.folders, selectedFolder.name);
-        if (updatedFolder) {
-          setSelectedFolder(updatedFolder);
-        }
-      }
-      
-    } catch (err) {
-      console.error('Error rejecting document:', err);
-      setError(err.response?.data?.error || 'Failed to reject document');
-    } finally {
-      setApprovalLoading(null);
-    }
+    if (!rejectReason) return;
+    handleDocumentApproval(job._id, doc?._id, 'reject', rejectReason, setJob, selectedFolder, setSelectedFolder, findFolderByName, setApprovalLoading, setError);
   };
 
   // Helper to find folder by name in nested structure
