@@ -327,6 +327,11 @@ const WorkOrderDetails = () => {
     });
   };
 
+  // Helper to get photo display name (avoids nested template literals)
+  const getPhotoDisplayName = (photo, idx) => {
+    return photo.name || 'Photo ' + (idx + 1);
+  };
+
   // Status helpers
   const getStatusColor = (status) => {
     const colors = {
@@ -1001,7 +1006,7 @@ const WorkOrderDetails = () => {
                   ) : (
                     <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                       {preFieldPhotos.map((photo, idx) => (
-                        <Tooltip key={photo._id || idx} title={`Click to view: ${photo.name || `Photo ${idx + 1}`}`}>
+                        <Tooltip key={photo._id || idx} title={'Click to view: ' + getPhotoDisplayName(photo, idx)}>
                           <Box
                             sx={{
                               position: 'relative',
@@ -1021,7 +1026,7 @@ const WorkOrderDetails = () => {
                           >
                             <img
                               src={getPhotoUrl(photo)}
-                              alt={photo.name || `Pre-field photo ${idx + 1}`}
+                              alt={getPhotoDisplayName(photo, idx)}
                               loading="lazy"
                               style={{ 
                                 width: 100, 
