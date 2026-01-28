@@ -37,7 +37,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { StatCard } from './shared';
+import { StatCard, LoadingState, ErrorState } from './shared';
 
 const AdminAICosts = () => {
   const [stats, setStats] = useState(null);
@@ -69,19 +69,11 @@ const AdminAICosts = () => {
   }, [fetchData]);
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg }}>
-        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
-      </Box>
-    );
+    return <LoadingState bgcolor={pageBg} />;
   }
 
   if (error) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg, p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
+    return <ErrorState message={error} bgcolor={pageBg} />;
   }
 
   // Theme props to pass to StatCard

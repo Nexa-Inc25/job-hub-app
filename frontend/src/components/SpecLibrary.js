@@ -61,7 +61,7 @@ import {
   FilterList as FilterListIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
-import { getThemeColors } from './shared';
+import { getThemeColors, LoadingState } from './shared';
 
 // Category icons and colors
 const CATEGORY_CONFIG = {
@@ -644,11 +644,7 @@ const SpecLibrary = () => {
   }, {});
 
   if (loading && specs.length === 0) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
-        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
-      </Box>
-    );
+    return <LoadingState bgcolor={mode === 'dark' ? '#0f0f1a' : '#f8fafc'} />;
   }
 
   return (

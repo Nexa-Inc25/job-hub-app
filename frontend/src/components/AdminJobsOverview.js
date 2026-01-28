@@ -37,7 +37,7 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
 } from 'recharts';
-import { StatCard } from './shared';
+import { StatCard, LoadingState, ErrorState } from './shared';
 
 // Priority color lookup
 const PRIORITY_COLORS = {
@@ -146,19 +146,11 @@ const AdminJobsOverview = () => {
   }, [fetchData]);
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: theme.pageBg }}>
-        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
-      </Box>
-    );
+    return <LoadingState bgcolor={theme.pageBg} />;
   }
 
   if (error) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: theme.pageBg, p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
+    return <ErrorState message={error} bgcolor={theme.pageBg} />;
   }
 
   const { statusData, priorityData, trendData } = prepareChartData(stats);

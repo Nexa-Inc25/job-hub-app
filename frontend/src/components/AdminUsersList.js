@@ -36,7 +36,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
-import { getThemeColors } from './shared/themeUtils';
+import { getThemeColors, LoadingState, ErrorState } from './shared';
 
 const ROLE_COLORS = {
   admin: '#6366f1',
@@ -130,19 +130,11 @@ const AdminUsersList = () => {
   };
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg }}>
-        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
-      </Box>
-    );
+    return <LoadingState bgcolor={pageBg} />;
   }
 
   if (error) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg, p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
+    return <ErrorState message={error} bgcolor={pageBg} />;
   }
 
   return (

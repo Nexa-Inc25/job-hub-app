@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
+import { getPhotoUrl, getDocumentUrl, exportFolderToEmail } from './shared';
 import {
   Container,
   Typography,
@@ -284,33 +285,7 @@ const WorkOrderDetails = () => {
     }
   };
 
-  // Get photo URL
-  const getPhotoUrl = (photo) => {
-    if (!photo) return '';
-    if (photo.url?.startsWith('http')) return photo.url;
-    if (photo.r2Key) {
-      const apiBase = process.env.REACT_APP_API_URL || '';
-      return `${apiBase}/api/files/${photo.r2Key}`;
-    }
-    return photo.url || '';
-  };
-
-  // Get document URL for PDFs and other files
-  const getDocumentUrl = (doc) => {
-    if (!doc) return '';
-    if (doc.url?.startsWith('http')) return doc.url;
-    if (doc.r2Key) {
-      const apiBase = process.env.REACT_APP_API_URL || '';
-      return `${apiBase}/api/files/${doc.r2Key}`;
-    }
-    if (doc.path) {
-      const apiBase = process.env.REACT_APP_API_URL || '';
-      return `${apiBase}${doc.path.startsWith('/') ? '' : '/'}${doc.path}`;
-    }
-    return doc.url || '';
-  };
-
-  // Export GF Audit photos to email
+  // Export GF Audit photos to email - uses shared utility
   const handleExportToEmail = async () => {
     if (!job || preFieldPhotos.length === 0) {
       setSnackbar({ open: true, message: 'No photos to export', severity: 'warning' });
@@ -319,63 +294,11 @@ const WorkOrderDetails = () => {
     
     setExportLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
-      
-      // Export GF Audit folder
       const exportUrl = `${apiBase}/api/jobs/${job._id}/folders/ACI/export?subfolder=GF%20Audit`;
       
-      // Fetch the ZIP file
-      const response = await fetch(exportUrl, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Export failed');
-      }
-      
-      // Get the ZIP file as blob with explicit MIME type
-      const arrayBuffer = await response.arrayBuffer();
-      const blob = new Blob([arrayBuffer], { type: 'application/zip' });
-      const filename = `${job.pmNumber || job.woNumber || 'Job'}_GF_Audit_${Date.now()}.zip`;
-      const emailSubject = `GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`;
-      const emailBody = `Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nPlease let me know if you have any questions.\n\nBest regards`;
-      
-      // Try Web Share API first (works on mobile and some desktops)
-      if (navigator.canShare?.({ files: [new File([blob], filename, { type: 'application/zip' })] })) {
-        try {
-          const file = new File([blob], filename, { type: 'application/zip' });
-          await navigator.share({
-            title: emailSubject,
-            text: emailBody,
-            files: [file]
-          });
-          setSnackbar({ open: true, message: 'Photos shared successfully', severity: 'success' });
-          return;
-        } catch (shareError) {
-          if (shareError.name !== 'AbortError') {
-            console.log('Web Share failed, falling back to download:', shareError.message);
-          }
-        }
-      }
-      
-      // Fallback: Download ZIP and open mailto
-      const downloadUrl = globalThis.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      globalThis.URL.revokeObjectURL(downloadUrl);
-      
-      // Open email client
-      const subject = encodeURIComponent(emailSubject);
-      const body = encodeURIComponent(emailBody + `\n\nPlease attach the downloaded file: ${filename}`);
-      globalThis.location.href = `mailto:?subject=${subject}&body=${body}`;
-      
-      setSnackbar({ open: true, message: 'ZIP downloaded - attach to email', severity: 'success' });
+      const result = await exportFolderToEmail({ exportUrl, job, folderName: 'GF Audit' });
+      setSnackbar({ open: true, message: result.message, severity: 'success' });
     } catch (err) {
       console.error('Export to email error:', err);
       setSnackbar({ open: true, message: err.message || 'Failed to export', severity: 'error' });

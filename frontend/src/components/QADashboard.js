@@ -53,7 +53,7 @@ import {
   CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
-import { StatCard, getThemeColors, STATUS_COLORS } from './shared';
+import { StatCard, getThemeColors, STATUS_COLORS, LoadingState, ErrorState } from './shared';
 
 const INFRACTION_TYPE_LABELS = {
   workmanship: 'Workmanship Issue',
@@ -582,19 +582,11 @@ const QADashboard = () => {
   };
 
   if (loading) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg }}>
-        <CircularProgress size={48} sx={{ color: '#6366f1' }} />
-      </Box>
-    );
+    return <LoadingState bgcolor={pageBg} />;
   }
 
   if (error) {
-    return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg, p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-      </Box>
-    );
+    return <ErrorState message={error} bgcolor={pageBg} />;
   }
 
   return (
