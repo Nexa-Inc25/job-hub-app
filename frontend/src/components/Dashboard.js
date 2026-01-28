@@ -128,6 +128,66 @@ const preFieldItems = [
 // Status cycle for dependency toggling
 const statusCycle = ['required', 'check', 'scheduled', 'not_required'];
 
+// Status colors for new workflow + legacy statuses - extracted to reduce component complexity
+const STATUS_COLORS_MAP = {
+  'new': 'warning',
+  'assigned_to_gf': 'info',
+  'pre_fielding': 'info',
+  'scheduled': 'primary',
+  'stuck': 'error',
+  'in_progress': 'primary',
+  'pending_gf_review': 'warning',
+  'pending_qa_review': 'warning',
+  'pending_pm_approval': 'warning',
+  'ready_to_submit': 'success',
+  'submitted': 'success',
+  'go_back': 'error',
+  'billed': 'secondary',
+  'invoiced': 'default',
+  'pending': 'warning',
+  'pre-field': 'info',
+  'in-progress': 'primary',
+  'completed': 'success',
+};
+
+// Human-readable status labels - extracted to reduce component complexity
+const STATUS_LABELS_MAP = {
+  'new': 'New',
+  'assigned_to_gf': 'Assigned to GF',
+  'pre_fielding': 'Pre-Fielding',
+  'scheduled': 'Scheduled',
+  'stuck': 'Stuck',
+  'in_progress': 'In Progress',
+  'pending_gf_review': 'Awaiting GF Review',
+  'pending_qa_review': 'Awaiting QA Review',
+  'pending_pm_approval': 'Awaiting PM Approval',
+  'ready_to_submit': 'Ready to Submit',
+  'submitted': 'Submitted',
+  'go_back': 'Go-Back',
+  'billed': 'Billed',
+  'invoiced': 'Invoiced',
+  'pending': 'Pending',
+  'pre-field': 'Pre-Field',
+  'in-progress': 'In Progress',
+  'completed': 'Completed',
+};
+
+// Helper to get local date string (YYYY-MM-DD) from any date
+const getLocalDateString = (date) => {
+  const d = new Date(date);
+  return d.getFullYear() + '-' + 
+         String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+         String(d.getDate()).padStart(2, '0');
+};
+
+// Initialize pre-field checklist for a job - extracted to reduce component complexity
+const createInitialChecklist = () => {
+  return preFieldItems.reduce((acc, item) => {
+    acc[item.key] = { checked: false, notes: '' };
+    return acc;
+  }, {});
+};
+
 // Parse JWT token payload
 const parseTokenPayload = (token) => {
   if (!token) return null;
@@ -298,16 +358,10 @@ const Dashboard = () => {
     setTimeout(() => setFlipLock(false), 700);
   };
 
-  // Initialize pre-field checklist for a job
+  // Initialize pre-field checklist for a job - uses extracted helper
   const initPreFieldChecklist = (jobId) => {
     if (!preFieldChecklist[jobId]) {
-      setPreFieldChecklist(prev => ({
-        ...prev,
-        [jobId]: preFieldItems.reduce((acc, item) => {
-          acc[item.key] = { checked: false, notes: '' };
-          return acc;
-        }, {})
-      }));
+      setPreFieldChecklist(prev => ({ ...prev, [jobId]: createInitialChecklist() }));
     }
   };
 
@@ -521,52 +575,9 @@ const Dashboard = () => {
     }
   };
 
-  // Status colors for new workflow + legacy statuses
-  const statusColors = {
-    // New workflow statuses
-    'new': 'warning',
-    'assigned_to_gf': 'info',
-    'pre_fielding': 'info',
-    'scheduled': 'primary',
-    'stuck': 'error',
-    'in_progress': 'primary',
-    'pending_gf_review': 'warning',
-    'pending_qa_review': 'warning',
-    'pending_pm_approval': 'warning',
-    'ready_to_submit': 'success',
-    'submitted': 'success',
-    'go_back': 'error',
-    'billed': 'secondary',
-    'invoiced': 'default',
-    // Legacy statuses (backwards compatibility)
-    'pending': 'warning',
-    'pre-field': 'info',
-    'in-progress': 'primary',
-    'completed': 'success',
-  };
-
-  // Human-readable status labels
-  const statusLabels = {
-    'new': 'New',
-    'assigned_to_gf': 'Assigned to GF',
-    'pre_fielding': 'Pre-Fielding',
-    'scheduled': 'Scheduled',
-    'stuck': 'Stuck',
-    'in_progress': 'In Progress',
-    'pending_gf_review': 'Awaiting GF Review',
-    'pending_qa_review': 'Awaiting QA Review',
-    'pending_pm_approval': 'Awaiting PM Approval',
-    'ready_to_submit': 'Ready to Submit',
-    'submitted': 'Submitted',
-    'go_back': 'Go-Back',
-    'billed': 'Billed',
-    'invoiced': 'Invoiced',
-    // Legacy
-    'pending': 'Pending',
-    'pre-field': 'Pre-Field',
-    'in-progress': 'In Progress',
-    'completed': 'Completed',
-  };
+  // Use extracted status maps
+  const statusColors = STATUS_COLORS_MAP;
+  const statusLabels = STATUS_LABELS_MAP;
 
   // State for collapsible sections (GF View)
   const [expandedSections, setExpandedSections] = useState({
@@ -582,15 +593,7 @@ const Dashboard = () => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Helper to get local date string (YYYY-MM-DD) from any date
-  const getLocalDateString = (date) => {
-    const d = new Date(date);
-    return d.getFullYear() + '-' + 
-           String(d.getMonth() + 1).padStart(2, '0') + '-' + 
-           String(d.getDate()).padStart(2, '0');
-  };
-
-  // Categorize jobs for GF view
+  // Categorize jobs for GF view (uses extracted getLocalDateString helper)
   const categorizeJobsForGF = useCallback(() => {
     const todayStr = getLocalDateString(new Date());
 
