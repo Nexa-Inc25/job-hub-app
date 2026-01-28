@@ -449,8 +449,8 @@ const WorkOrderDetails = () => {
                         <Box sx={{ mt: 1.5 }}>
                           <Typography variant="caption" color="text.secondary">Equipment</Typography>
                           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                            {job.jobScope.equipment.map((item, idx) => (
-                              <Chip key={idx} label={item} size="small" variant="outlined" />
+                            {job.jobScope.equipment.map((item) => (
+                              <Chip key={`equip-${item}`} label={item} size="small" variant="outlined" />
                             ))}
                           </Box>
                         </Box>
