@@ -764,10 +764,10 @@ const JobFileSystem = () => {
                 e.stopPropagation();
                 handleDeleteFolder(subfolder.name, folder.name);
               }}
-              sx={{ p: 0.25, color: 'error.main' }}
+              sx={{ p: 1, minWidth: 44, minHeight: 44, color: 'error.main' }}
               aria-label="Delete subfolder"
             >
-              <DeleteIcon sx={{ fontSize: '0.875rem' }} />
+              <DeleteIcon fontSize="small" />
             </IconButton>
           )}
         </Box>
@@ -992,7 +992,7 @@ const JobFileSystem = () => {
           <FeedbackButton color="inherit" jobId={id} />
           <FormControlLabel
             control={<Switch checked={viewDetails} onChange={() => setViewDetails(!viewDetails)} />}
-            label="View Details"
+            label={<Typography sx={{ fontWeight: 500 }}>View Details</Typography>}
           />
             {isAdmin && (
               <Button
@@ -1328,13 +1328,13 @@ const JobFileSystem = () => {
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                 <Tooltip title="Open">
-                                  <IconButton size="small" onClick={() => handleDocDoubleClick(doc)} aria-label="Open document">
-                                    <VisibilityIcon fontSize="small" />
+                                  <IconButton size="medium" onClick={() => handleDocDoubleClick(doc)} aria-label="Open document" sx={{ minWidth: 44, minHeight: 44 }}>
+                                    <VisibilityIcon />
                                   </IconButton>
                                 </Tooltip>
                                 <Tooltip title="Download">
-                                  <IconButton size="small" onClick={() => handleDownload(doc)} aria-label="Download document">
-                                    <DownloadIcon fontSize="small" />
+                                  <IconButton size="medium" onClick={() => handleDownload(doc)} aria-label="Download document" sx={{ minWidth: 44, minHeight: 44 }}>
+                                    <DownloadIcon />
                                   </IconButton>
                                 </Tooltip>
                                 
@@ -1371,8 +1371,8 @@ const JobFileSystem = () => {
                                 )}
                                 
                                 <Tooltip title="More options">
-                                  <IconButton size="small" onClick={(e) => handleContextMenu(e, doc)} aria-label="More options">
-                                    <MoreVertIcon fontSize="small" />
+                                  <IconButton size="medium" onClick={(e) => handleContextMenu(e, doc)} aria-label="More options" sx={{ minWidth: 44, minHeight: 44 }}>
+                                    <MoreVertIcon />
                                   </IconButton>
                                 </Tooltip>
                               </Box>
