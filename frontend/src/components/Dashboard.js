@@ -328,6 +328,54 @@ const getJobDisplayTitle = (job) => {
   return job?.title || job?.pmNumber || 'this work order';
 };
 
+// Job categorization predicates - extracted to reduce cognitive complexity
+const isPreFieldingInProgress = (job) => 
+  ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo && !job.crewScheduledDate;
+
+const isPendingPreField = (job) => 
+  ['new', 'assigned_to_gf', 'pending'].includes(job.status);
+
+const needsScheduling = (job) => 
+  ['pre_fielding', 'pre-field'].includes(job.status) && job.assignedTo && !job.crewScheduledDate;
+
+const isStuck = (job) => job.status === 'stuck';
+
+const isScheduledForDate = (job, dateStr) => {
+  if (!job.crewScheduledDate) return false;
+  const schedDateStr = getLocalDateString(job.crewScheduledDate);
+  return schedDateStr === dateStr && ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
+};
+
+const isScheduledAfterDate = (job, dateStr) => {
+  if (!job.crewScheduledDate) return false;
+  const schedDateStr = getLocalDateString(job.crewScheduledDate);
+  return schedDateStr > dateStr && ['scheduled', 'in_progress'].includes(job.status);
+};
+
+// Helper to save pre-field checklist items as dependencies
+const createDependenciesFromChecklist = async (jobId, checklist, preFieldItems) => {
+  const checkedItems = Object.entries(checklist).filter(([, value]) => value.checked);
+  for (const [key, value] of checkedItems) {
+    await api.post(`/api/jobs/${jobId}/dependencies`, {
+      type: key,
+      description: value.notes || preFieldItems.find(i => i.key === key)?.description || '',
+      status: 'required',
+      notes: value.notes
+    });
+  }
+  return checkedItems.length;
+};
+
+// Helper to capture pre-field checklist for AI training
+const capturePreFieldForAI = async (jobId, checklist) => {
+  try {
+    await api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist });
+    console.log('[AI Training] Pre-field checklist captured for job', jobId);
+  } catch (error_) {
+    console.warn('[AI Training] Failed to capture pre-field data:', error_);
+  }
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -449,49 +497,19 @@ const Dashboard = () => {
     }));
   };
 
-  // Save pre-field checklist and create dependencies
+  // Save pre-field checklist and create dependencies - uses extracted helpers
   const handleSavePreField = async (jobId) => {
     const checklist = preFieldChecklist[jobId];
     if (!checklist) return;
 
     try {
-      // Create dependencies for each checked item
-      const checkedItems = Object.entries(checklist).filter(([_, value]) => value.checked);
-      
-      for (const [key, value] of checkedItems) {
-        await api.post(`/api/jobs/${jobId}/dependencies`, {
-          type: key,  // Use the key directly - all match enum values
-          description: value.notes || preFieldItems.find(i => i.key === key)?.description || '',
-          status: 'required',  // Must match enum: required, check, scheduled, not_required
-          notes: value.notes
-        });
-      }
-
-      // === CAPTURE FOR AI TRAINING ===
-      // Send checklist decisions to train AI for future auto-suggestions
-      try {
-        await api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist });
-        console.log('[AI Training] Pre-field checklist captured for job', jobId);
-      } catch (error_) {
-        console.warn('[AI Training] Failed to capture pre-field data:', error_);
-        // Don't fail the main operation if AI capture fails
-      }
-
-      // Update job status to pre_fielding
+      const itemCount = await createDependenciesFromChecklist(jobId, checklist, preFieldItems);
+      capturePreFieldForAI(jobId, checklist);
       await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
-
-      // Refresh job list
       const response = await api.get('/api/jobs');
       setJobs(response.data);
-      
-      // Flip card back
       setFlippedCards(prev => ({ ...prev, [jobId]: false }));
-      
-      setSnackbar({ 
-        open: true, 
-        message: `Pre-field complete! ${checkedItems.length} dependencies added.`, 
-        severity: 'success' 
-      });
+      setSnackbar({ open: true, message: `Pre-field complete! ${itemCount} dependencies added.`, severity: 'success' });
     } catch (err) {
       console.error('Save pre-field error:', err);
       setSnackbar({ open: true, message: 'Failed to save pre-field data', severity: 'error' });
@@ -655,41 +673,16 @@ const Dashboard = () => {
     setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
   };
 
-  // Categorize jobs for GF view (uses extracted getLocalDateString helper)
+  // Categorize jobs for GF view - uses extracted predicates for reduced complexity
   const categorizeJobsForGF = useCallback(() => {
     const todayStr = getLocalDateString(new Date());
-
     return {
-      // Jobs actively being pre-fielded (show as cards with flip)
-      // Must be pre_fielding status AND not yet assigned to a crew
-      preFieldingInProgress: jobs.filter(job => 
-        ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo && !job.crewScheduledDate
-      ),
-      // Jobs assigned to GF but not yet started pre-field (simple list)
-      pendingPreField: jobs.filter(job => 
-        ['new', 'assigned_to_gf', 'pending'].includes(job.status)
-      ),
-      // Needs scheduling - pre-fielded with dependencies set, ready for crew assignment
-      // Must have assignedTo OR be past pre-fielding but no scheduled date yet
-      needsScheduling: jobs.filter(job => 
-        ['pre_fielding', 'pre-field'].includes(job.status) && job.assignedTo && !job.crewScheduledDate
-      ),
-      // Jobs marked as stuck
-      stuck: jobs.filter(job => job.status === 'stuck'),
-      // Jobs scheduled for today (compare local date strings)
-      todaysWork: jobs.filter(job => {
-        if (!job.crewScheduledDate) return false;
-        const schedDateStr = getLocalDateString(job.crewScheduledDate);
-        return schedDateStr === todayStr && 
-               ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
-      }),
-      // Scheduled but not today (future work)
-      scheduled: jobs.filter(job => {
-        if (!job.crewScheduledDate) return false;
-        const schedDateStr = getLocalDateString(job.crewScheduledDate);
-        return schedDateStr > todayStr && 
-               ['scheduled', 'in_progress'].includes(job.status);
-      }),
+      preFieldingInProgress: jobs.filter(isPreFieldingInProgress),
+      pendingPreField: jobs.filter(isPendingPreField),
+      needsScheduling: jobs.filter(needsScheduling),
+      stuck: jobs.filter(isStuck),
+      todaysWork: jobs.filter(job => isScheduledForDate(job, todayStr)),
+      scheduled: jobs.filter(job => isScheduledAfterDate(job, todayStr)),
     };
   }, [jobs]);
 
