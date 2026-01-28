@@ -61,9 +61,30 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragAnnotationId, setDragAnnotationId] = useState(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  // Responsive container width
+  const [containerWidth, setContainerWidth] = useState(null);
   const containerRef = useRef(null);
   const pageRef = useRef(null);
   const signatureCanvasRef = useRef(null);
+  
+  // Track container width for responsive PDF sizing
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+    
+    updateWidth();
+    globalThis.addEventListener('resize', updateWidth);
+    // Also update after a short delay to catch initial render
+    const timeout = setTimeout(updateWidth, 100);
+    
+    return () => {
+      globalThis.removeEventListener('resize', updateWidth);
+      clearTimeout(timeout);
+    };
+  }, []);
 
   // Load PDF bytes for pdf-lib
   useEffect(() => {
@@ -613,7 +634,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           bgcolor: 'grey.300',
           display: 'flex',
           justifyContent: 'center',
-          p: 2,
+          p: { xs: 1, sm: 2 },
+          WebkitOverflowScrolling: 'touch', // Smooth scrolling on iOS
         }}
       >
         <Box
@@ -649,7 +671,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                   scale={zoom}
                   renderTextLayer={false}
                   renderAnnotationLayer={false}
-                  width={containerRef.current ? Math.min(containerRef.current.clientWidth - 32, 800) : undefined}
+                  width={containerWidth ? Math.min(containerWidth - 48, 700) : undefined}
                 />
               </Document>
             )}
