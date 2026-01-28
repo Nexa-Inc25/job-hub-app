@@ -57,6 +57,11 @@ import {
   CameraAlt as CameraAltIcon,
   PhotoLibrary as PhotoLibraryIcon,
   CloudUpload as CloudUploadIcon,
+  Email as EmailIcon,
+  PictureAsPdf as PdfIcon,
+  Architecture as SketchIcon,
+  Assignment as InstructionsIcon,
+  OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 const WorkOrderDetails = () => {
   const { id: jobId } = useParams();
@@ -91,6 +96,13 @@ const WorkOrderDetails = () => {
   const [photoUploadProgress, setPhotoUploadProgress] = useState(0);
   const photoInputRef = React.useRef(null);
   
+  // Export to email state
+  const [exportLoading, setExportLoading] = useState(false);
+  
+  // Construction sketches and crew instructions
+  const [constructionSketches, setConstructionSketches] = useState([]);
+  const [crewInstructions, setCrewInstructions] = useState([]);
+  
   // User info - reserved for future role-based features
   // const [userRole, setUserRole] = useState(null);
   // const [canApprove, setCanApprove] = useState(false);
@@ -116,23 +128,39 @@ const WorkOrderDetails = () => {
     fetchJobDetails();
   }, [fetchJobDetails]);
 
-  // Fetch pre-field photos from GF Audit folder
-  const fetchPreFieldPhotos = useCallback(async () => {
+  // Fetch pre-field photos, construction sketches, and crew instructions from folder structure
+  const fetchPreFieldAssets = useCallback(() => {
     if (!job?.folders) return;
     
-    // Find GF Audit subfolder in ACI folder
+    // Find ACI folder
     const aciFolder = job.folders.find(f => f.name === 'ACI');
     if (!aciFolder?.subfolders) return;
     
+    // GF Audit photos (pre-field photos)
     const gfAuditFolder = aciFolder.subfolders.find(sf => sf.name === 'GF Audit');
     if (gfAuditFolder?.documents) {
       setPreFieldPhotos(gfAuditFolder.documents);
     }
+    
+    // Construction Sketches from Pre-Field Documents
+    const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
+    if (preFieldFolder?.subfolders) {
+      const sketchesFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Sketches');
+      if (sketchesFolder?.documents) {
+        setConstructionSketches(sketchesFolder.documents);
+      }
+    }
+    
+    // Crew Instructions from Field As Built (job package PDF)
+    const fieldAsBuiltFolder = aciFolder.subfolders.find(sf => sf.name === 'Field As Built');
+    if (fieldAsBuiltFolder?.documents) {
+      setCrewInstructions(fieldAsBuiltFolder.documents);
+    }
   }, [job]);
 
   useEffect(() => {
-    fetchPreFieldPhotos();
-  }, [fetchPreFieldPhotos]);
+    fetchPreFieldAssets();
+  }, [fetchPreFieldAssets]);
 
   // Handle pre-field photo upload
   const handlePhotoUpload = async (event) => {
@@ -188,6 +216,95 @@ const WorkOrderDetails = () => {
       return `${apiBase}/api/files/${photo.r2Key}`;
     }
     return photo.url || '';
+  };
+
+  // Get document URL for PDFs and other files
+  const getDocumentUrl = (doc) => {
+    if (!doc) return '';
+    if (doc.url?.startsWith('http')) return doc.url;
+    if (doc.r2Key) {
+      const apiBase = process.env.REACT_APP_API_URL || '';
+      return `${apiBase}/api/files/${doc.r2Key}`;
+    }
+    if (doc.path) {
+      const apiBase = process.env.REACT_APP_API_URL || '';
+      return `${apiBase}${doc.path.startsWith('/') ? '' : '/'}${doc.path}`;
+    }
+    return doc.url || '';
+  };
+
+  // Export GF Audit photos to email
+  const handleExportToEmail = async () => {
+    if (!job || preFieldPhotos.length === 0) {
+      setSnackbar({ open: true, message: 'No photos to export', severity: 'warning' });
+      return;
+    }
+    
+    setExportLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
+      
+      // Export GF Audit folder
+      const exportUrl = `${apiBase}/api/jobs/${job._id}/folders/ACI/export?subfolder=GF%20Audit`;
+      
+      // Fetch the ZIP file
+      const response = await fetch(exportUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Export failed');
+      }
+      
+      // Get the ZIP file as blob with explicit MIME type
+      const arrayBuffer = await response.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { type: 'application/zip' });
+      const filename = `${job.pmNumber || job.woNumber || 'Job'}_GF_Audit_${Date.now()}.zip`;
+      const emailSubject = `GF Audit Photos - ${job.pmNumber || job.woNumber || 'Job'} - ${job.address || ''}`;
+      const emailBody = `Hi,\n\nPlease find attached the GF Audit photos for:\n\nJob: ${job.pmNumber || job.woNumber || 'N/A'}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nPlease let me know if you have any questions.\n\nBest regards`;
+      
+      // Try Web Share API first (works on mobile and some desktops)
+      if (navigator.canShare?.({ files: [new File([blob], filename, { type: 'application/zip' })] })) {
+        try {
+          const file = new File([blob], filename, { type: 'application/zip' });
+          await navigator.share({
+            title: emailSubject,
+            text: emailBody,
+            files: [file]
+          });
+          setSnackbar({ open: true, message: 'Photos shared successfully', severity: 'success' });
+          return;
+        } catch (shareError) {
+          if (shareError.name !== 'AbortError') {
+            console.log('Web Share failed, falling back to download:', shareError.message);
+          }
+        }
+      }
+      
+      // Fallback: Download ZIP and open mailto
+      const downloadUrl = globalThis.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      globalThis.URL.revokeObjectURL(downloadUrl);
+      
+      // Open email client
+      const subject = encodeURIComponent(emailSubject);
+      const body = encodeURIComponent(emailBody + `\n\nPlease attach the downloaded file: ${filename}`);
+      globalThis.location.href = `mailto:?subject=${subject}&body=${body}`;
+      
+      setSnackbar({ open: true, message: 'ZIP downloaded - attach to email', severity: 'success' });
+    } catch (err) {
+      console.error('Export to email error:', err);
+      setSnackbar({ open: true, message: err.message || 'Failed to export', severity: 'error' });
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   // Format date helper
@@ -814,7 +931,7 @@ const WorkOrderDetails = () => {
                       <CameraAltIcon color="primary" />
                       Pre-Field Photos ({preFieldPhotos.length})
                     </Typography>
-                    <Box display="flex" gap={1}>
+                    <Box display="flex" gap={1} flexWrap="wrap">
                       <input
                         ref={photoInputRef}
                         type="file"
@@ -833,6 +950,16 @@ const WorkOrderDetails = () => {
                         size="large"
                       >
                         Upload Photos
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        startIcon={exportLoading ? <CircularProgress size={20} color="inherit" /> : <EmailIcon />}
+                        onClick={handleExportToEmail}
+                        disabled={exportLoading || preFieldPhotos.length === 0}
+                        size="large"
+                      >
+                        {exportLoading ? 'Exporting...' : 'Export to Email'}
                       </Button>
                       <Button
                         variant="outlined"
@@ -897,6 +1024,126 @@ const WorkOrderDetails = () => {
                   )}
                 </CardContent>
               </Card>
+            </Grid>
+          )}
+
+          {/* ROW 2.5: Construction Sketches & Crew Instructions - Side by side */}
+          {(constructionSketches.length > 0 || crewInstructions.length > 0) && (
+            <Grid item xs={12}>
+              <Grid container spacing={2}>
+                {/* Construction Sketches */}
+                {constructionSketches.length > 0 && (
+                  <Grid item xs={12} md={6}>
+                    <Card sx={{ borderRadius: 2, height: '100%' }}>
+                      <CardContent>
+                        <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
+                          <SketchIcon color="primary" />
+                          Construction Sketches ({constructionSketches.length})
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                          {constructionSketches.map((sketch, idx) => (
+                            <Box 
+                              key={sketch._id || idx}
+                              sx={{ 
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderRadius: 2,
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                '&:hover': { 
+                                  boxShadow: 3,
+                                  transform: 'scale(1.02)'
+                                }
+                              }}
+                              onClick={() => globalThis.open(getDocumentUrl(sketch), '_blank')}
+                            >
+                              <img
+                                src={getDocumentUrl(sketch)}
+                                alt={sketch.name || `Construction Sketch ${idx + 1}`}
+                                style={{ 
+                                  width: 200, 
+                                  height: 150, 
+                                  objectFit: 'cover'
+                                }}
+                              />
+                              <Box sx={{ p: 1, bgcolor: 'background.paper' }}>
+                                <Typography variant="caption" noWrap display="block" sx={{ maxWidth: 180 }}>
+                                  {sketch.name || `Sketch ${idx + 1}`}
+                                </Typography>
+                                <Chip 
+                                  size="small" 
+                                  icon={<OpenInNewIcon fontSize="small" />}
+                                  label="View Full Size" 
+                                  sx={{ mt: 0.5, cursor: 'pointer' }}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    globalThis.open(getDocumentUrl(sketch), '_blank');
+                                  }}
+                                />
+                              </Box>
+                            </Box>
+                          ))}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                )}
+
+                {/* Crew Instructions (Field As Built) */}
+                {crewInstructions.length > 0 && (
+                  <Grid item xs={12} md={constructionSketches.length > 0 ? 6 : 12}>
+                    <Card sx={{ borderRadius: 2, height: '100%' }}>
+                      <CardContent>
+                        <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
+                          <InstructionsIcon color="primary" />
+                          Crew Instructions ({crewInstructions.length})
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        <List dense>
+                          {crewInstructions.map((doc, idx) => (
+                            <ListItem 
+                              key={doc._id || idx}
+                              sx={{ 
+                                bgcolor: 'action.hover', 
+                                borderRadius: 1, 
+                                mb: 1,
+                                cursor: 'pointer',
+                                '&:hover': { bgcolor: 'action.selected' }
+                              }}
+                              onClick={() => globalThis.open(getDocumentUrl(doc), '_blank')}
+                            >
+                              <ListItemIcon sx={{ minWidth: 40 }}>
+                                <PdfIcon color="error" />
+                              </ListItemIcon>
+                              <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+                                <Typography variant="body2" noWrap fontWeight="medium">
+                                  {doc.name || `Document ${idx + 1}`}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  Job Package PDF - Click to view
+                                </Typography>
+                              </Box>
+                              <IconButton 
+                                size="small" 
+                                color="primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  globalThis.open(getDocumentUrl(doc), '_blank');
+                                }}
+                                aria-label={`Open ${doc.name || 'document'}`}
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                            </ListItem>
+                          ))}
+                        </List>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                )}
+              </Grid>
             </Grid>
           )}
 
