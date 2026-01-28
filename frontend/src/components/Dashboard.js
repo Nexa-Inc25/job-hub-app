@@ -677,7 +677,7 @@ const Dashboard = () => {
       <Box display="flex" alignItems="center" justifyContent="space-between">
         <Box display="flex" alignItems="center" gap={1}>
           <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
-          <Typography variant="subtitle1" fontWeight="medium" color="text.primary">
+          <Typography variant="subtitle1" component="h3" fontWeight="medium" color="text.primary">
             {title}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
@@ -1135,7 +1135,7 @@ const Dashboard = () => {
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
               {getWelcomeMessage(userName)}
             </Typography>
-            <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
+            <Typography variant="h6" component="h2" color="text.secondary" sx={{ mb: 0.5 }}>
               {getDashboardTitle()}
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -1389,7 +1389,7 @@ const Dashboard = () => {
           {/* PRE-FIELDING IN PROGRESS - Show as flip cards at the top */}
           {gfCategories.preFieldingInProgress.length > 0 && (
             <Box sx={{ mb: 4 }}>
-              <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" component="h3" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ConstructionIcon fontSize="small" color="primary" />
                 Pre-Fielding In Progress ({gfCategories.preFieldingInProgress.length})
               </Typography>
@@ -1413,7 +1413,7 @@ const Dashboard = () => {
                             <CardContent sx={{ flexGrow: 1 }}>
                               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                                 <Box flex={1}>
-                                  <Typography variant="h6" component="h2" gutterBottom sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <Typography variant="h6" component="h4" gutterBottom sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                     {job.pmNumber || job.woNumber || job.title || 'Untitled'}
                                   </Typography>
                                   {job.address && (
@@ -1794,7 +1794,7 @@ const Dashboard = () => {
             <Grid item xs={12}>
               <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 2, boxShadow: 1 }}>
                 <DescriptionIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" gutterBottom>
+                <Typography variant="h6" component="h3" gutterBottom>
                   No work orders found
                 </Typography>
                 <Typography variant="body2" color="text.secondary" mb={3}>
@@ -1839,7 +1839,7 @@ const Dashboard = () => {
                       <CardContent sx={{ flexGrow: 1 }}>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                           <Box flex={1}>
-                            <Typography variant="h6" component="h2" gutterBottom sx={{
+                            <Typography variant="h6" component="h3" gutterBottom sx={{
                               overflow: 'hidden',
                               textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap'

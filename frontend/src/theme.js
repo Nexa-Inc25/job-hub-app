@@ -23,7 +23,8 @@ export const getTheme = (mode) =>
       },
       text: {
         primary: mode === 'dark' ? '#ffffff' : '#1a1a1a',
-        secondary: mode === 'dark' ? grey[400] : grey[600],
+        // grey[700] (#616161) provides 5.74:1 contrast ratio on #f5f7fa (WCAG AA compliant)
+        secondary: mode === 'dark' ? grey[400] : grey[700],
       },
     },
     typography: {
