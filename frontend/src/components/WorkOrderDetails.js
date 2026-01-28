@@ -999,28 +999,77 @@ const WorkOrderDetails = () => {
                       </Typography>
                     </Box>
                   ) : (
-                    <ImageList cols={10} gap={8} sx={{ maxHeight: 120, overflow: 'auto', m: 0 }}>
+                    <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                       {preFieldPhotos.map((photo, idx) => (
-                        <ImageListItem key={photo._id || idx}>
-                          <IconButton 
+                        <Tooltip key={photo._id || idx} title={`Click to view: ${photo.name || `Photo ${idx + 1}`}`}>
+                          <Box
+                            sx={{
+                              position: 'relative',
+                              border: '2px solid',
+                              borderColor: 'divider',
+                              borderRadius: 2,
+                              overflow: 'hidden',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              '&:hover': { 
+                                borderColor: 'primary.main',
+                                boxShadow: 3,
+                                transform: 'scale(1.05)'
+                              }
+                            }}
                             onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
-                            sx={{ p: 0, borderRadius: 1 }}
-                            aria-label={`View ${photo.name || `photo ${idx + 1}`}`}
                           >
                             <img
                               src={getPhotoUrl(photo)}
                               alt={photo.name || `Pre-field photo ${idx + 1}`}
                               loading="lazy"
                               style={{ 
-                                height: 60, 
-                                objectFit: 'cover', 
-                                borderRadius: 4
+                                width: 100, 
+                                height: 80, 
+                                objectFit: 'cover',
+                                display: 'block'
                               }}
                             />
-                          </IconButton>
-                        </ImageListItem>
+                            <Box 
+                              sx={{ 
+                                position: 'absolute', 
+                                bottom: 0, 
+                                left: 0, 
+                                right: 0, 
+                                bgcolor: 'rgba(0,0,0,0.6)',
+                                px: 0.5,
+                                py: 0.25
+                              }}
+                            >
+                              <Typography variant="caption" color="white" noWrap sx={{ fontSize: '0.65rem' }}>
+                                {idx + 1}. {photo.name?.substring(0, 12) || 'Photo'}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </Tooltip>
                       ))}
-                    </ImageList>
+                      {/* Add more photos button */}
+                      <Box
+                        sx={{
+                          width: 100,
+                          height: 80,
+                          border: '2px dashed',
+                          borderColor: 'divider',
+                          borderRadius: 2,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                        }}
+                        onClick={() => photoInputRef.current?.click()}
+                      >
+                        <AddIcon color="action" />
+                        <Typography variant="caption" color="text.secondary">Add More</Typography>
+                      </Box>
+                    </Box>
                   )}
                 </CardContent>
               </Card>

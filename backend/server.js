@@ -3781,15 +3781,25 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
     
     console.log('Photo upload authorized for job:', job.pmNumber);
     
-    // Find ACI > Photos folder
-    const aciFolder = job.folders.find(f => f.name === 'ACI');
-    if (!aciFolder) {
-      return res.status(404).json({ error: 'ACI folder not found' });
+    // Get target folder from request body (defaults to ACI > Photos for backwards compatibility)
+    const targetFolderName = req.body.folder || 'ACI';
+    const targetSubfolderName = req.body.subfolder || 'Photos';
+    
+    console.log('Target folder path:', targetFolderName, '>', targetSubfolderName);
+    
+    // Find the target folder
+    const parentFolder = job.folders.find(f => f.name === targetFolderName);
+    if (!parentFolder) {
+      return res.status(404).json({ error: `${targetFolderName} folder not found` });
     }
     
-    const photosFolder = aciFolder.subfolders.find(sf => sf.name === 'Photos');
+    // Find or create the subfolder
+    let photosFolder = parentFolder.subfolders.find(sf => sf.name === targetSubfolderName);
     if (!photosFolder) {
-      return res.status(404).json({ error: 'Photos folder not found' });
+      // Create subfolder if it doesn't exist
+      photosFolder = { name: targetSubfolderName, documents: [], subfolders: [] };
+      parentFolder.subfolders.push(photosFolder);
+      console.log('Created new subfolder:', targetSubfolderName);
     }
     
     // Generate proper filenames and upload to R2
@@ -3834,11 +3844,13 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       let r2Key = null;
       
       // Upload to R2 if configured
+      // Use subfolder name for R2 path (e.g., 'gf_audit' for GF Audit folder)
+      const r2SubfolderPath = targetSubfolderName.toLowerCase().replace(/\s+/g, '_');
       console.log('Manual photo upload - R2 configured:', r2Storage.isR2Configured());
       if (r2Storage.isR2Configured()) {
         try {
-          console.log('Uploading photo to R2:', fileToUpload, '->', `jobs/${id}/photos/${newFilename}`);
-          const result = await r2Storage.uploadJobFile(fileToUpload, id, 'photos', newFilename);
+          console.log('Uploading photo to R2:', fileToUpload, '->', `jobs/${id}/${r2SubfolderPath}/${newFilename}`);
+          const result = await r2Storage.uploadJobFile(fileToUpload, id, r2SubfolderPath, newFilename);
           docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
           console.log('Photo uploaded to R2 successfully:', r2Key, '-> URL:', docUrl);
