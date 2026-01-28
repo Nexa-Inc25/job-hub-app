@@ -1106,6 +1106,8 @@ const JobFileSystem = () => {
                       Upload from Library
                     </Button>
                     <input
+                      id="photos-camera-input"
+                      name="photos-camera"
                       ref={cameraInputRef}
                       type="file"
                       accept="image/*"
@@ -1115,6 +1117,8 @@ const JobFileSystem = () => {
                       style={{ display: 'none' }}
                     />
                     <input
+                      id="photos-library-input"
+                      name="photos-library"
                       ref={photoInputRef}
                       type="file"
                       accept="image/*"
@@ -1157,6 +1161,8 @@ const JobFileSystem = () => {
                     )}
                     
                     <input
+                      id="prefield-camera-input"
+                      name="prefield-camera"
                       ref={preFieldCameraInputRef}
                       type="file"
                       accept="image/*"
@@ -1166,6 +1172,8 @@ const JobFileSystem = () => {
                       style={{ display: 'none' }}
                     />
                     <input
+                      id="prefield-library-input"
+                      name="prefield-library"
                       ref={preFieldPhotoInputRef}
                       type="file"
                       accept="image/*"
@@ -1222,6 +1230,8 @@ const JobFileSystem = () => {
                     
                     {/* Hidden file inputs for GF Audit */}
                     <input
+                      id="gf-audit-camera-input"
+                      name="gf-audit-camera"
                       ref={gfAuditCameraInputRef}
                       type="file"
                       accept="image/*"
@@ -1231,6 +1241,8 @@ const JobFileSystem = () => {
                       style={{ display: 'none' }}
                     />
                     <input
+                      id="gf-audit-library-input"
+                      name="gf-audit-library"
                       ref={gfAuditPhotoInputRef}
                       type="file"
                       accept="image/*"
@@ -1391,6 +1403,8 @@ const JobFileSystem = () => {
             <AddIcon />
           </Fab>
           <input
+            id="file-upload-input"
+            name="file-upload"
             type="file"
             ref={fileInputRef}
             style={{ display: 'none' }}
