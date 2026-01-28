@@ -343,6 +343,140 @@ const createPhotoUploadHandler = (id, job, uploadEndpoint, subfolderName, setJob
   };
 };
 
+// Sub-component: Photo upload panel for Pre-Field Documents
+const PreFieldPhotoPanel = ({ cameraRef, libraryRef, onUpload, aiExtractionComplete }) => (
+  <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', flexDirection: 'column', alignItems: 'center' }}>
+    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+      Upload Job Photos
+    </Typography>
+    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <Button
+        variant="contained"
+        color="primary"
+        startIcon={<CameraAltIcon />}
+        onClick={() => cameraRef.current?.click()}
+      >
+        Take Photo
+      </Button>
+      <Button
+        variant="outlined"
+        color="primary"
+        startIcon={<PhotoLibraryIcon />}
+        onClick={() => libraryRef.current?.click()}
+      >
+        Upload from Library
+      </Button>
+    </Box>
+    {aiExtractionComplete && (
+      <Alert severity="info" sx={{ mt: 2, width: '100%' }}>
+        Photos, drawings, and maps have been automatically extracted from the job package PDF
+      </Alert>
+    )}
+    <input
+      id="prefield-camera-input"
+      name="prefield-camera"
+      ref={cameraRef}
+      type="file"
+      accept="image/*"
+      capture="environment"
+      multiple
+      onChange={onUpload}
+      style={{ display: 'none' }}
+    />
+    <input
+      id="prefield-library-input"
+      name="prefield-library"
+      ref={libraryRef}
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={onUpload}
+      style={{ display: 'none' }}
+    />
+  </Paper>
+);
+
+// Sub-component: Photo upload panel for GF Audit folder
+const GFAuditPhotoPanel = ({ cameraRef, libraryRef, onUpload, exportLoading, onExport, documentCount }) => (
+  <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', flexDirection: 'column', alignItems: 'center', bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+      GF Audit - Pre-Field Photos
+    </Typography>
+    <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
+      Upload photos taken during pre-fielding, then export to email your Project Coordinator
+    </Typography>
+    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <Button
+        variant="contained"
+        color="secondary"
+        startIcon={<CameraAltIcon />}
+        onClick={() => cameraRef.current?.click()}
+      >
+        Take Photo
+      </Button>
+      <Button
+        variant="outlined"
+        sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
+        startIcon={<PhotoLibraryIcon />}
+        onClick={() => libraryRef.current?.click()}
+      >
+        Upload from Library
+      </Button>
+      <Button
+        variant="contained"
+        color="success"
+        startIcon={exportLoading ? <CircularProgress size={20} color="inherit" /> : <EmailIcon />}
+        onClick={onExport}
+        disabled={exportLoading || !documentCount}
+      >
+        {exportLoading ? 'Exporting...' : 'Export to Email'}
+      </Button>
+    </Box>
+    {documentCount > 0 && (
+      <Chip 
+        label={`${documentCount} photo${documentCount === 1 ? '' : 's'} ready to export`}
+        color="success"
+        sx={{ mt: 1 }}
+      />
+    )}
+    <input
+      id="gf-audit-camera-input"
+      name="gf-audit-camera"
+      ref={cameraRef}
+      type="file"
+      accept="image/*"
+      capture="environment"
+      multiple
+      onChange={onUpload}
+      style={{ display: 'none' }}
+    />
+    <input
+      id="gf-audit-library-input"
+      name="gf-audit-library"
+      ref={libraryRef}
+      type="file"
+      accept="image/*"
+      multiple
+      onChange={onUpload}
+      style={{ display: 'none' }}
+    />
+  </Paper>
+);
+
+// Sub-component: Document approval status chip
+const ApprovalStatusChip = ({ status }) => {
+  if (status === 'pending_approval') {
+    return <Chip label="DRAFT" size="small" color="warning" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 'bold' }} />;
+  }
+  if (status === 'approved') {
+    return <Chip label="APPROVED" size="small" color="success" sx={{ height: 20, fontSize: '0.65rem' }} />;
+  }
+  if (status === 'rejected') {
+    return <Chip label="REJECTED" size="small" color="error" sx={{ height: 20, fontSize: '0.65rem' }} />;
+  }
+  return null;
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -1080,126 +1214,24 @@ const JobFileSystem = () => {
                 
                 {/* Pre-Field Documents Actions - Photo Upload */}
                 {(isPreFieldFolder || isJobPhotosFolder) && (
-                  <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', flexDirection: 'column', alignItems: 'center' }}>
-                    <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                      Upload Job Photos
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        startIcon={<CameraAltIcon />}
-                        onClick={() => preFieldCameraInputRef.current?.click()}
-                      >
-                        Take Photo
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="primary"
-                        startIcon={<PhotoLibraryIcon />}
-                        onClick={() => preFieldPhotoInputRef.current?.click()}
-                      >
-                        Upload from Library
-                      </Button>
-                    </Box>
-                    
-                    {job?.aiExtractionComplete && (
-                      <Alert severity="info" sx={{ mt: 2, width: '100%' }}>
-                        Photos, drawings, and maps have been automatically extracted from the job package PDF
-                      </Alert>
-                    )}
-                    
-                    <input
-                      id="prefield-camera-input"
-                      name="prefield-camera"
-                      ref={preFieldCameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      multiple
-                      onChange={handlePreFieldPhotoUpload}
-                      style={{ display: 'none' }}
-                    />
-                    <input
-                      id="prefield-library-input"
-                      name="prefield-library"
-                      ref={preFieldPhotoInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handlePreFieldPhotoUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </Paper>
+                  <PreFieldPhotoPanel
+                    cameraRef={preFieldCameraInputRef}
+                    libraryRef={preFieldPhotoInputRef}
+                    onUpload={handlePreFieldPhotoUpload}
+                    aiExtractionComplete={job?.aiExtractionComplete}
+                  />
                 )}
                 
                 {/* GF Audit Folder Actions - Upload & Export to Email */}
                 {isGFAuditFolder && (
-                  <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', flexDirection: 'column', alignItems: 'center', bgcolor: 'primary.light', color: 'primary.contrastText' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                      📋 GF Audit - Pre-Field Photos
-                    </Typography>
-                    <Typography variant="body2" sx={{ mb: 1, opacity: 0.9 }}>
-                      Upload photos taken during pre-fielding, then export to email your Project Coordinator
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-                      <Button
-                        variant="contained"
-                        color="secondary"
-                        startIcon={<CameraAltIcon />}
-                        onClick={() => gfAuditCameraInputRef.current?.click()}
-                      >
-                        Take Photo
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        sx={{ bgcolor: 'white', '&:hover': { bgcolor: 'grey.100' } }}
-                        startIcon={<PhotoLibraryIcon />}
-                        onClick={() => gfAuditPhotoInputRef.current?.click()}
-                      >
-                        Upload from Library
-                      </Button>
-                      <Button
-                        variant="contained"
-                        color="success"
-                        startIcon={exportLoading ? <CircularProgress size={20} color="inherit" /> : <EmailIcon />}
-                        onClick={handleExportToEmail}
-                        disabled={exportLoading || !selectedFolder?.documents?.length}
-                      >
-                        {exportLoading ? 'Exporting...' : 'Export to Email'}
-                      </Button>
-                    </Box>
-                    {selectedFolder?.documents?.length > 0 && (
-                      <Chip 
-                        label={`${selectedFolder.documents.length} photo${selectedFolder.documents.length === 1 ? '' : 's'} ready to export`}
-                        color="success"
-                        sx={{ mt: 1 }}
-                      />
-                    )}
-                    
-                    {/* Hidden file inputs for GF Audit */}
-                    <input
-                      id="gf-audit-camera-input"
-                      name="gf-audit-camera"
-                      ref={gfAuditCameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      multiple
-                      onChange={handleGFAuditPhotoUpload}
-                      style={{ display: 'none' }}
-                    />
-                    <input
-                      id="gf-audit-library-input"
-                      name="gf-audit-library"
-                      ref={gfAuditPhotoInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleGFAuditPhotoUpload}
-                      style={{ display: 'none' }}
-                    />
-                  </Paper>
+                  <GFAuditPhotoPanel
+                    cameraRef={gfAuditCameraInputRef}
+                    libraryRef={gfAuditPhotoInputRef}
+                    onUpload={handleGFAuditPhotoUpload}
+                    exportLoading={exportLoading}
+                    onExport={handleExportToEmail}
+                    documentCount={selectedFolder?.documents?.length || 0}
+                  />
                 )}
                 <TableContainer>
                   <Table size="small" aria-label="documents table">
@@ -1239,31 +1271,7 @@ const JobFileSystem = () => {
                                 <Box>
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                     <Typography variant="body2">{doc.name}</Typography>
-                                    {/* Approval status badges */}
-                                    {doc.approvalStatus === 'pending_approval' && (
-                                      <Chip 
-                                        label="DRAFT" 
-                                        size="small" 
-                                        color="warning" 
-                                        sx={{ height: 20, fontSize: '0.65rem', fontWeight: 'bold' }}
-                                      />
-                                    )}
-                                    {doc.approvalStatus === 'approved' && (
-                                      <Chip 
-                                        label="APPROVED" 
-                                        size="small" 
-                                        color="success" 
-                                        sx={{ height: 20, fontSize: '0.65rem' }}
-                                      />
-                                    )}
-                                    {doc.approvalStatus === 'rejected' && (
-                                      <Chip 
-                                        label="REJECTED" 
-                                        size="small" 
-                                        color="error" 
-                                        sx={{ height: 20, fontSize: '0.65rem' }}
-                                      />
-                                    )}
+                                    <ApprovalStatusChip status={doc.approvalStatus} />
                                   </Box>
                                   <Typography variant="caption" color="text.secondary">
                                     {doc.approvalStatus === 'pending_approval' 
