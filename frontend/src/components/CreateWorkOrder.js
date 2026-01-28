@@ -43,6 +43,7 @@ const CreateWorkOrder = ({ token }) => {
   const [orderType, setOrderType] = useState('');
   const [division, setDivision] = useState('DA');
   const [matCode, setMatCode] = useState('');
+  const [jobScope, setJobScope] = useState(null);  // Scope extracted from Face Sheet
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -92,6 +93,10 @@ const CreateWorkOrder = ({ token }) => {
           Object.entries(fieldSetters).forEach(([key, setter]) => {
             if (data[key]) setter(data[key]);
           });
+          // Store job scope from Face Sheet
+          if (data.jobScope) {
+            setJobScope(data.jobScope);
+          }
         }
       }).catch(err => {
         // AI extraction is optional - user can fill fields manually
@@ -133,6 +138,10 @@ const CreateWorkOrder = ({ token }) => {
     jobFormData.append('orderType', orderType);
     jobFormData.append('division', division);
     jobFormData.append('matCode', matCode);
+    // Include job scope extracted from Face Sheet
+    if (jobScope) {
+      jobFormData.append('jobScope', JSON.stringify(jobScope));
+    }
     // Skip AI text extraction since we already did it on file select
     jobFormData.append('skipAiExtract', 'true');
 
@@ -233,6 +242,58 @@ const CreateWorkOrder = ({ token }) => {
             </Paper>
 
             <Divider sx={{ my: 3 }} />
+
+            {/* Job Scope Preview (if extracted from Face Sheet) */}
+            {jobScope?.summary && (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  mb: 3,
+                  bgcolor: 'info.light',
+                  borderColor: 'info.main',
+                  borderRadius: 2
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ color: 'info.dark', fontWeight: 700, mb: 1 }}>
+                  📋 Job Scope (from Face Sheet)
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>
+                  {jobScope.summary}
+                </Typography>
+                {(jobScope.workType || jobScope.footage || jobScope.voltage) && (
+                  <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
+                    {jobScope.workType && (
+                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                        <strong>Work:</strong> {jobScope.workType}
+                      </Typography>
+                    )}
+                    {jobScope.footage && (
+                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                        <strong>Footage:</strong> {jobScope.footage}
+                      </Typography>
+                    )}
+                    {jobScope.voltage && (
+                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                        <strong>Voltage:</strong> {jobScope.voltage}
+                      </Typography>
+                    )}
+                    {jobScope.phases && (
+                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                        <strong>Phases:</strong> {jobScope.phases}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+                {jobScope.equipment?.length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      <strong>Equipment:</strong> {jobScope.equipment.join(', ')}
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+            )}
 
             {/* Form Fields */}
             <Grid container spacing={2}>

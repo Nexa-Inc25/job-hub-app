@@ -1102,7 +1102,8 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
       // Still try regex extraction from filename
       const structured = {
         pmNumber: '', woNumber: '', notificationNumber: '',
-        address: '', city: '', client: '', projectName: '', orderType: ''
+        address: '', city: '', client: '', projectName: '', orderType: '',
+        jobScope: null
       };
       try { fs.unlinkSync(pdfPath); } catch (e) {}
       return res.json({ 
@@ -1159,8 +1160,10 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
       messages: [
         {
           role: 'system',
-          content: `Extract utility work order fields. Return ONLY valid JSON with these keys:
-pmNumber, woNumber, notificationNumber, address, city, client, projectName, orderType.
+          content: `Extract utility work order fields from PG&E job package. Return ONLY valid JSON with these keys:
+pmNumber, woNumber, notificationNumber, address, city, client, projectName, orderType,
+jobScope (object with: summary, workType, equipment (array), footage, voltage, phases, specialNotes).
+The Face Sheet contains scope details - look for work description, equipment, footage, voltage, phases.
 Use empty string for missing fields. No markdown, just JSON.`
         },
         {
@@ -1206,7 +1209,8 @@ Use empty string for missing fields. No markdown, just JSON.`
       city: aiResults.city || quickResults.city || '',
       client: aiResults.client || quickResults.client || '',
       projectName: aiResults.projectName || '',
-      orderType: aiResults.orderType || ''
+      orderType: aiResults.orderType || '',
+      jobScope: aiResults.jobScope || null
     };
     
     // Clean up the uploaded file
@@ -1227,7 +1231,8 @@ Use empty string for missing fields. No markdown, just JSON.`
     // Don't try to re-parse PDF (could crash again)
     const emptyResults = {
       pmNumber: '', woNumber: '', notificationNumber: '',
-      address: '', city: '', client: '', projectName: '', orderType: ''
+      address: '', city: '', client: '', projectName: '', orderType: '',
+      jobScope: null
     };
     
     res.json({ 
@@ -1240,8 +1245,18 @@ Use empty string for missing fields. No markdown, just JSON.`
 
 app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) => {
   try {
-    const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode } = req.body;
+    const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode, jobScope } = req.body;
     const resolvedTitle = title || pmNumber || woNumber || 'Untitled Work Order';
+    
+    // Parse jobScope if it's a string (from form data)
+    let parsedJobScope = null;
+    if (jobScope) {
+      try {
+        parsedJobScope = typeof jobScope === 'string' ? JSON.parse(jobScope) : jobScope;
+      } catch (e) {
+        console.warn('Failed to parse jobScope:', e.message);
+      }
+    }
     const resolvedDescription = description || [address, city, client].filter(Boolean).join(' | ') || '';
     
     // Get user's company for multi-tenant job creation and folder template
@@ -1342,6 +1357,7 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       orderType,
       division: division || 'DA',
       matCode,
+      jobScope: parsedJobScope,  // Scope extracted from PG&E Face Sheet
       userId: req.userId,
       companyId: user?.companyId,  // MULTI-TENANT: Assign job to user's company
       status: 'pending',

@@ -1392,6 +1392,23 @@ const Dashboard = () => {
                                       📍 {job.address}
                                     </Typography>
                                   )}
+                                  {/* Job Scope Summary from Face Sheet */}
+                                  {job.jobScope?.summary && (
+                                    <Typography 
+                                      variant="caption" 
+                                      sx={{ 
+                                        display: 'block',
+                                        mt: 0.5,
+                                        p: 0.75,
+                                        bgcolor: 'info.light',
+                                        borderRadius: 1,
+                                        color: 'text.primary',
+                                        lineHeight: 1.3
+                                      }}
+                                    >
+                                      📋 {job.jobScope.summary}
+                                    </Typography>
+                                  )}
                                 </Box>
                                 <Chip label="PRE-FIELDING" color="primary" size="small" />
                               </Box>
@@ -1824,6 +1841,38 @@ const Dashboard = () => {
                           }}>
                             {job.description}
                           </Typography>
+                        )}
+
+                        {/* Job Scope Summary from Face Sheet */}
+                        {job.jobScope?.summary && (
+                          <Box sx={{ 
+                            p: 1, 
+                            mb: 1.5, 
+                            bgcolor: 'info.light', 
+                            borderRadius: 1,
+                            borderLeft: '3px solid',
+                            borderColor: 'info.main'
+                          }}>
+                            <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', display: 'block', mb: 0.5 }}>
+                              📋 Scope
+                            </Typography>
+                            <Typography variant="caption" color="text.primary" sx={{ lineHeight: 1.4 }}>
+                              {job.jobScope.summary}
+                            </Typography>
+                            {(job.jobScope.workType || job.jobScope.footage) && (
+                              <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                                {job.jobScope.workType && (
+                                  <Chip size="small" label={job.jobScope.workType} sx={{ height: 18, fontSize: '0.65rem' }} />
+                                )}
+                                {job.jobScope.footage && (
+                                  <Chip size="small" label={job.jobScope.footage} sx={{ height: 18, fontSize: '0.65rem' }} />
+                                )}
+                                {job.jobScope.voltage && (
+                                  <Chip size="small" label={job.jobScope.voltage} sx={{ height: 18, fontSize: '0.65rem' }} />
+                                )}
+                              </Box>
+                            )}
+                          </Box>
                         )}
 
                         {/* Workflow Info */}

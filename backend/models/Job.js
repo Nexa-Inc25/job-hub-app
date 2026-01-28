@@ -68,6 +68,16 @@ const jobSchema = new mongoose.Schema({
   orderType: String,
   division: { type: String, default: 'DA' },
   matCode: String,
+  // Job scope extracted from PG&E Face Sheet for quick reference
+  jobScope: {
+    summary: String,           // Brief scope summary (1-2 sentences)
+    workType: String,          // Type of work (e.g., "Service Replacement", "New Construction")
+    equipment: [String],       // Equipment mentioned (e.g., ["Transformer", "Pole", "Conduit"])
+    footage: String,           // Footage/length if applicable
+    voltage: String,           // Voltage level if mentioned
+    phases: String,            // Number of phases
+    specialNotes: String,      // Any special conditions or notes
+  },
   // Job status workflow:
   // new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
   // pending_gf_review → pending_qa_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced

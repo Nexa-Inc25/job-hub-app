@@ -400,6 +400,70 @@ const WorkOrderDetails = () => {
                       {job.description}
                     </Typography>
                   )}
+                  
+                  {/* Job Scope from Face Sheet */}
+                  {job.jobScope?.summary && (
+                    <Box sx={{ 
+                      mt: 2, 
+                      p: 2, 
+                      bgcolor: 'info.light', 
+                      borderRadius: 2,
+                      borderLeft: '4px solid',
+                      borderColor: 'info.main'
+                    }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'info.dark', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        📋 Job Scope
+                      </Typography>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        {job.jobScope.summary}
+                      </Typography>
+                      
+                      <Grid container spacing={1}>
+                        {job.jobScope.workType && (
+                          <Grid item xs={6} sm={4}>
+                            <Typography variant="caption" color="text.secondary">Work Type</Typography>
+                            <Typography variant="body2" fontWeight="medium">{job.jobScope.workType}</Typography>
+                          </Grid>
+                        )}
+                        {job.jobScope.footage && (
+                          <Grid item xs={6} sm={4}>
+                            <Typography variant="caption" color="text.secondary">Footage</Typography>
+                            <Typography variant="body2" fontWeight="medium">{job.jobScope.footage}</Typography>
+                          </Grid>
+                        )}
+                        {job.jobScope.voltage && (
+                          <Grid item xs={6} sm={4}>
+                            <Typography variant="caption" color="text.secondary">Voltage</Typography>
+                            <Typography variant="body2" fontWeight="medium">{job.jobScope.voltage}</Typography>
+                          </Grid>
+                        )}
+                        {job.jobScope.phases && (
+                          <Grid item xs={6} sm={4}>
+                            <Typography variant="caption" color="text.secondary">Phases</Typography>
+                            <Typography variant="body2" fontWeight="medium">{job.jobScope.phases}</Typography>
+                          </Grid>
+                        )}
+                      </Grid>
+                      
+                      {job.jobScope.equipment?.length > 0 && (
+                        <Box sx={{ mt: 1.5 }}>
+                          <Typography variant="caption" color="text.secondary">Equipment</Typography>
+                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                            {job.jobScope.equipment.map((item, idx) => (
+                              <Chip key={idx} label={item} size="small" variant="outlined" />
+                            ))}
+                          </Box>
+                        </Box>
+                      )}
+                      
+                      {job.jobScope.specialNotes && (
+                        <Box sx={{ mt: 1.5 }}>
+                          <Typography variant="caption" color="text.secondary">Special Notes</Typography>
+                          <Typography variant="body2">{job.jobScope.specialNotes}</Typography>
+                        </Box>
+                      )}
+                    </Box>
+                  )}
                 </Box>
               </CardContent>
             </Card>
