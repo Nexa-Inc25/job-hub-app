@@ -1524,6 +1524,8 @@ const Dashboard = () => {
                                       />
                                       <Collapse in={isChecked}>
                                         <TextField
+                                          id={`prefield-notes-${job._id}-${item.key}`}
+                                          name={`prefield-notes-${item.key}`}
                                           size="small"
                                           placeholder={`Details for ${item.label}...`}
                                           value={notes}
@@ -2086,6 +2088,8 @@ const Dashboard = () => {
                                     />
                                     <Collapse in={isChecked}>
                                       <TextField
+                                        id={`prefield-notes-main-${job._id}-${item.key}`}
+                                        name={`prefield-notes-main-${item.key}`}
                                         size="small"
                                         placeholder={`Details for ${item.label}...`}
                                         value={notes}
