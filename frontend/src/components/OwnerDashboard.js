@@ -215,19 +215,19 @@ const OwnerDashboard = () => {
   };
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    
+      setLoading(true);
+      setError('');
+      
     const tokenCheck = validateSuperAdminToken();
     if (tokenCheck.redirect) {
-      navigate('/login');
-      return;
-    }
+        navigate('/login');
+        return;
+      }
     if (!tokenCheck.valid) {
-      setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
-      setLoading(false);
-      return;
-    }
+          setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
+          setLoading(false);
+        return;
+      }
 
     try {
       const [statsRes, healthRes, feedbackRes] = await Promise.all([

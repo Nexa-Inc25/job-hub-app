@@ -1123,14 +1123,14 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     let quickResults = {};
     
     try {
-      const pdfParse = require('pdf-parse');
+    const pdfParse = require('pdf-parse');
       // Read file in chunks to prevent memory spikes
       const stats = fs.statSync(pdfPath);
       if (stats.size > 2 * 1024 * 1024) {
         // For files > 2MB, just use filename
         text = req.file.originalname || '';
       } else {
-        const pdfBuffer = fs.readFileSync(pdfPath);
+    const pdfBuffer = fs.readFileSync(pdfPath);
         const parsePromise = pdfParse(pdfBuffer, { max: 1 }); // Only first page
         const timeoutPromise = new Promise((_, reject) => 
           setTimeout(() => reject(new Error('PDF parse timeout')), 15000) // 15 sec timeout
@@ -1816,7 +1816,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     let retries = 3;
     while (retries > 0) {
       try {
-        await job.save();
+    await job.save();
         break; // Success - exit loop
       } catch (saveErr) {
         retries--; // Decrement retries counter
@@ -3684,7 +3684,7 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     while (retries > 0) {
       try {
         job.markModified('folders'); // Ensure Mongoose detects nested changes
-        await job.save();
+    await job.save();
         break; // Success
       } catch (saveErr) {
         if (saveErr.name === 'VersionError' && retries > 1) {

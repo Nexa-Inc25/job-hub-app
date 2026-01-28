@@ -978,10 +978,10 @@ const Dashboard = () => {
 
     if (isPmAdmin && transitionRules.pmAdmin[status]) {
       transitions.push(transitionRules.pmAdmin[status]);
-    }
+      }
     if (isQAOrAbove && transitionRules.qa[status]) {
       transitions.push(transitionRules.qa[status]);
-    }
+      }
     if (isGfOrAbove && transitionRules.gf[status]) {
       transitions.push(transitionRules.gf[status]);
     }
@@ -1146,8 +1146,8 @@ const Dashboard = () => {
           <Box display="flex" gap={2} flexWrap="wrap">
             {/* Export Jobs CSV */}
             <Tooltip title="Export jobs to CSV spreadsheet">
-              <Button
-                variant="outlined"
+            <Button
+              variant="outlined"
                 startIcon={<DownloadIcon />}
                 onClick={async () => {
                   // SECURITY: Use fetch with Authorization header instead of token in URL
@@ -1172,10 +1172,10 @@ const Dashboard = () => {
                     setSnackbar({ open: true, message: 'Export failed', severity: 'error' });
                   }
                 }}
-                sx={{ borderRadius: 2 }}
-              >
+              sx={{ borderRadius: 2 }}
+            >
                 Export
-              </Button>
+            </Button>
             </Tooltip>
             <Button
               variant="outlined"
@@ -2314,18 +2314,18 @@ const Dashboard = () => {
         
         {/* Mark as Stuck option for GF/PM/Admin */}
         {canManageJobs(userRole, isAdmin) && selectedJobId && canMarkAsStuck(jobs.find(j => j._id === selectedJobId)) && (
-          <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
-            <BlockIcon fontSize="small" sx={{ mr: 1 }} />
-            Mark as Stuck
-          </MenuItem>
+            <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
+              <BlockIcon fontSize="small" sx={{ mr: 1 }} />
+              Mark as Stuck
+            </MenuItem>
         )}
         
         {/* Unstick option for stuck jobs */}
         {canManageJobs(userRole, isAdmin) && selectedJobId && jobs.find(j => j._id === selectedJobId)?.status === 'stuck' && (
-          <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
-            <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
-            Resume Job
-          </MenuItem>
+            <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
+              <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
+              Resume Job
+            </MenuItem>
         )}
         
         {/* Workflow Status Transitions */}

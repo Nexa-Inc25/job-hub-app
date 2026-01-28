@@ -61,6 +61,52 @@ import {
   Assignment as InstructionsIcon,
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
+
+// Extracted component to reduce cognitive complexity
+const WorkflowTimelineItem = ({ date, label, color, status }) => {
+  if (!date) return null;
+  const statusColor = status === 'approved' ? 'success.main' : status === 'rejected' ? 'error.main' : color;
+  const displayLabel = status ? `${label}: ${status.toUpperCase()}` : label;
+  
+  return (
+    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: statusColor, minWidth: 150 }}>
+      <Typography variant="caption" display="block" fontWeight="bold" color={statusColor}>
+        {displayLabel}
+      </Typography>
+      <Typography variant="caption" display="block" color="text.secondary">
+        {new Date(date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+      </Typography>
+    </Box>
+  );
+};
+
+// Workflow Progress Timeline component
+const WorkflowProgressTimeline = ({ job }) => {
+  const hasActivity = job.assignedToGFDate || job.preFieldDate || job.crewSubmittedDate;
+  
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+      <WorkflowTimelineItem date={job.createdAt} label="Job Created" color="info.main" />
+      <WorkflowTimelineItem date={job.assignedToGFDate} label="Assigned to GF" color="primary.main" />
+      <WorkflowTimelineItem date={job.preFieldDate} label="Pre-Fielded" color="info.main" />
+      {job.assignedDate && job.assignedTo && (
+        <WorkflowTimelineItem date={job.assignedDate} label="Crew Assigned" color="secondary.main" />
+      )}
+      <WorkflowTimelineItem date={job.crewSubmittedDate} label="Crew Submitted" color="warning.main" />
+      <WorkflowTimelineItem date={job.gfReviewDate} label="GF Review" color="success.main" status={job.gfReviewStatus} />
+      <WorkflowTimelineItem date={job.pmApprovalDate} label="PM Approval" color="success.main" status={job.pmApprovalStatus} />
+      <WorkflowTimelineItem date={job.completedDate} label="Completed" color="success.main" />
+      <WorkflowTimelineItem date={job.billedDate} label="Billed" color="secondary.main" />
+      <WorkflowTimelineItem date={job.invoicedDate} label="Invoiced (Paid)" color="success.main" />
+      {!hasActivity && (
+        <Typography variant="caption" color="text.secondary">
+          No workflow activity yet
+        </Typography>
+      )}
+    </Box>
+  );
+};
+
 const WorkOrderDetails = () => {
   const { id: jobId } = useParams();
   const navigate = useNavigate();
@@ -923,7 +969,7 @@ const WorkOrderDetails = () => {
               </CardContent>
             </Card>
           </Grid>
-
+                
           {/* ROW 2: Pre-Field Photos - Horizontal full width */}
           {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
             <Grid item xs={12}>
@@ -1208,136 +1254,7 @@ const WorkOrderDetails = () => {
                   Workflow Progress
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
-                
-                {/* Horizontal timeline for workflow */}
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                  {/* Job Created */}
-                  {job.createdAt && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
-                        Job Created
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.createdAt)}
-                      </Typography>
-                  </Box>
-                  )}
-
-                  {/* Assigned to GF */}
-                  {job.assignedToGFDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
-                        Assigned to GF
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.assignedToGFDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Pre-fielded */}
-                  {job.preFieldDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
-                        Pre-Fielded
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.preFieldDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Crew Assigned */}
-                  {job.assignedDate && job.assignedTo && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
-                        Crew Assigned
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.assignedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Crew Submitted */}
-                  {job.crewSubmittedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'warning.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="warning.main">
-                        Crew Submitted
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.crewSubmittedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* GF Reviewed */}
-                  {job.gfReviewDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color={job.gfReviewStatus === 'approved' ? 'success.main' : 'error.main'}>
-                        GF Review: {job.gfReviewStatus?.toUpperCase()}
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.gfReviewDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* PM Approved */}
-                  {job.pmApprovalDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color={job.pmApprovalStatus === 'approved' ? 'success.main' : 'error.main'}>
-                        PM Approval: {job.pmApprovalStatus?.toUpperCase()}
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.pmApprovalDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Completed */}
-                  {job.completedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
-                        Completed
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.completedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Billed */}
-                  {job.billedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
-                        Billed
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.billedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* Invoiced */}
-                  {job.invoicedDate && (
-                    <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main', minWidth: 150 }}>
-                      <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
-                        Invoiced (Paid)
-                      </Typography>
-                      <Typography variant="caption" display="block" color="text.secondary">
-                        {formatDateTime(job.invoicedDate)}
-                      </Typography>
-                    </Box>
-                  )}
-
-                  {/* No activity yet */}
-                  {!job.assignedToGFDate && !job.preFieldDate && !job.crewSubmittedDate && (
-                    <Typography variant="caption" color="text.secondary">
-                      No workflow activity yet
-                    </Typography>
-                  )}
-                </Box>
+                <WorkflowProgressTimeline job={job} />
               </CardContent>
             </Card>
           </Grid>

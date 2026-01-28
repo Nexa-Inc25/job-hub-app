@@ -607,8 +607,8 @@ const JobFileSystem = () => {
 
       // Re-select folder to show updated documents
       const updatedFolder = findUpdatedFolder(response.data, selectedFolder);
-      if (updatedFolder) {
-        setSelectedFolder(updatedFolder);
+        if (updatedFolder) {
+          setSelectedFolder(updatedFolder);
       }
 
     } catch (err) {
@@ -626,8 +626,8 @@ const JobFileSystem = () => {
           // Ignore refresh errors
         }
       } else {
-        console.error('Error deleting document:', err);
-        setError('Failed to delete document');
+      console.error('Error deleting document:', err);
+      setError('Failed to delete document');
       }
     } finally {
       setDeleteLoading(false);
@@ -1444,12 +1444,12 @@ const JobFileSystem = () => {
           fullScreen={globalThis.innerWidth < 1024}
           slotProps={{ 
             paper: { 
-              sx: { 
+            sx: {
                 height: { xs: '100vh', md: '95vh' }, 
                 maxHeight: { xs: '100vh', md: '95vh' },
                 width: '100%'
               } 
-            } 
+            }
           }}
         >
           <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>

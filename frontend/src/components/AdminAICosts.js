@@ -116,7 +116,7 @@ const AdminAICosts = () => {
               title="Total Cost (30d)" 
               value={`$${stats?.apiUsage?.totalCostThisMonthDollars || '0.00'}`}
               icon={MoneyIcon} 
-              color="#ef4444"
+              color="#ef4444" 
               {...themeProps}
             />
           </Grid>
@@ -125,7 +125,7 @@ const AdminAICosts = () => {
               title="AI Extractions" 
               value={stats?.aiExtraction?.totalJobsProcessed || 0}
               icon={AIIcon} 
-              color="#f59e0b"
+              color="#f59e0b" 
               {...themeProps}
             />
           </Grid>
@@ -134,7 +134,7 @@ const AdminAICosts = () => {
               title="Avg Processing" 
               value={`${((stats?.aiExtraction?.performance?.avgProcessingTimeMs || 0) / 1000).toFixed(1)}s`}
               icon={SpeedIcon} 
-              color="#6366f1"
+              color="#6366f1" 
               {...themeProps}
             />
           </Grid>
@@ -144,7 +144,7 @@ const AdminAICosts = () => {
               value={openaiStats?.totalCalls || 0}
               subtitle={openaiStats ? `${openaiStats.successfulCalls || 0} successful` : ''}
               icon={TrendingUpIcon} 
-              color="#22c55e"
+              color="#22c55e" 
               {...themeProps}
             />
           </Grid>
