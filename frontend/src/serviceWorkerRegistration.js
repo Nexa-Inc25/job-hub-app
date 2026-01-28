@@ -51,15 +51,11 @@ function registerValidSW(swUrl, config) {
             if (navigator.serviceWorker.controller) {
               // New content available
               console.log('[SW] New content available; please refresh.');
-              if (config && config.onUpdate) {
-                config.onUpdate(registration);
-              }
+              config?.onUpdate?.(registration);
             } else {
               // Content cached for offline use
               console.log('[SW] Content is cached for offline use.');
-              if (config && config.onSuccess) {
-                config.onSuccess(registration);
-              }
+              config?.onSuccess?.(registration);
             }
           }
         };
