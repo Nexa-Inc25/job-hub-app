@@ -1715,6 +1715,88 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       ...(extractedAssets.tcpMaps || []).map(t => ({ type: 'tcp_map', name: t.name, url: t.url, extractedAt: new Date() }))
     ];
     
+    // Remove extracted photo pages from the job package PDF (clean as-built)
+    const photoPageNumbers = extractedAssets.photos
+      .map(p => p.pageNumber)
+      .filter(pn => typeof pn === 'number');
+    
+    if (photoPageNumbers.length > 0 && fs.existsSync(pdfPath)) {
+      try {
+        console.log(`Removing ${photoPageNumbers.length} photo pages from job package: pages ${photoPageNumbers.join(', ')}`);
+        const { PDFDocument } = require('pdf-lib');
+        const originalPdfBytes = fs.readFileSync(pdfPath);
+        const originalPdf = await PDFDocument.load(originalPdfBytes);
+        const totalPages = originalPdf.getPageCount();
+        
+        // Create a set of pages to remove (1-indexed in our data, 0-indexed in pdf-lib)
+        const pagesToRemove = new Set(photoPageNumbers);
+        
+        // Create new PDF with only non-photo pages
+        const cleanedPdf = await PDFDocument.create();
+        for (let i = 0; i < totalPages; i++) {
+          const pageNum = i + 1; // Convert to 1-indexed
+          if (!pagesToRemove.has(pageNum)) {
+            const [copiedPage] = await cleanedPdf.copyPages(originalPdf, [i]);
+            cleanedPdf.addPage(copiedPage);
+          }
+        }
+        
+        const cleanedPagesCount = cleanedPdf.getPageCount();
+        console.log(`Cleaned PDF: ${cleanedPagesCount} pages (removed ${totalPages - cleanedPagesCount} photo pages)`);
+        
+        // Only save if we have pages remaining
+        if (cleanedPagesCount > 0) {
+          const cleanedPdfBytes = await cleanedPdf.save();
+          const cleanedPdfPath = pdfPath.replace('.pdf', '_cleaned.pdf');
+          fs.writeFileSync(cleanedPdfPath, cleanedPdfBytes);
+          
+          // Update the Field As Built document with the cleaned PDF
+          const aciForClean = job.folders.find(f => f.name === 'ACI');
+          const fieldAsBuiltFolder = aciForClean?.subfolders?.find(sf => sf.name === 'Field As Built');
+          
+          if (fieldAsBuiltFolder && fieldAsBuiltFolder.documents.length > 0) {
+            // Find the original job package document
+            const originalDoc = fieldAsBuiltFolder.documents.find(d => 
+              d.path === pdfPath || d.name.toLowerCase().includes('job package')
+            ) || fieldAsBuiltFolder.documents[0];
+            
+            if (originalDoc) {
+              // Upload cleaned PDF to R2 if configured
+              if (r2Storage.isR2Configured()) {
+                try {
+                  const cleanedName = originalDoc.name.replace('.pdf', '_cleaned.pdf');
+                  const result = await r2Storage.uploadJobFile(cleanedPdfPath, jobId, 'as_built', cleanedName);
+                  const cleanedUrl = r2Storage.getPublicUrl(result.key);
+                  
+                  // Update the document reference
+                  originalDoc.url = cleanedUrl;
+                  originalDoc.r2Key = result.key;
+                  originalDoc.name = cleanedName;
+                  originalDoc.photoPagesRemoved = photoPageNumbers.length;
+                  originalDoc.cleanedAt = new Date();
+                  
+                  console.log(`Updated job package with cleaned PDF: ${cleanedName}`);
+                  
+                  // Clean up local files
+                  fs.unlinkSync(cleanedPdfPath);
+                } catch (r2Err) {
+                  console.error('Failed to upload cleaned PDF to R2:', r2Err.message);
+                }
+              } else {
+                // Local storage - replace the file
+                fs.renameSync(cleanedPdfPath, pdfPath);
+                originalDoc.photoPagesRemoved = photoPageNumbers.length;
+                originalDoc.cleanedAt = new Date();
+              }
+            }
+          }
+        }
+      } catch (cleanErr) {
+        console.error('Error creating cleaned PDF (non-fatal):', cleanErr.message);
+        // Don't fail the whole extraction if cleaning fails
+      }
+    }
+    
     // Log folder structure before saving
     const aciCheck = job.folders.find(f => f.name === 'ACI');
     const preFieldCheck = aciCheck?.subfolders?.find(sf => sf.name === 'Pre-Field Documents');

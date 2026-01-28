@@ -28,8 +28,6 @@ import UndoIcon from '@mui/icons-material/Undo';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import DeleteIcon from '@mui/icons-material/Delete';
-import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore';
-import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import GestureIcon from '@mui/icons-material/Gesture';
 import DrawIcon from '@mui/icons-material/Draw';
 import CloseIcon from '@mui/icons-material/Close';
@@ -453,9 +451,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     { label: 'Date', value: new Date().toLocaleDateString() },
   ].filter(opt => opt.value);
 
-  // Get annotations for current page
-  const currentPageAnnotations = annotations.filter(a => (a.page || 1) === currentPage);
-
   if (error) {
     return <Alert severity="error">{error}</Alert>;
   }
@@ -604,24 +599,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         </Paper>
       )}
 
-      {/* Page Navigation */}
+      {/* Page Indicator */}
       {numPages && numPages > 1 && (
         <Paper sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
-          <IconButton 
-            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-            disabled={currentPage <= 1}
-          >
-            <NavigateBeforeIcon />
-          </IconButton>
-          <Typography>
-            Page {currentPage} of {numPages}
+          <Typography variant="body2" color="text.secondary">
+            📄 {numPages} pages - scroll to view all
           </Typography>
-          <IconButton 
-            onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
-            disabled={currentPage >= numPages}
-          >
-            <NavigateNextIcon />
-          </IconButton>
         </Paper>
       )}
 
@@ -672,84 +655,123 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                   </Box>
                 }
               >
-                <Page
-                  pageNumber={currentPage}
-                  scale={zoom}
-                  renderTextLayer={false}
-                  renderAnnotationLayer={false}
-                  width={containerWidth ? Math.min(containerWidth - 48, 700) : undefined}
-                />
+                {/* Render all pages in a scrollable view */}
+                {Array.from(new Array(numPages || 1), (_, index) => {
+                  const pageNum = index + 1;
+                  const pageAnnotations = annotations.filter(a => (a.page || 1) === pageNum);
+                  return (
+                    <Box 
+                      key={`page-${pageNum}`} 
+                      sx={{ 
+                        position: 'relative', 
+                        mb: 2,
+                        bgcolor: 'white',
+                        boxShadow: 1,
+                      }}
+                      data-page={pageNum}
+                    >
+                      <Page
+                        pageNumber={pageNum}
+                        scale={zoom}
+                        renderTextLayer={false}
+                        renderAnnotationLayer={false}
+                        width={containerWidth ? Math.min(containerWidth - 48, 700) : undefined}
+                        onClick={(e) => {
+                          // Set current page when clicking on this page
+                          setCurrentPage(pageNum);
+                          handlePageClick(e);
+                        }}
+                      />
+                      {/* Page number indicator */}
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          position: 'absolute', 
+                          bottom: 4, 
+                          right: 8, 
+                          bgcolor: 'rgba(0,0,0,0.6)', 
+                          color: 'white', 
+                          px: 1, 
+                          py: 0.25, 
+                          borderRadius: 1,
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {pageNum} / {numPages}
+                      </Typography>
+                      {/* Annotations for this specific page */}
+                      {pageAnnotations.map((annotation) => (
+                        <Box
+                          key={annotation.id}
+                          sx={{
+                            position: 'absolute',
+                            left: annotation.x * zoom,
+                            top: annotation.y * zoom,
+                            cursor: isDragging && dragAnnotationId === annotation.id ? 'grabbing' : 'grab',
+                            '&:hover': { 
+                              bgcolor: 'rgba(255,255,0,0.3)',
+                              boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.5)',
+                            },
+                            padding: '2px',
+                            borderRadius: '2px',
+                            border: selectedAnnotation === annotation.id ? '2px solid blue' : '1px dashed transparent',
+                            zIndex: isDragging && dragAnnotationId === annotation.id ? 100 : 10,
+                            transition: isDragging ? 'none' : 'box-shadow 0.2s',
+                            userSelect: 'none',
+                            touchAction: 'none',
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isDragging) {
+                              setSelectedAnnotation(annotation.id);
+                            }
+                          }}
+                          onMouseDown={(e) => handleDragStart(e, annotation.id)}
+                          onTouchStart={(e) => handleDragStart(e, annotation.id)}
+                        >
+                          {(() => {
+                            if (annotation.type === 'text') {
+                              return (
+                                <Typography sx={{ fontSize: annotation.fontSize * zoom, fontFamily: 'Helvetica, Arial, sans-serif', color: 'black', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                                  {annotation.text}
+                                </Typography>
+                              );
+                            }
+                            if (annotation.type === 'signature') {
+                              return (
+                                <img src={annotation.imageData} alt="Signature" style={{ width: annotation.width * zoom, height: annotation.height * zoom, pointerEvents: 'none' }} />
+                              );
+                            }
+                            return <Typography sx={{ fontSize: annotation.size * zoom, color: 'green', lineHeight: 1 }}>✓</Typography>;
+                          })()}
+                          {selectedAnnotation === annotation.id && (
+                            <IconButton
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: -24,
+                                right: -24,
+                                bgcolor: 'error.main',
+                                color: 'white',
+                                '&:hover': { bgcolor: 'error.dark' },
+                                width: 24,
+                                height: 24,
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveAnnotation(annotation.id);
+                              }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          )}
+                        </Box>
+                      ))}
+                    </Box>
+                  );
+                })}
               </Document>
             )}
-
-            {/* Annotations Overlay */}
-            {currentPageAnnotations.map((annotation) => (
-              <Box
-                key={annotation.id}
-                sx={{
-                  position: 'absolute',
-                  left: annotation.x * zoom,
-                  top: annotation.y * zoom,
-                  cursor: isDragging && dragAnnotationId === annotation.id ? 'grabbing' : 'grab',
-                  '&:hover': { 
-                    bgcolor: 'rgba(255,255,0,0.3)',
-                    boxShadow: '0 0 0 2px rgba(25, 118, 210, 0.5)',
-                  },
-                  padding: '2px',
-                  borderRadius: '2px',
-                  border: selectedAnnotation === annotation.id ? '2px solid blue' : '1px dashed transparent',
-                  zIndex: isDragging && dragAnnotationId === annotation.id ? 100 : 10,
-                  transition: isDragging ? 'none' : 'box-shadow 0.2s',
-                  userSelect: 'none',
-                  touchAction: 'none',
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isDragging) {
-                    setSelectedAnnotation(annotation.id);
-                  }
-                }}
-                onMouseDown={(e) => handleDragStart(e, annotation.id)}
-                onTouchStart={(e) => handleDragStart(e, annotation.id)}
-              >
-                {(() => {
-                  if (annotation.type === 'text') {
-                    return (
-                      <Typography sx={{ fontSize: annotation.fontSize * zoom, fontFamily: 'Helvetica, Arial, sans-serif', color: 'black', whiteSpace: 'nowrap', lineHeight: 1 }}>
-                        {annotation.text}
-                      </Typography>
-                    );
-                  }
-                  if (annotation.type === 'signature') {
-                    return (
-                      <img src={annotation.imageData} alt="Signature" style={{ width: annotation.width * zoom, height: annotation.height * zoom, pointerEvents: 'none' }} />
-                    );
-                  }
-                  return <Typography sx={{ fontSize: annotation.size * zoom, color: 'green', lineHeight: 1 }}>✓</Typography>;
-                })()}
-                {selectedAnnotation === annotation.id && (
-                  <IconButton
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      top: -24,
-                      right: -24,
-                      bgcolor: 'error.main',
-                      color: 'white',
-                      '&:hover': { bgcolor: 'error.dark' },
-                      width: 24,
-                      height: 24,
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleRemoveAnnotation(annotation.id);
-                    }}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </Box>
-            ))}
           </Box>
         </Box>
       </Box>
