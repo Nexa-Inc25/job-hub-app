@@ -1399,7 +1399,7 @@ const JobFileSystem = () => {
           </Menu>
         </Box>
 
-        {/* PDF Viewer/Editor Dialog */}
+        {/* PDF Viewer/Editor Dialog - fullScreen on mobile/tablet */}
         <Dialog
           open={pdfViewerOpen}
           onClose={() => {
@@ -1408,7 +1408,16 @@ const JobFileSystem = () => {
           }}
           maxWidth="xl"
           fullWidth
-          slotProps={{ paper: { sx: { height: '95vh', maxHeight: '95vh' } } }}
+          fullScreen={globalThis.innerWidth < 1024}
+          slotProps={{ 
+            paper: { 
+              sx: { 
+                height: { xs: '100vh', md: '95vh' }, 
+                maxHeight: { xs: '100vh', md: '95vh' },
+                width: '100%'
+              } 
+            } 
+          }}
         >
           <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

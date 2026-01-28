@@ -441,8 +441,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      {/* Toolbar */}
-      <Paper sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+      {/* Toolbar - responsive for tablets */}
+      <Paper sx={{ p: 1, mb: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', overflowX: 'auto' }}>
         {/* Tool Selection */}
         <ToggleButtonGroup
           value={currentTool}
@@ -630,7 +630,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             sx={{ position: 'relative' }}
           >
             {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: 600, bgcolor: 'white' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: '100%', maxWidth: 600, bgcolor: 'white' }}>
                 <CircularProgress />
                 <Typography sx={{ ml: 2 }}>Loading PDF...</Typography>
               </Box>
@@ -639,7 +639,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                 file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
                 loading={
-                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: 600, bgcolor: 'white' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: '100%', maxWidth: 600, bgcolor: 'white' }}>
                     <CircularProgress />
                   </Box>
                 }
@@ -649,6 +649,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                   scale={zoom}
                   renderTextLayer={false}
                   renderAnnotationLayer={false}
+                  width={containerRef.current ? Math.min(containerRef.current.clientWidth - 32, 800) : undefined}
                 />
               </Document>
             )}
