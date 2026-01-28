@@ -226,6 +226,22 @@ const uploadFilesAndRefresh = async (id, folderName, formData, selectedFolder, s
   }
 };
 
+// Helper to find and select a subfolder after job refresh
+const selectSubfolderAfterRefresh = (jobData, parentFolderName, subfolderName, setSelectedFolder) => {
+  const parentFolder = jobData.folders.find(f => f.name === parentFolderName);
+  if (!parentFolder) return;
+  const subfolder = parentFolder.subfolders?.find(sf => sf.name === subfolderName);
+  if (subfolder) setSelectedFolder({ ...subfolder, parentFolder: parentFolderName });
+};
+
+// Helper to generate photo filename
+const generatePhotoFilename = (job, prefix, extension) => {
+  const timestamp = Date.now();
+  const division = job?.division || 'DA';
+  const pmNumber = job?.pmNumber || 'NOPM';
+  return `${division}_${pmNumber}_${prefix}_${timestamp}.${extension}`;
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -333,11 +349,9 @@ const JobFileSystem = () => {
 
     const formData = new FormData();
     Array.from(files).forEach((file) => {
-      // Generate proper filename for photos: DA_PM#_Notification#_MAT_Photo_timestamp.jpg
       const ext = file.name.split('.').pop();
-      const timestamp = Date.now();
-      const newName = `${job?.division || 'DA'}_${job?.pmNumber || 'NOPM'}_${job?.notificationNumber || 'NONOTIF'}_${job?.matCode || '2AA'}_Photo_${timestamp}.${ext}`;
-      formData.append('photos', file, newName);
+      const prefix = `${job?.notificationNumber || 'NONOTIF'}_${job?.matCode || '2AA'}_Photo`;
+      formData.append('photos', file, generatePhotoFilename(job, prefix, ext));
     });
 
     try {
@@ -345,21 +359,9 @@ const JobFileSystem = () => {
       await api.post(`/api/jobs/${id}/photos`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
-      // Refresh job data
-      const response = await api.get(`/api/jobs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get(`/api/jobs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setJob(response.data);
-      
-      // Re-select the Photos folder to show new uploads
-      const aciFolder = response.data.folders.find((f) => f.name === 'ACI');
-      if (aciFolder) {
-        const photosFolder = aciFolder.subfolders.find((sf) => sf.name === 'Photos');
-        if (photosFolder) {
-          setSelectedFolder({ ...photosFolder, parentFolder: 'ACI' });
-        }
-      }
+      selectSubfolderAfterRefresh(response.data, 'ACI', 'Photos', setSelectedFolder);
     } catch (err) {
       console.error('Photo upload error:', err);
       setError('Photo upload failed');
@@ -393,12 +395,8 @@ const JobFileSystem = () => {
     const formData = new FormData();
     Array.from(files).forEach((file) => {
       const ext = file.name.split('.').pop();
-      const timestamp = Date.now();
-      const newName = `${job?.division || 'DA'}_${job?.pmNumber || 'NOPM'}_GF_Audit_${timestamp}.${ext}`;
-      formData.append('files', file, newName);
+      formData.append('files', file, generatePhotoFilename(job, 'GF_Audit', ext));
     });
-    
-    // Add subfolder info for GF Audit (it's a subfolder of ACI)
     formData.append('subfolder', 'GF Audit');
 
     try {
@@ -406,21 +404,9 @@ const JobFileSystem = () => {
       await api.post(`/api/jobs/${id}/folders/ACI/upload`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      
-      // Refresh job data
-      const response = await api.get(`/api/jobs/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await api.get(`/api/jobs/${id}`, { headers: { Authorization: `Bearer ${token}` } });
       setJob(response.data);
-      
-      // Re-select the GF Audit folder to show new uploads
-      const aciFolder = response.data.folders.find((f) => f.name === 'ACI');
-      if (aciFolder) {
-        const gfAuditFolder = aciFolder.subfolders.find((sf) => sf.name === 'GF Audit');
-        if (gfAuditFolder) {
-          setSelectedFolder({ ...gfAuditFolder, parentFolder: 'ACI' });
-        }
-      }
+      selectSubfolderAfterRefresh(response.data, 'ACI', 'GF Audit', setSelectedFolder);
     } catch (err) {
       console.error('GF Audit photo upload error:', err);
       setError('Photo upload failed');

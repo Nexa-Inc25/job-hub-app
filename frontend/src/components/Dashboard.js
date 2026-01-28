@@ -175,31 +175,34 @@ const applyUserPermissions = (perms, setters) => {
   setters.setCanApprove(perms.canApprove);
 };
 
-// Handle card flip logic - separated to reduce component complexity
-const processCardFlip = async (jobId, jobs, flippedCards, jobDetails, preFieldChecklist, callbacks) => {
-  const { setFlippedCards, setJobDetails, initChecklist } = callbacks;
-  const isCurrentlyFlipped = flippedCards[jobId];
-  const job = jobs.find(j => j._id === jobId);
-  
-  // Toggle flip state immediately
-  setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
-  
-  // If flipping to back side, load data
-  if (isCurrentlyFlipped) return;
-  
-  // Initialize pre-field checklist if job needs pre-fielding
-  if (job && needsPreField(job.status)) {
-    initChecklist(jobId);
-  }
-  
-  // Fetch full details if not already cached
+// Fetch job details if not cached
+const fetchJobDetailsIfNeeded = async (jobId, jobDetails, setJobDetails) => {
   if (jobDetails[jobId]) return;
-  
   try {
     const response = await api.get(`/api/jobs/${jobId}/full-details`);
     setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
   } catch (err) {
     console.error('Error fetching job details:', err);
+  }
+};
+
+// Handle flipping to back side
+const handleFlipToBack = (jobId, job, jobDetails, callbacks) => {
+  const { setJobDetails, initChecklist } = callbacks;
+  if (job && needsPreField(job.status)) initChecklist(jobId);
+  fetchJobDetailsIfNeeded(jobId, jobDetails, setJobDetails);
+};
+
+// Handle card flip logic - separated to reduce component complexity
+const processCardFlip = (jobId, jobs, flippedCards, jobDetails, callbacks) => {
+  const { setFlippedCards, setJobDetails, initChecklist } = callbacks;
+  const isCurrentlyFlipped = flippedCards[jobId];
+  const job = jobs.find(j => j._id === jobId);
+  
+  setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
+  
+  if (!isCurrentlyFlipped) {
+    handleFlipToBack(jobId, job, jobDetails, { setJobDetails, initChecklist });
   }
 };
 
@@ -286,7 +289,7 @@ const Dashboard = () => {
     if (flipLock) return;
     setFlipLock(true);
     
-    processCardFlip(jobId, jobs, flippedCards, jobDetails, preFieldChecklist, {
+    processCardFlip(jobId, jobs, flippedCards, jobDetails, {
       setFlippedCards,
       setJobDetails,
       initChecklist: initPreFieldChecklist
