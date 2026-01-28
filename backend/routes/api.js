@@ -56,6 +56,15 @@ async function uploadExtractedImages(images, folder, jobId) {
   return uploaded;
 }
 
+// Helper to convert and upload assets for a category
+async function convertAndUploadAssets(pageNumbers, pdfPath, outputDir, prefix, folder, jobId) {
+  if (!pageNumbers?.length) return [];
+  
+  console.log(`Converting ${prefix} pages:`, pageNumbers);
+  const images = await getPdfImageExtractor().convertPagesToImages(pdfPath, pageNumbers, outputDir, prefix);
+  return uploadExtractedImages(images, folder, jobId);
+}
+
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
 let pdfUtils = null;
 let pdfImageExtractor = null;
@@ -316,41 +325,16 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     const pageAnalysis = await getPdfImageExtractor().analyzePagesByContent(pdfPath);
     console.log('Page analysis result:', pageAnalysis);
     
-    // 2. Convert identified drawings to images
-    if (pageAnalysis.drawings?.length > 0) {
-      console.log('Converting drawing pages:', pageAnalysis.drawings);
-      const drawings = await getPdfImageExtractor().convertPagesToImages(
-        pdfPath, 
-        pageAnalysis.drawings, 
-        drawingsDir, 
-        'drawing'
-      );
-      extractedAssets.drawings = await uploadExtractedImages(drawings, 'drawings', jobId);
-    }
+    // 2-4. Convert and upload all asset types in parallel
+    const [drawings, maps, photos] = await Promise.all([
+      convertAndUploadAssets(pageAnalysis.drawings, pdfPath, drawingsDir, 'drawing', 'drawings', jobId),
+      convertAndUploadAssets(pageAnalysis.maps, pdfPath, mapsDir, 'map', 'maps', jobId),
+      convertAndUploadAssets(pageAnalysis.photos, pdfPath, photosDir, 'photo', 'photos', jobId)
+    ]);
     
-    // 3. Convert identified maps to images
-    if (pageAnalysis.maps?.length > 0) {
-      console.log('Converting map pages:', pageAnalysis.maps);
-      const maps = await getPdfImageExtractor().convertPagesToImages(
-        pdfPath, 
-        pageAnalysis.maps, 
-        mapsDir, 
-        'map'
-      );
-      extractedAssets.maps = await uploadExtractedImages(maps, 'maps', jobId);
-    }
-    
-    // 4. Convert identified photos to images
-    if (pageAnalysis.photos?.length > 0) {
-      console.log('Converting photo pages:', pageAnalysis.photos);
-      const photos = await getPdfImageExtractor().convertPagesToImages(
-        pdfPath, 
-        pageAnalysis.photos, 
-        photosDir, 
-        'photo'
-      );
-      extractedAssets.photos = await uploadExtractedImages(photos, 'photos', jobId);
-    }
+    extractedAssets.drawings = drawings;
+    extractedAssets.maps = maps;
+    extractedAssets.photos = photos;
     
     // 4. Update job with extracted assets
     const aciFolder = job.folders.find(f => f.name === 'ACI');

@@ -139,6 +139,19 @@ const parseTokenPayload = (token) => {
   }
 };
 
+// Extract user permissions from token payload
+const extractUserPermissions = (payload) => {
+  if (!payload) {
+    return { isAdmin: false, isSuperAdmin: false, userRole: null, canApprove: false };
+  }
+  return {
+    isAdmin: payload.isAdmin || false,
+    isSuperAdmin: payload.isSuperAdmin || false,
+    userRole: payload.role || null,
+    canApprove: payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role)
+  };
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -179,20 +192,17 @@ const Dashboard = () => {
   // Check user role from token and fetch name if needed
   useEffect(() => {
     const payload = parseTokenPayload(localStorage.getItem('token'));
+    const perms = extractUserPermissions(payload);
+    
+    setIsAdmin(perms.isAdmin);
+    setIsSuperAdmin(perms.isSuperAdmin);
+    setUserRole(perms.userRole);
+    setCanApprove(perms.canApprove);
     
     if (!payload) {
-      setIsAdmin(false);
-      setIsSuperAdmin(false);
-      setUserRole(null);
       setUserName('');
-      setCanApprove(false);
       return;
     }
-
-    setIsAdmin(payload.isAdmin || false);
-    setIsSuperAdmin(payload.isSuperAdmin || false);
-    setUserRole(payload.role || null);
-    setCanApprove(payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role));
     
     // Get name from token or fetch from API
     if (payload.name) {

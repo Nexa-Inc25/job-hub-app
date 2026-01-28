@@ -207,26 +207,20 @@ const JobFileSystem = () => {
   }, []);
 
   useEffect(() => {
-    const loadJobData = async () => {
-      const result = await fetchJobDataHelper(id, navigate);
-      
+    fetchJobDataHelper(id, navigate).then(result => {
       if (result.error) {
         setError(result.error);
-        setLoading(false);
-        return;
-      }
-      
-      setJob(result.job);
-      setJobs(result.jobs);
-      cacheJob(result.job);
-      getPendingPhotos(id).then(photos => setPendingPhotos(photos));
-      
-      if (result.job.folders?.length > 0) {
-        setSelectedFolder(result.job.folders[0]);
+      } else {
+        setJob(result.job);
+        setJobs(result.jobs);
+        cacheJob(result.job);
+        getPendingPhotos(id).then(photos => setPendingPhotos(photos));
+        if (result.job.folders?.length > 0) {
+          setSelectedFolder(result.job.folders[0]);
+        }
       }
       setLoading(false);
-    };
-    loadJobData();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 

@@ -399,6 +399,39 @@ async function processVisionBatch(batch, batchIndex, jobId, result) {
 }
 
 /**
+ * Collect page data (text, image count) from PDF
+ */
+async function collectPageData(pdf) {
+  const pageData = [];
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    try {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const text = textContent.items.map(item => item.str).join(' ');
+      const ops = await page.getOperatorList();
+      
+      // Count image operations
+      let imageCount = 0;
+      for (const fnCode of ops.fnArray) {
+        if (fnCode === 85 || fnCode === 82 || fnCode === 83) {
+          imageCount++;
+        }
+      }
+      
+      pageData.push({
+        pageNum,
+        text: text.toLowerCase(),
+        textLength: text.length,
+        imageCount
+      });
+    } catch {
+      // Skip pages that can't be analyzed
+    }
+  }
+  return pageData;
+}
+
+/**
  * Analyze each page of the PDF to determine its content type
  * POSITION-INDEPENDENT: Works regardless of page order in the job package
  * Returns categorized page numbers based on actual content analysis
@@ -432,34 +465,7 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
     console.log(`Analyzing ${pdf.numPages} pages for content types (position-independent)...`);
     
     // First pass: collect data about each page
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      try {
-        const page = await pdf.getPage(pageNum);
-        const textContent = await page.getTextContent();
-        const text = textContent.items.map(item => item.str).join(' ');
-        const textLower = text.toLowerCase();
-        const textLength = text.length;
-        
-        const ops = await page.getOperatorList();
-        
-        // Count image operations
-        let imageCount = 0;
-        for (const fnCode of ops.fnArray) {
-          if (fnCode === 85 || fnCode === 82 || fnCode === 83) {
-            imageCount++;
-          }
-        }
-        
-        pageData.push({
-          pageNum,
-          text: textLower,
-          textLength,
-          imageCount
-        });
-      } catch {
-        // Skip pages that can't be analyzed
-      }
-    }
+    pageData.push(...await collectPageData(pdf));
     
     // Second pass: categorize each page using extracted helper functions
     for (const page of pageData) {
@@ -483,10 +489,7 @@ async function analyzePagesByContent(pdfPath, jobId = null) {
       );
       
       // Add failed renders to photos, filter successful ones
-      const validPages = pagesWithImages.filter(p => {
-        if (p === null) return false;
-        return true;
-      });
+      const validPages = pagesWithImages.filter(p => p !== null);
       const failedCount = pagesWithImages.length - validPages.length;
       if (failedCount > 0) {
         visionCandidates.slice(0, failedCount).forEach(p => result.photos.push(p.pageNum));
