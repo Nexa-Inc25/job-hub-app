@@ -131,7 +131,7 @@ const AdminUsersList = () => {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg }}>
         <CircularProgress size={48} sx={{ color: '#6366f1' }} />
       </Box>
     );
@@ -139,15 +139,15 @@ const AdminUsersList = () => {
 
   if (error) {
     return (
-      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc', p: 3 }}>
+      <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: pageBg, p: 3 }}>
         <Alert severity="error">{error}</Alert>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#ffffff', borderBottom: `1px solid ${borderColor}` }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
+      <AppBar position="sticky" elevation={0} sx={{ bgcolor: cardBg, borderBottom: `1px solid ${borderColor}` }}>
         <Toolbar>
           <IconButton onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 2, color: textPrimary }}>
             <ArrowBackIcon />
