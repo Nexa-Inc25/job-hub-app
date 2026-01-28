@@ -1160,19 +1160,30 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
       messages: [
         {
           role: 'system',
-          content: `Extract utility work order fields from PG&E job package. Return ONLY valid JSON with these keys:
-pmNumber, woNumber, notificationNumber, address, city, client, projectName, orderType,
-jobScope (object with: summary, workType, equipment (array), footage, voltage, phases, specialNotes).
-The Face Sheet contains scope details - look for work description, equipment, footage, voltage, phases.
-Use empty string for missing fields. No markdown, just JSON.`
+          content: `Extract utility work order fields from PG&E job package Face Sheet. Return ONLY valid JSON.
+
+Required fields:
+- pmNumber, woNumber, notificationNumber, address, city, client, projectName, orderType
+
+Job Scope (extract from Face Sheet "Scope" or "Description" sections):
+- jobScope.summary: 1-2 sentence work description (e.g., "Install new transformer and 150ft underground primary")
+- jobScope.workType: Type of work (e.g., "New Service", "Service Upgrade", "Pole Replacement", "Underground Conversion")
+- jobScope.equipment: Array of equipment (e.g., ["Transformer 25kVA", "Pole 45ft Class 3", "Conductor 1/0 AL"])
+- jobScope.footage: Total footage if mentioned (e.g., "150 ft UG, 75 ft OH")
+- jobScope.voltage: Voltage level (e.g., "12kV", "21kV Primary", "120/240V Secondary")
+- jobScope.phases: Number of phases (e.g., "1-phase", "3-phase")
+- jobScope.specialNotes: Special conditions or notes
+
+Look for sections labeled: "Scope of Work", "Job Description", "Work Description", "Material List", "Construction Details".
+Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
         },
         {
           role: 'user',
-          content: text.substring(0, 3000) // Even shorter for speed
+          content: text.substring(0, 4000) // More text for scope extraction
         }
       ],
       temperature: 0,
-      max_tokens: 300 // Reduced for speed
+      max_tokens: 600 // Increased for job scope details
     });
     
     // Log successful API call
@@ -1193,11 +1204,20 @@ Use empty string for missing fields. No markdown, just JSON.`
     let aiResults = {};
     try {
       const content = response.choices[0]?.message?.content || '{}';
+      console.log('AI extraction raw response:', content.substring(0, 500));
       // Remove markdown code blocks if present
       const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       aiResults = JSON.parse(cleanContent);
+      
+      // Log job scope extraction result
+      if (aiResults.jobScope) {
+        console.log('Job scope extracted:', JSON.stringify(aiResults.jobScope, null, 2));
+      } else {
+        console.log('No job scope found in AI response');
+      }
     } catch (parseErr) {
-      console.warn('Failed to parse AI response, using regex results');
+      console.warn('Failed to parse AI response:', parseErr.message);
+      console.warn('Raw content was:', response.choices[0]?.message?.content?.substring(0, 200));
     }
     
     // Merge: AI results take priority, fall back to quick regex results
@@ -1212,6 +1232,12 @@ Use empty string for missing fields. No markdown, just JSON.`
       orderType: aiResults.orderType || '',
       jobScope: aiResults.jobScope || null
     };
+    
+    console.log('Structured extraction result:', {
+      pmNumber: structured.pmNumber,
+      hasJobScope: !!structured.jobScope,
+      jobScopeSummary: structured.jobScope?.summary?.substring(0, 50)
+    });
     
     // Clean up the uploaded file
     try {
