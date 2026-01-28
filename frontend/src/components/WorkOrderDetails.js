@@ -144,8 +144,8 @@ const WorkOrderDetails = () => {
 
     try {
       const formData = new FormData();
-      for (let i = 0; i < files.length; i++) {
-        formData.append('photos', files[i]);
+      for (const file of files) {
+        formData.append('photos', file);
       }
       formData.append('folder', 'ACI');
       formData.append('subfolder', 'GF Audit');
@@ -608,18 +608,22 @@ const WorkOrderDetails = () => {
                     <ImageList cols={8} gap={8} sx={{ maxHeight: 150, overflow: 'auto', m: 0 }}>
                       {preFieldPhotos.map((photo, idx) => (
                         <ImageListItem key={photo._id || idx}>
-                          <img
-                            src={getPhotoUrl(photo)}
-                            alt={photo.name || `Pre-field photo ${idx + 1}`}
-                            loading="lazy"
-                            style={{ 
-                              height: 70, 
-                              objectFit: 'cover', 
-                              borderRadius: 4,
-                              cursor: 'pointer'
-                            }}
+                          <IconButton 
                             onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
-                          />
+                            sx={{ p: 0, borderRadius: 1 }}
+                            aria-label={`View ${photo.name || `photo ${idx + 1}`}`}
+                          >
+                            <img
+                              src={getPhotoUrl(photo)}
+                              alt={photo.name || `Pre-field photo ${idx + 1}`}
+                              loading="lazy"
+                              style={{ 
+                                height: 70, 
+                                objectFit: 'cover', 
+                                borderRadius: 4
+                              }}
+                            />
+                          </IconButton>
                         </ImageListItem>
                       ))}
                     </ImageList>
