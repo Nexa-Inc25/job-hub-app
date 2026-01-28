@@ -152,6 +152,29 @@ const extractUserPermissions = (payload) => {
   };
 };
 
+// Fetch user name from API if not in token
+const fetchUserName = (payload, setUserName) => {
+  if (!payload) {
+    setUserName('');
+    return;
+  }
+  if (payload.name) {
+    setUserName(payload.name);
+  } else {
+    api.get('/api/users/me')
+      .then(res => setUserName(res.data?.name || ''))
+      .catch(() => setUserName(''));
+  }
+};
+
+// Apply permissions to state
+const applyUserPermissions = (perms, setters) => {
+  setters.setIsAdmin(perms.isAdmin);
+  setters.setIsSuperAdmin(perms.isSuperAdmin);
+  setters.setUserRole(perms.userRole);
+  setters.setCanApprove(perms.canApprove);
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -193,25 +216,8 @@ const Dashboard = () => {
   useEffect(() => {
     const payload = parseTokenPayload(localStorage.getItem('token'));
     const perms = extractUserPermissions(payload);
-    
-    setIsAdmin(perms.isAdmin);
-    setIsSuperAdmin(perms.isSuperAdmin);
-    setUserRole(perms.userRole);
-    setCanApprove(perms.canApprove);
-    
-    if (!payload) {
-      setUserName('');
-      return;
-    }
-    
-    // Get name from token or fetch from API
-    if (payload.name) {
-      setUserName(payload.name);
-    } else {
-      api.get('/api/users/me')
-        .then(res => setUserName(res.data?.name || ''))
-        .catch(() => setUserName(''));
-    }
+    applyUserPermissions(perms, { setIsAdmin, setIsSuperAdmin, setUserRole, setCanApprove });
+    fetchUserName(payload, setUserName);
   }, []);
 
   // Fetch pending approvals for GF/PM/Admin

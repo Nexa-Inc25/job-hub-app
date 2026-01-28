@@ -65,6 +65,32 @@ async function convertAndUploadAssets(pageNumbers, pdfPath, outputDir, prefix, f
   return uploadExtractedImages(images, folder, jobId);
 }
 
+// Helper to find or create a subfolder
+function findOrCreateSubfolder(parentFolder, name) {
+  if (!parentFolder.subfolders) parentFolder.subfolders = [];
+  let folder = parentFolder.subfolders.find(sf => sf.name === name);
+  if (!folder) {
+    folder = { name, documents: [], subfolders: [] };
+    parentFolder.subfolders.push(folder);
+  }
+  return folder;
+}
+
+// Helper to setup asset folders in job structure
+function setupAssetFolders(job) {
+  const aciFolder = job.folders.find(f => f.name === 'ACI');
+  if (!aciFolder) return null;
+  
+  const preFieldFolder = aciFolder.subfolders?.find(sf => sf.name === 'Pre-Field Documents');
+  if (!preFieldFolder) return null;
+  
+  return {
+    jobPhotosFolder: findOrCreateSubfolder(preFieldFolder, 'Job Photos'),
+    drawingsFolder: findOrCreateSubfolder(preFieldFolder, 'Construction Sketches'),
+    mapsFolder: findOrCreateSubfolder(preFieldFolder, 'Circuit Maps')
+  };
+}
+
 // Lazy load heavy PDF modules to prevent startup crashes (canvas requires native binaries)
 let pdfUtils = null;
 let pdfImageExtractor = null;
@@ -337,72 +363,31 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     extractedAssets.photos = photos;
     
     // 4. Update job with extracted assets
-    const aciFolder = job.folders.find(f => f.name === 'ACI');
-    if (aciFolder) {
-      const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
-      if (preFieldFolder) {
-        // Ensure nested subfolders exist
-        if (!preFieldFolder.subfolders) preFieldFolder.subfolders = [];
-        
-        // Find or create Job Photos subfolder
-        let jobPhotosFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Job Photos');
-        if (!jobPhotosFolder) {
-          jobPhotosFolder = { name: 'Job Photos', documents: [], subfolders: [] };
-          preFieldFolder.subfolders.push(jobPhotosFolder);
-        }
-        
-        // Find or create Construction Sketches subfolder
-        let drawingsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Sketches');
-        if (!drawingsFolder) {
-          drawingsFolder = { name: 'Construction Sketches', documents: [], subfolders: [] };
-          preFieldFolder.subfolders.push(drawingsFolder);
-        }
-        
-        // Find or create Circuit Maps subfolder
-        let mapsFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Circuit Maps');
-        if (!mapsFolder) {
-          mapsFolder = { name: 'Circuit Maps', documents: [], subfolders: [] };
-          preFieldFolder.subfolders.push(mapsFolder);
-        }
-        
-        // Add extracted photos
-        extractedAssets.photos.forEach(photo => {
-          jobPhotosFolder.documents.push({
-            name: photo.name,
-            path: photo.path,
-            url: photo.url,
-            type: 'image',
-            extractedFrom: path.basename(pdfPath),
-            uploadDate: new Date()
-          });
+    const assetFolders = setupAssetFolders(job);
+    if (assetFolders) {
+      const pdfBasename = path.basename(pdfPath);
+      
+      // Add extracted assets to their respective folders
+      extractedAssets.photos.forEach(photo => {
+        assetFolders.jobPhotosFolder.documents.push({
+          name: photo.name, path: photo.path, url: photo.url,
+          type: 'image', extractedFrom: pdfBasename, uploadDate: new Date()
         });
-        
-        // Add extracted drawings
-        extractedAssets.drawings.forEach(drawing => {
-          drawingsFolder.documents.push({
-            name: drawing.name,
-            path: drawing.path,
-            url: drawing.url,
-            type: 'drawing',
-            pageNumber: drawing.pageNumber,
-            extractedFrom: path.basename(pdfPath),
-            uploadDate: new Date()
-          });
+      });
+      
+      extractedAssets.drawings.forEach(drawing => {
+        assetFolders.drawingsFolder.documents.push({
+          name: drawing.name, path: drawing.path, url: drawing.url,
+          type: 'drawing', pageNumber: drawing.pageNumber, extractedFrom: pdfBasename, uploadDate: new Date()
         });
-        
-        // Add extracted maps
-        extractedAssets.maps.forEach(map => {
-          mapsFolder.documents.push({
-            name: map.name,
-            path: map.path,
-            url: map.url,
-            type: 'map',
-            pageNumber: map.pageNumber,
-            extractedFrom: path.basename(pdfPath),
-            uploadDate: new Date()
-          });
+      });
+      
+      extractedAssets.maps.forEach(map => {
+        assetFolders.mapsFolder.documents.push({
+          name: map.name, path: map.path, url: map.url,
+          type: 'map', pageNumber: map.pageNumber, extractedFrom: pdfBasename, uploadDate: new Date()
         });
-      }
+      });
     }
     
     job.aiExtractionComplete = true;
