@@ -254,7 +254,8 @@ const getFolderTypes = (selectedFolder) => ({
 });
 
 // Helper to refresh job data after document operations - extracted to reduce complexity
-const refreshJobAfterDocOperation = async (jobId, setJob, selectedFolder, setSelectedFolder, findFolderFn) => {
+const refreshJobAfterDocOperation = async (options) => {
+  const { jobId, setJob, selectedFolder, setSelectedFolder, findFolderFn } = options;
   const token = localStorage.getItem('token');
   const response = await api.get(`/api/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } });
   setJob(response.data);
@@ -266,14 +267,15 @@ const refreshJobAfterDocOperation = async (jobId, setJob, selectedFolder, setSel
 };
 
 // Helper to handle document approval/rejection - extracted to reduce complexity
-const handleDocumentApproval = async (jobId, docId, action, reason, setJob, selectedFolder, setSelectedFolder, findFolderFn, setApprovalLoading, setError) => {
+const handleDocumentApproval = async (options) => {
+  const { jobId, docId, action, reason, setJob, selectedFolder, setSelectedFolder, findFolderFn, setApprovalLoading, setError } = options;
   if (!docId) return;
   setApprovalLoading(docId);
   try {
     const endpoint = `/api/jobs/${jobId}/documents/${docId}/${action}`;
     const payload = action === 'reject' ? { reason } : undefined;
     await api.post(endpoint, payload);
-    await refreshJobAfterDocOperation(jobId, setJob, selectedFolder, setSelectedFolder, findFolderFn);
+    await refreshJobAfterDocOperation({ jobId, setJob, selectedFolder, setSelectedFolder, findFolderFn });
   } catch (err) {
     console.error(`Error ${action}ing document:`, err);
     setError(err.response?.data?.error || `Failed to ${action} document`);
@@ -283,7 +285,8 @@ const handleDocumentApproval = async (jobId, docId, action, reason, setJob, sele
 };
 
 // Helper to delete a document and refresh - extracted to reduce complexity
-const deleteDocumentAndRefresh = async (jobId, docId, folderInfo, setJob, selectedFolder, setSelectedFolder, setError) => {
+const deleteDocumentAndRefresh = async (options) => {
+  const { jobId, docId, folderInfo, setJob, selectedFolder, setSelectedFolder, setError } = options;
   const token = localStorage.getItem('token');
   try {
     await api.delete(`/api/jobs/${jobId}/documents/${docId}`, {
@@ -588,7 +591,15 @@ const JobFileSystem = () => {
         folderName: selectedFolder?.parentFolder || selectedFolder?.name,
         subfolderName: selectedFolder?.parentFolder ? selectedFolder?.name : null
       };
-      await deleteDocumentAndRefresh(job._id, contextDoc._id, folderInfo, setJob, selectedFolder, setSelectedFolder, setError);
+      await deleteDocumentAndRefresh({
+        jobId: job._id,
+        docId: contextDoc._id,
+        folderInfo,
+        setJob,
+        selectedFolder,
+        setSelectedFolder,
+        setError
+      });
     } catch {
       // Error already handled in helper
     } finally {
@@ -609,14 +620,36 @@ const JobFileSystem = () => {
 
   // Approve a draft document - uses extracted helper
   const handleApproveDocument = (doc) => {
-    handleDocumentApproval(job._id, doc?._id, 'approve', null, setJob, selectedFolder, setSelectedFolder, findFolderByName, setApprovalLoading, setError);
+    handleDocumentApproval({
+      jobId: job._id,
+      docId: doc?._id,
+      action: 'approve',
+      reason: null,
+      setJob,
+      selectedFolder,
+      setSelectedFolder,
+      findFolderFn: findFolderByName,
+      setApprovalLoading,
+      setError
+    });
   };
 
   // Reject a draft document - uses extracted helper
   const handleRejectDocument = (doc, reason) => {
     const rejectReason = reason || globalThis.prompt('Enter rejection reason:');
     if (!rejectReason) return;
-    handleDocumentApproval(job._id, doc?._id, 'reject', rejectReason, setJob, selectedFolder, setSelectedFolder, findFolderByName, setApprovalLoading, setError);
+    handleDocumentApproval({
+      jobId: job._id,
+      docId: doc?._id,
+      action: 'reject',
+      reason: rejectReason,
+      setJob,
+      selectedFolder,
+      setSelectedFolder,
+      findFolderFn: findFolderByName,
+      setApprovalLoading,
+      setError
+    });
   };
 
   // Helper to find folder by name in nested structure
