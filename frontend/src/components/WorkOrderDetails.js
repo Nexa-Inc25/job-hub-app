@@ -31,6 +31,9 @@ import {
   CircularProgress,
   AppBar,
   Toolbar,
+  LinearProgress,
+  ImageList,
+  ImageListItem,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -51,6 +54,9 @@ import {
   Chat as ChatIcon,
   Folder as FolderIcon,
   Refresh as RefreshIcon,
+  CameraAlt as CameraAltIcon,
+  PhotoLibrary as PhotoLibraryIcon,
+  CloudUpload as CloudUploadIcon,
 } from '@mui/icons-material';
 const WorkOrderDetails = () => {
   const { id: jobId } = useParams();
@@ -79,6 +85,12 @@ const WorkOrderDetails = () => {
   const [newNote, setNewNote] = useState('');
   const [noteType, setNoteType] = useState('update');
   
+  // Pre-field photo upload state
+  const [preFieldPhotos, setPreFieldPhotos] = useState([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUploadProgress, setPhotoUploadProgress] = useState(0);
+  const photoInputRef = React.useRef(null);
+  
   // User info - reserved for future role-based features
   // const [userRole, setUserRole] = useState(null);
   // const [canApprove, setCanApprove] = useState(false);
@@ -103,6 +115,80 @@ const WorkOrderDetails = () => {
   useEffect(() => {
     fetchJobDetails();
   }, [fetchJobDetails]);
+
+  // Fetch pre-field photos from GF Audit folder
+  const fetchPreFieldPhotos = useCallback(async () => {
+    if (!job?.folders) return;
+    
+    // Find GF Audit subfolder in ACI folder
+    const aciFolder = job.folders.find(f => f.name === 'ACI');
+    if (!aciFolder?.subfolders) return;
+    
+    const gfAuditFolder = aciFolder.subfolders.find(sf => sf.name === 'GF Audit');
+    if (gfAuditFolder?.documents) {
+      setPreFieldPhotos(gfAuditFolder.documents);
+    }
+  }, [job]);
+
+  useEffect(() => {
+    fetchPreFieldPhotos();
+  }, [fetchPreFieldPhotos]);
+
+  // Handle pre-field photo upload
+  const handlePhotoUpload = async (event) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setPhotoUploading(true);
+    setPhotoUploadProgress(0);
+
+    try {
+      const formData = new FormData();
+      for (let i = 0; i < files.length; i++) {
+        formData.append('photos', files[i]);
+      }
+      formData.append('folder', 'ACI');
+      formData.append('subfolder', 'GF Audit');
+
+      const response = await api.post(`/api/jobs/${jobId}/photos`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setPhotoUploadProgress(percentCompleted);
+        }
+      });
+
+      if (response.data.photos) {
+        setPreFieldPhotos(prev => [...prev, ...response.data.photos]);
+      }
+      
+      setSnackbar({ open: true, message: `${files.length} photo(s) uploaded successfully`, severity: 'success' });
+      
+      // Refresh job data to get updated folder structure
+      fetchJobDetails();
+    } catch (err) {
+      console.error('Photo upload error:', err);
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to upload photos', severity: 'error' });
+    } finally {
+      setPhotoUploading(false);
+      setPhotoUploadProgress(0);
+      // Reset file input
+      if (photoInputRef.current) {
+        photoInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Get photo URL
+  const getPhotoUrl = (photo) => {
+    if (!photo) return '';
+    if (photo.url?.startsWith('http')) return photo.url;
+    if (photo.r2Key) {
+      const apiBase = process.env.REACT_APP_API_URL || '';
+      return `${apiBase}/api/files/${photo.r2Key}`;
+    }
+    return photo.url || '';
+  };
 
   // Format date helper
   const formatDate = (date) => {
@@ -852,6 +938,102 @@ const WorkOrderDetails = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          {/* Pre-Field Photos Section - Show when in pre-fielding or assigned_to_gf status */}
+          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 2, mb: 3 }}>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
+                      <CameraAltIcon color="primary" />
+                      Pre-Field Photos ({preFieldPhotos.length})
+                    </Typography>
+                    <Box display="flex" gap={1}>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                        id="prefield-photo-upload"
+                        name="prefield-photo-upload"
+                      />
+                      <Button
+                        variant="contained"
+                        startIcon={<CloudUploadIcon />}
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={photoUploading}
+                      >
+                        Upload Photos
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<PhotoLibraryIcon />}
+                        onClick={() => navigate(`/job-file-system/${jobId}`)}
+                      >
+                        Open File System
+                      </Button>
+                    </Box>
+                  </Box>
+                  
+                  {photoUploading && (
+                    <Box sx={{ mb: 2 }}>
+                      <LinearProgress variant="determinate" value={photoUploadProgress} />
+                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
+                        Uploading... {photoUploadProgress}%
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  <Divider sx={{ mb: 2 }} />
+                  
+                  {preFieldPhotos.length === 0 ? (
+                    <Box 
+                      sx={{ 
+                        py: 4, 
+                        textAlign: 'center',
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                      }}
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <CameraAltIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No pre-field photos yet
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Click to upload or drag and drop photos
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <ImageList cols={6} gap={8} sx={{ maxHeight: 200, overflow: 'auto' }}>
+                      {preFieldPhotos.map((photo, idx) => (
+                        <ImageListItem key={photo._id || idx}>
+                          <img
+                            src={getPhotoUrl(photo)}
+                            alt={photo.name || `Pre-field photo ${idx + 1}`}
+                            loading="lazy"
+                            style={{ 
+                              height: 80, 
+                              objectFit: 'cover', 
+                              borderRadius: 4,
+                              cursor: 'pointer'
+                            }}
+                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
+                          />
+                        </ImageListItem>
+                      ))}
+                    </ImageList>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
           {/* Right Column - Notes/Chat */}
           <Grid item xs={12} md={4}>
