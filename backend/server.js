@@ -1693,11 +1693,25 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     while (retries > 0) {
       try {
         await job.save();
-        break;
+        break; // Success - exit loop
       } catch (saveErr) {
-        if (saveErr.name === 'VersionError' && retries > 1) {
-          console.log(`Version conflict in background extraction for job ${jobId}, retrying...`);
-          // Use atomic update instead of save on conflict
+        retries--; // Decrement retries counter
+        if (saveErr.name === 'VersionError' && retries > 0) {
+          console.log(`Version conflict in background extraction for job ${jobId}, ${retries} retries left...`);
+          // Refresh job document and try again
+          const refreshedJob = await Job.findById(jobId);
+          if (refreshedJob) {
+            refreshedJob.aiExtractionComplete = true;
+            refreshedJob.aiExtractionEnded = new Date();
+            refreshedJob.aiProcessingTimeMs = Date.now() - startTime;
+            refreshedJob.aiExtractedAssets = job.aiExtractedAssets;
+            refreshedJob.markModified('aiExtractedAssets');
+            job = refreshedJob; // Update reference for next iteration
+          }
+          // Continue to next iteration
+        } else if (saveErr.name === 'VersionError') {
+          // Last retry - use atomic update as fallback
+          console.log('Final retry failed, using atomic update for extraction metadata');
           await Job.findByIdAndUpdate(jobId, {
             $set: {
               aiExtractionComplete: true,
@@ -1706,10 +1720,9 @@ async function extractAssetsInBackground(jobId, pdfPath) {
               aiExtractedAssets: job.aiExtractedAssets
             }
           });
-          console.log('Used atomic update for extraction metadata');
           break;
         } else {
-          throw saveErr;
+          throw saveErr; // Non-version error, rethrow
         }
       }
     }
@@ -3115,7 +3128,7 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
     // Use crypto.randomBytes for cryptographically secure randomness
     const tempPassword = crypto.randomBytes(6).toString('base64url') + 'A1!';
     
-    const validRoles = ['crew', 'foreman', 'gf', 'pm'];
+    const validRoles = ['crew', 'foreman', 'gf', 'qa', 'pm'];
     const userRole = validRoles.includes(role) ? role : 'crew';
     
     const newUser = new User({
