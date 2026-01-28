@@ -498,7 +498,7 @@ const WorkOrderDetails = () => {
                       borderColor: 'info.main'
                     }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'info.dark', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        📋 Job Scope
+                        Job Scope
                       </Typography>
                       <Typography variant="body2" sx={{ mb: 1 }}>
                         {job.jobScope.summary}
@@ -644,7 +644,7 @@ const WorkOrderDetails = () => {
                   {job.assignedToGFDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
-                        👔 Assigned to GF
+                        Assigned to GF
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.assignedToGFDate)}
@@ -668,7 +668,7 @@ const WorkOrderDetails = () => {
                   {job.preFieldDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'info.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="info.main">
-                        🔍 Pre-Fielded
+                        Pre-Fielded
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.preFieldDate)}
@@ -685,7 +685,7 @@ const WorkOrderDetails = () => {
                   {job.assignedDate && job.assignedTo && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
-                        👷 Crew Assigned
+                        Crew Assigned
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.assignedDate)}
@@ -707,7 +707,7 @@ const WorkOrderDetails = () => {
                   {job.crewSubmittedDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'warning.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="warning.main">
-                        📤 Crew Submitted
+                        Crew Submitted
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.crewSubmittedDate)}
@@ -794,7 +794,7 @@ const WorkOrderDetails = () => {
                   {job.utilitySubmittedDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'primary.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="primary.main">
-                        📨 Submitted to Utility
+                        Submitted to Utility
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.utilitySubmittedDate)}
@@ -806,7 +806,7 @@ const WorkOrderDetails = () => {
                   {job.billedDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'secondary.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="secondary.main">
-                        💵 Billed
+                        Billed
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.billedDate)}
@@ -818,7 +818,7 @@ const WorkOrderDetails = () => {
                   {job.invoicedDate && (
                     <Box sx={{ pl: 1, borderLeft: '3px solid', borderColor: 'success.main' }}>
                       <Typography variant="caption" display="block" fontWeight="bold" color="success.main">
-                        💰 Invoiced (Paid)
+                        Invoiced (Paid)
                       </Typography>
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.invoicedDate)}
