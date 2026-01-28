@@ -104,6 +104,8 @@ app.use('/api/', apiLimiter);
 // ============================================
 // CORS - whitelist allowed origins for security
 const allowedOrigins = [
+  'https://jobhubpro.com',
+  'https://www.jobhubpro.com',
   'https://job-hub-app.vercel.app',
   'https://job-hub-app-git-main.vercel.app',
   process.env.FRONTEND_URL,

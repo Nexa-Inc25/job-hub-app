@@ -481,7 +481,7 @@ const JobFileSystem = () => {
     setExportLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
+      const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
       
       // Build the export URL with proper folder path
       let exportUrl = `${apiBase}/api/jobs/${job._id}/folders/${encodeURIComponent(getRootFolderName(selectedFolder))}/export`;
@@ -787,7 +787,7 @@ const JobFileSystem = () => {
   const getDocUrl = (doc) => {
     if (!doc) return '';
     // Use Railway backend URL directly for file access (Vercel proxy doesn't work for file streaming)
-    const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
+    const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
     
     let resultUrl = '';
     

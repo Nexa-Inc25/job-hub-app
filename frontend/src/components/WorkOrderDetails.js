@@ -287,7 +287,7 @@ const WorkOrderDetails = () => {
     setExportLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const apiBase = process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app';
+      const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
       
       // Export GF Audit folder
       const exportUrl = `${apiBase}/api/jobs/${job._id}/folders/ACI/export?subfolder=GF%20Audit`;

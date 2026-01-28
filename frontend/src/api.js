@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 // Create axios instance with base URL
-// Use Railway URL directly since Vercel proxy doesn't work reliably
+// Use custom domain for API
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://job-hub-app-production.up.railway.app',
+  baseURL: process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com',
   timeout: 60000, // 60 second timeout for large PDF uploads
   maxContentLength: 100 * 1024 * 1024, // 100MB
   maxBodyLength: 100 * 1024 * 1024, // 100MB
