@@ -538,101 +538,6 @@ const WorkOrderDetails = () => {
             </Card>
           </Grid>
 
-          {/* PRE-FIELD PHOTOS - Show when in pre-fielding workflow */}
-          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
-            <Grid item xs={12}>
-              <Card sx={{ borderRadius: 2 }}>
-                <CardContent>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
-                      <CameraAltIcon color="primary" />
-                      Pre-Field Photos ({preFieldPhotos.length})
-                    </Typography>
-                    <Box display="flex" gap={1}>
-                      <input
-                        ref={photoInputRef}
-                        type="file"
-                        accept="image/*,.heic,.heif"
-                        multiple
-                        onChange={handlePhotoUpload}
-                        style={{ display: 'none' }}
-                        id="prefield-photo-upload-top"
-                        name="prefield-photo-upload-top"
-                      />
-                      <Button
-                        variant="contained"
-                        startIcon={<CloudUploadIcon />}
-                        onClick={() => photoInputRef.current?.click()}
-                        disabled={photoUploading}
-                      >
-                        Upload Photos
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        startIcon={<PhotoLibraryIcon />}
-                        onClick={() => navigate(`/job-file-system/${jobId}`)}
-                      >
-                        Open File System
-                      </Button>
-                    </Box>
-                  </Box>
-                  
-                  {photoUploading && (
-                    <Box sx={{ mb: 2 }}>
-                      <LinearProgress variant="determinate" value={photoUploadProgress} />
-                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
-                        Uploading... {photoUploadProgress}%
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {preFieldPhotos.length === 0 ? (
-                    <Box 
-                      sx={{ 
-                        py: 3, 
-                        textAlign: 'center',
-                        border: '2px dashed',
-                        borderColor: 'divider',
-                        borderRadius: 2,
-                        cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
-                      }}
-                      onClick={() => photoInputRef.current?.click()}
-                    >
-                      <CameraAltIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-                      <Typography variant="body2" color="text.secondary">
-                        No pre-field photos yet - Click to upload
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <ImageList cols={8} gap={8} sx={{ maxHeight: 150, overflow: 'auto', m: 0 }}>
-                      {preFieldPhotos.map((photo, idx) => (
-                        <ImageListItem key={photo._id || idx}>
-                          <IconButton 
-                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
-                            sx={{ p: 0, borderRadius: 1 }}
-                            aria-label={`View ${photo.name || `photo ${idx + 1}`}`}
-                          >
-                            <img
-                              src={getPhotoUrl(photo)}
-                              alt={photo.name || `Pre-field photo ${idx + 1}`}
-                              loading="lazy"
-                              style={{ 
-                                height: 70, 
-                                objectFit: 'cover', 
-                                borderRadius: 4
-                              }}
-                            />
-                          </IconButton>
-                        </ImageListItem>
-                      ))}
-                    </ImageList>
-                  )}
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-
           {/* LEFT COLUMN - Job Info & Schedule */}
           <Grid item xs={12} md={4}>
             {/* Job Info Card */}
@@ -1044,6 +949,102 @@ const WorkOrderDetails = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          {/* BOTTOM: Pre-Field Photos - Show when in pre-fielding workflow */}
+          {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
+            <Grid item xs={12}>
+              <Card sx={{ borderRadius: 2 }}>
+                <CardContent>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="h6" display="flex" alignItems="center" gap={1}>
+                      <CameraAltIcon color="primary" />
+                      Pre-Field Photos ({preFieldPhotos.length})
+                    </Typography>
+                    <Box display="flex" gap={1}>
+                      <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*,.heic,.heif"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        style={{ display: 'none' }}
+                        id="prefield-photo-upload"
+                        name="prefield-photo-upload"
+                      />
+                      <Button
+                        variant="contained"
+                        startIcon={<CloudUploadIcon />}
+                        onClick={() => photoInputRef.current?.click()}
+                        disabled={photoUploading}
+                        size="large"
+                      >
+                        Upload Photos
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        startIcon={<PhotoLibraryIcon />}
+                        onClick={() => navigate(`/job-file-system/${jobId}`)}
+                      >
+                        Open File System
+                      </Button>
+                    </Box>
+                  </Box>
+                  
+                  {photoUploading && (
+                    <Box sx={{ mb: 2 }}>
+                      <LinearProgress variant="determinate" value={photoUploadProgress} />
+                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={0.5}>
+                        Uploading... {photoUploadProgress}%
+                      </Typography>
+                    </Box>
+                  )}
+                  
+                  {preFieldPhotos.length === 0 ? (
+                    <Box 
+                      sx={{ 
+                        py: 3, 
+                        textAlign: 'center',
+                        border: '2px dashed',
+                        borderColor: 'divider',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
+                      }}
+                      onClick={() => photoInputRef.current?.click()}
+                    >
+                      <CameraAltIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+                      <Typography variant="body2" color="text.secondary">
+                        No pre-field photos yet - Click to upload
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <ImageList cols={8} gap={8} sx={{ maxHeight: 150, overflow: 'auto', m: 0 }}>
+                      {preFieldPhotos.map((photo, idx) => (
+                        <ImageListItem key={photo._id || idx}>
+                          <IconButton 
+                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
+                            sx={{ p: 0, borderRadius: 1 }}
+                            aria-label={`View ${photo.name || `photo ${idx + 1}`}`}
+                          >
+                            <img
+                              src={getPhotoUrl(photo)}
+                              alt={photo.name || `Pre-field photo ${idx + 1}`}
+                              loading="lazy"
+                              style={{ 
+                                height: 70, 
+                                objectFit: 'cover', 
+                                borderRadius: 4
+                              }}
+                            />
+                          </IconButton>
+                        </ImageListItem>
+                      ))}
+                    </ImageList>
+                  )}
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
         </Grid>
       </Container>
 
