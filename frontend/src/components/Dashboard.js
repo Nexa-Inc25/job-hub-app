@@ -188,6 +188,32 @@ const createInitialChecklist = () => {
   }, {});
 };
 
+// Check if user should see GF categorized view - extracted to reduce component complexity
+const shouldShowGFView = (userRole, isAdmin, filter, search) => {
+  const hasGFPermissions = userRole === 'gf' || userRole === 'admin' || userRole === 'pm' || isAdmin;
+  const isUnfilteredView = filter === 'all' && !search;
+  return hasGFPermissions && isUnfilteredView;
+};
+
+// Check if user can manage jobs (assign, mark stuck, etc.) - extracted for reuse
+const canManageJobs = (userRole, isAdmin) => {
+  return isAdmin || ['gf', 'pm'].includes(userRole);
+};
+
+// Check if job can be marked as stuck
+const canMarkAsStuck = (job) => {
+  if (!job || job.status === 'stuck') return false;
+  const terminalStatuses = ['ready_to_submit', 'submitted', 'billed', 'invoiced'];
+  return !terminalStatuses.includes(job.status);
+};
+
+// Get welcome message
+const getWelcomeMessage = (userName) => {
+  if (!userName) return 'Welcome Back!';
+  const firstName = userName.split(' ')[0];
+  return `Welcome back, ${firstName}!`;
+};
+
 // Parse JWT token payload
 const parseTokenPayload = (token) => {
   if (!token) return null;
@@ -1107,7 +1133,7 @@ const Dashboard = () => {
           <Box>
             {/* Personalized Welcome Message */}
             <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-              {userName ? `Welcome back, ${userName.split(' ')[0]}!` : 'Welcome Back!'}
+              {getWelcomeMessage(userName)}
             </Typography>
             <Typography variant="h6" color="text.secondary" sx={{ mb: 0.5 }}>
               {getDashboardTitle()}
@@ -1357,7 +1383,7 @@ const Dashboard = () => {
 
       {/* Work Orders Grid - GF View vs Standard View */}
       {/* Show GF categorized view for GF role, or Admin/PM who want the organized view */}
-      {!loading && !error && (userRole === 'gf' || userRole === 'admin' || userRole === 'pm' || isAdmin) && filter === 'all' && !search ? (
+      {!loading && !error && shouldShowGFView(userRole, isAdmin, filter, search) ? (
         /* ========== GF CATEGORIZED VIEW ========== */
         <Box>
           {/* PRE-FIELDING IN PROGRESS - Show as flip cards at the top */}
@@ -2275,7 +2301,7 @@ const Dashboard = () => {
           <FolderIcon fontSize="small" sx={{ mr: 1 }} />
           Open Files
         </MenuItem>
-        {(isAdmin || userRole === 'gf') && (
+        {canManageJobs(userRole, isAdmin) && (
           <MenuItem onClick={handleOpenAssignDialog}>
             <AssignIcon fontSize="small" sx={{ mr: 1 }} />
             Assign to Foreman
@@ -2283,29 +2309,20 @@ const Dashboard = () => {
         )}
         
         {/* Mark as Stuck option for GF/PM/Admin */}
-        {(isAdmin || ['gf', 'pm'].includes(userRole)) && selectedJobId && (() => {
-          const job = jobs.find(j => j._id === selectedJobId);
-          if (!job || job.status === 'stuck') return null;
-          if (['ready_to_submit', 'submitted', 'billed', 'invoiced'].includes(job.status)) return null;
-          return (
-            <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
-              <BlockIcon fontSize="small" sx={{ mr: 1 }} />
-              Mark as Stuck
-            </MenuItem>
-          );
-        })()}
+        {canManageJobs(userRole, isAdmin) && selectedJobId && canMarkAsStuck(jobs.find(j => j._id === selectedJobId)) && (
+          <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
+            <BlockIcon fontSize="small" sx={{ mr: 1 }} />
+            Mark as Stuck
+          </MenuItem>
+        )}
         
         {/* Unstick option for stuck jobs */}
-        {(isAdmin || ['gf', 'pm'].includes(userRole)) && selectedJobId && (() => {
-          const job = jobs.find(j => j._id === selectedJobId);
-          if (job?.status !== 'stuck') return null;
-          return (
-            <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
-              <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
-              Resume Job
-            </MenuItem>
-          );
-        })()}
+        {canManageJobs(userRole, isAdmin) && selectedJobId && jobs.find(j => j._id === selectedJobId)?.status === 'stuck' && (
+          <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
+            <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
+            Resume Job
+          </MenuItem>
+        )}
         
         {/* Workflow Status Transitions */}
         {selectedJobId && (() => {
