@@ -1,9 +1,10 @@
 [phases.setup]
 # Include system libraries required by canvas package
-nixPkgs = ["nodejs_20", "pkg-config", "cairo", "pango", "libjpeg", "giflib", "librsvg", "pixman"]
+nixPkgs = ["nodejs_20", "pkg-config", "cairo", "pango", "libjpeg", "giflib", "librsvg", "pixman", "python3"]
 
 [phases.install]
-cmds = ["npm install"]
+# Use --ignore-optional to skip native packages if they fail
+cmds = ["npm install --ignore-optional || npm install"]
 
 [phases.build]
 cmds = []
