@@ -4,10 +4,13 @@
  * Registers the service worker for offline functionality.
  */
 
+// Regex to match 127.x.x.x localhost addresses
+const localhostRegex = /^127(?:\.(?:25[0-5]|2[0-4]\d|[01]?\d\d?)){3}$/;
+
 const isLocalhost = Boolean(
   globalThis.location.hostname === 'localhost' ||
   globalThis.location.hostname === '[::1]' ||
-  globalThis.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
+  localhostRegex.exec(globalThis.location.hostname)
 );
 
 export function register(config) {
