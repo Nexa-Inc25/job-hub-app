@@ -28,7 +28,9 @@ const getRetryDelay = (attempt, baseDelay, maxDelay) => {
   // Exponential backoff: 1s, 2s, 4s, etc.
   const exponentialDelay = baseDelay * Math.pow(2, attempt);
   // Add random jitter (±25%) to prevent thundering herd
-  const jitter = exponentialDelay * (0.75 + Math.random() * 0.5);
+  // SECURITY NOTE: Math.random() is safe here - used only for non-security timing jitter.
+  // No cryptographic use, not for tokens/sessions/auth. See OWASP guidelines.
+  const jitter = exponentialDelay * (0.75 + Math.random() * 0.5); // NOSONAR
   return Math.min(jitter, maxDelay);
 };
 
