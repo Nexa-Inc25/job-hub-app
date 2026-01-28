@@ -890,7 +890,7 @@ const WorkOrderDetails = () => {
                           key={note._id || note.createdAt}
                           sx={{ 
                             bgcolor: 'action.hover', 
-                            borderRadius: 1,
+                            borderRadius: 1, 
                             mb: 1,
                             flexDirection: 'column',
                             alignItems: 'flex-start'
@@ -967,7 +967,7 @@ const WorkOrderDetails = () => {
                       <Button
                         variant="outlined"
                         startIcon={<PhotoLibraryIcon />}
-                        onClick={() => navigate(`/job-file-system/${jobId}`)}
+                        onClick={() => navigate(`/jobs/${jobId}/files`)}
                       >
                         Open File System
                       </Button>
@@ -1125,7 +1125,7 @@ const WorkOrderDetails = () => {
                                   {sketch.name || `Sketch ${idx + 1}`}
                                 </Typography>
                                 <Chip 
-                                  size="small" 
+                      size="small"
                                   icon={<OpenInNewIcon fontSize="small" />}
                                   label="View Full Size" 
                                   sx={{ mt: 0.5, cursor: 'pointer' }}
@@ -1187,7 +1187,7 @@ const WorkOrderDetails = () => {
                                 aria-label={`Open ${doc.name || 'document'}`}
                               >
                                 <OpenInNewIcon fontSize="small" />
-                              </IconButton>
+                    </IconButton>
                             </ListItem>
                           ))}
                         </List>
@@ -1220,7 +1220,7 @@ const WorkOrderDetails = () => {
                       <Typography variant="caption" display="block" color="text.secondary">
                         {formatDateTime(job.createdAt)}
                       </Typography>
-                    </Box>
+                  </Box>
                   )}
 
                   {/* Assigned to GF */}
