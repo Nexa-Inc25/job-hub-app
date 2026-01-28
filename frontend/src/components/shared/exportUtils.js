@@ -100,7 +100,7 @@ export const exportFolderToEmail = async ({ exportUrl, job, folderName = 'GF Aud
   
   // Generate filename and email content
   const jobIdentifier = job.pmNumber || job.woNumber || 'Job';
-  const filename = `${jobIdentifier}_${folderName.replace(/\s+/g, '_')}_${Date.now()}.zip`;
+  const filename = `${jobIdentifier}_${folderName.replaceAll(/\s+/g, '_')}_${Date.now()}.zip`;
   const emailSubject = `${folderName} Photos - ${jobIdentifier} - ${job.address || ''}`;
   const emailBody = `Hi,\n\nPlease find attached the ${folderName} photos for:\n\nJob: ${jobIdentifier}\nAddress: ${job.address || 'N/A'}, ${job.city || ''}\n\nPlease let me know if you have any questions.\n\nBest regards`;
   

@@ -1,5 +1,6 @@
 // src/components/JobFileSystem.js
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -475,6 +476,27 @@ const ApprovalStatusChip = ({ status }) => {
     return <Chip label="REJECTED" size="small" color="error" sx={{ height: 20, fontSize: '0.65rem' }} />;
   }
   return null;
+};
+
+// PropTypes for sub-components
+PreFieldPhotoPanel.propTypes = {
+  cameraRef: PropTypes.shape({ current: PropTypes.instanceOf(Element) }),
+  libraryRef: PropTypes.shape({ current: PropTypes.instanceOf(Element) }),
+  onUpload: PropTypes.func.isRequired,
+  aiExtractionComplete: PropTypes.bool,
+};
+
+GFAuditPhotoPanel.propTypes = {
+  cameraRef: PropTypes.shape({ current: PropTypes.instanceOf(Element) }),
+  libraryRef: PropTypes.shape({ current: PropTypes.instanceOf(Element) }),
+  onUpload: PropTypes.func.isRequired,
+  exportLoading: PropTypes.bool,
+  onExport: PropTypes.func.isRequired,
+  documentCount: PropTypes.number,
+};
+
+ApprovalStatusChip.propTypes = {
+  status: PropTypes.oneOf(['pending_approval', 'approved', 'rejected']),
 };
 
 const JobFileSystem = () => {
