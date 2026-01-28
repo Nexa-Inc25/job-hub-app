@@ -167,6 +167,44 @@ const fetchJobDataHelper = async (id, navigate) => {
   }
 };
 
+// Handle job data load result - extracted to reduce component complexity
+const handleJobLoadResult = (result, setters, cacheJob, getPendingPhotos, id) => {
+  const { setError, setJob, setJobs, setSelectedFolder, setLoading, setPendingPhotos } = setters;
+  
+  if (result.error) {
+    setError(result.error);
+    setLoading(false);
+    return;
+  }
+  
+  setJob(result.job);
+  setJobs(result.jobs);
+  cacheJob(result.job);
+  getPendingPhotos(id).then(photos => setPendingPhotos(photos));
+  
+  if (result.job.folders?.length > 0) {
+    setSelectedFolder(result.job.folders[0]);
+  }
+  setLoading(false);
+};
+
+// Create polling function for extraction - extracted to reduce complexity
+const createExtractionPoller = (jobId, setJob, updateJobInList) => {
+  return async (intervalId) => {
+    try {
+      const response = await api.get(`/api/jobs/${jobId}`);
+      if (response.data.aiExtractionComplete) {
+        setJob(response.data);
+        updateJobInList(response.data);
+        clearInterval(intervalId);
+      }
+    } catch (err) {
+      console.error('Error polling for extraction:', err);
+      clearInterval(intervalId);
+    }
+  };
+};
+
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -207,20 +245,10 @@ const JobFileSystem = () => {
   }, []);
 
   useEffect(() => {
-    fetchJobDataHelper(id, navigate).then(result => {
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setJob(result.job);
-        setJobs(result.jobs);
-        cacheJob(result.job);
-        getPendingPhotos(id).then(photos => setPendingPhotos(photos));
-        if (result.job.folders?.length > 0) {
-          setSelectedFolder(result.job.folders[0]);
-        }
-      }
-      setLoading(false);
-    });
+    const setters = { setError, setJob, setJobs, setSelectedFolder, setLoading, setPendingPhotos };
+    fetchJobDataHelper(id, navigate).then(result => 
+      handleJobLoadResult(result, setters, cacheJob, getPendingPhotos, id)
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -233,21 +261,8 @@ const JobFileSystem = () => {
   useEffect(() => {
     if (!shouldPollForExtraction(job)) return;
 
-    const pollForExtractionComplete = async (intervalId) => {
-      try {
-        const response = await api.get(`/api/jobs/${job._id}`);
-        if (response.data.aiExtractionComplete) {
-          setJob(response.data);
-          updateJobInList(response.data);
-          clearInterval(intervalId);
-        }
-      } catch (err) {
-        console.error('Error polling for extraction:', err);
-        clearInterval(intervalId);
-      }
-    };
-    
-    const pollInterval = setInterval(() => pollForExtractionComplete(pollInterval), 5000);
+    const poller = createExtractionPoller(job._id, setJob, updateJobInList);
+    const pollInterval = setInterval(() => poller(pollInterval), 5000);
     const timeout = setTimeout(() => clearInterval(pollInterval), 5 * 60 * 1000);
     
     return () => {
