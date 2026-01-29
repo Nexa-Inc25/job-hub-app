@@ -153,7 +153,7 @@ const SecurityDashboard = () => {
         responseType: 'blob',
       });
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = globalThis.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `audit-logs-${new Date().toISOString().split('T')[0]}.csv`);
