@@ -183,7 +183,17 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     
     setSelectedAnnotation(null);
 
-    const rect = e.currentTarget.getBoundingClientRect();
+    // Get the canvas element - it might be e.target or we need to find it
+    let targetElement = e.target;
+    if (targetElement.tagName !== 'CANVAS') {
+      // Find the canvas within the clicked box
+      const canvas = e.currentTarget.querySelector('canvas');
+      if (canvas) {
+        targetElement = canvas;
+      }
+    }
+    
+    const rect = targetElement.getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
     
@@ -253,8 +263,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Clear to transparent (don't fill with white)
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 3;
     ctx.lineCap = 'round';
@@ -1002,7 +1012,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
               ref={signatureCanvasRef}
               width={400}
               height={150}
-              style={{ width: '100%', height: 150, display: 'block' }}
+              style={{ 
+                width: '100%', 
+                height: 150, 
+                display: 'block',
+                backgroundColor: '#fff', // Visual background for signing (not in PNG)
+              }}
               onMouseDown={handleSignatureStart}
               onMouseMove={handleSignatureMove}
               onMouseUp={handleSignatureEnd}
