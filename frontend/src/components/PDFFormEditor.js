@@ -714,8 +714,15 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                         mb: 2,
                         bgcolor: 'white',
                         boxShadow: 1,
+                        cursor: currentTool === 'text' ? 'text' : 'crosshair',
                       }}
                       data-page={pageNum}
+                      onClick={(e) => {
+                        // Only handle clicks directly on this box or the page canvas
+                        // Annotations have stopPropagation so won't trigger this
+                        setCurrentPage(pageNum);
+                        handlePageClick(e);
+                      }}
                     >
                       <Page
                         pageNumber={pageNum}
@@ -723,11 +730,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                         renderTextLayer={false}
                         renderAnnotationLayer={false}
                         width={containerWidth ? Math.min(containerWidth - 48, 700) : undefined}
-                        onClick={(e) => {
-                          // Set current page when clicking on this page
-                          setCurrentPage(pageNum);
-                          handlePageClick(e);
-                        }}
                       />
                       {/* Page number indicator */}
                       <Typography 
