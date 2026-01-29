@@ -177,12 +177,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     return `${Date.now()}_${array[0].toString(36)}${array[1].toString(36)}`;
   };
 
-  // Get canvas element from click event
-  const getCanvasFromEvent = (e) => {
-    if (e.target.tagName === 'CANVAS') return e.target;
-    return e.currentTarget.querySelector('canvas') || e.target;
-  };
-
   // Create annotation based on current tool - extracted to reduce complexity
   const createAnnotationForTool = (baseAnnotation, toolState) => {
     const { tool, text, size, initials, signature, pmNumber } = toolState;
@@ -224,8 +218,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     
     setSelectedAnnotation(null);
 
-    const targetElement = getCanvasFromEvent(e);
-    const rect = targetElement.getBoundingClientRect();
+    // Get rect from the Box wrapper (e.currentTarget) since annotations 
+    // are positioned with position:absolute relative to this Box
+    const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
     
