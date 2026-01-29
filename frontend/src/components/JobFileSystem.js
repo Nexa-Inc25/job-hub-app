@@ -1442,15 +1442,17 @@ const JobFileSystem = () => {
           fullScreen={globalThis.innerWidth < 1024}
           slotProps={{ 
             paper: { 
-            sx: {
+              sx: {
                 height: { xs: '100vh', md: '95vh' }, 
                 maxHeight: { xs: '100vh', md: '95vh' },
-                width: '100%'
+                width: '100%',
+                display: 'flex',
+                flexDirection: 'column',
               } 
             }
           }}
         >
-          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1 }}>
+          <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, flexShrink: 0 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <InsertDriveFileIcon color="primary" />
               <Typography variant="h6">{viewingDoc?.name || 'Document'}</Typography>
@@ -1488,10 +1490,17 @@ const JobFileSystem = () => {
               </Tooltip>
             </Box>
           </DialogTitle>
-          <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <DialogContent sx={{ p: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
             {editorMode ? (
-              /* PDF Editor Mode */
-              <Box sx={{ flex: 1, p: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              /* PDF Editor Mode - Give full height to the editor */
+              <Box sx={{ 
+                flex: 1, 
+                display: 'flex', 
+                flexDirection: 'column', 
+                overflow: 'hidden',
+                height: '100%',
+                minHeight: 0, // Important for flex children
+              }}>
                 <PDFFormEditor
                   pdfUrl={getDocUrl(viewingDoc)}
                   jobInfo={{
