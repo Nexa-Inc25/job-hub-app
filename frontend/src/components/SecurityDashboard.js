@@ -382,7 +382,7 @@ const SecurityDashboard = () => {
                       <TableCell>
                         <Chip
                           icon={getActionIcon(log.action)}
-                          label={log.action?.replace(/_/g, ' ')}
+                          label={log.action?.replaceAll('_', ' ')}
                           size="small"
                           variant="outlined"
                         />
@@ -481,7 +481,7 @@ const SecurityDashboard = () => {
                           }}
                         />
                       </TableCell>
-                      <TableCell>{event.action?.replace(/_/g, ' ')}</TableCell>
+                      <TableCell>{event.action?.replaceAll('_', ' ')}</TableCell>
                       <TableCell>{event.userEmail || '-'}</TableCell>
                       <TableCell>
                         {event.errorMessage || event.details?.reason || '-'}
