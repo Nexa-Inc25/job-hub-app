@@ -73,6 +73,7 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const { mode: themeMode } = useThemeMode();
+  const { dialogBg } = getThemeColors(themeMode);
 
   // Button color helpers to avoid nested ternaries
   const getButtonBgColor = (actionType) => {
@@ -100,10 +101,10 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ bgcolor: themeMode === 'dark' ? '#1e1e2e' : '#fff' }}>
+      <DialogTitle sx={{ bgcolor: dialogBg }}>
         Review Job: {job?.pmNumber || job?.woNumber || 'N/A'}
       </DialogTitle>
-      <DialogContent sx={{ bgcolor: themeMode === 'dark' ? '#1e1e2e' : '#fff', pt: 2 }}>
+      <DialogContent sx={{ bgcolor: dialogBg, pt: 2 }}>
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary">
             Address: {job?.address}, {job?.city}
@@ -144,7 +145,7 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
           placeholder={action === 'reject' ? 'Explain the issue...' : 'Optional notes...'}
         />
       </DialogContent>
-      <DialogActions sx={{ bgcolor: themeMode === 'dark' ? '#1e1e2e' : '#fff', p: 2 }}>
+      <DialogActions sx={{ bgcolor: dialogBg, p: 2 }}>
         <Button onClick={onClose} disabled={loading}>Cancel</Button>
         <Button 
           variant="contained" 
@@ -177,6 +178,7 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const { mode } = useThemeMode();
+  const { dialogBg } = getThemeColors(mode);
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -197,10 +199,10 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff' }}>
+      <DialogTitle sx={{ bgcolor: dialogBg }}>
         Review Failed Audit: {job?.pmNumber || 'N/A'}
       </DialogTitle>
-      <DialogContent sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', pt: 2 }}>
+      <DialogContent sx={{ bgcolor: dialogBg, pt: 2 }}>
         <Alert severity="error" sx={{ mb: 2 }}>
           <Typography variant="subtitle2">
             {INFRACTION_TYPE_LABELS[audit?.infractionType] || audit?.infractionType}
@@ -278,7 +280,7 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
           />
         )}
       </DialogContent>
-      <DialogActions sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', p: 2 }}>
+      <DialogActions sx={{ bgcolor: dialogBg, p: 2 }}>
         <Button onClick={onClose} disabled={loading}>Cancel</Button>
         <Button 
           variant="contained" 
@@ -310,6 +312,7 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
   const { mode } = useThemeMode();
+  const { dialogBg, pageBg } = getThemeColors(mode);
 
   const handleFileSelect = async (e) => {
     const file = e.target.files?.[0];
@@ -361,11 +364,11 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
+      <DialogTitle sx={{ bgcolor: dialogBg, display: 'flex', alignItems: 'center', gap: 1 }}>
         <CloudUploadIcon sx={{ color: '#6366f1' }} />
         Upload Failed Audit from PG&E
       </DialogTitle>
-      <DialogContent sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', pt: 2 }}>
+      <DialogContent sx={{ bgcolor: dialogBg, pt: 2 }}>
         {!result && !uploading && (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -426,7 +429,7 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
               Audit extracted and recorded successfully!
             </Alert>
             
-            <Paper sx={{ p: 2, bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc', mb: 2 }}>
+            <Paper sx={{ p: 2, bgcolor: pageBg, mb: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                 Job Found: {result.job?.pmNumber}
               </Typography>
@@ -435,7 +438,7 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
               </Typography>
             </Paper>
 
-            <Paper sx={{ p: 2, bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+            <Paper sx={{ p: 2, bgcolor: pageBg }}>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#ef4444' }}>
                 Failed Audit Details
               </Typography>
@@ -473,7 +476,7 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
               Could not automatically match to a job. Please review the extracted data.
             </Alert>
             
-            <Paper sx={{ p: 2, bgcolor: mode === 'dark' ? '#0f0f1a' : '#f8fafc' }}>
+            <Paper sx={{ p: 2, bgcolor: pageBg }}>
               <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
                 Extracted Data (needs manual entry)
               </Typography>
@@ -490,7 +493,7 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
           </Box>
         )}
       </DialogContent>
-      <DialogActions sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#fff', p: 2 }}>
+      <DialogActions sx={{ bgcolor: dialogBg, p: 2 }}>
         <Button onClick={handleClose}>
           {result?.success ? 'Done' : 'Cancel'}
         </Button>
