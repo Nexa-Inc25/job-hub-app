@@ -44,7 +44,6 @@ import TagIcon from '@mui/icons-material/Tag';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import SettingsIcon from '@mui/icons-material/Settings';
-import ClearAllIcon from '@mui/icons-material/ClearAll';
 
 // PDF.js worker is set globally in App.js
 
@@ -419,12 +418,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   // Undo last annotation
   const handleUndo = () => {
     setAnnotations(prev => prev.slice(0, -1));
-    setSelectedAnnotation(null);
-  };
-
-  // Clear all annotations
-  const handleClearAll = () => {
-    setAnnotations([]);
     setSelectedAnnotation(null);
   };
 
