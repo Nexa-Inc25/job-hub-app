@@ -64,10 +64,10 @@ import {
   OpenInNew as OpenInNewIcon,
 } from '@mui/icons-material';
 
-// Helper to determine status color (avoids nested ternary)
+// Helper to determine status color (avoids nested ternary) - uses high-contrast colors
 const getTimelineStatusColor = (status, defaultColor) => {
-  if (status === 'approved') return 'success.main';
-  if (status === 'rejected') return 'error.main';
+  if (status === 'approved') return '#2e7d32'; // success dark
+  if (status === 'rejected') return '#c62828'; // error dark
   return defaultColor;
 };
 
@@ -96,22 +96,31 @@ WorkflowTimelineItem.propTypes = {
   status: PropTypes.string
 };
 
+// High-contrast color palette for accessibility
+const A11Y_COLORS = {
+  info: '#0369a1',      // Darker blue for better contrast
+  warning: '#b45309',   // Darker amber for better contrast
+  primary: '#1565c0',   // MUI primary dark
+  secondary: '#7b1fa2', // MUI secondary dark
+  success: '#2e7d32',   // MUI success dark
+};
+
 // Workflow Progress Timeline component
 const WorkflowProgressTimeline = ({ job }) => {
   const hasActivity = job.assignedToGFDate || job.preFieldDate || job.crewSubmittedDate;
   
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-      <WorkflowTimelineItem date={job.createdAt} label="Job Created" color="info.main" />
-      <WorkflowTimelineItem date={job.assignedToGFDate} label="Assigned to GF" color="primary.main" />
-      <WorkflowTimelineItem date={job.preFieldDate} label="Pre-Fielded" color="info.main" />
+      <WorkflowTimelineItem date={job.createdAt} label="Job Created" color={A11Y_COLORS.info} />
+      <WorkflowTimelineItem date={job.assignedToGFDate} label="Assigned to GF" color={A11Y_COLORS.primary} />
+      <WorkflowTimelineItem date={job.preFieldDate} label="Pre-Fielded" color={A11Y_COLORS.info} />
       {job.assignedDate && job.assignedTo && (
-        <WorkflowTimelineItem date={job.assignedDate} label="Crew Assigned" color="secondary.main" />
+        <WorkflowTimelineItem date={job.assignedDate} label="Crew Assigned" color={A11Y_COLORS.secondary} />
       )}
-      <WorkflowTimelineItem date={job.crewSubmittedDate} label="Crew Submitted" color="warning.main" />
-      <WorkflowTimelineItem date={job.gfReviewDate} label="GF Review" color="success.main" status={job.gfReviewStatus} />
-      <WorkflowTimelineItem date={job.pmApprovalDate} label="PM Approval" color="success.main" status={job.pmApprovalStatus} />
-      <WorkflowTimelineItem date={job.completedDate} label="Completed" color="success.main" />
+      <WorkflowTimelineItem date={job.crewSubmittedDate} label="Crew Submitted" color={A11Y_COLORS.warning} />
+      <WorkflowTimelineItem date={job.gfReviewDate} label="GF Review" color={A11Y_COLORS.success} status={job.gfReviewStatus} />
+      <WorkflowTimelineItem date={job.pmApprovalDate} label="PM Approval" color={A11Y_COLORS.success} status={job.pmApprovalStatus} />
+      <WorkflowTimelineItem date={job.completedDate} label="Completed" color={A11Y_COLORS.success} />
       <WorkflowTimelineItem date={job.billedDate} label="Billed" color="secondary.main" />
       <WorkflowTimelineItem date={job.invoicedDate} label="Invoiced (Paid)" color="success.main" />
       {!hasActivity && (
@@ -350,6 +359,18 @@ const WorkOrderDetails = () => {
     return colors[status] || 'default';
   };
 
+  // Get high-contrast chip styles for status (accessibility fix)
+  const getStatusChipSx = (status) => {
+    const color = getStatusColor(status);
+    if (color === 'info') {
+      return { bgcolor: '#0369a1', color: '#fff', fontWeight: 600 };
+    }
+    if (color === 'warning') {
+      return { bgcolor: '#b45309', color: '#fff', fontWeight: 600 };
+    }
+    return { fontWeight: 600 };
+  };
+
   const getStatusLabel = (status) => {
     const labels = {
       'new': 'New',
@@ -404,6 +425,21 @@ const WorkOrderDetails = () => {
       case 'check': return 'default';
       default: return 'default';
     }
+  };
+
+  // Get high-contrast chip styles for dependency status (accessibility fix)
+  const getDependencyChipSx = (status) => {
+    const base = { height: 20, fontSize: '0.65rem', fontWeight: 600 };
+    if (status === 'required') {
+      return { ...base, bgcolor: '#fef3c7', color: '#92400e', border: '1px solid #b45309' };
+    }
+    if (status === 'scheduled') {
+      return { ...base, bgcolor: '#e0f2fe', color: '#0369a1', border: '1px solid #0369a1' };
+    }
+    if (status === 'check') {
+      return { ...base, bgcolor: '#f3f4f6', color: '#1f2937', border: '1px solid #374151' };
+    }
+    return base;
   };
 
   const getDependencyStatusLabel = (status) => {
@@ -514,6 +550,19 @@ const WorkOrderDetails = () => {
     }
   };
 
+  // High-contrast chip styles for note types (accessibility fix)
+  const getNoteTypeChipSx = (type) => {
+    const base = { height: 16, fontSize: '0.6rem', fontWeight: 600 };
+    const color = getNoteTypeColor(type);
+    if (color === 'info') {
+      return { ...base, bgcolor: '#0369a1', color: '#fff' };
+    }
+    if (color === 'warning') {
+      return { ...base, bgcolor: '#b45309', color: '#fff' };
+    }
+    return base;
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
@@ -547,7 +596,7 @@ const WorkOrderDetails = () => {
           <Chip
             label={getStatusLabel(job.status)}
             color={getStatusColor(job.status)}
-            sx={{ mr: 2 }}
+            sx={{ mr: 2, ...getStatusChipSx(job.status) }}
           />
           <Tooltip title="Refresh">
             <IconButton onClick={fetchJobDetails} aria-label="Refresh">
@@ -801,7 +850,8 @@ const WorkOrderDetails = () => {
                               size="small" 
                               label={getDependencyStatusLabel(dep.status)}
                               color={getDependencyStatusColor(dep.status)}
-                              sx={{ height: 20, fontSize: '0.65rem' }}
+                              variant="outlined"
+                              sx={getDependencyChipSx(dep.status)}
                             />
                           </Box>
                           <Box>
@@ -858,6 +908,7 @@ const WorkOrderDetails = () => {
                         value={noteType}
                         onChange={(e) => setNoteType(e.target.value)}
                         displayEmpty
+                        inputProps={{ 'aria-label': 'Note type' }}
                       >
                         <MenuItem value="update">Update</MenuItem>
                         <MenuItem value="issue">Issue</MenuItem>
@@ -907,7 +958,7 @@ const WorkOrderDetails = () => {
                                 size="small" 
                                 label={note.noteType}
                                 color={getNoteTypeColor(note.noteType)}
-                                sx={{ height: 16, fontSize: '0.6rem' }}
+                                sx={getNoteTypeChipSx(note.noteType)}
                               />
                             )}
                             <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
