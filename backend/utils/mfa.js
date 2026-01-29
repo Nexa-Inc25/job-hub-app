@@ -103,7 +103,7 @@ function generateBackupCodes(count = 10) {
  */
 function hashBackupCode(code) {
   // Normalize: remove dashes, uppercase
-  const normalized = code.replace(/-/g, '').toUpperCase();
+  const normalized = code.replaceAll('-', '').toUpperCase();
   return crypto.createHash('sha256').update(normalized).digest('hex');
 }
 
