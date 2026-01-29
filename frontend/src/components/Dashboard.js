@@ -89,6 +89,19 @@ const getDependencyStatusColor = (status) => {
   return colorMap[status] || 'default';
 };
 
+// Get contrast-safe chip styling for dependency status
+const getDependencyChipSx = (status) => {
+  const baseStyles = { fontSize: '0.65rem', height: 20, fontWeight: 600 };
+  // Override colors that have poor contrast with outlined variant
+  if (status === 'warning' || status === 'required') {
+    return { ...baseStyles, borderColor: '#b45309', color: '#92400e', bgcolor: '#fef3c7' };
+  }
+  if (status === 'default' || status === 'check') {
+    return { ...baseStyles, borderColor: '#374151', color: '#1f2937', bgcolor: '#f3f4f6' };
+  }
+  return baseStyles;
+};
+
 const getDependencyStatusLabel = (status) => {
   const labels = {
     'required': 'REQUIRED',
@@ -1460,7 +1473,7 @@ const Dashboard = () => {
                                   <Typography variant="caption" color="text.secondary" fontWeight="bold">Dependencies:</Typography>
                                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                     {job.dependencies.map((dep) => (
-                                      <Chip key={`${dep.type}-${dep.status}`} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
+                                      <Chip key={`${dep.type}-${dep.status}`} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={getDependencyChipSx(dep.status)} />
                                     ))}
                                   </Box>
                                 </Box>
@@ -1951,7 +1964,7 @@ const Dashboard = () => {
                                 label={getDependencyTypeLabel(dep.type)}
                                 color={getDependencyStatusColor(dep.status)}
                                 variant="outlined"
-                                sx={{ fontSize: '0.65rem', height: 20 }}
+                                sx={getDependencyChipSx(dep.status)}
                               />
                             ))}
                             {job.dependencies.length > 3 && (
