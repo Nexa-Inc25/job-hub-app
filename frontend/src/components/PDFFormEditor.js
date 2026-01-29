@@ -42,6 +42,15 @@ import DialogActions from '@mui/material/DialogActions';
 
 // PDF.js worker is set globally in App.js
 
+// Helper to get display color from color name
+const getDisplayColor = (colorName) => {
+  switch (colorName) {
+    case 'red': return '#cc0000';
+    case 'blue': return '#0000cc';
+    default: return '#000';
+  }
+};
+
 const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [pdfBytes, setPdfBytes] = useState(null);
   const [numPages, setNumPages] = useState(null);
@@ -768,7 +777,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                           onTouchStart={(e) => handleDragStart(e, annotation.id)}
                         >
                           {(() => {
-                            const displayColor = annotation.color === 'red' ? '#cc0000' : annotation.color === 'blue' ? '#0000cc' : '#000';
+                            const displayColor = getDisplayColor(annotation.color);
                             if (annotation.type === 'text') {
                               return (
                                 <Typography sx={{ fontSize: annotation.fontSize * zoom, fontFamily: 'Helvetica, Arial, sans-serif', color: displayColor, whiteSpace: 'nowrap', lineHeight: 1 }}>
