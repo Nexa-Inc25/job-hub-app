@@ -1821,8 +1821,8 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     await job.save();
         break; // Success - exit loop
       } catch (saveErr) {
-        retries--; // Decrement retries counter
-        if (saveErr.name === 'VersionError' && retries > 0) {
+        if (saveErr.name === 'VersionError' && retries > 1) {
+          retries--; // Decrement retries counter after check
           console.log(`Version conflict in background extraction for job ${jobId}, ${retries} retries left...`);
           // Refresh job document and try again
           const refreshedJob = await Job.findById(jobId);
@@ -4625,8 +4625,8 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
         job.gfReviewStatus = 'revision_requested';
         job.status = 'in_progress';
       }
-    } else if (job.status === 'pending_qa_review' && (isQA || isPM)) {
-      // QA reviewing after GF approval
+    } else if (job.status === 'pending_qa_review' && isQA) {
+      // QA reviewing after GF approval - PM cannot bypass QA stage
       job.qaReviewDate = new Date();
       job.qaReviewedBy = req.userId;
       job.qaReviewNotes = notes;
@@ -5308,7 +5308,7 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
         status: 'submitted', // These are already submitted jobs that got audited
         companyId: user?.companyId,
         utilityId: user?.utilityId,
-        createdBy: req.userId,
+        userId: req.userId, // Track who created the job (matches Job schema)
         createdFromAudit: true, // Flag to indicate this was created from an audit
         notes: [{
           message: `Created from utility audit - PM ${extracted.pmNumber} was audited but original work order was not found in system.`,
