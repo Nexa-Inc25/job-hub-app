@@ -23,6 +23,7 @@ const Job = require('./models/Job');
 const AuditLog = require('./models/AuditLog');
 const { logAuth, logDocument, logJob, logUser, logSecurity, logExport } = require('./middleware/auditLogger');
 const mfa = require('./utils/mfa');
+const { performSecurityCheck } = require('./utils/securityAlerts');
 const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
@@ -402,6 +403,7 @@ app.post('/api/login', async (req, res) => {
         }
       }
       logAuth.loginFailed(req, email, 'Invalid credentials');
+      performSecurityCheck(req, 'LOGIN_FAILED', { email });
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     

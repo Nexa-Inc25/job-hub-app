@@ -12,6 +12,7 @@ import JobFileSystem from './components/JobFileSystem';
 import TemplateManager from './components/TemplateManager';
 import Calendar from './components/Calendar';
 import OwnerDashboard from './components/OwnerDashboard';
+import SecurityDashboard from './components/SecurityDashboard';
 import CompanyOnboarding from './components/CompanyOnboarding';
 import AdminUsersList from './components/AdminUsersList';
 import AdminJobsOverview from './components/AdminJobsOverview';
@@ -44,6 +45,7 @@ function App() {
             <Route path="/forms" element={<Forms />} />
             <Route path="/admin/templates" element={<TemplateManager />} />
             <Route path="/admin/owner-dashboard" element={<OwnerDashboard />} />
+            <Route path="/admin/security" element={<SecurityDashboard />} />
             <Route path="/admin/onboarding" element={<CompanyOnboarding />} />
             <Route path="/admin/users" element={<AdminUsersList />} />
             <Route path="/admin/jobs-overview" element={<AdminJobsOverview />} />
