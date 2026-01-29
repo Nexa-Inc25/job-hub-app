@@ -22,6 +22,7 @@ const User = require('./models/User');
 const Job = require('./models/Job');
 const AuditLog = require('./models/AuditLog');
 const { logAuth, logDocument, logJob, logUser, logSecurity, logExport } = require('./middleware/auditLogger');
+const mfa = require('./utils/mfa');
 const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
@@ -409,6 +410,23 @@ app.post('/api/login', async (req, res) => {
       await user.resetLoginAttempts();
     }
     
+    // Check if MFA is required
+    if (user.mfaEnabled) {
+      // Generate a temporary token for MFA verification (short expiry)
+      const mfaToken = jwt.sign({ 
+        userId: user._id, 
+        mfaPending: true 
+      }, process.env.JWT_SECRET, { expiresIn: '5m' });
+      
+      logAuth.loginSuccess(req, user); // Log password success, MFA still pending
+      
+      return res.json({
+        mfaRequired: true,
+        mfaToken,
+        userId: user._id
+      });
+    }
+    
     // Log successful login
     logAuth.loginSuccess(req, user);
     
@@ -428,11 +446,241 @@ app.post('/api/login', async (req, res) => {
       isSuperAdmin: user.isSuperAdmin || false, 
       role: user.role, 
       canApprove: user.canApprove || false,
-      name: user.name 
+      name: user.name,
+      mfaEnabled: false
     });
   } catch (err) {
     console.error('Login error:', err.message);
     res.status(500).json({ error: 'Server error during login' });
+  }
+});
+
+// ==================== MFA ENDPOINTS (PG&E Compliance) ====================
+
+// Verify MFA code during login
+app.post('/api/auth/mfa/verify', async (req, res) => {
+  try {
+    const { mfaToken, code, trustDevice } = req.body;
+    
+    if (!mfaToken || !code) {
+      return res.status(400).json({ error: 'MFA token and code are required' });
+    }
+    
+    // Verify the temporary MFA token
+    let decoded;
+    try {
+      decoded = jwt.verify(mfaToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'MFA session expired. Please login again.' });
+    }
+    
+    if (!decoded.mfaPending) {
+      return res.status(400).json({ error: 'Invalid MFA token' });
+    }
+    
+    // Get user with MFA secret
+    const user = await User.findById(decoded.userId).select('+mfaSecret +mfaBackupCodes');
+    if (!user || !user.mfaEnabled) {
+      return res.status(400).json({ error: 'MFA not enabled for this user' });
+    }
+    
+    // Try TOTP code first
+    let verified = mfa.verifyMFAToken(code, user.mfaSecret);
+    
+    // If TOTP fails, try backup code
+    if (!verified && code.includes('-')) {
+      const backupIndex = mfa.verifyBackupCode(code, user.mfaBackupCodes);
+      if (backupIndex >= 0) {
+        // Mark backup code as used
+        user.mfaBackupCodes[backupIndex].used = true;
+        user.mfaBackupCodes[backupIndex].usedAt = new Date();
+        await user.save();
+        verified = true;
+      }
+    }
+    
+    if (!verified) {
+      logAuth.loginFailed(req, user.email, 'Invalid MFA code');
+      return res.status(401).json({ error: 'Invalid verification code' });
+    }
+    
+    // Optionally trust this device
+    if (trustDevice) {
+      const deviceId = mfa.generateDeviceId(req);
+      user.mfaVerifiedDevices = user.mfaVerifiedDevices || [];
+      user.mfaVerifiedDevices.push({
+        deviceId,
+        deviceName: req.headers['user-agent']?.substring(0, 100) || 'Unknown Device',
+        lastUsed: new Date()
+      });
+      // Keep only last 5 trusted devices
+      if (user.mfaVerifiedDevices.length > 5) {
+        user.mfaVerifiedDevices = user.mfaVerifiedDevices.slice(-5);
+      }
+      await user.save();
+    }
+    
+    // Issue full access token
+    const token = jwt.sign({ 
+      userId: user._id, 
+      isAdmin: user.isAdmin,
+      isSuperAdmin: user.isSuperAdmin || false,
+      role: user.role,
+      canApprove: user.canApprove || false,
+      name: user.name
+    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    
+    logAuth.loginSuccess(req, user);
+    
+    res.json({ 
+      token, 
+      userId: user._id, 
+      isAdmin: user.isAdmin,
+      isSuperAdmin: user.isSuperAdmin || false, 
+      role: user.role, 
+      canApprove: user.canApprove || false,
+      name: user.name,
+      mfaEnabled: true
+    });
+  } catch (err) {
+    console.error('MFA verify error:', err);
+    res.status(500).json({ error: 'MFA verification failed' });
+  }
+});
+
+// Setup MFA - Generate secret and QR code
+app.post('/api/auth/mfa/setup', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (user.mfaEnabled) {
+      return res.status(400).json({ error: 'MFA is already enabled' });
+    }
+    
+    // Generate new secret and QR code
+    const { secret, qrCodeDataUrl } = await mfa.generateMFASecret(user.email);
+    
+    // Store secret temporarily (not enabled yet)
+    user.mfaSecret = secret;
+    await user.save();
+    
+    res.json({
+      qrCode: qrCodeDataUrl,
+      secret: secret, // Allow manual entry if QR doesn't work
+      message: 'Scan QR code with your authenticator app, then verify with a code'
+    });
+  } catch (err) {
+    console.error('MFA setup error:', err);
+    res.status(500).json({ error: 'Failed to setup MFA' });
+  }
+});
+
+// Enable MFA - Verify initial code and activate
+app.post('/api/auth/mfa/enable', authenticateUser, async (req, res) => {
+  try {
+    const { code } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ error: 'Verification code is required' });
+    }
+    
+    const user = await User.findById(req.userId).select('+mfaSecret');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    if (!user.mfaSecret) {
+      return res.status(400).json({ error: 'Please run MFA setup first' });
+    }
+    
+    if (user.mfaEnabled) {
+      return res.status(400).json({ error: 'MFA is already enabled' });
+    }
+    
+    // Verify the code
+    if (!mfa.verifyMFAToken(code, user.mfaSecret)) {
+      return res.status(400).json({ error: 'Invalid verification code. Please try again.' });
+    }
+    
+    // Generate backup codes
+    const backupCodes = mfa.generateBackupCodes(10);
+    const hashedBackupCodes = backupCodes.map(bc => ({
+      code: mfa.hashBackupCode(bc.code),
+      used: false
+    }));
+    
+    // Enable MFA
+    user.mfaEnabled = true;
+    user.mfaEnabledAt = new Date();
+    user.mfaBackupCodes = hashedBackupCodes;
+    await user.save();
+    
+    // Log the event
+    logAuth.loginSuccess(req, user); // Reusing for MFA enabled tracking
+    
+    res.json({
+      success: true,
+      message: 'MFA has been enabled',
+      backupCodes: backupCodes.map(bc => bc.code) // Return plain codes once
+    });
+  } catch (err) {
+    console.error('MFA enable error:', err);
+    res.status(500).json({ error: 'Failed to enable MFA' });
+  }
+});
+
+// Disable MFA
+app.post('/api/auth/mfa/disable', authenticateUser, async (req, res) => {
+  try {
+    const { password } = req.body;
+    
+    if (!password) {
+      return res.status(400).json({ error: 'Password is required to disable MFA' });
+    }
+    
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    // Verify password
+    if (!(await user.comparePassword(password))) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
+    
+    // Disable MFA
+    user.mfaEnabled = false;
+    user.mfaSecret = undefined;
+    user.mfaBackupCodes = [];
+    user.mfaVerifiedDevices = [];
+    await user.save();
+    
+    res.json({ success: true, message: 'MFA has been disabled' });
+  } catch (err) {
+    console.error('MFA disable error:', err);
+    res.status(500).json({ error: 'Failed to disable MFA' });
+  }
+});
+
+// Get MFA status
+app.get('/api/auth/mfa/status', authenticateUser, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('mfaEnabled mfaEnabledAt mfaVerifiedDevices');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    res.json({
+      enabled: user.mfaEnabled || false,
+      enabledAt: user.mfaEnabledAt,
+      trustedDevices: (user.mfaVerifiedDevices || []).length
+    });
+  } catch (err) {
+    console.error('MFA status error:', err);
+    res.status(500).json({ error: 'Failed to get MFA status' });
   }
 });
 

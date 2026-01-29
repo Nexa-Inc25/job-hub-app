@@ -65,6 +65,30 @@ const userSchema = new mongoose.Schema({
   lockoutUntil: { type: Date, default: null },
   lastFailedLogin: { type: Date, default: null },
   
+  // === MFA/2FA (PG&E Exhibit DATA-1 Compliance) ===
+  mfaEnabled: { type: Boolean, default: false },
+  mfaSecret: { type: String, select: false }, // TOTP secret - hidden by default
+  mfaBackupCodes: [{ 
+    code: { type: String, select: false },
+    used: { type: Boolean, default: false },
+    usedAt: Date
+  }],
+  mfaEnabledAt: Date,
+  mfaVerifiedDevices: [{
+    deviceId: String,
+    deviceName: String,
+    lastUsed: Date,
+    createdAt: { type: Date, default: Date.now }
+  }],
+  
+  // Password history for compliance (prevent reuse)
+  passwordHistory: [{
+    hash: { type: String, select: false },
+    changedAt: Date
+  }],
+  passwordChangedAt: Date,
+  mustChangePassword: { type: Boolean, default: false },
+  
   createdAt: {
     type: Date,
     default: Date.now
