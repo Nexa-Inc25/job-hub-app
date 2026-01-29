@@ -376,6 +376,25 @@ const capturePreFieldForAI = async (jobId, checklist) => {
   }
 };
 
+// Helper to render empty section message - reduces JSX conditionals
+const renderEmptySection = (message) => (
+  <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
+    {message}
+  </Typography>
+);
+
+// Check if should show GF view - extracted from inline conditional
+const shouldRenderGFView = (loading, error, userRole, isAdmin, filter, search) => {
+  if (loading || error) return false;
+  return shouldShowGFView(userRole, isAdmin, filter, search);
+};
+
+// Check if should show standard view - extracted from inline conditional
+const shouldRenderStandardView = (loading, error, userRole, isAdmin, filter, search) => {
+  if (loading || error) return false;
+  return !shouldShowGFView(userRole, isAdmin, filter, search);
+};
+
 const Dashboard = () => {
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
@@ -1362,7 +1381,7 @@ const Dashboard = () => {
 
       {/* Work Orders Grid - GF View vs Standard View */}
       {/* Show GF categorized view for GF role, or Admin/PM who want the organized view */}
-      {!loading && !error && shouldShowGFView(userRole, isAdmin, filter, search) ? (
+      {shouldRenderGFView(loading, error, userRole, isAdmin, filter, search) && (
         /* ========== GF CATEGORIZED VIEW ========== */
         <Box>
           {/* PRE-FIELDING IN PROGRESS - Show as flip cards at the top */}
@@ -1543,11 +1562,7 @@ const Dashboard = () => {
           {/* TODAY'S WORK */}
           {renderSectionHeader("Today's Work", <TodayIcon fontSize="small" />, gfCategories.todaysWork.length, 'todaysWork')}
           <Collapse in={expandedSections.todaysWork}>
-            {gfCategories.todaysWork.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
-                No jobs scheduled for today
-              </Typography>
-            ) : (
+            {gfCategories.todaysWork.length === 0 ? renderEmptySection('No jobs scheduled for today') : (
               <Box sx={{ mb: 2 }}>
                 {gfCategories.todaysWork.map((job) => (
                   <Box 
@@ -1624,11 +1639,7 @@ const Dashboard = () => {
           {/* NEEDS SCHEDULING */}
           {renderSectionHeader("Needs Scheduling", <EventNoteIcon fontSize="small" />, gfCategories.needsScheduling.length, 'needsScheduling')}
           <Collapse in={expandedSections.needsScheduling}>
-            {gfCategories.needsScheduling.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
-                All pre-fielded jobs are scheduled
-              </Typography>
-            ) : (
+            {gfCategories.needsScheduling.length === 0 ? renderEmptySection('All pre-fielded jobs are scheduled') : (
               <Box sx={{ mb: 2 }}>
                 {gfCategories.needsScheduling.map((job) => (
                   <Box 
@@ -1667,11 +1678,7 @@ const Dashboard = () => {
           {/* PENDING PRE-FIELD */}
           {renderSectionHeader("Pending Pre-Field", <ScheduleIcon fontSize="small" />, gfCategories.pendingPreField.length, 'pendingPreField')}
           <Collapse in={expandedSections.pendingPreField}>
-            {gfCategories.pendingPreField.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
-                No jobs pending pre-field
-              </Typography>
-            ) : (
+            {gfCategories.pendingPreField.length === 0 ? renderEmptySection('No jobs pending pre-field') : (
               <Box sx={{ mb: 2 }}>
                 {gfCategories.pendingPreField.map((job) => (
                   <Box 
@@ -1766,7 +1773,9 @@ const Dashboard = () => {
             </>
           )}
         </Box>
-      ) : !loading && !error && (
+      )}
+      
+      {shouldRenderStandardView(loading, error, userRole, isAdmin, filter, search) && (
         /* ========== STANDARD VIEW (for non-GF or filtered/searched) ========== */
         <Grid container spacing={3}>
           {filteredJobs.length === 0 ? (
