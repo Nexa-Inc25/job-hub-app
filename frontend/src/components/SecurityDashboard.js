@@ -73,6 +73,43 @@ const formatTime = (date) => {
   });
 };
 
+// Stat card component - extracted to module level to avoid re-creation on each render
+const StatCard = ({ title, value, icon, color, cardBg, textPrimary, borderColor }) => (
+  <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}` }}>
+    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box
+        sx={{
+          p: 1.5,
+          borderRadius: 2,
+          bgcolor: `${color}15`,
+          color: color,
+          display: 'flex',
+        }}
+      >
+        {icon}
+      </Box>
+      <Box>
+        <Typography variant="h4" fontWeight={700} color={textPrimary}>
+          {value}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {title}
+        </Typography>
+      </Box>
+    </CardContent>
+  </Card>
+);
+
+StatCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  icon: PropTypes.node.isRequired,
+  color: PropTypes.string.isRequired,
+  cardBg: PropTypes.string.isRequired,
+  textPrimary: PropTypes.string.isRequired,
+  borderColor: PropTypes.string.isRequired,
+};
+
 const SecurityDashboard = () => {
   const navigate = useNavigate();
   const { mode } = useThemeMode();
@@ -166,40 +203,6 @@ const SecurityDashboard = () => {
     }
   };
 
-  // Stat card component
-  const StatCard = ({ title, value, icon, color }) => (
-    <Card sx={{ bgcolor: cardBg, border: `1px solid ${borderColor}` }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        <Box
-          sx={{
-            p: 1.5,
-            borderRadius: 2,
-            bgcolor: `${color}15`,
-            color: color,
-            display: 'flex',
-          }}
-        >
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="h4" fontWeight={700} color={textPrimary}>
-            {value}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {title}
-          </Typography>
-        </Box>
-      </CardContent>
-    </Card>
-  );
-
-  StatCard.propTypes = {
-    title: PropTypes.string.isRequired,
-    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
-    icon: PropTypes.node.isRequired,
-    color: PropTypes.string.isRequired,
-  };
-
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* Header */}
@@ -239,6 +242,9 @@ const SecurityDashboard = () => {
               value={stats ? Object.values(stats.actionCounts || {}).reduce((a, b) => a + b, 0) : '-'}
               icon={<ShieldIcon />}
               color="#6366f1"
+              cardBg={cardBg}
+              textPrimary={textPrimary}
+              borderColor={borderColor}
             />
           </Grid>
           <Grid item xs={6} md={3}>
@@ -247,6 +253,9 @@ const SecurityDashboard = () => {
               value={stats?.actionCounts?.LOGIN_SUCCESS || 0}
               icon={<LoginIcon />}
               color="#22c55e"
+              cardBg={cardBg}
+              textPrimary={textPrimary}
+              borderColor={borderColor}
             />
           </Grid>
           <Grid item xs={6} md={3}>
@@ -255,6 +264,9 @@ const SecurityDashboard = () => {
               value={stats?.severityCounts?.warning || 0}
               icon={<WarningIcon />}
               color="#f59e0b"
+              cardBg={cardBg}
+              textPrimary={textPrimary}
+              borderColor={borderColor}
             />
           </Grid>
           <Grid item xs={6} md={3}>
@@ -263,6 +275,9 @@ const SecurityDashboard = () => {
               value={stats?.severityCounts?.critical || 0}
               icon={<ErrorIcon />}
               color="#ef4444"
+              cardBg={cardBg}
+              textPrimary={textPrimary}
+              borderColor={borderColor}
             />
           </Grid>
         </Grid>
