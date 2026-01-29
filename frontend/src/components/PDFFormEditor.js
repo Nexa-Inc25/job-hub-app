@@ -9,17 +9,13 @@ import {
   Box,
   Button,
   IconButton,
-  Tooltip,
   TextField,
   Paper,
   Typography,
-  ToggleButton,
-  ToggleButtonGroup,
   CircularProgress,
   Alert,
   Snackbar,
   Chip,
-  Fab,
   Drawer,
   List,
   ListItem,
@@ -31,7 +27,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Badge,
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
@@ -42,24 +37,22 @@ import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import DeleteIcon from '@mui/icons-material/Delete';
 import GestureIcon from '@mui/icons-material/Gesture';
-import DrawIcon from '@mui/icons-material/Draw';
 import CloseIcon from '@mui/icons-material/Close';
 import TodayIcon from '@mui/icons-material/Today';
 import PersonIcon from '@mui/icons-material/Person';
 import TagIcon from '@mui/icons-material/Tag';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
-import MenuIcon from '@mui/icons-material/Menu';
-import ClearIcon from '@mui/icons-material/Clear';
-import EditIcon from '@mui/icons-material/Edit';
+import SettingsIcon from '@mui/icons-material/Settings';
+import ClearAllIcon from '@mui/icons-material/ClearAll';
 
 // PDF.js worker is set globally in App.js
 
 // Color palette
 const INK_COLORS = {
-  black: { hex: '#000000', displayHex: '#000000', label: 'Black' },
-  blue: { hex: '#0000cc', displayHex: '#0000cc', label: 'Blue' },
-  red: { hex: '#cc0000', displayHex: '#cc0000', label: 'Red' },
+  black: { hex: '#000000', label: 'Black' },
+  blue: { hex: '#0000cc', label: 'Blue' },
+  red: { hex: '#cc0000', label: 'Red' },
 };
 
 // Get RGB values for pdf-lib
@@ -89,7 +82,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Tool state
-  const [currentTool, setCurrentTool] = useState('check'); // Default to checkmark for foreman
+  const [currentTool, setCurrentTool] = useState('check');
   const [inkColor, setInkColor] = useState('black');
   const [fontSize, setFontSize] = useState(14);
   const [zoom, setZoom] = useState(1);
@@ -112,7 +105,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
 
   // UI state
   const [containerWidth, setContainerWidth] = useState(null);
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Refs
   const containerRef = useRef(null);
@@ -189,7 +182,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const handlePageClick = useCallback((e) => {
     if (!pageRef.current || isDragging) return;
     
-    // Deselect any selected annotation
     setSelectedAnnotation(null);
 
     const rect = e.currentTarget.getBoundingClientRect();
@@ -265,7 +257,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 3;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
   }, []);
@@ -465,7 +457,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             color,
           });
         } else if (annotation.type === 'check') {
-          // Draw a proper checkmark
           page.drawText('✓', {
             x: annotation.x,
             y: y - annotation.size,
@@ -510,15 +501,28 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     }
   };
 
-  // Quick action buttons data
-  const quickActions = [
-    { tool: 'check', icon: <CheckIcon />, label: 'Checkmark', color: 'success' },
-    { tool: 'date', icon: <TodayIcon />, label: 'Date', color: 'primary' },
-    { tool: 'initials', icon: <PersonIcon />, label: 'Initials', color: 'secondary' },
-    { tool: 'signature', icon: <GestureIcon />, label: 'Signature', color: 'warning', badge: savedSignature ? '✓' : null },
-    { tool: 'pmNumber', icon: <TagIcon />, label: 'PM#', color: 'info', disabled: !jobInfo?.pmNumber },
-    { tool: 'text', icon: <TextFieldsIcon />, label: 'Text', color: 'default' },
-  ];
+  // Tool button style - LARGE for iPad
+  const toolButtonStyle = (isSelected, colorTheme = 'primary') => ({
+    minWidth: 70,
+    minHeight: 60,
+    fontSize: '0.75rem',
+    fontWeight: isSelected ? 700 : 500,
+    flexDirection: 'column',
+    gap: 0.5,
+    border: isSelected ? '3px solid' : '2px solid',
+    borderColor: isSelected ? `${colorTheme}.main` : 'grey.300',
+    bgcolor: isSelected ? `${colorTheme}.light` : 'background.paper',
+    color: isSelected ? `${colorTheme}.dark` : 'text.primary',
+    borderRadius: 2,
+    textTransform: 'none',
+    '&:hover': {
+      bgcolor: `${colorTheme}.light`,
+      borderColor: `${colorTheme}.main`,
+    },
+    '& .MuiSvgIcon-root': {
+      fontSize: 28,
+    },
+  });
 
   if (error) {
     return (
@@ -532,130 +536,174 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', bgcolor: '#f5f5f5' }}>
-      {/* Top Toolbar - Touch Friendly */}
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', bgcolor: '#e0e0e0' }}>
+      
+      {/* ===== MAIN TOOLBAR - LARGE BUTTONS ===== */}
       <Paper 
-        elevation={2}
+        elevation={3}
         sx={{ 
-          px: 1, 
-          py: 1, 
+          p: 1.5,
           display: 'flex', 
-          alignItems: 'center', 
-          gap: 1, 
-          flexWrap: 'wrap',
+          flexDirection: 'column',
+          gap: 1.5,
           borderRadius: 0,
+          bgcolor: 'background.paper',
+          flexShrink: 0,
         }}
       >
-        {/* Tool Quick Actions */}
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', flex: 1 }}>
-          {quickActions.map((action) => (
-            <Tooltip key={action.tool} title={action.label}>
-              <span>
-                <Badge 
-                  badgeContent={action.badge} 
-                  color="success"
-                  sx={{ '& .MuiBadge-badge': { fontSize: 10, minWidth: 16, height: 16 } }}
-                >
-                  <ToggleButton
-                    value={action.tool}
-                    selected={currentTool === action.tool}
-                    onChange={() => setCurrentTool(action.tool)}
-                    disabled={action.disabled}
-                    sx={{
-                      minWidth: 48,
-                      minHeight: 48,
-                      borderRadius: 2,
-                      border: currentTool === action.tool ? '2px solid' : '1px solid',
-                      borderColor: currentTool === action.tool ? `${action.color}.main` : 'divider',
-                      bgcolor: currentTool === action.tool ? `${action.color}.light` : 'background.paper',
-                      '&:hover': { bgcolor: `${action.color}.light` },
-                    }}
-                  >
-                    {action.icon}
-                  </ToggleButton>
-                </Badge>
-              </span>
-            </Tooltip>
-          ))}
+        {/* Row 1: Tool Selection - BIG LABELED BUTTONS */}
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <Button
+            variant={currentTool === 'check' ? 'contained' : 'outlined'}
+            color="success"
+            onClick={() => setCurrentTool('check')}
+            sx={toolButtonStyle(currentTool === 'check', 'success')}
+          >
+            <CheckIcon />
+            CHECK
+          </Button>
+
+          <Button
+            variant={currentTool === 'date' ? 'contained' : 'outlined'}
+            color="primary"
+            onClick={() => setCurrentTool('date')}
+            sx={toolButtonStyle(currentTool === 'date', 'primary')}
+          >
+            <TodayIcon />
+            DATE
+          </Button>
+
+          <Button
+            variant={currentTool === 'initials' ? 'contained' : 'outlined'}
+            color="secondary"
+            onClick={() => setCurrentTool('initials')}
+            sx={toolButtonStyle(currentTool === 'initials', 'secondary')}
+          >
+            <PersonIcon />
+            {userInitials || 'INIT'}
+          </Button>
+
+          <Button
+            variant={currentTool === 'signature' ? 'contained' : 'outlined'}
+            color="warning"
+            onClick={() => {
+              if (!savedSignature) {
+                setSignatureDialogOpen(true);
+              } else {
+                setCurrentTool('signature');
+              }
+            }}
+            sx={toolButtonStyle(currentTool === 'signature', 'warning')}
+          >
+            <GestureIcon />
+            {savedSignature ? 'SIGN ✓' : 'SIGN'}
+          </Button>
+
+          {jobInfo?.pmNumber && (
+            <Button
+              variant={currentTool === 'pmNumber' ? 'contained' : 'outlined'}
+              color="info"
+              onClick={() => setCurrentTool('pmNumber')}
+              sx={toolButtonStyle(currentTool === 'pmNumber', 'info')}
+            >
+              <TagIcon />
+              PM#
+            </Button>
+          )}
+
+          <Button
+            variant={currentTool === 'text' ? 'contained' : 'outlined'}
+            onClick={() => setCurrentTool('text')}
+            sx={toolButtonStyle(currentTool === 'text', 'primary')}
+          >
+            <TextFieldsIcon />
+            TEXT
+          </Button>
         </Box>
 
-        {/* Ink Color */}
-        <Box sx={{ display: 'flex', gap: 0.5, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
-          {Object.entries(INK_COLORS).map(([name, { displayHex, label }]) => (
-            <Tooltip key={name} title={label}>
+        {/* Row 2: Text Input (when text tool selected) */}
+        {currentTool === 'text' && (
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <TextField
+              fullWidth
+              size="medium"
+              placeholder="Type here, then tap PDF..."
+              value={currentText}
+              onChange={(e) => setCurrentText(e.target.value)}
+              autoFocus
+              sx={{ 
+                '& .MuiInputBase-input': { 
+                  fontSize: 18,
+                  py: 1.5,
+                },
+              }}
+            />
+          </Box>
+        )}
+
+        {/* Row 3: Color, Zoom, Actions */}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          {/* Ink Colors */}
+          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ mr: 0.5, fontWeight: 500 }}>Ink:</Typography>
+            {Object.entries(INK_COLORS).map(([name, { hex }]) => (
               <IconButton
+                key={name}
                 onClick={() => setInkColor(name)}
                 sx={{
-                  width: 36,
-                  height: 36,
-                  border: inkColor === name ? '3px solid' : '1px solid',
-                  borderColor: inkColor === name ? 'primary.main' : 'grey.400',
-                  bgcolor: displayHex,
-                  '&:hover': { bgcolor: displayHex, opacity: 0.8 },
+                  width: 44,
+                  height: 44,
+                  bgcolor: hex,
+                  border: inkColor === name ? '4px solid #1976d2' : '2px solid #999',
+                  '&:hover': { bgcolor: hex, opacity: 0.8 },
                 }}
+                aria-label={`${name} ink`}
               />
-            </Tooltip>
-          ))}
-        </Box>
+            ))}
+          </Box>
 
-        {/* Zoom Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
-          <IconButton onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} size="small">
-            <ZoomOutIcon />
-          </IconButton>
-          <Chip label={`${Math.round(zoom * 100)}%`} size="small" sx={{ minWidth: 50 }} />
-          <IconButton onClick={() => setZoom(z => Math.min(2, z + 0.25))} size="small">
-            <ZoomInIcon />
-          </IconButton>
-        </Box>
+          {/* Zoom */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <IconButton onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} sx={{ width: 44, height: 44 }}>
+              <ZoomOutIcon />
+            </IconButton>
+            <Chip label={`${Math.round(zoom * 100)}%`} sx={{ minWidth: 60, fontSize: 14 }} />
+            <IconButton onClick={() => setZoom(z => Math.min(2, z + 0.25))} sx={{ width: 44, height: 44 }}>
+              <ZoomInIcon />
+            </IconButton>
+          </Box>
 
-        {/* Actions */}
-        <Box sx={{ display: 'flex', gap: 0.5, borderLeft: 1, borderColor: 'divider', pl: 1 }}>
-          <Tooltip title="Undo">
-            <span>
-              <IconButton onClick={handleUndo} disabled={annotations.length === 0} size="small">
-                <UndoIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <Tooltip title="Clear All">
-            <span>
-              <IconButton onClick={handleClearAll} disabled={annotations.length === 0} size="small" color="error">
-                <ClearIcon />
-              </IconButton>
-            </span>
-          </Tooltip>
-          <IconButton onClick={() => setDrawerOpen(true)} size="small">
-            <MenuIcon />
-          </IconButton>
+          {/* Actions */}
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <IconButton 
+              onClick={handleUndo} 
+              disabled={annotations.length === 0}
+              sx={{ width: 44, height: 44 }}
+              aria-label="Undo"
+            >
+              <UndoIcon />
+            </IconButton>
+            <IconButton 
+              onClick={handleClearAll} 
+              disabled={annotations.length === 0}
+              color="error"
+              sx={{ width: 44, height: 44 }}
+              aria-label="Clear all"
+            >
+              <ClearAllIcon />
+            </IconButton>
+            <IconButton 
+              onClick={() => setSettingsOpen(true)}
+              sx={{ width: 44, height: 44 }}
+              aria-label="Settings"
+            >
+              <SettingsIcon />
+            </IconButton>
+          </Box>
         </Box>
       </Paper>
 
-      {/* Text Input Bar - Shows when text tool selected */}
-      {currentTool === 'text' && (
-        <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderRadius: 0 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Type text, then tap on PDF to place..."
-            value={currentText}
-            onChange={(e) => setCurrentText(e.target.value)}
-            autoFocus
-            sx={{ '& .MuiInputBase-input': { fontSize: 16 } }}
-          />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <IconButton size="small" onClick={() => setFontSize(s => Math.max(8, s - 2))}>
-              <RemoveIcon fontSize="small" />
-            </IconButton>
-            <Chip label={fontSize} size="small" />
-            <IconButton size="small" onClick={() => setFontSize(s => Math.min(32, s + 2))}>
-              <AddIcon fontSize="small" />
-            </IconButton>
-          </Box>
-        </Paper>
-      )}
-
-      {/* PDF Display */}
+      {/* ===== PDF DISPLAY ===== */}
       <Box
         ref={containerRef}
         sx={{
@@ -718,7 +766,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                     
                     {/* Page number */}
                     <Chip
-                      label={`${pageNum} / ${numPages}`}
+                      label={`Page ${pageNum} / ${numPages}`}
                       size="small"
                       sx={{
                         position: 'absolute',
@@ -726,6 +774,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                         right: 8,
                         bgcolor: 'rgba(0,0,0,0.7)',
                         color: 'white',
+                        fontSize: 12,
                       }}
                     />
 
@@ -740,14 +789,13 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                           cursor: isDragging && dragAnnotationId === annotation.id ? 'grabbing' : 'grab',
                           padding: '4px',
                           borderRadius: 1,
-                          border: selectedAnnotation === annotation.id ? '2px solid #1976d2' : '2px dashed transparent',
-                          bgcolor: selectedAnnotation === annotation.id ? 'rgba(25, 118, 210, 0.1)' : 'transparent',
+                          border: selectedAnnotation === annotation.id ? '3px solid #1976d2' : '2px dashed transparent',
+                          bgcolor: selectedAnnotation === annotation.id ? 'rgba(25, 118, 210, 0.15)' : 'transparent',
                           '&:hover': {
-                            bgcolor: 'rgba(255, 235, 59, 0.3)',
+                            bgcolor: 'rgba(255, 235, 59, 0.4)',
                             border: '2px dashed #ffc107',
                           },
                           zIndex: isDragging && dragAnnotationId === annotation.id ? 100 : 10,
-                          transition: 'background-color 0.2s',
                           userSelect: 'none',
                           touchAction: 'none',
                         }}
@@ -763,7 +811,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                             sx={{
                               fontSize: annotation.fontSize * zoom,
                               fontFamily: 'Helvetica, Arial, sans-serif',
-                              color: INK_COLORS[annotation.color]?.displayHex || '#000',
+                              color: INK_COLORS[annotation.color]?.hex || '#000',
                               whiteSpace: 'nowrap',
                               lineHeight: 1,
                               fontWeight: 500,
@@ -775,8 +823,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                         {annotation.type === 'check' && (
                           <Typography
                             sx={{
-                              fontSize: annotation.size * zoom * 1.2,
-                              color: INK_COLORS[annotation.color]?.displayHex || '#000',
+                              fontSize: annotation.size * zoom * 1.5,
+                              color: INK_COLORS[annotation.color]?.hex || '#000',
                               lineHeight: 1,
                               fontWeight: 700,
                             }}
@@ -806,12 +854,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                             }}
                             sx={{
                               position: 'absolute',
-                              top: -20,
-                              right: -20,
+                              top: -16,
+                              right: -16,
                               bgcolor: 'error.main',
                               color: 'white',
-                              width: 28,
-                              height: 28,
+                              width: 32,
+                              height: 32,
                               '&:hover': { bgcolor: 'error.dark' },
                             }}
                           >
@@ -828,60 +876,75 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         </Box>
       </Box>
 
-      {/* Bottom Action Bar */}
+      {/* ===== BOTTOM SAVE BAR ===== */}
       <Paper
-        elevation={3}
+        elevation={4}
         sx={{
-          p: 1.5,
+          p: 2,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           borderRadius: 0,
           gap: 2,
+          flexShrink: 0,
+          bgcolor: annotations.length > 0 ? 'success.light' : 'background.paper',
         }}
       >
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body1" sx={{ fontWeight: 500 }}>
           {annotations.length === 0 
-            ? `Tap ${currentTool === 'check' ? 'checkmark' : currentTool} on PDF` 
-            : `${annotations.length} annotation${annotations.length !== 1 ? 's' : ''}`}
+            ? `Select a tool, then tap on the PDF` 
+            : `${annotations.length} item${annotations.length !== 1 ? 's' : ''} placed`}
         </Typography>
         
         <Button
           variant="contained"
           color="success"
           size="large"
-          startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+          startIcon={saving ? <CircularProgress size={24} color="inherit" /> : <SaveIcon />}
           onClick={handleSave}
           disabled={saving || annotations.length === 0}
           sx={{ 
-            minWidth: 140,
-            height: 48,
-            fontSize: 16,
-            fontWeight: 600,
+            minWidth: 160,
+            height: 56,
+            fontSize: 18,
+            fontWeight: 700,
+            borderRadius: 2,
           }}
         >
-          {saving ? 'Saving...' : 'Save'}
+          {saving ? 'SAVING...' : 'SAVE'}
         </Button>
       </Paper>
 
-      {/* Side Drawer for More Options */}
-      <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
-        <Box sx={{ width: 280, pt: 2 }}>
-          <Typography variant="h6" sx={{ px: 2, pb: 1 }}>Options</Typography>
+      {/* ===== SETTINGS DRAWER ===== */}
+      <Drawer anchor="right" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
+        <Box sx={{ width: 300, pt: 2 }}>
+          <Typography variant="h6" sx={{ px: 2, pb: 1 }}>Settings</Typography>
           <Divider />
           <List>
+            <ListItem>
+              <ListItemText primary="Font Size" />
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <IconButton onClick={() => setFontSize(s => Math.max(8, s - 2))}>
+                  <RemoveIcon />
+                </IconButton>
+                <Chip label={fontSize} sx={{ minWidth: 40 }} />
+                <IconButton onClick={() => setFontSize(s => Math.min(32, s + 2))}>
+                  <AddIcon />
+                </IconButton>
+              </Box>
+            </ListItem>
+            <Divider />
             <ListItem disablePadding>
-              <ListItemButton onClick={() => { setSignatureDialogOpen(true); setDrawerOpen(false); }}>
-                <ListItemIcon><DrawIcon /></ListItemIcon>
+              <ListItemButton onClick={() => { setSignatureDialogOpen(true); setSettingsOpen(false); }}>
+                <ListItemIcon><GestureIcon /></ListItemIcon>
                 <ListItemText 
                   primary={savedSignature ? "Redraw Signature" : "Draw Signature"} 
-                  secondary={savedSignature ? "Signature saved" : "No signature yet"}
+                  secondary={savedSignature ? "✓ Signature saved" : "No signature yet"}
                 />
-                {savedSignature && <CheckCircleIcon color="success" />}
               </ListItemButton>
             </ListItem>
             <ListItem disablePadding>
-              <ListItemButton onClick={() => { setInitialsDialogOpen(true); setDrawerOpen(false); }}>
+              <ListItemButton onClick={() => { setInitialsDialogOpen(true); setSettingsOpen(false); }}>
                 <ListItemIcon><PersonIcon /></ListItemIcon>
                 <ListItemText 
                   primary="Set Initials" 
@@ -891,32 +954,17 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             </ListItem>
             {savedSignature && (
               <ListItem disablePadding>
-                <ListItemButton onClick={() => { clearSignature(); setDrawerOpen(false); }}>
+                <ListItemButton onClick={() => { clearSignature(); setSettingsOpen(false); }}>
                   <ListItemIcon><DeleteIcon color="error" /></ListItemIcon>
                   <ListItemText primary="Clear Saved Signature" />
                 </ListItemButton>
               </ListItem>
             )}
           </List>
-          <Divider />
-          <List>
-            <ListItem>
-              <ListItemText primary="Font Size" />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <IconButton size="small" onClick={() => setFontSize(s => Math.max(8, s - 2))}>
-                  <RemoveIcon />
-                </IconButton>
-                <Chip label={fontSize} />
-                <IconButton size="small" onClick={() => setFontSize(s => Math.min(32, s + 2))}>
-                  <AddIcon />
-                </IconButton>
-              </Box>
-            </ListItem>
-          </List>
           {jobInfo && (
             <>
               <Divider />
-              <Typography variant="subtitle2" sx={{ px: 2, pt: 2, pb: 1 }}>Job Info</Typography>
+              <Typography variant="subtitle2" sx={{ px: 2, pt: 2, pb: 1, fontWeight: 600 }}>Job Info</Typography>
               <List dense>
                 {jobInfo.pmNumber && (
                   <ListItem>
@@ -939,7 +987,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         </Box>
       </Drawer>
 
-      {/* Signature Dialog */}
+      {/* ===== SIGNATURE DIALOG ===== */}
       <Dialog
         open={signatureDialogOpen}
         onClose={() => setSignatureDialogOpen(false)}
@@ -949,17 +997,20 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <GestureIcon color="primary" />
-            Draw Your Signature
+            <Typography variant="h6">Draw Your Signature</Typography>
           </Box>
-          <IconButton size="small" onClick={() => setSignatureDialogOpen(false)}>
+          <IconButton onClick={() => setSignatureDialogOpen(false)}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>
         <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Use your finger or stylus to sign below
+          </Typography>
           <Box
             sx={{
-              border: '2px solid',
-              borderColor: 'grey.300',
+              border: '3px solid',
+              borderColor: 'grey.400',
               borderRadius: 2,
               bgcolor: 'white',
               touchAction: 'none',
@@ -980,31 +1031,39 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
               onTouchEnd={handleSignatureEnd}
             />
           </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            Sign in the box above using your finger or mouse
-          </Typography>
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={initSignatureCanvas} startIcon={<ClearIcon />}>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={initSignatureCanvas} variant="outlined" size="large">
             Clear
           </Button>
-          <Button variant="contained" onClick={saveSignature} startIcon={<SaveIcon />}>
+          <Button variant="contained" onClick={saveSignature} size="large" startIcon={<CheckCircleIcon />}>
             Save Signature
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Initials Dialog */}
+      {/* ===== INITIALS DIALOG ===== */}
       <Dialog open={initialsDialogOpen} onClose={() => setInitialsDialogOpen(false)}>
         <DialogTitle>Enter Your Initials</DialogTitle>
         <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enter 2-4 letters (e.g., JD, ABC)
+          </Typography>
           <TextField
             autoFocus
             fullWidth
-            placeholder="e.g., JD"
+            placeholder="JD"
             defaultValue={userInitials}
-            inputProps={{ maxLength: 4, style: { fontSize: 24, textAlign: 'center', textTransform: 'uppercase' } }}
-            sx={{ mt: 1 }}
+            inputProps={{ 
+              maxLength: 4, 
+              style: { 
+                fontSize: 32, 
+                textAlign: 'center', 
+                textTransform: 'uppercase',
+                letterSpacing: 4,
+                fontWeight: 700,
+              } 
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 saveInitials(e.target.value.toUpperCase());
@@ -1013,10 +1072,13 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             id="initials-input"
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setInitialsDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button onClick={() => setInitialsDialogOpen(false)} variant="outlined" size="large">
+            Cancel
+          </Button>
           <Button 
             variant="contained" 
+            size="large"
             onClick={() => {
               const input = document.getElementById('initials-input');
               saveInitials(input?.value?.toUpperCase() || '');
@@ -1027,14 +1089,14 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      {/* ===== SNACKBAR ===== */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
         onClose={() => setSnackbar(s => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))} sx={{ fontSize: 16 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
