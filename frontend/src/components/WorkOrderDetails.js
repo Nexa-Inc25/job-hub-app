@@ -905,6 +905,8 @@ const WorkOrderDetails = () => {
                   <Box display="flex" gap={1}>
                     <FormControl size="small" sx={{ minWidth: 80 }}>
                       <Select
+                        id="note-type"
+                        name="noteType"
                         value={noteType}
                         onChange={(e) => setNoteType(e.target.value)}
                         displayEmpty
@@ -1278,6 +1280,8 @@ const WorkOrderDetails = () => {
             <FormControl fullWidth>
               <InputLabel>Type</InputLabel>
               <Select
+                id="dependency-type"
+                name="dependencyType"
                 value={depForm.type}
                 onChange={(e) => setDepForm({ ...depForm, type: e.target.value })}
                 label="Type"
@@ -1296,6 +1300,8 @@ const WorkOrderDetails = () => {
             <FormControl fullWidth>
               <InputLabel>Status</InputLabel>
               <Select
+                id="dependency-status"
+                name="dependencyStatus"
                 value={depForm.status}
                 onChange={(e) => setDepForm({ ...depForm, status: e.target.value })}
                 label="Status"

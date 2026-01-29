@@ -395,6 +395,8 @@ const OfflinePhotoCapture = ({
             <FormControl fullWidth required size="small">
               <InputLabel>Folder</InputLabel>
               <Select
+                id="photo-folder"
+                name="folder"
                 value={selectedFolder}
                 onChange={(e) => {
                   setSelectedFolder(e.target.value);
@@ -415,6 +417,8 @@ const OfflinePhotoCapture = ({
               <FormControl fullWidth size="small">
                 <InputLabel>Subfolder (Optional)</InputLabel>
                 <Select
+                  id="photo-subfolder"
+                  name="subfolder"
                   value={selectedSubfolder}
                   onChange={(e) => setSelectedSubfolder(e.target.value)}
                   label="Subfolder (Optional)"

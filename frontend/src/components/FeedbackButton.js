@@ -205,6 +205,8 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
                 <FormControl fullWidth size="small">
                   <InputLabel>Priority</InputLabel>
                   <Select
+                    id="feedback-priority"
+                    name="priority"
                     value={formData.priority}
                     label="Priority"
                     onChange={(e) => setFormData({ ...formData, priority: e.target.value })}

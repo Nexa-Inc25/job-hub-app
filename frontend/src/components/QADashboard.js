@@ -116,7 +116,7 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
         
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>Decision</InputLabel>
-          <Select value={action} onChange={(e) => setAction(e.target.value)} label="Decision">
+          <Select id="review-action" name="reviewAction" value={action} onChange={(e) => setAction(e.target.value)} label="Decision">
             <MenuItem value="approve">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ThumbUpIcon sx={{ color: '#22c55e', fontSize: 18 }} /> Approve
@@ -227,7 +227,7 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
         
         <FormControl fullWidth sx={{ mb: 2 }}>
           <InputLabel>QA Decision</InputLabel>
-          <Select value={decision} onChange={(e) => setDecision(e.target.value)} label="QA Decision">
+          <Select id="qa-decision" name="qaDecision" value={decision} onChange={(e) => setDecision(e.target.value)} label="QA Decision">
             <MenuItem value="accepted">
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#ef4444', fontSize: 18 }} /> 

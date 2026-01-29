@@ -698,6 +698,8 @@ const CompanyOnboarding = () => {
             <FormControl fullWidth>
               <InputLabel>Role *</InputLabel>
               <Select
+                id="user-role"
+                name="role"
                 value={userForm.role}
                 label="Role *"
                 onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}

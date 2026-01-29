@@ -321,7 +321,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth required>
               <InputLabel>Category</InputLabel>
-              <Select value={formData.category} onChange={handleChange('category')} label="Category">
+              <Select id="spec-category" name="category" value={formData.category} onChange={handleChange('category')} label="Category">
                 {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
                   <MenuItem key={key} value={key}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -337,7 +337,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
           <Grid item xs={12} sm={6}>
             <FormControl fullWidth required>
               <InputLabel>Utility</InputLabel>
-              <Select value={formData.utilityId} onChange={handleChange('utilityId')} label="Utility">
+              <Select id="spec-utility" name="utilityId" value={formData.utilityId} onChange={handleChange('utilityId')} label="Utility">
                 {utilities.map((utility) => (
                   <MenuItem key={utility._id} value={utility._id}>
                     {utility.shortName || utility.name}
@@ -698,7 +698,9 @@ const SpecLibrary = () => {
                     <FilterListIcon fontSize="small" /> Category
                   </Box>
                 </InputLabel>
-                <Select 
+                <Select
+                  id="category-filter"
+                  name="categoryFilter"
                   value={categoryFilter} 
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   label="Category"
