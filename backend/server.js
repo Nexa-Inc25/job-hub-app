@@ -24,6 +24,15 @@ const AuditLog = require('./models/AuditLog');
 const { logAuth, logDocument, logJob, logUser, logSecurity, logExport } = require('./middleware/auditLogger');
 const mfa = require('./utils/mfa');
 const { performSecurityCheck } = require('./utils/securityAlerts');
+const {
+  requestId,
+  additionalSecurityHeaders,
+  sanitizeInput,
+  preventParamPollution,
+  slowRequestLogger,
+  blockSuspiciousAgents,
+  secureErrorHandler
+} = require('./middleware/security');
 const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
@@ -73,6 +82,16 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },  // Allow R2 resources
   contentSecurityPolicy: false  // Disable CSP for now (can be strict later)
 }));
+
+// ============================================
+// ADDITIONAL SECURITY HARDENING (Fort Knox Mode)
+// ============================================
+app.use(requestId);                    // Unique request ID for audit correlation
+app.use(additionalSecurityHeaders);    // Extra security headers
+app.use(blockSuspiciousAgents);        // Block known attack tools
+app.use(preventParamPollution);        // Prevent parameter pollution attacks
+app.use(sanitizeInput);                // Sanitize all input
+app.use(slowRequestLogger(15000));     // Log requests taking > 15 seconds
 
 // MongoDB query sanitization - prevents NoSQL injection
 app.use(mongoSanitize());
@@ -6994,6 +7013,12 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
+
+// ============================================
+// SECURE ERROR HANDLER (Fort Knox - Last Line of Defense)
+// ============================================
+// Must be last middleware - catches all errors and prevents stack trace leakage
+app.use(secureErrorHandler);
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, '0.0.0.0', () => {
