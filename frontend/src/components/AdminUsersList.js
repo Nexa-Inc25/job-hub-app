@@ -45,7 +45,7 @@ const AdminUsersList = () => {
   const [stats, setStats] = useState({ totalUsers: 0, totalCompanies: 0 });
   const navigate = useNavigate();
   const { mode } = useThemeMode();
-  const { cardBg, textPrimary, textSecondary, borderColor, pageBg } = getThemeColors(mode);
+  const { cardBg, textPrimary, textSecondary, borderColor, pageBg, rowHoverBg, tableHeaderBg, sectionHeaderBg, sectionHeaderHoverBg } = getThemeColors(mode);
 
   const fetchData = useCallback(async () => {
     try {
@@ -175,8 +175,8 @@ const AdminUsersList = () => {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  bgcolor: mode === 'dark' ? '#252538' : '#f8fafc',
-                  '&:hover': { bgcolor: mode === 'dark' ? '#2a2a40' : '#f1f5f9' }
+                  bgcolor: sectionHeaderBg,
+                  '&:hover': { bgcolor: sectionHeaderHoverBg }
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -198,7 +198,7 @@ const AdminUsersList = () => {
                 <TableContainer>
                   <Table size="small">
                     <TableHead>
-                      <TableRow sx={{ bgcolor: mode === 'dark' ? '#1a1a28' : '#f8fafc' }}>
+                      <TableRow sx={{ bgcolor: tableHeaderBg }}>
                         <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Name</TableCell>
                         <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Email</TableCell>
                         <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Role</TableCell>
@@ -215,7 +215,7 @@ const AdminUsersList = () => {
                         </TableRow>
                       ) : (
                         filteredUsers.map((user) => (
-                          <TableRow key={user._id} sx={{ '&:hover': { bgcolor: mode === 'dark' ? '#252538' : '#f8fafc' } }}>
+                          <TableRow key={user._id} sx={{ '&:hover': { bgcolor: rowHoverBg } }}>
                             <TableCell>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 {user.isSuperAdmin ? (

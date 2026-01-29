@@ -14,6 +14,11 @@ export const getThemeColors = (mode) => ({
   chartGridColor: mode === 'dark' ? '#334155' : '#e5e7eb',
   pageBg: mode === 'dark' ? '#0f0f1a' : '#f8fafc',
   dialogBg: mode === 'dark' ? '#1e1e2e' : '#ffffff',
+  // Table/row backgrounds for hover and headers
+  rowHoverBg: mode === 'dark' ? '#252538' : '#f8fafc',
+  tableHeaderBg: mode === 'dark' ? '#1a1a28' : '#f8fafc',
+  sectionHeaderBg: mode === 'dark' ? '#252538' : '#f8fafc',
+  sectionHeaderHoverBg: mode === 'dark' ? '#2a2a40' : '#f1f5f9',
 });
 
 /**
