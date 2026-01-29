@@ -4195,6 +4195,32 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
             }
           }
           retries--;
+        } else if (saveErr.name === 'VersionError') {
+          // Last retry - use atomic update as fallback (consistent with extraction endpoint)
+          console.log('Final retry failed, using atomic update for file upload');
+          
+          // Build the path to the target array
+          let arrayPath = `folders.$[folder].documents`;
+          let arrayFilters = [{ 'folder.name': folderName }];
+          
+          if (subfolder) {
+            const parts = subfolder.split('/');
+            if (parts.length === 1) {
+              arrayPath = `folders.$[folder].subfolders.$[sub].documents`;
+              arrayFilters.push({ 'sub.name': parts[0] });
+            } else if (parts.length === 2) {
+              arrayPath = `folders.$[folder].subfolders.$[sub].subfolders.$[nested].documents`;
+              arrayFilters.push({ 'sub.name': parts[0] }, { 'nested.name': parts[1] });
+            }
+          }
+          
+          // Use $push with $each for atomic document addition
+          await Job.findByIdAndUpdate(
+            job._id,
+            { $push: { [arrayPath]: { $each: uploadedDocs } } },
+            { arrayFilters }
+          );
+          break;
         } else {
           throw saveErr;
         }
