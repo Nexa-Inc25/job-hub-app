@@ -48,6 +48,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [annotations, setAnnotations] = useState([]);
   const [currentTool, setCurrentTool] = useState('text');
+  const [inkColor, setInkColor] = useState('black');
   const [fontSize, setFontSize] = useState(12);
   const [zoom, setZoom] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -147,7 +148,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           y,
           text: currentText,
           fontSize,
-          color: 'black',
+          color: inkColor,
           page: currentPage
         };
         setAnnotations(prev => [...prev, newAnnotation]);
@@ -161,6 +162,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         x,
         y,
         size: fontSize,
+        color: inkColor,
         page: currentPage
       };
       setAnnotations(prev => [...prev, newAnnotation]);
@@ -184,7 +186,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         setSignatureDialogOpen(true);
       }
     }
-  }, [currentTool, currentText, fontSize, zoom, currentPage, savedSignature]);
+  }, [currentTool, currentText, fontSize, zoom, currentPage, savedSignature, inkColor]);
 
   // Signature canvas drawing functions
   const initSignatureCanvas = useCallback(() => {
@@ -369,20 +371,30 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const pages = pdfDoc.getPages();
 
+      // Helper to get RGB color from color name
+      const getInkRgb = (colorName) => {
+        switch (colorName) {
+          case 'red': return rgb(0.8, 0, 0);
+          case 'blue': return rgb(0, 0, 0.8);
+          default: return rgb(0, 0, 0);
+        }
+      };
+
       // Helper to draw a single annotation on a page
       const drawAnnotation = async (annotation, page, pageHeight, font, pdfDoc) => {
         const y = pageHeight - annotation.y;
+        const color = getInkRgb(annotation.color);
         
         if (annotation.type === 'text') {
           page.drawText(annotation.text, {
-            x: annotation.x, y, size: annotation.fontSize, font, color: rgb(0, 0, 0),
+            x: annotation.x, y, size: annotation.fontSize, font, color,
           });
           return;
         }
         
         if (annotation.type === 'check') {
           page.drawText('X', {
-            x: annotation.x, y, size: annotation.size, font, color: rgb(0, 0, 0),
+            x: annotation.x, y, size: annotation.size, font, color,
           });
           return;
         }
@@ -484,6 +496,31 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           <ToggleButton value="signature">
             <Tooltip title={savedSignature ? "Signature ready" : "Draw signature"}>
               <GestureIcon fontSize="small" color={savedSignature ? "success" : "inherit"} />
+            </Tooltip>
+          </ToggleButton>
+        </ToggleButtonGroup>
+
+        {/* Ink Color Selection */}
+        <ToggleButtonGroup
+          value={inkColor}
+          exclusive
+          onChange={(e, val) => val && setInkColor(val)}
+          size="small"
+          sx={{ '& .MuiToggleButton-root': { px: 1, py: 0.5, minWidth: 32 } }}
+        >
+          <ToggleButton value="black">
+            <Tooltip title="Black ink">
+              <Box sx={{ width: 16, height: 16, bgcolor: '#000', borderRadius: '50%', border: '1px solid #666' }} />
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="red">
+            <Tooltip title="Red ink">
+              <Box sx={{ width: 16, height: 16, bgcolor: '#cc0000', borderRadius: '50%', border: '1px solid #990000' }} />
+            </Tooltip>
+          </ToggleButton>
+          <ToggleButton value="blue">
+            <Tooltip title="Blue ink">
+              <Box sx={{ width: 16, height: 16, bgcolor: '#0000cc', borderRadius: '50%', border: '1px solid #000099' }} />
             </Tooltip>
           </ToggleButton>
         </ToggleButtonGroup>
@@ -731,9 +768,10 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                           onTouchStart={(e) => handleDragStart(e, annotation.id)}
                         >
                           {(() => {
+                            const displayColor = annotation.color === 'red' ? '#cc0000' : annotation.color === 'blue' ? '#0000cc' : '#000';
                             if (annotation.type === 'text') {
                               return (
-                                <Typography sx={{ fontSize: annotation.fontSize * zoom, fontFamily: 'Helvetica, Arial, sans-serif', color: 'black', whiteSpace: 'nowrap', lineHeight: 1 }}>
+                                <Typography sx={{ fontSize: annotation.fontSize * zoom, fontFamily: 'Helvetica, Arial, sans-serif', color: displayColor, whiteSpace: 'nowrap', lineHeight: 1 }}>
                                   {annotation.text}
                                 </Typography>
                               );
@@ -743,7 +781,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                                 <img src={annotation.imageData} alt="Signature" style={{ width: annotation.width * zoom, height: annotation.height * zoom, pointerEvents: 'none' }} />
                               );
                             }
-                            return <Typography sx={{ fontSize: annotation.size * zoom, color: 'green', lineHeight: 1 }}>✓</Typography>;
+                            return <Typography sx={{ fontSize: annotation.size * zoom, color: displayColor, lineHeight: 1, fontWeight: 700 }}>X</Typography>;
                           })()}
                           {selectedAnnotation === annotation.id && (
                             <IconButton
