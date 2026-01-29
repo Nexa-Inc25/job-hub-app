@@ -584,10 +584,10 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             variant={currentTool === 'signature' ? 'contained' : 'outlined'}
             color="warning"
             onClick={() => {
-              if (!savedSignature) {
-                setSignatureDialogOpen(true);
-              } else {
+              if (savedSignature) {
                 setCurrentTool('signature');
+              } else {
+                setSignatureDialogOpen(true);
               }
             }}
             sx={toolButtonStyle(currentTool === 'signature', 'warning')}
@@ -891,7 +891,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           }}
         >
           <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {annotations.length} item{annotations.length !== 1 ? 's' : ''} placed — tap Save when done
+            {annotations.length} item{annotations.length === 1 ? '' : 's'} placed — tap Save when done
           </Typography>
         </Paper>
       )}
