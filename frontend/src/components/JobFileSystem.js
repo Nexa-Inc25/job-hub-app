@@ -1067,7 +1067,26 @@ const JobFileSystem = () => {
             getOptionLabel={(option) => option.title}
             value={job}
             onChange={handleJobChange}
-            renderInput={(params) => <TextField {...params} id="job-selector" label="Select Job" variant="outlined" size="small" />}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                id="job-selector" 
+                label="Select Job" 
+                variant="outlined" 
+                size="small"
+                sx={{
+                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.9)', fontWeight: 500 },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
+                  '& .MuiOutlinedInput-root': { 
+                    color: '#fff',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
+                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.8)' },
+                    '&.Mui-focused fieldset': { borderColor: '#fff' },
+                  },
+                  '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.7)' },
+                }}
+              />
+            )}
             sx={{ width: 300, mr: 2 }}
           />
           <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
@@ -1097,7 +1116,7 @@ const JobFileSystem = () => {
           <FeedbackButton color="inherit" jobId={id} />
           <FormControlLabel
             control={<Switch checked={viewDetails} onChange={() => setViewDetails(!viewDetails)} />}
-            label={<Typography sx={{ fontWeight: 500 }}>View Details</Typography>}
+            label={<Typography sx={{ fontWeight: 600, color: '#fff' }}>View Details</Typography>}
           />
             {isAdmin && (
               <Button
