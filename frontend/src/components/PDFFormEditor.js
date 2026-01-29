@@ -121,6 +121,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   // Handle click on PDF to add annotation
   const handlePageClick = useCallback((e) => {
     if (!pageRef.current) return;
+    
+    // Deselect any selected annotation when clicking on PDF
+    setSelectedAnnotation(null);
 
     const rect = pageRef.current.getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoom;
