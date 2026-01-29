@@ -221,8 +221,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     // Get rect from the Box wrapper (e.currentTarget) since annotations 
     // are positioned with position:absolute relative to this Box
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom;
-    const y = (e.clientY - rect.top) / zoom;
+    
+    // The annotation Box has 4px padding, so offset coordinates so the
+    // content (checkmark/text) appears exactly where user clicked
+    const PADDING_OFFSET = 4;
+    const x = (e.clientX - rect.left - PADDING_OFFSET) / zoom;
+    const y = (e.clientY - rect.top - PADDING_OFFSET) / zoom;
     
     // Check if we need to open a dialog first
     if (handleToolDialogIfNeeded(currentTool, userInitials, savedSignature)) {
