@@ -13,11 +13,11 @@ const mongoose = require('mongoose');
  */
 const auditLogSchema = new mongoose.Schema({
   // When the action occurred
+  // Note: TTL index defined below handles indexing + auto-deletion
   timestamp: {
     type: Date,
     default: Date.now,
     required: true,
-    index: true
   },
   
   // Who performed the action
