@@ -177,26 +177,63 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     return `${Date.now()}_${array[0].toString(36)}${array[1].toString(36)}`;
   };
 
+  // Get canvas element from click event
+  const getCanvasFromEvent = (e) => {
+    if (e.target.tagName === 'CANVAS') return e.target;
+    return e.currentTarget.querySelector('canvas') || e.target;
+  };
+
+  // Create annotation based on current tool - extracted to reduce complexity
+  const createAnnotationForTool = (baseAnnotation, toolState) => {
+    const { tool, text, size, initials, signature, pmNumber } = toolState;
+    
+    switch (tool) {
+      case 'text':
+        return text?.trim() ? { ...baseAnnotation, type: 'text', text, fontSize: size } : null;
+      case 'check':
+        return { ...baseAnnotation, type: 'check', size };
+      case 'date':
+        return { ...baseAnnotation, type: 'text', text: new Date().toLocaleDateString(), fontSize: size };
+      case 'initials':
+        return initials ? { ...baseAnnotation, type: 'text', text: initials, fontSize: size + 2 } : null;
+      case 'signature':
+        return signature ? { ...baseAnnotation, type: 'signature', imageData: signature, width: 150, height: 50 } : null;
+      case 'pmNumber':
+        return pmNumber ? { ...baseAnnotation, type: 'text', text: pmNumber, fontSize: size } : null;
+      default:
+        return null;
+    }
+  };
+
+  // Handle dialog opens for tools that need setup
+  const handleToolDialogIfNeeded = (tool, initials, signature) => {
+    if (tool === 'initials' && !initials) {
+      setInitialsDialogOpen(true);
+      return true;
+    }
+    if (tool === 'signature' && !signature) {
+      setSignatureDialogOpen(true);
+      return true;
+    }
+    return false;
+  };
+
   // Handle click on PDF to add annotation
   const handlePageClick = useCallback((e) => {
     if (!pageRef.current || isDragging) return;
     
     setSelectedAnnotation(null);
 
-    // Get the canvas element - it might be e.target or we need to find it
-    let targetElement = e.target;
-    if (targetElement.tagName !== 'CANVAS') {
-      // Find the canvas within the clicked box
-      const canvas = e.currentTarget.querySelector('canvas');
-      if (canvas) {
-        targetElement = canvas;
-      }
-    }
-    
+    const targetElement = getCanvasFromEvent(e);
     const rect = targetElement.getBoundingClientRect();
     const x = (e.clientX - rect.left) / zoom;
     const y = (e.clientY - rect.top) / zoom;
     
+    // Check if we need to open a dialog first
+    if (handleToolDialogIfNeeded(currentTool, userInitials, savedSignature)) {
+      return;
+    }
+
     const baseAnnotation = {
       id: generateId(),
       x,
@@ -205,55 +242,18 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       page: currentPage,
     };
 
-    if (currentTool === 'text' && currentText.trim()) {
-      setAnnotations(prev => [...prev, {
-        ...baseAnnotation,
-        type: 'text',
-        text: currentText,
-        fontSize,
-      }]);
-      setCurrentText('');
-    } else if (currentTool === 'check') {
-      setAnnotations(prev => [...prev, {
-        ...baseAnnotation,
-        type: 'check',
-        size: fontSize,
-      }]);
-    } else if (currentTool === 'date') {
-      setAnnotations(prev => [...prev, {
-        ...baseAnnotation,
-        type: 'text',
-        text: new Date().toLocaleDateString(),
-        fontSize,
-      }]);
-    } else if (currentTool === 'initials') {
-      if (userInitials) {
-        setAnnotations(prev => [...prev, {
-          ...baseAnnotation,
-          type: 'text',
-          text: userInitials,
-          fontSize: fontSize + 2,
-        }]);
-      } else {
-        setInitialsDialogOpen(true);
-      }
-    } else if (currentTool === 'signature' && savedSignature) {
-      setAnnotations(prev => [...prev, {
-        ...baseAnnotation,
-        type: 'signature',
-        imageData: savedSignature,
-        width: 150,
-        height: 50,
-      }]);
-    } else if (currentTool === 'signature' && !savedSignature) {
-      setSignatureDialogOpen(true);
-    } else if (currentTool === 'pmNumber' && jobInfo?.pmNumber) {
-      setAnnotations(prev => [...prev, {
-        ...baseAnnotation,
-        type: 'text',
-        text: jobInfo.pmNumber,
-        fontSize,
-      }]);
+    const annotation = createAnnotationForTool(baseAnnotation, {
+      tool: currentTool,
+      text: currentText,
+      size: fontSize,
+      initials: userInitials,
+      signature: savedSignature,
+      pmNumber: jobInfo?.pmNumber,
+    });
+
+    if (annotation) {
+      setAnnotations(prev => [...prev, annotation]);
+      if (currentTool === 'text') setCurrentText('');
     }
   }, [currentTool, currentText, fontSize, zoom, currentPage, savedSignature, inkColor, userInitials, jobInfo, isDragging]);
 
