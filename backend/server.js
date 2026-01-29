@@ -4464,29 +4464,22 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
         break;
         
       case 'pending_qa_review':
-        // GF approved, moving to QA review
-        job.gfReviewDate = new Date();
-        job.gfReviewedBy = req.userId;
-        job.gfReviewStatus = 'approved';
-        if (reviewNotes) job.gfReviewNotes = reviewNotes;
+        // Status transition only - review fields are set by /review endpoint
+        // Do NOT set gfReviewDate, gfReviewedBy, gfReviewStatus here
         break;
         
       case 'pending_pm_approval':
-        // QA approved, moving to PM review
-        job.qaReviewDate = new Date();
-        job.qaReviewedBy = req.userId;
-        job.qaReviewStatus = 'approved';
-        if (reviewNotes) job.qaReviewNotes = reviewNotes;
+        // Status transition only - review fields are set by /review endpoint
+        // Do NOT set qaReviewDate, qaReviewedBy, qaReviewStatus here
         break;
         
       case 'ready_to_submit':
-        // PM approved, ready for utility submission
-        job.pmApprovalDate = new Date();
-        job.pmApprovedBy = req.userId;
-        job.pmApprovalStatus = 'approved';
-        if (reviewNotes) job.pmApprovalNotes = reviewNotes;
-        job.completedDate = new Date();
-        job.completedBy = req.userId;
+        // Status transition only - review/approval fields are set by /review endpoint
+        // Only set completion metadata if not already set (fallback for legacy flows)
+        if (!job.completedDate) {
+          job.completedDate = new Date();
+          job.completedBy = req.userId;
+        }
         break;
         
       case 'submitted':
