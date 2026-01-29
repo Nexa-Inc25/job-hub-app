@@ -10,35 +10,42 @@ const StatCard = ({
   value, 
   subtitle, 
   icon: Icon, 
-  color, 
+  color = '#6366f1', 
   cardBg, 
   textPrimary, 
   textSecondary, 
   borderColor,
   height = '100%',
-  onClick
+  onClick,
+  trend,
+  mode
 }) => (
   <Card 
     onClick={onClick}
     sx={{ 
       bgcolor: cardBg, 
       border: `1px solid ${borderColor}`, 
-      borderRadius: 2, 
+      borderRadius: 3, 
       height,
       cursor: onClick ? 'pointer' : 'default',
       transition: 'transform 0.2s, box-shadow 0.2s',
-      '&:hover': onClick ? { transform: 'translateY(-2px)', boxShadow: 4 } : {}
+      '&:hover': {
+        transform: onClick ? 'translateY(-4px)' : 'translateY(-2px)',
+        boxShadow: mode === 'dark' ? '0 8px 25px rgba(0,0,0,0.4)' : '0 8px 25px rgba(0,0,0,0.1)',
+        borderColor: onClick ? color : borderColor,
+      }
     }}
   >
     <CardContent>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Box>
-          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>{title}</Typography>
-          <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700 }}>{value}</Typography>
+          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5, fontWeight: 500 }}>{title}</Typography>
+          <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700, mb: 0.5 }}>{value}</Typography>
           {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
+          {trend && <Typography variant="caption" sx={{ color: textSecondary, display: 'block' }}>{trend}</Typography>}
         </Box>
-        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1 }}>
-          <Icon sx={{ color, fontSize: 24 }} />
+        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1.5 }}>
+          <Icon sx={{ color, fontSize: 28 }} />
         </Box>
       </Box>
     </CardContent>
@@ -50,13 +57,15 @@ StatCard.propTypes = {
   value: PropTypes.node.isRequired,
   subtitle: PropTypes.string,
   icon: PropTypes.elementType.isRequired,
-  color: PropTypes.string.isRequired,
+  color: PropTypes.string,
   cardBg: PropTypes.string.isRequired,
   textPrimary: PropTypes.string.isRequired,
   textSecondary: PropTypes.string.isRequired,
   borderColor: PropTypes.string.isRequired,
   height: PropTypes.string,
   onClick: PropTypes.func,
+  trend: PropTypes.node,
+  mode: PropTypes.string,
 };
 
 export default StatCard;

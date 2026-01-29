@@ -10,8 +10,6 @@ import {
   Container,
   Typography,
   Grid,
-  Card,
-  CardContent,
   Box,
   Paper,
   Divider,
@@ -61,46 +59,7 @@ import {
   Area,
   AreaChart,
 } from 'recharts';
-import { getThemeColors, CHART_COLORS, STATUS_COLORS } from './shared';
-
-// Extracted StatCard component
-const StatCard = ({ title, value, subtitle, icon: Icon, color = '#6366f1', trend, onClick, cardBg, textPrimary, textSecondary, borderColor, mode }) => (
-  <Card 
-    onClick={onClick}
-    sx={{ 
-      bgcolor: cardBg, 
-      border: `1px solid ${borderColor}`,
-      borderRadius: 3,
-      height: '100%',
-      cursor: onClick ? 'pointer' : 'default',
-      transition: 'transform 0.2s, box-shadow 0.2s',
-      '&:hover': {
-        transform: onClick ? 'translateY(-4px)' : 'translateY(-2px)',
-        boxShadow: mode === 'dark' ? '0 8px 25px rgba(0,0,0,0.4)' : '0 8px 25px rgba(0,0,0,0.1)',
-        borderColor: onClick ? color : borderColor,
-      }
-    }}
-  >
-    <CardContent>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Box>
-          <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5, fontWeight: 500 }}>{title}</Typography>
-          <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700, mb: 0.5 }}>{value}</Typography>
-          {subtitle && <Typography variant="caption" sx={{ color: textSecondary }}>{subtitle}</Typography>}
-          {trend}
-        </Box>
-        <Box sx={{ bgcolor: `${color}20`, borderRadius: 2, p: 1.5 }}>
-          <Icon sx={{ color, fontSize: 28 }} />
-        </Box>
-      </Box>
-    </CardContent>
-  </Card>
-);
-StatCard.propTypes = { 
-  title: PropTypes.string, value: PropTypes.node, subtitle: PropTypes.string, 
-  icon: PropTypes.elementType, color: PropTypes.string, trend: PropTypes.node, onClick: PropTypes.func,
-  cardBg: PropTypes.string, textPrimary: PropTypes.string, textSecondary: PropTypes.string, borderColor: PropTypes.string, mode: PropTypes.string
-};
+import { getThemeColors, CHART_COLORS, STATUS_COLORS, StatCard } from './shared';
 
 // Extracted HealthIndicator component
 const HealthIndicator = ({ status, label, textPrimary }) => {
