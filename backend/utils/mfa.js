@@ -7,7 +7,7 @@
 
 const { TOTP, Secret } = require('otpauth');
 const QRCode = require('qrcode');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 
 const APP_NAME = 'Job Hub Pro';
 const ISSUER = 'JobHubPro';
