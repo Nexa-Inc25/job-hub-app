@@ -22,6 +22,28 @@ export const getThemeColors = (mode) => ({
 export const CHART_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
 
 /**
+ * User role colors
+ */
+export const ROLE_COLORS = {
+  admin: '#6366f1',
+  pm: '#8b5cf6',
+  gf: '#f59e0b',
+  foreman: '#22c55e',
+  crew: '#64748b',
+};
+
+/**
+ * User role labels
+ */
+export const ROLE_LABELS = {
+  admin: 'Admin',
+  pm: 'Project Manager',
+  gf: 'General Foreman',
+  foreman: 'Foreman',
+  crew: 'Crew',
+};
+
+/**
  * Job status colors
  */
 export const STATUS_COLORS = {

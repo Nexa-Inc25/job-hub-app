@@ -6,7 +6,7 @@ export { default as ThemeToggle } from './ThemeToggle';
 export { default as AuthLayout } from './AuthLayout';
 export { default as LoadingState } from './LoadingState';
 export { default as ErrorState } from './ErrorState';
-export { getThemeColors, CHART_COLORS, STATUS_COLORS } from './themeUtils';
+export { getThemeColors, CHART_COLORS, STATUS_COLORS, ROLE_COLORS, ROLE_LABELS } from './themeUtils';
 export { 
   getPhotoUrl, 
   getDocumentUrl, 

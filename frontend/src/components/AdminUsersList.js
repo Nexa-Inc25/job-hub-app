@@ -34,23 +34,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
-import { getThemeColors, LoadingState, ErrorState } from './shared';
-
-const ROLE_COLORS = {
-  admin: '#6366f1',
-  pm: '#8b5cf6',
-  gf: '#f59e0b',
-  foreman: '#22c55e',
-  crew: '#64748b',
-};
-
-const ROLE_LABELS = {
-  admin: 'Admin',
-  pm: 'Project Manager',
-  gf: 'General Foreman',
-  foreman: 'Foreman',
-  crew: 'Crew',
-};
+import { getThemeColors, LoadingState, ErrorState, ROLE_COLORS, ROLE_LABELS } from './shared';
 
 const AdminUsersList = () => {
   const [companies, setCompanies] = useState([]);
