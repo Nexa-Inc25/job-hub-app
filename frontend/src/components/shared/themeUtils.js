@@ -57,9 +57,11 @@ export const STATUS_COLORS = {
   pending_pm_approval: '#f97316',
   ready_to_submit: '#10b981',
   submitted: '#6366f1',
+  go_back: '#ef4444',
   billed: '#8b5cf6',
   invoiced: '#22c55e',
   stuck: '#ef4444',
+  pending: '#64748b',
   // Audit statuses
   pending_qa: '#f59e0b',
   accepted: '#ef4444',
@@ -68,5 +70,36 @@ export const STATUS_COLORS = {
   correction_submitted: '#06b6d4',
   resolved: '#22c55e',
   closed: '#6366f1',
+};
+
+/**
+ * Job status labels
+ */
+export const STATUS_LABELS = {
+  new: 'New',
+  assigned_to_gf: 'Assigned to GF',
+  pre_fielding: 'Pre-Fielding',
+  scheduled: 'Scheduled',
+  in_progress: 'In Progress',
+  pending_gf_review: 'GF Review',
+  pending_qa_review: 'QA Review',
+  pending_pm_approval: 'PM Approval',
+  ready_to_submit: 'Ready to Submit',
+  submitted: 'Submitted',
+  go_back: 'Go-Back',
+  billed: 'Billed',
+  invoiced: 'Invoiced',
+  stuck: 'Stuck',
+  pending: 'Pending',
+};
+
+/**
+ * Priority colors
+ */
+export const PRIORITY_COLORS = {
+  emergency: '#ef4444',
+  high: '#f59e0b',
+  medium: '#6366f1',
+  low: '#22c55e',
 };
 

@@ -35,62 +35,15 @@ import {
   CartesianGrid,
   Tooltip as RechartsTooltip,
 } from 'recharts';
-import { StatCard, LoadingState, ErrorState } from './shared';
-
-// Priority color lookup
-const PRIORITY_COLORS = {
-  emergency: '#ef4444',
-  high: '#f59e0b',
-  medium: '#6366f1',
-  low: '#22c55e',
-};
-
-const STATUS_COLORS = {
-  new: '#3b82f6',
-  assigned_to_gf: '#8b5cf6',
-  pre_fielding: '#f59e0b',
-  scheduled: '#06b6d4',
-  in_progress: '#22c55e',
-  pending_gf_review: '#eab308',
-  pending_qa_review: '#f59e0b',
-  pending_pm_approval: '#f97316',
-  ready_to_submit: '#10b981',
-  submitted: '#6366f1',
-  go_back: '#ef4444',
-  billed: '#8b5cf6',
-  invoiced: '#22c55e',
-  stuck: '#ef4444',
-  pending: '#64748b',
-};
-
-const STATUS_LABELS = {
-  new: 'New',
-  assigned_to_gf: 'Assigned to GF',
-  pre_fielding: 'Pre-Fielding',
-  scheduled: 'Scheduled',
-  in_progress: 'In Progress',
-  pending_gf_review: 'GF Review',
-  pending_qa_review: 'QA Review',
-  pending_pm_approval: 'PM Approval',
-  ready_to_submit: 'Ready to Submit',
-  submitted: 'Submitted',
-  go_back: 'Go-Back',
-  billed: 'Billed',
-  invoiced: 'Invoiced',
-  stuck: 'Stuck',
-  pending: 'Pending',
-};
-
-// Helper to get theme colors based on mode
-const getThemeColors = (mode) => ({
-  cardBg: mode === 'dark' ? '#1e1e2e' : '#ffffff',
-  textPrimary: mode === 'dark' ? '#e2e8f0' : '#1e293b',
-  textSecondary: mode === 'dark' ? '#94a3b8' : '#64748b',
-  borderColor: mode === 'dark' ? '#334155' : '#e2e8f0',
-  chartGridColor: mode === 'dark' ? '#334155' : '#e5e7eb',
-  pageBg: mode === 'dark' ? '#0f0f1a' : '#f8fafc',
-  containerBg: mode === 'dark' ? '#0f0f1a' : '#f1f5f9',
-});
+import { 
+  StatCard, 
+  LoadingState, 
+  ErrorState, 
+  getThemeColors, 
+  STATUS_COLORS, 
+  STATUS_LABELS, 
+  PRIORITY_COLORS 
+} from './shared';
 
 // Helper to prepare chart data from stats
 const prepareChartData = (stats) => {
