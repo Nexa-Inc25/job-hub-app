@@ -1,5 +1,6 @@
 // src/components/SecurityDashboard.js - PG&E Compliance Security Dashboard
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
@@ -191,6 +192,13 @@ const SecurityDashboard = () => {
       </CardContent>
     </Card>
   );
+
+  StatCard.propTypes = {
+    title: PropTypes.string.isRequired,
+    value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+    icon: PropTypes.node.isRequired,
+    color: PropTypes.string.isRequired,
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
