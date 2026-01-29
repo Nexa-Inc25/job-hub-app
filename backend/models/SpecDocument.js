@@ -39,8 +39,11 @@ const specDocumentSchema = new mongoose.Schema({
     required: true
   },
   
-  // Sub-category for more specific filtering
-  subcategory: String,                               // e.g., "Pole Installation", "Transformer Specs"
+  // Section - groups specs within a category (2nd level folder)
+  section: String,                                   // e.g., "Grounding", "Pole Installation", "Conduit"
+  
+  // Sub-category for more specific filtering (3rd level if needed)
+  subcategory: String,                               // e.g., "Residential", "Commercial"
   
   // Which utility this spec belongs to
   utilityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Utility', required: true },
@@ -80,11 +83,12 @@ const specDocumentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries
-specDocumentSchema.index({ utilityId: 1, category: 1 });
+specDocumentSchema.index({ utilityId: 1, category: 1, section: 1 });
 specDocumentSchema.index({ utilityId: 1, isDeleted: 1 });
 specDocumentSchema.index({ companyId: 1 });
 specDocumentSchema.index({ tags: 1 });
-specDocumentSchema.index({ name: 'text', description: 'text', documentNumber: 'text' }); // Full-text search
+specDocumentSchema.index({ section: 1 });
+specDocumentSchema.index({ name: 'text', description: 'text', documentNumber: 'text', section: 'text' }); // Full-text search
 
 // Method to add a new version
 specDocumentSchema.methods.addVersion = async function(versionData, userId) {

@@ -5999,7 +5999,7 @@ const specUpload = multer({
 // Get all specs for a utility (with optional category filter)
 app.get('/api/specs', authenticateUser, async (req, res) => {
   try {
-    const { utilityId, category, search } = req.query;
+    const { utilityId, category, section, search } = req.query;
     const user = await User.findById(req.userId);
     
     const query = { isDeleted: { $ne: true } };
@@ -6010,6 +6010,10 @@ app.get('/api/specs', authenticateUser, async (req, res) => {
     
     if (category) {
       query.category = category;
+    }
+    
+    if (section) {
+      query.section = section;
     }
     
     // Multi-tenant filtering
@@ -6037,7 +6041,7 @@ app.get('/api/specs', authenticateUser, async (req, res) => {
       specs = await SpecDocument.find(query)
         .populate('utilityId', 'name shortName')
         .populate('createdBy', 'name email')
-        .sort({ category: 1, name: 1 })
+        .sort({ category: 1, section: 1, name: 1 })
         .lean();
     }
     
@@ -6084,7 +6088,7 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
     }
     
     const { 
-      name, description, documentNumber, category, subcategory, 
+      name, description, documentNumber, category, section, subcategory, 
       utilityId, effectiveDate, tags, versionNumber 
     } = req.body;
     
@@ -6123,6 +6127,7 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
       description,
       documentNumber,
       category,
+      section,
       subcategory,
       utilityId,
       companyId: user.companyId || null,
@@ -6219,7 +6224,7 @@ app.put('/api/specs/:id', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Permission denied' });
     }
     
-    const { name, description, documentNumber, category, subcategory, effectiveDate, expirationDate, tags } = req.body;
+    const { name, description, documentNumber, category, section, subcategory, effectiveDate, expirationDate, tags } = req.body;
     
     const spec = await SpecDocument.findById(req.params.id);
     if (!spec || spec.isDeleted) {
@@ -6230,6 +6235,7 @@ app.put('/api/specs/:id', authenticateUser, async (req, res) => {
     if (description !== undefined) spec.description = description;
     if (documentNumber !== undefined) spec.documentNumber = documentNumber;
     if (category) spec.category = category;
+    if (section !== undefined) spec.section = section;
     if (subcategory !== undefined) spec.subcategory = subcategory;
     if (effectiveDate) spec.effectiveDate = new Date(effectiveDate);
     if (expirationDate) spec.expirationDate = new Date(expirationDate);
@@ -6337,6 +6343,53 @@ app.get('/api/specs/meta/categories', authenticateUser, async (req, res) => {
     { value: 'environmental', label: 'Environmental Requirements' },
     { value: 'other', label: 'Other' }
   ]);
+});
+
+// Get all sections (optionally filtered by category) for tree navigation
+app.get('/api/specs/meta/sections', authenticateUser, async (req, res) => {
+  try {
+    const { category, utilityId } = req.query;
+    const user = await User.findById(req.userId);
+    
+    const matchStage = { isDeleted: { $ne: true } };
+    if (category) matchStage.category = category;
+    if (utilityId) matchStage.utilityId = new mongoose.Types.ObjectId(utilityId);
+    
+    // Multi-tenant filtering
+    if (user?.companyId && !user.isSuperAdmin) {
+      matchStage.$or = [
+        { companyId: user.companyId },
+        { companyId: { $exists: false } },
+        { companyId: null }
+      ];
+    }
+    
+    // Aggregate to get unique sections grouped by category
+    const result = await SpecDocument.aggregate([
+      { $match: matchStage },
+      { 
+        $group: { 
+          _id: { category: '$category', section: '$section' },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.category': 1, '_id.section': 1 } }
+    ]);
+    
+    // Transform into tree structure: { category: [sections] }
+    const tree = {};
+    for (const item of result) {
+      const cat = item._id.category;
+      const sec = item._id.section || 'Uncategorized';
+      if (!tree[cat]) tree[cat] = [];
+      tree[cat].push({ name: sec, count: item.count });
+    }
+    
+    res.json(tree);
+  } catch (err) {
+    console.error('Get sections error:', err);
+    res.status(500).json({ error: 'Failed to get sections' });
+  }
 });
 
 // === JOB DEPENDENCIES MANAGEMENT ===
