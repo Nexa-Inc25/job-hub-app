@@ -20,6 +20,8 @@ const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Job = require('./models/Job');
+const AuditLog = require('./models/AuditLog');
+const { logAuth, logDocument, logJob, logUser, logSecurity, logExport } = require('./middleware/auditLogger');
 const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
@@ -379,6 +381,7 @@ app.post('/api/login', async (req, res) => {
     if (user && user.isLocked()) {
       const remainingMins = Math.ceil((user.lockoutUntil - new Date()) / 60000);
       console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
+      logAuth.loginFailed(req, email, 'Account locked');
       return res.status(423).json({ 
         error: `Account temporarily locked. Try again in ${remainingMins} minutes.` 
       });
@@ -391,7 +394,13 @@ app.post('/api/login', async (req, res) => {
         await user.incLoginAttempts();
         console.log('Failed login attempt for:', email ? email.substring(0, 3) + '***' : 'unknown', 
           'Attempts:', user.failedLoginAttempts + 1);
+        
+        // Log account lockout if threshold reached
+        if (user.failedLoginAttempts + 1 >= 5) {
+          logAuth.accountLocked(req, email, user.failedLoginAttempts + 1);
+        }
       }
+      logAuth.loginFailed(req, email, 'Invalid credentials');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
@@ -399,6 +408,9 @@ app.post('/api/login', async (req, res) => {
     if (user.failedLoginAttempts > 0) {
       await user.resetLoginAttempts();
     }
+    
+    // Log successful login
+    logAuth.loginSuccess(req, user);
     
     const token = jwt.sign({ 
       userId: user._id, 
@@ -1503,6 +1515,9 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
     
     await job.save();
     console.log('Job created with folder structure:', job._id);
+    
+    // Audit log: Job created
+    logJob.create(req, job);
     
     // Send response immediately - don't wait for asset extraction
     res.status(201).json(job);
@@ -2788,6 +2803,199 @@ function formatUptime(seconds) {
 }
 
 // ========================================
+// AUDIT LOG ENDPOINTS - PG&E/NERC Compliance
+// ========================================
+
+// Get audit logs (Admin for company, Super Admin for all)
+app.get('/api/admin/audit-logs', authenticateUser, async (req, res) => {
+  try {
+    const { 
+      page = 1, 
+      limit = 50, 
+      action, 
+      category, 
+      severity, 
+      userId: filterUserId,
+      startDate,
+      endDate,
+      resourceType
+    } = req.query;
+    
+    // Build query based on permissions
+    const query = {};
+    
+    // Super admins can see all, regular admins only see their company
+    if (!req.isSuperAdmin) {
+      const user = await User.findById(req.userId).select('companyId isAdmin');
+      if (!user?.isAdmin) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
+      if (user.companyId) {
+        query.companyId = user.companyId;
+      }
+    }
+    
+    // Apply filters
+    if (action) query.action = action;
+    if (category) query.category = category;
+    if (severity) query.severity = severity;
+    if (filterUserId) query.userId = filterUserId;
+    if (resourceType) query.resourceType = resourceType;
+    
+    // Date range
+    if (startDate || endDate) {
+      query.timestamp = {};
+      if (startDate) query.timestamp.$gte = new Date(startDate);
+      if (endDate) query.timestamp.$lte = new Date(endDate);
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const [logs, total] = await Promise.all([
+      AuditLog.find(query)
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .lean(),
+      AuditLog.countDocuments(query)
+    ]);
+    
+    res.json({
+      logs,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / parseInt(limit))
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching audit logs:', err);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+});
+
+// Get audit log summary/stats (for compliance dashboard)
+app.get('/api/admin/audit-stats', authenticateUser, requireAdmin, async (req, res) => {
+  try {
+    const { days = 30 } = req.query;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+    
+    // Build company filter
+    const matchStage = { timestamp: { $gte: startDate } };
+    if (!req.isSuperAdmin) {
+      const user = await User.findById(req.userId).select('companyId');
+      if (user?.companyId) {
+        matchStage.companyId = user.companyId;
+      }
+    }
+    
+    const [
+      actionCounts,
+      severityCounts,
+      categoryCounts,
+      dailyActivity,
+      securityEvents
+    ] = await Promise.all([
+      // Count by action type
+      AuditLog.aggregate([
+        { $match: matchStage },
+        { $group: { _id: '$action', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 20 }
+      ]),
+      
+      // Count by severity
+      AuditLog.aggregate([
+        { $match: matchStage },
+        { $group: { _id: '$severity', count: { $sum: 1 } } }
+      ]),
+      
+      // Count by category
+      AuditLog.aggregate([
+        { $match: matchStage },
+        { $group: { _id: '$category', count: { $sum: 1 } } }
+      ]),
+      
+      // Daily activity (last 7 days)
+      AuditLog.aggregate([
+        { $match: { timestamp: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }, ...matchStage } },
+        { $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$timestamp' } },
+          count: { $sum: 1 }
+        }},
+        { $sort: { _id: 1 } }
+      ]),
+      
+      // Recent security events (critical/warning)
+      AuditLog.find({
+        ...matchStage,
+        severity: { $in: ['critical', 'warning'] }
+      })
+        .sort({ timestamp: -1 })
+        .limit(10)
+        .lean()
+    ]);
+    
+    res.json({
+      period: { days: parseInt(days), startDate },
+      actionCounts: actionCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
+      severityCounts: severityCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
+      categoryCounts: categoryCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
+      dailyActivity,
+      recentSecurityEvents: securityEvents
+    });
+  } catch (err) {
+    console.error('Error fetching audit stats:', err);
+    res.status(500).json({ error: 'Failed to fetch audit stats' });
+  }
+});
+
+// Export audit logs for compliance (CSV format)
+app.get('/api/admin/audit-logs/export', authenticateUser, requireAdmin, async (req, res) => {
+  try {
+    const { startDate, endDate, format = 'csv' } = req.query;
+    
+    // Build query
+    const query = {};
+    if (!req.isSuperAdmin) {
+      const user = await User.findById(req.userId).select('companyId');
+      if (user?.companyId) {
+        query.companyId = user.companyId;
+      }
+    }
+    
+    if (startDate) query.timestamp = { $gte: new Date(startDate) };
+    if (endDate) query.timestamp = { ...query.timestamp, $lte: new Date(endDate) };
+    
+    const logs = await AuditLog.find(query)
+      .sort({ timestamp: -1 })
+      .limit(10000) // Cap at 10k records for export
+      .lean();
+    
+    // Log the export action itself
+    logExport.bulkDownload(req, null, logs.length);
+    
+    if (format === 'csv') {
+      const csvHeader = 'Timestamp,User,Email,Action,Category,Severity,Resource Type,Resource Name,IP Address,Success\\n';
+      const csvRows = logs.map(log => 
+        `"${log.timestamp.toISOString()}","${log.userName || ''}","${log.userEmail || ''}","${log.action}","${log.category || ''}","${log.severity}","${log.resourceType || ''}","${log.resourceName || ''}","${log.ipAddress || ''}","${log.success}"`
+      ).join('\\n');
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.csv"`);
+      res.send(csvHeader + csvRows);
+    } else {
+      res.json(logs);
+    }
+  } catch (err) {
+    console.error('Error exporting audit logs:', err);
+    res.status(500).json({ error: 'Failed to export audit logs' });
+  }
+});
+
+// ========================================
 // SUPER ADMIN - COMPANY ONBOARDING
 // Simple endpoints for non-technical owners to add companies/users
 // ========================================
@@ -4044,6 +4252,9 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
     // Combine all chunks into final ZIP buffer
     const zipBuffer = Buffer.concat(zipChunks);
     
+    // Audit log: Bulk download/export
+    logExport.bulkDownload(req, id, filesToZip.length);
+    
     // Send the complete, valid ZIP
     res.setHeader('Content-Type', 'application/zip');
     res.setHeader('Content-Disposition', `attachment; filename="${zipFilename}"`);
@@ -4128,6 +4339,9 @@ app.delete('/api/jobs/:id/documents/:docId', authenticateUser, async (req, res) 
     }
     
     await job.save();
+    
+    // Audit log: Document deleted
+    logDocument.delete(req, { _id: docId, name: removedDoc?.name || docId }, id);
     
     console.log('Document removed from job:', docId);
     res.json({ message: 'Document deleted successfully', documentId: docId });

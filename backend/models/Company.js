@@ -21,6 +21,51 @@ const settingsSchema = new mongoose.Schema({
   smsNotifications: { type: Boolean, default: false }
 });
 
+// Security and compliance settings (PG&E Exhibit 5/DATA-1)
+const securitySettingsSchema = new mongoose.Schema({
+  // Data retention (per PG&E Exhibit 5 - 7 years default)
+  dataRetentionYears: { type: Number, default: 7 },
+  autoDeleteAfterRetention: { type: Boolean, default: false },
+  
+  // MFA settings
+  mfaRequired: { type: Boolean, default: false },
+  mfaRequiredForRoles: [{ type: String, enum: ['admin', 'pm', 'gf', 'qa', 'foreman', 'crew'] }],
+  
+  // Password policy
+  passwordMinLength: { type: Number, default: 8 },
+  passwordRequireUppercase: { type: Boolean, default: true },
+  passwordRequireLowercase: { type: Boolean, default: true },
+  passwordRequireNumber: { type: Boolean, default: true },
+  passwordRequireSpecial: { type: Boolean, default: false },
+  passwordExpiryDays: { type: Number, default: 0 }, // 0 = no expiry
+  
+  // Session settings
+  sessionTimeoutMinutes: { type: Number, default: 480 }, // 8 hours
+  maxConcurrentSessions: { type: Number, default: 5 },
+  
+  // Access controls
+  ipWhitelist: [String], // Empty = allow all
+  allowedDomains: [String], // For email-based access control
+  
+  // Audit settings
+  auditLogRetentionDays: { type: Number, default: 2557 }, // 7 years
+  alertOnCriticalEvents: { type: Boolean, default: true },
+  securityAlertEmails: [String],
+  
+  // Compliance certifications
+  certifications: [{
+    name: String, // e.g., "ISO 27001", "SOC 2 Type II"
+    issueDate: Date,
+    expiryDate: Date,
+    certificateUrl: String
+  }],
+  
+  // Last security review
+  lastSecurityReview: Date,
+  nextSecurityReview: Date,
+  securityReviewNotes: String
+});
+
 // Main Company schema
 const companySchema = new mongoose.Schema({
   name: { type: String, required: true },  // "ABC Electrical Contractors"
@@ -47,6 +92,9 @@ const companySchema = new mongoose.Schema({
   
   // Company settings
   settings: settingsSchema,
+  
+  // Security and compliance settings
+  securitySettings: securitySettingsSchema,
   
   // The user who created/owns the company
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
