@@ -2,16 +2,12 @@
 // Detailed view of all platform users organized by company
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
   Container,
   Typography,
   Box,
   Paper,
-  IconButton,
-  AppBar,
-  Toolbar,
   Chip,
   Table,
   TableBody,
@@ -24,7 +20,6 @@ import {
   InputAdornment,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
   People as PeopleIcon,
   Business as BusinessIcon,
   ExpandMore as ExpandMoreIcon,
@@ -34,7 +29,7 @@ import {
   Person as PersonIcon,
 } from '@mui/icons-material';
 import { useThemeMode } from '../ThemeContext';
-import { getThemeColors, LoadingState, ErrorState, ROLE_COLORS, ROLE_LABELS } from './shared';
+import { getThemeColors, LoadingState, ErrorState, ROLE_COLORS, ROLE_LABELS, AdminPageHeader } from './shared';
 
 const AdminUsersList = () => {
   const [companies, setCompanies] = useState([]);
@@ -43,7 +38,6 @@ const AdminUsersList = () => {
   const [expandedCompanies, setExpandedCompanies] = useState({});
   const [search, setSearch] = useState('');
   const [stats, setStats] = useState({ totalUsers: 0, totalCompanies: 0 });
-  const navigate = useNavigate();
   const { mode } = useThemeMode();
   const { cardBg, textPrimary, textSecondary, borderColor, pageBg, rowHoverBg, tableHeaderBg, sectionHeaderBg, sectionHeaderHoverBg } = getThemeColors(mode);
 
@@ -121,21 +115,14 @@ const AdminUsersList = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: cardBg, borderBottom: `1px solid ${borderColor}` }}>
-        <Toolbar>
-          <IconButton onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 2, color: textPrimary }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <PeopleIcon sx={{ mr: 1.5, color: '#6366f1' }} />
-          <Typography variant="h6" sx={{ flexGrow: 1, color: textPrimary, fontWeight: 700 }}>
-            All Users
-          </Typography>
-          <Chip 
-            label={`${stats.totalUsers} users across ${stats.totalCompanies} companies`}
-            sx={{ bgcolor: '#6366f120', color: '#6366f1', fontWeight: 600 }}
-          />
-        </Toolbar>
-      </AppBar>
+      <AdminPageHeader
+        title="All Users"
+        icon={PeopleIcon}
+        chipLabel={`${stats.totalUsers} users across ${stats.totalCompanies} companies`}
+        cardBg={cardBg}
+        textPrimary={textPrimary}
+        borderColor={borderColor}
+      />
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Search */}

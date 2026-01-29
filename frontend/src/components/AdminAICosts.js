@@ -2,21 +2,15 @@
 // Detailed view of AI/API usage and costs
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
   Container,
   Typography,
   Box,
   Paper,
-  IconButton,
-  AppBar,
-  Toolbar,
-  Chip,
   Grid,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
   AttachMoney as MoneyIcon,
   Psychology as AIIcon,
   Speed as SpeedIcon,
@@ -35,13 +29,12 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { StatCard, LoadingState, ErrorState } from './shared';
+import { StatCard, LoadingState, ErrorState, AdminPageHeader } from './shared';
 
 const AdminAICosts = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
   const { mode } = useThemeMode();
   const { cardBg, textPrimary, textSecondary, borderColor, chartGridColor, pageBg } = getThemeColors(mode);
 
@@ -82,21 +75,16 @@ const AdminAICosts = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: cardBg, borderBottom: `1px solid ${borderColor}` }}>
-        <Toolbar>
-          <IconButton onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 2, color: textPrimary }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <MoneyIcon sx={{ mr: 1.5, color: '#ef4444' }} />
-          <Typography variant="h6" sx={{ flexGrow: 1, color: textPrimary, fontWeight: 700 }}>
-            AI & API Costs
-          </Typography>
-          <Chip 
-            label={`$${stats?.apiUsage?.totalCostThisMonthDollars || '0.00'} this month`}
-            sx={{ bgcolor: '#ef444420', color: '#ef4444', fontWeight: 600 }}
-          />
-        </Toolbar>
-      </AppBar>
+      <AdminPageHeader
+        title="AI & API Costs"
+        icon={MoneyIcon}
+        iconColor="#ef4444"
+        chipLabel={`$${stats?.apiUsage?.totalCostThisMonthDollars || '0.00'} this month`}
+        chipColor="#ef4444"
+        cardBg={cardBg}
+        textPrimary={textPrimary}
+        borderColor={borderColor}
+      />
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Cost Summary */}

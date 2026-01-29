@@ -2,21 +2,15 @@
 // Detailed view of all jobs across all companies
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
   Container,
   Typography,
   Box,
   Paper,
-  IconButton,
-  AppBar,
-  Toolbar,
-  Chip,
   Grid,
 } from '@mui/material';
 import {
-  ArrowBack as ArrowBackIcon,
   Work as WorkIcon,
   Warning as WarningIcon,
   Schedule as ScheduleIcon,
@@ -42,7 +36,8 @@ import {
   getThemeColors, 
   STATUS_COLORS, 
   STATUS_LABELS, 
-  PRIORITY_COLORS 
+  PRIORITY_COLORS,
+  AdminPageHeader
 } from './shared';
 
 // Helper to prepare chart data from stats
@@ -70,7 +65,6 @@ const AdminJobsOverview = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const navigate = useNavigate();
   const { mode } = useThemeMode();
 
   const theme = getThemeColors(mode);
@@ -109,21 +103,16 @@ const AdminJobsOverview = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: theme.containerBg }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#ffffff', borderBottom: `1px solid ${borderColor}` }}>
-        <Toolbar>
-          <IconButton onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 2, color: textPrimary }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <WorkIcon sx={{ mr: 1.5, color: '#22c55e' }} />
-          <Typography variant="h6" sx={{ flexGrow: 1, color: textPrimary, fontWeight: 700 }}>
-            Jobs Overview
-          </Typography>
-          <Chip 
-            label={`${stats?.jobs?.total || 0} total jobs`}
-            sx={{ bgcolor: '#22c55e20', color: '#22c55e', fontWeight: 600 }}
-          />
-        </Toolbar>
-      </AppBar>
+      <AdminPageHeader
+        title="Jobs Overview"
+        icon={WorkIcon}
+        iconColor="#22c55e"
+        chipLabel={`${stats?.jobs?.total || 0} total jobs`}
+        chipColor="#22c55e"
+        cardBg={cardBg}
+        textPrimary={textPrimary}
+        borderColor={borderColor}
+      />
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Quick Stats */}
