@@ -501,26 +501,27 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     }
   };
 
-  // Tool button style - LARGE for iPad
+  // Tool button style - Compact for more document space
   const toolButtonStyle = (isSelected, colorTheme = 'primary') => ({
-    minWidth: 70,
-    minHeight: 60,
-    fontSize: '0.75rem',
+    minWidth: 44,
+    minHeight: 44,
+    px: 1.5,
+    py: 0.5,
+    fontSize: '0.7rem',
     fontWeight: isSelected ? 700 : 500,
-    flexDirection: 'column',
-    gap: 0.5,
-    border: isSelected ? '3px solid' : '2px solid',
-    borderColor: isSelected ? `${colorTheme}.main` : 'grey.300',
+    border: isSelected ? '3px solid' : '1px solid',
+    borderColor: isSelected ? `${colorTheme}.main` : 'grey.400',
     bgcolor: isSelected ? `${colorTheme}.light` : 'background.paper',
     color: isSelected ? `${colorTheme}.dark` : 'text.primary',
-    borderRadius: 2,
+    borderRadius: 1.5,
     textTransform: 'none',
     '&:hover': {
       bgcolor: `${colorTheme}.light`,
       borderColor: `${colorTheme}.main`,
     },
     '& .MuiSvgIcon-root': {
-      fontSize: 28,
+      fontSize: 20,
+      mr: 0.5,
     },
   });
 
@@ -538,52 +539,55 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', bgcolor: '#e0e0e0' }}>
       
-      {/* ===== MAIN TOOLBAR - LARGE BUTTONS ===== */}
+      {/* ===== COMPACT TOOLBAR ===== */}
       <Paper 
-        elevation={3}
+        elevation={2}
         sx={{ 
-          p: 1.5,
+          px: 1,
+          py: 0.75,
           display: 'flex', 
           flexDirection: 'column',
-          gap: 1.5,
+          gap: 0.75,
           borderRadius: 0,
           bgcolor: 'background.paper',
           flexShrink: 0,
         }}
       >
-        {/* Row 1: Tool Selection - BIG LABELED BUTTONS */}
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', justifyContent: 'center' }}>
+        {/* Single Row: Tools + Colors + Zoom + Actions */}
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Tool Buttons */}
           <Button
+            size="small"
             variant={currentTool === 'check' ? 'contained' : 'outlined'}
             color="success"
             onClick={() => setCurrentTool('check')}
             sx={toolButtonStyle(currentTool === 'check', 'success')}
           >
-            <CheckIcon />
-            CHECK
+            <CheckIcon />✓
           </Button>
 
           <Button
+            size="small"
             variant={currentTool === 'date' ? 'contained' : 'outlined'}
             color="primary"
             onClick={() => setCurrentTool('date')}
             sx={toolButtonStyle(currentTool === 'date', 'primary')}
           >
-            <TodayIcon />
-            DATE
+            <TodayIcon />Date
           </Button>
 
           <Button
+            size="small"
             variant={currentTool === 'initials' ? 'contained' : 'outlined'}
             color="secondary"
             onClick={() => setCurrentTool('initials')}
             sx={toolButtonStyle(currentTool === 'initials', 'secondary')}
           >
-            <PersonIcon />
-            {userInitials || 'INIT'}
+            <PersonIcon />{userInitials || 'Init'}
           </Button>
 
           <Button
+            size="small"
             variant={currentTool === 'signature' ? 'contained' : 'outlined'}
             color="warning"
             onClick={() => {
@@ -595,112 +599,114 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             }}
             sx={toolButtonStyle(currentTool === 'signature', 'warning')}
           >
-            <GestureIcon />
-            {savedSignature ? 'SIGN ✓' : 'SIGN'}
+            <GestureIcon />{savedSignature ? 'Sign✓' : 'Sign'}
           </Button>
 
           {jobInfo?.pmNumber && (
             <Button
+              size="small"
               variant={currentTool === 'pmNumber' ? 'contained' : 'outlined'}
               color="info"
               onClick={() => setCurrentTool('pmNumber')}
               sx={toolButtonStyle(currentTool === 'pmNumber', 'info')}
             >
-              <TagIcon />
-              PM#
+              <TagIcon />PM#
             </Button>
           )}
 
           <Button
+            size="small"
             variant={currentTool === 'text' ? 'contained' : 'outlined'}
             onClick={() => setCurrentTool('text')}
             sx={toolButtonStyle(currentTool === 'text', 'primary')}
           >
-            <TextFieldsIcon />
-            TEXT
+            <TextFieldsIcon />Text
+          </Button>
+
+          {/* Divider */}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+          {/* Ink Colors - compact circles */}
+          {Object.entries(INK_COLORS).map(([name, { hex }]) => (
+            <IconButton
+              key={name}
+              size="small"
+              onClick={() => setInkColor(name)}
+              sx={{
+                width: 28,
+                height: 28,
+                bgcolor: hex,
+                border: inkColor === name ? '3px solid #1976d2' : '2px solid #888',
+                '&:hover': { bgcolor: hex, opacity: 0.8 },
+              }}
+              aria-label={`${name} ink`}
+            />
+          ))}
+
+          {/* Divider */}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+          {/* Zoom - compact */}
+          <IconButton size="small" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
+            <ZoomOutIcon fontSize="small" />
+          </IconButton>
+          <Typography variant="caption" sx={{ minWidth: 32, textAlign: 'center', fontWeight: 500 }}>
+            {Math.round(zoom * 100)}%
+          </Typography>
+          <IconButton size="small" onClick={() => setZoom(z => Math.min(2, z + 0.25))}>
+            <ZoomInIcon fontSize="small" />
+          </IconButton>
+
+          {/* Divider */}
+          <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+          {/* Undo & Settings */}
+          <IconButton 
+            size="small"
+            onClick={handleUndo} 
+            disabled={annotations.length === 0}
+            aria-label="Undo"
+          >
+            <UndoIcon fontSize="small" />
+          </IconButton>
+          <IconButton 
+            size="small"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Settings"
+          >
+            <SettingsIcon fontSize="small" />
+          </IconButton>
+
+          {/* Save Button - right aligned */}
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            onClick={handleSave}
+            disabled={saving || annotations.length === 0}
+            sx={{ 
+              ml: 'auto',
+              minWidth: 70,
+              fontWeight: 600,
+            }}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon fontSize="small" />}
+          >
+            {saving ? '...' : 'Save'}
           </Button>
         </Box>
 
-        {/* Row 2: Text Input (when text tool selected) */}
+        {/* Text Input Row (only when text tool selected) */}
         {currentTool === 'text' && (
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-            <TextField
-              fullWidth
-              size="medium"
-              placeholder="Type here, then tap PDF..."
-              value={currentText}
-              onChange={(e) => setCurrentText(e.target.value)}
-              autoFocus
-              sx={{ 
-                '& .MuiInputBase-input': { 
-                  fontSize: 18,
-                  py: 1.5,
-                },
-              }}
-            />
-          </Box>
+          <TextField
+            fullWidth
+            size="small"
+            placeholder="Type here, then tap PDF to place..."
+            value={currentText}
+            onChange={(e) => setCurrentText(e.target.value)}
+            autoFocus
+            sx={{ '& .MuiInputBase-input': { fontSize: 14, py: 0.75 } }}
+          />
         )}
-
-        {/* Row 3: Color, Zoom, Actions */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          {/* Ink Colors */}
-          <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ mr: 0.5, fontWeight: 500 }}>Ink:</Typography>
-            {Object.entries(INK_COLORS).map(([name, { hex }]) => (
-              <IconButton
-                key={name}
-                onClick={() => setInkColor(name)}
-                sx={{
-                  width: 44,
-                  height: 44,
-                  bgcolor: hex,
-                  border: inkColor === name ? '4px solid #1976d2' : '2px solid #999',
-                  '&:hover': { bgcolor: hex, opacity: 0.8 },
-                }}
-                aria-label={`${name} ink`}
-              />
-            ))}
-          </Box>
-
-          {/* Zoom */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <IconButton onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} sx={{ width: 44, height: 44 }}>
-              <ZoomOutIcon />
-            </IconButton>
-            <Chip label={`${Math.round(zoom * 100)}%`} sx={{ minWidth: 60, fontSize: 14 }} />
-            <IconButton onClick={() => setZoom(z => Math.min(2, z + 0.25))} sx={{ width: 44, height: 44 }}>
-              <ZoomInIcon />
-            </IconButton>
-          </Box>
-
-          {/* Actions */}
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <IconButton 
-              onClick={handleUndo} 
-              disabled={annotations.length === 0}
-              sx={{ width: 44, height: 44 }}
-              aria-label="Undo"
-            >
-              <UndoIcon />
-            </IconButton>
-            <IconButton 
-              onClick={handleClearAll} 
-              disabled={annotations.length === 0}
-              color="error"
-              sx={{ width: 44, height: 44 }}
-              aria-label="Clear all"
-            >
-              <ClearAllIcon />
-            </IconButton>
-            <IconButton 
-              onClick={() => setSettingsOpen(true)}
-              sx={{ width: 44, height: 44 }}
-              aria-label="Settings"
-            >
-              <SettingsIcon />
-            </IconButton>
-          </Box>
-        </Box>
       </Paper>
 
       {/* ===== PDF DISPLAY ===== */}
@@ -876,44 +882,26 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         </Box>
       </Box>
 
-      {/* ===== BOTTOM SAVE BAR ===== */}
-      <Paper
-        elevation={4}
-        sx={{
-          p: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          borderRadius: 0,
-          gap: 2,
-          flexShrink: 0,
-          bgcolor: annotations.length > 0 ? 'success.light' : 'background.paper',
-        }}
-      >
-        <Typography variant="body1" sx={{ fontWeight: 500 }}>
-          {annotations.length === 0 
-            ? `Select a tool, then tap on the PDF` 
-            : `${annotations.length} item${annotations.length !== 1 ? 's' : ''} placed`}
-        </Typography>
-        
-        <Button
-          variant="contained"
-          color="success"
-          size="large"
-          startIcon={saving ? <CircularProgress size={24} color="inherit" /> : <SaveIcon />}
-          onClick={handleSave}
-          disabled={saving || annotations.length === 0}
-          sx={{ 
-            minWidth: 160,
-            height: 56,
-            fontSize: 18,
-            fontWeight: 700,
-            borderRadius: 2,
+      {/* ===== BOTTOM STATUS BAR (minimal) ===== */}
+      {annotations.length > 0 && (
+        <Paper
+          elevation={1}
+          sx={{
+            px: 2,
+            py: 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderRadius: 0,
+            flexShrink: 0,
+            bgcolor: 'success.light',
           }}
         >
-          {saving ? 'SAVING...' : 'SAVE'}
-        </Button>
-      </Paper>
+          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+            {annotations.length} item{annotations.length !== 1 ? 's' : ''} placed — tap Save when done
+          </Typography>
+        </Paper>
+      )}
 
       {/* ===== SETTINGS DRAWER ===== */}
       <Drawer anchor="right" open={settingsOpen} onClose={() => setSettingsOpen(false)}>
