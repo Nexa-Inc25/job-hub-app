@@ -8,7 +8,25 @@ describe('Dashboard', () => {
   beforeEach(() => {
     cy.waitForApi();
     
-    // Mock authenticated state
+    // Mock user authentication endpoint (CRITICAL - Dashboard calls this)
+    cy.intercept('GET', '**/api/users/me', {
+      statusCode: 200,
+      body: {
+        _id: 'user1',
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'gf',
+        isAdmin: false
+      }
+    }).as('getMe');
+
+    // Mock foremen list (Dashboard may call this)
+    cy.intercept('GET', '**/api/users/foremen', {
+      statusCode: 200,
+      body: []
+    }).as('getForemen');
+
+    // Mock jobs list
     cy.intercept('GET', '**/api/jobs*', {
       statusCode: 200,
       body: [
