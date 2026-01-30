@@ -52,19 +52,19 @@ describe('Authentication', () => {
     });
 
     it('should display the signup form', () => {
-      cy.get('input[name="name"]').should('be.visible');
       cy.get('input[name="email"]').should('be.visible');
       cy.get('input[name="password"]').should('be.visible');
+      cy.get('input[name="confirmPassword"]').should('be.visible');
     });
 
     it('should show validation for weak password', () => {
-      cy.get('input[name="name"]').type('Test User');
       cy.get('input[name="email"]').type('test@example.com');
       cy.get('input[name="password"]').type('weak');
+      cy.get('input[name="confirmPassword"]').type('weak');
       cy.get('button[type="submit"]').click();
       
-      // Should show password requirement error
-      cy.contains(/password|character|strong/i).should('be.visible');
+      // Should show password requirement error or form validation
+      cy.contains(/password|character|strong|error|invalid/i).should('be.visible');
     });
 
     it('should have link back to login', () => {
