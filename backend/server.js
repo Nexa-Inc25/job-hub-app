@@ -4128,6 +4128,8 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
           fileToUpload = tempConvertedFile;
           // Update filename to .jpg
           finalName = file.originalname.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+          // Update docUrl for local storage (Bug fix: was pointing to original HEIC file)
+          docUrl = `/uploads/${path.basename(tempConvertedFile)}`;
           console.log('HEIC converted successfully:', finalName);
         } catch (convertErr) {
           console.error('Failed to convert HEIC:', convertErr.message);
@@ -5125,8 +5127,9 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
     const isPM = ['pm', 'admin'].includes(userRole) || job.userId?.toString() === req.userId;
     
     // Determine which review stage we're in
-    if (job.status === 'pending_gf_review' && (isGF || isPM)) {
-      // GF reviewing crew submission
+    // Note: PM cannot bypass GF stage - must go through proper hierarchy: GF → QA → PM
+    if (job.status === 'pending_gf_review' && isGF) {
+      // GF reviewing crew submission (PM cannot review at this stage)
       job.gfReviewDate = new Date();
       job.gfReviewedBy = req.userId;
       job.gfReviewNotes = notes;
