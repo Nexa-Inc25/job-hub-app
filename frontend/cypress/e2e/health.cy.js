@@ -36,8 +36,8 @@ describe('Health Check', () => {
   });
 
   it('should have correct meta viewport for mobile', () => {
-    cy.document()
-      .get('head meta[name="viewport"]')
+    cy.visit('/');
+    cy.get('head meta[name="viewport"]')
       .should('have.attr', 'content')
       .and('include', 'width=device-width');
   });
