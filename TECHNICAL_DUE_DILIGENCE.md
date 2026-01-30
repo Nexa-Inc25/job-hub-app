@@ -389,11 +389,24 @@ k6 run backend/load-tests/k6-load-test.js
 docker-compose up
 ```
 
-### Compliance Certifications Ready
+### Compliance Status
 
-- [ ] SOC 2 Type II (architecture supports)
-- [ ] NERC CIP (audit logging compliant)
-- [x] PG&E Exhibit 5 (7-year retention)
+| Standard | Status | Notes |
+|----------|--------|-------|
+| **SOC 2 Type II** | Architecture Ready | Controls implemented, awaiting formal audit |
+| **NERC CIP** | Supports Client Compliance | Audit logging meets CIP-007 R5/R6 requirements |
+| **PG&E Exhibit 5** | Compliant | 7-year TTL retention implemented |
+
+### Path to SOC 2 Certification
+
+1. ✅ **Technical Controls** - Implemented
+2. ✅ **Audit Logging** - 7-year retention, all events logged
+3. ✅ **Access Controls** - MFA, RBAC, account lockout
+4. ⬜ **Formal Policies** - Document security policies
+5. ⬜ **Penetration Test** - Annual third-party pentest
+6. ⬜ **Type II Audit** - Engage CPA firm (Vanta, Drata, or Big 4)
+
+*Estimated timeline to SOC 2 Type II: 6-9 months with dedicated effort*
 
 ---
 
