@@ -190,8 +190,7 @@ jobs:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
     needs: [backend-test, frontend-test]
-    # Only run if SONAR_TOKEN is configured
-    if: ${{ secrets.SONAR_TOKEN != '' }}
+    # Will fail gracefully if SONAR_TOKEN not configured
     continue-on-error: true
     
     steps:
