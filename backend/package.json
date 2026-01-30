@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "jest --coverage --detectOpenHandles --forceExit",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --coverage --ci --forceExit"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
@@ -34,5 +37,10 @@
     "pdf2pic": "^3.2.0",
     "pdfjs-dist": "^3.11.174",
     "sharp": "^0.34.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0",
+    "mongodb-memory-server": "^10.0.0"
   }
 }

@@ -1,0 +1,301 @@
+/**
+ * Jobs Controller
+ * 
+ * Handles job CRUD operations and workflow management.
+ * Extracted from server.js for modularity and testability.
+ * 
+ * @module controllers/jobs
+ */
+
+const Job = require('../models/Job');
+const { logJob } = require('../middleware/auditLogger');
+
+/**
+ * List all jobs accessible to the user
+ * GET /api/jobs
+ */
+const listJobs = async (req, res) => {
+  try {
+    const { status, assignedTo, limit = 100, skip = 0 } = req.query;
+    
+    // Build query based on user role
+    const query = {};
+    
+    // Filter by status if provided
+    if (status && status !== 'all') {
+      query.status = status;
+    }
+    
+    // Filter by assigned user if provided
+    if (assignedTo) {
+      query.assignedTo = assignedTo;
+    }
+    
+    // Non-admins can only see jobs assigned to them or their company
+    if (!req.isAdmin && !req.isSuperAdmin) {
+      query.$or = [
+        { assignedTo: req.userId },
+        { companyId: req.companyId },
+        { createdBy: req.userId }
+      ];
+    }
+    
+    const jobs = await Job.find(query)
+      .sort({ updatedAt: -1 })
+      .limit(parseInt(limit, 10))
+      .skip(parseInt(skip, 10))
+      .populate('assignedTo', 'name email')
+      .lean();
+    
+    res.json(jobs);
+    
+  } catch (error) {
+    console.error('List jobs error:', error);
+    res.status(500).json({ error: 'Failed to list jobs' });
+  }
+};
+
+/**
+ * Get single job by ID
+ * GET /api/jobs/:id
+ */
+const getJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const job = await Job.findById(id)
+      .populate('assignedTo', 'name email role')
+      .populate('createdBy', 'name email')
+      .lean();
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Check access permissions
+    if (!req.isAdmin && !req.isSuperAdmin) {
+      const hasAccess = 
+        job.assignedTo?._id?.toString() === req.userId ||
+        job.createdBy?._id?.toString() === req.userId ||
+        job.companyId?.toString() === req.companyId;
+      
+      if (!hasAccess) {
+        return res.status(403).json({ error: 'Access denied' });
+      }
+    }
+    
+    res.json(job);
+    
+  } catch (error) {
+    console.error('Get job error:', error);
+    res.status(500).json({ error: 'Failed to get job' });
+  }
+};
+
+/**
+ * Create new job
+ * POST /api/jobs
+ */
+const createJob = async (req, res) => {
+  try {
+    const {
+      title,
+      pmNumber,
+      woNumber,
+      address,
+      description,
+      client,
+      assignedTo,
+      scheduledDate
+    } = req.body;
+    
+    if (!title && !pmNumber) {
+      return res.status(400).json({ error: 'Title or PM Number is required' });
+    }
+    
+    // Check for duplicate PM number
+    if (pmNumber) {
+      const existing = await Job.findOne({ pmNumber });
+      if (existing) {
+        return res.status(400).json({ error: 'PM Number already exists' });
+      }
+    }
+    
+    const job = await Job.create({
+      title: title || pmNumber,
+      pmNumber,
+      woNumber,
+      address,
+      description,
+      client,
+      assignedTo,
+      scheduledDate,
+      status: 'new',
+      createdBy: req.userId,
+      companyId: req.companyId
+    });
+    
+    await logJob.create(req, job);
+    
+    res.status(201).json(job);
+    
+  } catch (error) {
+    console.error('Create job error:', error);
+    res.status(500).json({ error: 'Failed to create job' });
+  }
+};
+
+/**
+ * Update job
+ * PUT /api/jobs/:id
+ */
+const updateJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updates = req.body;
+    
+    // Prevent updating certain fields directly
+    delete updates._id;
+    delete updates.createdBy;
+    delete updates.createdAt;
+    
+    const job = await Job.findById(id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Track status change for audit
+    const oldStatus = job.status;
+    
+    // Apply updates
+    Object.assign(job, updates);
+    job.updatedAt = new Date();
+    
+    await job.save();
+    
+    // Log status change if applicable
+    if (updates.status && updates.status !== oldStatus) {
+      await logJob.statusChange(req, job, oldStatus, updates.status);
+    } else {
+      await logJob.update(req, job, updates);
+    }
+    
+    res.json(job);
+    
+  } catch (error) {
+    console.error('Update job error:', error);
+    res.status(500).json({ error: 'Failed to update job' });
+  }
+};
+
+/**
+ * Delete job
+ * DELETE /api/jobs/:id
+ */
+const deleteJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const job = await Job.findById(id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Only admins can delete jobs
+    if (!req.isAdmin && !req.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only admins can delete jobs' });
+    }
+    
+    await job.deleteOne();
+    
+    await logJob.delete(req, id, job.pmNumber);
+    
+    res.json({ message: 'Job deleted successfully' });
+    
+  } catch (error) {
+    console.error('Delete job error:', error);
+    res.status(500).json({ error: 'Failed to delete job' });
+  }
+};
+
+/**
+ * Update job status
+ * PATCH /api/jobs/:id/status
+ */
+const updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!status) {
+      return res.status(400).json({ error: 'Status is required' });
+    }
+    
+    const job = await Job.findById(id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    const oldStatus = job.status;
+    job.status = status;
+    job.updatedAt = new Date();
+    
+    await job.save();
+    
+    await logJob.statusChange(req, job, oldStatus, status);
+    
+    res.json(job);
+    
+  } catch (error) {
+    console.error('Update status error:', error);
+    res.status(500).json({ error: 'Failed to update status' });
+  }
+};
+
+/**
+ * Assign job to user
+ * PATCH /api/jobs/:id/assign
+ */
+const assignJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { userId, userName } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    const job = await Job.findById(id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    job.assignedTo = userId;
+    job.updatedAt = new Date();
+    
+    await job.save();
+    
+    await logJob.assign(req, job, userId, userName);
+    
+    res.json(job);
+    
+  } catch (error) {
+    console.error('Assign job error:', error);
+    res.status(500).json({ error: 'Failed to assign job' });
+  }
+};
+
+module.exports = {
+  listJobs,
+  getJob,
+  createJob,
+  updateJob,
+  deleteJob,
+  updateStatus,
+  assignJob
+};
+
