@@ -33,7 +33,7 @@ describe('Job File System', () => {
   beforeEach(() => {
     cy.waitForApi();
 
-    // Mock user authentication endpoint
+    // Mock user authentication endpoint (CRITICAL - app validates session)
     cy.intercept('GET', '**/api/users/me', {
       statusCode: 200,
       body: {
@@ -45,23 +45,30 @@ describe('Job File System', () => {
       }
     }).as('getMe');
 
-    // Mock API responses
-    cy.intercept('GET', '**/api/jobs*', {
+    // Mock foremen list
+    cy.intercept('GET', '**/api/users/foremen', {
+      statusCode: 200,
+      body: []
+    }).as('getForemen');
+
+    // Mock jobs list (for any dashboard redirects)
+    cy.intercept('GET', '**/api/jobs', {
       statusCode: 200,
       body: [mockJob]
     }).as('getJobs');
 
-    cy.intercept('GET', '**/api/jobs/job123**', {
-      statusCode: 200,
-      body: mockJob
-    }).as('getJob');
-
+    // Mock specific job details (order matters - more specific first)
     cy.intercept('GET', '**/api/jobs/job123/full-details', {
       statusCode: 200,
       body: mockJob
     }).as('getJobFullDetails');
 
-    // Set authenticated state
+    cy.intercept('GET', '**/api/jobs/job123', {
+      statusCode: 200,
+      body: mockJob
+    }).as('getJob');
+
+    // Set authenticated state BEFORE visiting pages
     cy.window().then((win) => {
       win.localStorage.setItem('token', 'mock-token');
       win.localStorage.setItem('user', JSON.stringify({

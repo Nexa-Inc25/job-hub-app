@@ -29,7 +29,31 @@ describe('Work Order Details', () => {
   beforeEach(() => {
     cy.waitForApi();
 
-    // Mock API responses
+    // Mock user authentication endpoint (CRITICAL - app validates session)
+    cy.intercept('GET', '**/api/users/me', {
+      statusCode: 200,
+      body: {
+        _id: 'user1',
+        name: 'Test User',
+        email: 'test@example.com',
+        role: 'gf',
+        isAdmin: false
+      }
+    }).as('getMe');
+
+    // Mock foremen list (may be called by app)
+    cy.intercept('GET', '**/api/users/foremen', {
+      statusCode: 200,
+      body: []
+    }).as('getForemen');
+
+    // Mock jobs list (dashboard may call this)
+    cy.intercept('GET', '**/api/jobs', {
+      statusCode: 200,
+      body: [mockJob]
+    }).as('getJobs');
+
+    // Mock API responses for job details
     cy.intercept('GET', '**/api/jobs/job123/full-details', {
       statusCode: 200,
       body: mockJob
@@ -50,7 +74,7 @@ describe('Work Order Details', () => {
       body: mockJob.dependencies
     }).as('getDependencies');
 
-    // Set authenticated state
+    // Set authenticated state in localStorage
     cy.window().then((win) => {
       win.localStorage.setItem('token', 'mock-token');
       win.localStorage.setItem('user', JSON.stringify({
