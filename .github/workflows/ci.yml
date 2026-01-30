@@ -120,7 +120,10 @@ jobs:
 
       - name: Start backend server
         working-directory: backend
-        run: node server.js &
+        run: |
+          nohup node server.js > backend.log 2>&1 &
+          echo $! > backend.pid
+          sleep 3
         env:
           MONGO_URI: mongodb://localhost:27017/jobhub_test
           JWT_SECRET: cypress-test-secret
@@ -129,24 +132,23 @@ jobs:
 
       - name: Wait for backend
         run: |
-          timeout 30s bash -c 'until curl -s http://localhost:5000/api/health; do sleep 1; done'
+          for i in {1..30}; do
+            if curl -s http://localhost:5000/api/health > /dev/null; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 1
+          done
+          echo "Backend failed to start"
+          cat backend/backend.log || true
+          exit 1
 
-      - name: Start frontend server
+      - name: Run Cypress with frontend
         working-directory: frontend
-        run: npm start &
+        run: npm run e2e
         env:
           REACT_APP_API_URL: http://localhost:5000
-          BROWSER: none
-          CI: true
-
-      - name: Wait for frontend
-        run: |
-          timeout 60s bash -c 'until curl -s http://localhost:3000 > /dev/null 2>&1; do sleep 2; done'
-
-      - name: Run Cypress tests
-        working-directory: frontend
-        run: npm run cypress:run
-        env:
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_apiUrl: http://localhost:5000
 
