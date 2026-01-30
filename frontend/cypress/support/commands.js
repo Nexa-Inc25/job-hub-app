@@ -2,6 +2,46 @@
 // Custom commands for Job Hub Pro E2E tests
 // ***********************************************
 
+// Create a mock JWT token for testing (valid JWT format that the app can parse)
+const createMockJwt = (payload) => {
+  const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
+  const body = btoa(JSON.stringify(payload));
+  const signature = btoa('mock-signature');
+  return `${header}.${body}.${signature}`;
+};
+
+// Default test user data
+const defaultTestUser = {
+  _id: 'test-user-id-12345',
+  email: 'test@example.com',
+  name: 'Test User',
+  role: 'gf',
+  isAdmin: false,
+  companyId: 'test-company-id'
+};
+
+/**
+ * Set up mock authentication with a valid JWT token
+ * This creates a JWT that the app can parse
+ */
+Cypress.Commands.add('setupMockAuth', (userOverrides = {}) => {
+  const user = { ...defaultTestUser, ...userOverrides };
+  const token = createMockJwt({
+    id: user._id,
+    email: user.email,
+    role: user.role,
+    isAdmin: user.isAdmin,
+    canApprove: user.role === 'gf' || user.role === 'pm' || user.isAdmin
+  });
+  
+  cy.window().then((win) => {
+    win.localStorage.setItem('token', token);
+    win.localStorage.setItem('user', JSON.stringify(user));
+  });
+  
+  return cy.wrap({ user, token });
+});
+
 /**
  * Login command - handles authentication
  * @param {string} email - User email
