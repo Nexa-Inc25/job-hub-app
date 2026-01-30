@@ -1354,6 +1354,7 @@ const Dashboard = () => {
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleMenuClose}
+            disableRestoreFocus
           >
             <MenuItem onClick={() => { setFilter('all'); handleMenuClose(); }}>All Status</MenuItem>
             <Divider />
@@ -2447,6 +2448,7 @@ const Dashboard = () => {
         onClose={handleJobMenuClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        disableRestoreFocus
       >
         <MenuItem onClick={handleViewDetails}>
           <EditIcon fontSize="small" sx={{ mr: 1 }} />
