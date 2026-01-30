@@ -56,7 +56,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EmailIcon from '@mui/icons-material/Email';
-import { SimpleTreeView } from '@mui/x-tree-view/SimpleTreeView';
+import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import PDFFormEditor from './PDFFormEditor';
 import FeedbackButton from './FeedbackButton';
@@ -824,7 +824,7 @@ const JobFileSystem = () => {
   const renderNestedSubfolder = (nestedSubfolder, subfolder, folder) => (
     <TreeItem
       key={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
-      itemId={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
+      nodeId={`${folder.name}-${subfolder.name}-${nestedSubfolder.name}`}
       label={
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
           <FolderIcon sx={{ mr: 1, fontSize: '0.875rem', color: 'secondary.main' }} />
@@ -852,7 +852,7 @@ const JobFileSystem = () => {
   const renderSubfolder = (subfolder, folder) => (
     <TreeItem 
       key={`${folder.name}-${subfolder.name}`} 
-      itemId={`${folder.name}-${subfolder.name}`}
+      nodeId={`${folder.name}-${subfolder.name}`}
       label={
         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
           <FolderIcon sx={{ mr: 1, fontSize: '1rem' }} />
@@ -1146,13 +1146,14 @@ const JobFileSystem = () => {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </Box>
-            <SimpleTreeView
-              slots={{ collapseIcon: ExpandMoreIcon, expandIcon: ChevronRightIcon }}
-              defaultExpandedItems={['root', ...job.folders.map(f => f.name)]}
+            <TreeView
+              defaultCollapseIcon={<ExpandMoreIcon />}
+              defaultExpandIcon={<ChevronRightIcon />}
+              defaultExpanded={['root', ...job.folders.map(f => f.name)]}
             >
               {/* Root: WO Number */}
               <TreeItem
-                itemId="root"
+                nodeId="root"
                 label={
                   <Box sx={{ display: 'flex', alignItems: 'center' }}>
                     <FolderIcon sx={{ mr: 1, color: 'primary.main' }} />
@@ -1168,7 +1169,7 @@ const JobFileSystem = () => {
                   .map((folder) => (
                     <TreeItem
                       key={folder.name}
-                      itemId={folder.name}
+                      nodeId={folder.name}
                       label={
                         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                           <FolderIcon sx={{ mr: 1, color: folder.name === 'ACI' ? 'success.main' : 'warning.main' }} />
@@ -1199,7 +1200,7 @@ const JobFileSystem = () => {
                     </TreeItem>
                   ))}
               </TreeItem>
-            </SimpleTreeView>
+            </TreeView>
           </Paper>
 
           {/* Right: Folder Details */}
