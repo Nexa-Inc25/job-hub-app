@@ -31,6 +31,9 @@ RUN apk add --no-cache cairo pango jpeg giflib fontconfig
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001 -G nodejs
 
+# Create uploads directory with proper permissions (before switching user)
+RUN mkdir -p /app/uploads && chown nodejs:nodejs /app/uploads
+
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 

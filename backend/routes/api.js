@@ -185,9 +185,16 @@ async function getPdfBufferFromDocument(doc) {
 }
 
 // Ensure uploads directory exists (use absolute path relative to backend folder)
+// In production with R2 storage, this is only used as a temp buffer
 const uploadsDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+} catch (err) {
+  // In containerized environments with R2 storage, this may fail
+  // Use /tmp as fallback for temporary file storage
+  console.warn('Could not create uploads dir, using /tmp:', err.message);
 }
 
 // Multer setup for file uploads

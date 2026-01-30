@@ -213,10 +213,19 @@ app.use(express.json({ limit: '150mb' }));
 app.use(express.urlencoded({ limit: '150mb', extended: true }));
 
 // Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-  console.log('Created uploads directory:', uploadsDir);
+// In containerized environments, use /tmp as fallback
+let uploadsDir = path.join(__dirname, 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('Created uploads directory:', uploadsDir);
+  }
+} catch (err) {
+  console.warn('Could not create uploads dir, using /tmp:', err.message);
+  uploadsDir = '/tmp/uploads';
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
 }
 
 // Multer setup for file uploads with security filter
@@ -603,9 +612,17 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
       }
     } else {
       console.log('R2 not configured, using local storage...');
-      const templatesDir = path.join(__dirname, 'templates', 'master');
-      if (!fs.existsSync(templatesDir)) {
-        fs.mkdirSync(templatesDir, { recursive: true });
+      let templatesDir = path.join(__dirname, 'templates', 'master');
+      try {
+        if (!fs.existsSync(templatesDir)) {
+          fs.mkdirSync(templatesDir, { recursive: true });
+        }
+      } catch (err) {
+        console.warn('Could not create templates dir, using /tmp:', err.message);
+        templatesDir = '/tmp/templates/master';
+        if (!fs.existsSync(templatesDir)) {
+          fs.mkdirSync(templatesDir, { recursive: true });
+        }
       }
       
       for (const file of req.files) {
@@ -2198,13 +2215,22 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     const finalFilename = `${pmNumber}_${docName}.pdf`;
     const newFilename = canAutoApprove ? finalFilename : draftFilename;
     
-    const uploadsDir = path.join(__dirname, 'uploads');
-    const filePath = path.join(uploadsDir, newFilename);
+    let uploadsLocalDir = path.join(__dirname, 'uploads');
     
-    // Ensure uploads directory exists
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
+    // Ensure uploads directory exists (fallback to /tmp in containers)
+    try {
+      if (!fs.existsSync(uploadsLocalDir)) {
+        fs.mkdirSync(uploadsLocalDir, { recursive: true });
+      }
+    } catch (err) {
+      console.warn('Could not create uploads dir, using /tmp:', err.message);
+      uploadsLocalDir = '/tmp/uploads';
+      if (!fs.existsSync(uploadsLocalDir)) {
+        fs.mkdirSync(uploadsLocalDir, { recursive: true });
+      }
     }
+    
+    const filePath = path.join(uploadsLocalDir, newFilename);
     
     // Save the file
     fs.writeFileSync(filePath, pdfBuffer);
