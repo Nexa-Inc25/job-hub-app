@@ -1,16 +1,27 @@
+# SonarCloud Analysis - DISABLED until organization is set up
+# 
+# To enable:
+# 1. Go to https://sonarcloud.io and sign in with GitHub
+# 2. Import your GitHub organization (Nexa-Inc25)
+# 3. Create a new project for job-hub-app
+# 4. Generate a SONAR_TOKEN and add it to repository secrets
+# 5. Uncomment the workflow below
+
 name: SonarCloud Analysis
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    types: [opened, synchronize, reopened]
+  workflow_dispatch:  # Only run manually until org is set up
+  # push:
+  #   branches:
+  #     - main
+  # pull_request:
+  #   types: [opened, synchronize, reopened]
 
 jobs:
   sonarcloud:
     name: SonarCloud
     runs-on: ubuntu-latest
+    if: false  # Disabled until SonarCloud organization is configured
     
     steps:
       - name: Checkout code
