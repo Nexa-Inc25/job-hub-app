@@ -39,13 +39,14 @@ jobs:
           NODE_ENV: test
           JWT_SECRET: test-secret-for-ci
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: backend/coverage/lcov.info
-          flags: backend
-          fail_ci_if_error: false
+      # Codecov disabled - add CODECOV_TOKEN secret to enable
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     files: backend/coverage/lcov.info
+      #     flags: backend
+      #     fail_ci_if_error: false
 
   # ============================================
   # Frontend Tests
@@ -75,13 +76,14 @@ jobs:
         env:
           CI: true
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: frontend/coverage/lcov.info
-          flags: frontend
-          fail_ci_if_error: false
+      # Codecov disabled - add CODECOV_TOKEN secret to enable
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v4
+      #   with:
+      #     token: ${{ secrets.CODECOV_TOKEN }}
+      #     files: frontend/coverage/lcov.info
+      #     flags: frontend
+      #     fail_ci_if_error: false
 
   # ============================================
   # Cypress E2E Tests

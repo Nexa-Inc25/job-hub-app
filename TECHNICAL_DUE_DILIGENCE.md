@@ -320,7 +320,36 @@ Required Environment Variables:
 
 ---
 
-## 8. Roadmap & Extensibility
+## 8. Technical Debt & Planned Migrations
+
+### Frontend Build Tooling
+
+| Issue | Status | Plan |
+|-------|--------|------|
+| Create React App (CRA) | Maintenance Mode | Migrate to **Vite** |
+| react-scripts deprecation warnings | Known | Resolved with Vite migration |
+| ESLint v8 | End of Life | Upgrade to ESLint v9 with Vite |
+
+**Timeline**: Vite migration planned for Q2 2026 (2-3 day effort)
+
+**Impact**: Zero - deprecation warnings are in build tooling only, not production bundle. No security risk to end users.
+
+### Why CRA is Still Used
+
+- Original codebase built on CRA (industry standard at the time)
+- Stable production deployment with no runtime issues
+- Migration deferred to avoid risk during active development
+
+### Migration Benefits
+
+- **10x faster builds** (Vite vs CRA)
+- **Clean CI output** (no deprecation warnings)
+- **Modern ESM support**
+- **Better HMR** (Hot Module Replacement)
+
+---
+
+## 9. Roadmap & Extensibility
 
 ### Current State
 
@@ -328,6 +357,7 @@ Required Environment Variables:
 - ✅ Modular codebase (controllers, services, routes)
 - ✅ API versioning
 - ✅ Comprehensive test suite
+- 🔄 Vite migration (Q2 2026)
 
 ### Extension Points
 
@@ -338,7 +368,7 @@ Required Environment Variables:
 
 ---
 
-## 9. Contact & Resources
+## 10. Contact & Resources
 
 ### Repository Access
 
