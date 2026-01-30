@@ -111,7 +111,9 @@ app.get('/api/health', (req, res) => {
     status: 'ok', 
     timestamp: new Date().toISOString(),
     mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'connecting',
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    aiEnabled: Boolean(process.env.OPENAI_API_KEY),
+    r2Enabled: r2Storage.isR2Configured()
   });
 });
 
