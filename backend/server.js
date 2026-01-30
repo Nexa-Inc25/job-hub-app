@@ -118,13 +118,9 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================
-// START SERVER IMMEDIATELY for fast healthcheck response
+// PORT CONFIGURATION (server starts at end of file after all routes registered)
 // ============================================
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on port ${PORT}`);
-  console.log('Health endpoint ready at /api/health');
-});
 
 console.log('Health endpoint registered');
 
@@ -3754,12 +3750,11 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
     await newUser.save();
     
     // TODO: Send invitation email with temp password
-    
+    // tempPassword should ONLY be sent via secure email, never in API responses
     console.log('Invited user:', email, 'to company:', inviter.companyId);
     res.status(201).json({ 
-      message: 'User invited successfully',
-      user: { email: newUser.email, name: newUser.name, role: newUser.role },
-      tempPassword // Remove this in production - send via email instead
+      message: 'User invited successfully. Temporary password sent via email.',
+      user: { email: newUser.email, name: newUser.name, role: newUser.role }
     });
   } catch (err) {
     console.error('Error inviting user:', err);
@@ -4143,16 +4138,21 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
           const result = await r2Storage.uploadJobFile(fileToUpload, id, folderPath, finalName);
           docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
-          // Clean up local files
-          if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-          }
-          if (tempConvertedFile && fs.existsSync(tempConvertedFile)) {
-            fs.unlinkSync(tempConvertedFile);
-          }
         } catch (uploadErr) {
           console.error('Failed to upload to R2:', uploadErr.message);
         }
+      }
+      
+      // Clean up local files (always, regardless of R2 configuration)
+      try {
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+        if (tempConvertedFile && fs.existsSync(tempConvertedFile)) {
+          fs.unlinkSync(tempConvertedFile);
+        }
+      } catch (cleanupErr) {
+        console.error('Failed to clean up temp files:', cleanupErr.message);
       }
       
       uploadedDocs.push({
@@ -5008,8 +5008,8 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
         break;
         
       case 'go_back':
-        // Utility issued a go-back - handled by separate endpoint
-        job.hasActiveGoBack = true;
+        // Utility issued a go-back - mark as failed audit for tracking
+        job.hasFailedAudit = true;
         break;
         
       case 'billed':
@@ -5870,13 +5870,18 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
         const result = await r2Storage.uploadJobFile(pdfPath, job._id.toString(), 'QA_Go_Back', auditFileName);
         pdfUrl = r2Storage.getPublicUrl(result.key);
         r2Key = result.key;
-        // Clean up local file
-        if (fs.existsSync(pdfPath)) {
-          fs.unlinkSync(pdfPath);
-        }
       } catch (uploadErr) {
         console.error('Failed to upload audit PDF to R2:', uploadErr.message);
       }
+    }
+    
+    // Clean up local file (always, regardless of R2 configuration)
+    try {
+      if (fs.existsSync(pdfPath)) {
+        fs.unlinkSync(pdfPath);
+      }
+    } catch (cleanupErr) {
+      console.error('Failed to clean up audit PDF temp file:', cleanupErr.message);
     }
     
     // Add document to QA Go Back folder
@@ -7109,4 +7114,11 @@ process.on('unhandledRejection', (reason, promise) => {
 // Must be last middleware - catches all errors and prevents stack trace leakage
 app.use(secureErrorHandler);
 
-// Server.listen moved to top of file for fast healthcheck response
+// ============================================
+// START SERVER (after all middleware and routes are registered)
+// ============================================
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log('Health endpoint ready at /api/health');
+});
+
