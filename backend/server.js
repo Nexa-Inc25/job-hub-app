@@ -83,6 +83,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ============================================
+// START SERVER IMMEDIATELY for fast healthcheck response
+// ============================================
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server listening on port ${PORT}`);
+  console.log('Health endpoint ready at /api/health');
+});
+
 console.log('Health endpoint registered');
 
 // Trust proxy - required for rate limiting behind Railway/Vercel reverse proxy
@@ -6938,8 +6947,4 @@ process.on('unhandledRejection', (reason, promise) => {
 // Must be last middleware - catches all errors and prevents stack trace leakage
 app.use(secureErrorHandler);
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Listening on 0.0.0.0:${PORT}`);
-});
+// Server.listen moved to top of file for fast healthcheck response
