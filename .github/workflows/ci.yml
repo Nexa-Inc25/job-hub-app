@@ -157,11 +157,12 @@ jobs:
 
       - name: Run Cypress E2E tests
         working-directory: frontend
-        run: npm run e2e
+        run: npm run e2e:ci
         env:
           REACT_APP_API_URL: http://localhost:5000
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_apiUrl: http://localhost:5000
+          CI: true
 
       - name: Show backend logs on failure
         if: failure()
