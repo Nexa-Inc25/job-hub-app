@@ -459,7 +459,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             color,
           });
         } else if (annotation.type === 'check') {
-          page.drawText('✓', {
+          // Use 'X' instead of Unicode checkmark - WinAnsi encoding doesn't support ✓
+          page.drawText('X', {
             x: annotation.x,
             y: y - annotation.size,
             size: annotation.size,
