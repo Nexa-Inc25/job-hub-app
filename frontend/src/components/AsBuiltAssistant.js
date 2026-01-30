@@ -11,16 +11,12 @@ import {
   Grid,
   CircularProgress,
   Alert,
-  Stepper,
-  Step,
-  StepLabel,
   LinearProgress,
   Chip,
   Divider,
   IconButton,
   List,
-  ListItem,
-  ListItemText
+  ListItem
 } from '@mui/material';
 import {
   SmartToy as AiIcon,
@@ -45,7 +41,6 @@ export default function AsBuiltAssistant() {
   const [asBuiltContent, setAsBuiltContent] = useState(null);
   
   // Chat state
-  const [chatMode, setChatMode] = useState(false);
   const [chatMessage, setChatMessage] = useState('');
   const [chatHistory, setChatHistory] = useState([]);
   const [chatLoading, setChatLoading] = useState(false);
@@ -53,6 +48,7 @@ export default function AsBuiltAssistant() {
 
   useEffect(() => {
     loadJobAndSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 
   useEffect(() => {
