@@ -2,6 +2,7 @@
  * Authentication Routes
  * 
  * Handles all authentication-related endpoints.
+ * Matches exact behavior from server.js for safe migration.
  * 
  * @module routes/auth
  */
@@ -31,12 +32,9 @@ const authController = require('../controllers/auth.controller');
  *                 format: email
  *               password:
  *                 type: string
- *               mfaCode:
- *                 type: string
- *                 description: Required if MFA is enabled
  *     responses:
  *       200:
- *         description: Login successful
+ *         description: Login successful (or MFA required)
  *       401:
  *         description: Invalid credentials
  *       423:
@@ -59,7 +57,6 @@ router.post('/login', authController.login);
  *             required:
  *               - email
  *               - password
- *               - name
  *             properties:
  *               email:
  *                 type: string
@@ -67,6 +64,7 @@ router.post('/login', authController.login);
  *               password:
  *                 type: string
  *                 minLength: 8
+ *                 description: Must contain uppercase, lowercase, and number
  *               name:
  *                 type: string
  *               role:
@@ -77,9 +75,81 @@ router.post('/login', authController.login);
  *       201:
  *         description: User created successfully
  *       400:
- *         description: Invalid input or email already exists
+ *         description: Invalid input or validation error
  */
 router.post('/signup', authController.signup);
 
-module.exports = router;
+/**
+ * @swagger
+ * /api/auth/mfa/verify:
+ *   post:
+ *     summary: Verify MFA code during login
+ *     tags: [Authentication, MFA]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - mfaToken
+ *               - code
+ *             properties:
+ *               mfaToken:
+ *                 type: string
+ *                 description: Temporary token from login response
+ *               code:
+ *                 type: string
+ *                 description: 6-digit TOTP code
+ *               trustDevice:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: MFA verified, full token returned
+ *       401:
+ *         description: Invalid or expired MFA token/code
+ */
+router.post('/auth/mfa/verify', authController.verifyMfa);
 
+// Protected routes require authentication middleware
+// These will be mounted with authenticateUser middleware in server.js
+
+/**
+ * @swagger
+ * /api/users/me:
+ *   get:
+ *     summary: Get current user profile
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User profile
+ *       401:
+ *         description: Not authenticated
+ */
+// router.get('/users/me', authController.getProfile); // Requires auth middleware
+
+/**
+ * @swagger
+ * /api/auth/mfa/setup:
+ *   post:
+ *     summary: Setup MFA - Generate QR code
+ *     tags: [MFA]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: MFA secret and QR code
+ */
+// Protected MFA routes - require auth middleware when mounted
+const mfaRoutes = express.Router();
+mfaRoutes.post('/setup', authController.setupMfa);
+mfaRoutes.post('/enable', authController.enableMfa);
+mfaRoutes.post('/disable', authController.disableMfa);
+mfaRoutes.get('/status', authController.getMfaStatus);
+
+// Export both the main router and MFA routes
+module.exports = router;
+module.exports.mfaRoutes = mfaRoutes;
+module.exports.getProfile = authController.getProfile;
