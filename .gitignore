@@ -35,6 +35,11 @@ yarn-error.log*
 # Testing
 coverage/
 
+# Cypress
+frontend/cypress/videos/
+frontend/cypress/screenshots/
+frontend/cypress/downloads/
+
 # Misc
 .pnp
 .pnp.js

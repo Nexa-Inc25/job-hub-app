@@ -1,0 +1,36 @@
+{
+  "gf": {
+    "_id": "user-gf-123",
+    "name": "Test GF User",
+    "email": "gf@example.com",
+    "role": "gf",
+    "isAdmin": false,
+    "companyId": "company-123"
+  },
+  "pm": {
+    "_id": "user-pm-123",
+    "name": "Test PM User",
+    "email": "pm@example.com",
+    "role": "pm",
+    "isAdmin": false,
+    "companyId": "company-123"
+  },
+  "admin": {
+    "_id": "user-admin-123",
+    "name": "Test Admin User",
+    "email": "admin@example.com",
+    "role": "admin",
+    "isAdmin": true,
+    "isSuperAdmin": false,
+    "companyId": "company-123"
+  },
+  "superAdmin": {
+    "_id": "user-super-123",
+    "name": "Super Admin",
+    "email": "super@jobhubpro.com",
+    "role": "admin",
+    "isAdmin": true,
+    "isSuperAdmin": true
+  }
+}
+

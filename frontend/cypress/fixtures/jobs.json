@@ -1,0 +1,70 @@
+{
+  "sampleJobs": [
+    {
+      "_id": "job-001",
+      "title": "Pole Replacement - Main St",
+      "pmNumber": "PM-35440499",
+      "woNumber": "WO-12345",
+      "address": "123 Main Street, San Jose, CA 95110",
+      "client": "PG&E",
+      "status": "new",
+      "priority": "normal",
+      "createdAt": "2026-01-15T10:00:00.000Z"
+    },
+    {
+      "_id": "job-002",
+      "title": "Underground Cable Installation",
+      "pmNumber": "PM-35440500",
+      "woNumber": "WO-12346",
+      "address": "456 Oak Avenue, Sunnyvale, CA 94086",
+      "client": "PG&E",
+      "status": "pre_fielding",
+      "priority": "high",
+      "createdAt": "2026-01-14T09:00:00.000Z"
+    },
+    {
+      "_id": "job-003",
+      "title": "Transformer Upgrade",
+      "pmNumber": "PM-35440501",
+      "woNumber": "WO-12347",
+      "address": "789 Pine Road, Mountain View, CA 94040",
+      "client": "PG&E",
+      "status": "in_progress",
+      "priority": "urgent",
+      "createdAt": "2026-01-13T14:00:00.000Z"
+    }
+  ],
+  "emptyResponse": [],
+  "singleJob": {
+    "_id": "job-001",
+    "title": "Pole Replacement - Main St",
+    "pmNumber": "PM-35440499",
+    "woNumber": "WO-12345",
+    "address": "123 Main Street, San Jose, CA 95110",
+    "client": "PG&E",
+    "status": "new",
+    "description": "Replace damaged wooden pole with new composite pole",
+    "dependencies": [],
+    "notes": [],
+    "folders": [
+      {
+        "name": "ACI",
+        "subfolders": [
+          { "name": "Close Out Documents", "documents": [] },
+          { "name": "Field As Built", "documents": [] },
+          { "name": "GF Audit", "documents": [] }
+        ]
+      },
+      {
+        "name": "UTCS",
+        "subfolders": [
+          { "name": "TCP", "documents": [] },
+          { "name": "Photos", "documents": [] }
+        ]
+      }
+    ],
+    "createdAt": "2026-01-15T10:00:00.000Z",
+    "updatedAt": "2026-01-15T10:00:00.000Z"
+  }
+}
+
