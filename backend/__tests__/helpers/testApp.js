@@ -17,6 +17,7 @@ const Job = require('../../models/Job');
 
 // Controllers
 const adminController = require('../../controllers/admin.controller');
+const jobsController = require('../../controllers/jobs.controller');
 
 /**
  * Create a test-ready Express app with minimal middleware
@@ -50,6 +51,15 @@ function createTestApp() {
   app.get('/api/admin/users', adminController.getUsers);
   app.put('/api/admin/users/:id/role', adminController.updateUserRole);
   app.delete('/api/admin/users/:id', adminController.deactivateUser);
+  
+  // Job routes (using new controller)
+  app.get('/api/jobs', jobsController.listJobs);
+  app.get('/api/jobs/:id', jobsController.getJob);
+  app.post('/api/jobs', jobsController.createJob);
+  app.put('/api/jobs/:id', jobsController.updateJob);
+  app.delete('/api/jobs/:id', jobsController.deleteJob);
+  app.patch('/api/jobs/:id/status', jobsController.updateStatus);
+  app.patch('/api/jobs/:id/assign', jobsController.assignJob);
   
   return app;
 }

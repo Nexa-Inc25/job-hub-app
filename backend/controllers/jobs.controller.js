@@ -31,12 +31,11 @@ const listJobs = async (req, res) => {
       query.assignedTo = assignedTo;
     }
     
-    // Non-admins can only see jobs assigned to them or their company
+    // Non-admins can only see jobs assigned to them or in their company
     if (!req.isAdmin && !req.isSuperAdmin) {
       query.$or = [
         { assignedTo: req.userId },
-        { companyId: req.companyId },
-        { createdBy: req.userId }
+        { companyId: req.companyId }
       ];
     }
     
@@ -65,19 +64,21 @@ const getJob = async (req, res) => {
     
     const job = await Job.findById(id)
       .populate('assignedTo', 'name email role')
-      .populate('createdBy', 'name email')
       .lean();
     
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Check access permissions
+    // Check access permissions for non-admins
     if (!req.isAdmin && !req.isSuperAdmin) {
+      // Handle both populated and non-populated cases
+      const assignedToId = job.assignedTo?._id?.toString() || job.assignedTo?.toString();
+      const jobCompanyId = job.companyId?.toString();
+      
       const hasAccess = 
-        job.assignedTo?._id?.toString() === req.userId ||
-        job.createdBy?._id?.toString() === req.userId ||
-        job.companyId?.toString() === req.companyId;
+        assignedToId === req.userId ||
+        jobCompanyId === req.companyId;
       
       if (!hasAccess) {
         return res.status(403).json({ error: 'Access denied' });
@@ -131,7 +132,6 @@ const createJob = async (req, res) => {
       assignedTo,
       scheduledDate,
       status: 'new',
-      createdBy: req.userId,
       companyId: req.companyId
     });
     
