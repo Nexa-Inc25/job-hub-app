@@ -37,6 +37,7 @@ const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
 const apiRoutes = require('./routes/api');
+const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const OpenAI = require('openai');
 const sharp = require('sharp');
@@ -311,170 +312,12 @@ const requireSuperAdmin = (req, res, next) => {
   next();
 };
 
-// Signup Endpoint
+// Signup Endpoint - Now using modular controller
 // Roles: crew (default), foreman, gf (general foreman), pm (project manager), admin
-app.post('/api/signup', async (req, res) => {
-  try {
-    // Check database connection first
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ error: 'Database unavailable. Please try again later.' });
-    }
-    
-    const { email, password, name, role } = req.body;
-    console.log('Signup attempt for:', email ? email.substring(0, 3) + '***' : 'none', 'role:', role || 'crew');
-    
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-    
-    // Password strength validation
-    if (password.length < 8) {
-      return res.status(400).json({ error: 'Password must be at least 8 characters' });
-    }
-    if (!/[A-Z]/.test(password)) {
-      return res.status(400).json({ error: 'Password must contain at least one uppercase letter' });
-    }
-    if (!/[a-z]/.test(password)) {
-      return res.status(400).json({ error: 'Password must contain at least one lowercase letter' });
-    }
-    if (!/[0-9]/.test(password)) {
-      return res.status(400).json({ error: 'Password must contain at least one number' });
-    }
-    
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      // Don't reveal that email exists - security best practice
-      return res.status(400).json({ error: 'Unable to create account. Please try a different email or contact support.' });
-    }
-    
-    // Validate role
-    const validRoles = ['crew', 'foreman', 'gf', 'pm', 'admin'];
-    const userRole = validRoles.includes(role) ? role : 'crew';
-    
-    // Determine permissions based on role
-    const isAdmin = ['gf', 'pm', 'admin'].includes(userRole);
-    const canApprove = ['gf', 'pm', 'admin'].includes(userRole);
-    
-    const user = new User({ 
-      email, 
-      password, 
-      name: name || email.split('@')[0],
-      role: userRole,
-      isAdmin,
-      canApprove
-    });
-    await user.save();
-    
-    const token = jwt.sign({ 
-      userId: user._id, 
-      isAdmin: user.isAdmin || false,
-      isSuperAdmin: user.isSuperAdmin || false,
-      role: user.role,
-      canApprove: user.canApprove || false,
-      name: user.name
-    }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    
-    console.log('User created successfully:', user._id, 'role:', userRole);
-    res.status(201).json({ 
-      token, 
-      userId: user._id, 
-      isAdmin: user.isAdmin || false,
-      role: user.role,
-      canApprove: user.canApprove || false
-    });
-  } catch (err) {
-    console.error('Signup error:', err.message);
-    res.status(500).json({ error: 'Server error during signup', details: err.message });
-  }
-});
+app.post('/api/signup', authController.signup);
 
-// Login Endpoint
-app.post('/api/login', async (req, res) => {
-  try {
-    if (mongoose.connection.readyState !== 1) {
-      return res.status(503).json({ error: 'Database unavailable. Please try again later.' });
-    }
-
-    const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    
-    // Check if account is locked
-    if (user && user.isLocked()) {
-      const remainingMins = Math.ceil((user.lockoutUntil - new Date()) / 60000);
-      console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
-      logAuth.loginFailed(req, email, 'Account locked');
-      return res.status(423).json({ 
-        error: `Account temporarily locked. Try again in ${remainingMins} minutes.` 
-      });
-    }
-    
-    // Validate credentials
-    if (!user || !(await user.comparePassword(password))) {
-      // Track failed attempt if user exists
-      if (user) {
-        await user.incLoginAttempts();
-        console.log('Failed login attempt for:', email ? email.substring(0, 3) + '***' : 'unknown', 
-          'Attempts:', user.failedLoginAttempts + 1);
-        
-        // Log account lockout if threshold reached
-        if (user.failedLoginAttempts + 1 >= 5) {
-          logAuth.accountLocked(req, email, user.failedLoginAttempts + 1);
-        }
-      }
-      logAuth.loginFailed(req, email, 'Invalid credentials');
-      performSecurityCheck(req, 'LOGIN_FAILED', { email });
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-    
-    // Reset failed attempts on successful login
-    if (user.failedLoginAttempts > 0) {
-      await user.resetLoginAttempts();
-    }
-    
-    // Check if MFA is required
-    if (user.mfaEnabled) {
-      // Generate a temporary token for MFA verification (short expiry)
-      const mfaToken = jwt.sign({ 
-        userId: user._id, 
-        mfaPending: true 
-      }, process.env.JWT_SECRET, { expiresIn: '5m' });
-      
-      logAuth.loginSuccess(req, user); // Log password success, MFA still pending
-      
-      return res.json({
-        mfaRequired: true,
-        mfaToken,
-        userId: user._id
-      });
-    }
-    
-    // Log successful login
-    logAuth.loginSuccess(req, user);
-    
-    const token = jwt.sign({ 
-      userId: user._id, 
-      isAdmin: user.isAdmin,
-      isSuperAdmin: user.isSuperAdmin || false,
-      role: user.role,
-      canApprove: user.canApprove || false,
-      name: user.name
-    }, process.env.JWT_SECRET, { expiresIn: '24h' });
-    
-    res.json({ 
-      token, 
-      userId: user._id, 
-      isAdmin: user.isAdmin,
-      isSuperAdmin: user.isSuperAdmin || false, 
-      role: user.role, 
-      canApprove: user.canApprove || false,
-      name: user.name,
-      mfaEnabled: false
-    });
-  } catch (err) {
-    console.error('Login error:', err.message);
-    res.status(500).json({ error: 'Server error during login' });
-  }
-});
+// Login Endpoint - Now using modular controller
+app.post('/api/login', authController.login);
 
 // ==================== MFA ENDPOINTS (PG&E Compliance) ====================
 
@@ -887,19 +730,8 @@ app.use('/api', authenticateUser, apiRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
-// Get current user profile
-app.get('/api/users/me', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).select('name email role isAdmin isSuperAdmin');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-    res.json(user);
-  } catch (err) {
-    console.error('Get user profile error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+// Get current user profile - Now using modular controller
+app.get('/api/users/me', authenticateUser, authController.getProfile);
 
 // Get all users (for assignment dropdown) - Admin, PM, or GF
 app.get('/api/users', authenticateUser, async (req, res) => {
