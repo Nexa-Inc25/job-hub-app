@@ -421,7 +421,35 @@ const jobSchema = new mongoose.Schema({
   
   // Document retention compliance (utilities often require 7+ years)
   retentionExpiresAt: Date,  // When this job can be permanently deleted
-  retentionPolicy: String    // e.g., 'pge_7_year', 'default_5_year'
+  retentionPolicy: String,    // e.g., 'pge_7_year', 'default_5_year'
+  
+  // === AS-BUILT ASSISTANT ===
+  // AI-guided as-built documentation session
+  asBuiltSession: {
+    workType: String,
+    proceduresLoaded: Number,
+    totalQuestions: Number,
+    answeredQuestions: Number,
+    answers: mongoose.Schema.Types.Mixed,  // { fieldName: value }
+    questions: [mongoose.Schema.Types.Mixed],  // Full question objects
+    procedureContext: [mongoose.Schema.Types.Mixed],
+    startedAt: Date
+  },
+  
+  // Generated as-built document
+  asBuiltDocument: {
+    generatedAt: Date,
+    content: String,           // The generated as-built text/HTML
+    answers: mongoose.Schema.Types.Mixed,  // Snapshot of answers used
+    status: { 
+      type: String, 
+      enum: ['draft', 'reviewed', 'approved', 'submitted'], 
+      default: 'draft' 
+    },
+    reviewedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    reviewedAt: Date,
+    reviewNotes: String
+  }
 }, { timestamps: true });
 
 // Indexes for searching

@@ -1,0 +1,385 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Chip,
+  Card,
+  CardContent,
+  CardActions,
+  Grid,
+  CircularProgress,
+  Alert,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  LinearProgress
+} from '@mui/material';
+import {
+  CloudUpload as UploadIcon,
+  Description as DocIcon,
+  ExpandMore as ExpandIcon,
+  CheckCircle as CheckIcon,
+  HourglassEmpty as PendingIcon,
+  Error as ErrorIcon,
+  QuestionAnswer as QuestionIcon
+} from '@mui/icons-material';
+import api from '../api';
+
+const docTypes = [
+  { value: 'as-built-procedure', label: 'As-Built Procedure' },
+  { value: 'as-built-template', label: 'As-Built Template' },
+  { value: 'field-checklist', label: 'Field Checklist' },
+  { value: 'safety-procedure', label: 'Safety Procedure' },
+  { value: 'construction-standard', label: 'Construction Standard' },
+  { value: 'material-spec', label: 'Material Specification' },
+  { value: 'inspection-guide', label: 'Inspection Guide' },
+  { value: 'other', label: 'Other' }
+];
+
+const workTypes = [
+  { value: 'all', label: 'All Work Types' },
+  { value: 'overhead', label: 'Overhead' },
+  { value: 'underground', label: 'Underground' },
+  { value: 'pole-replacement', label: 'Pole Replacement' },
+  { value: 'transformer', label: 'Transformer' },
+  { value: 'service-install', label: 'Service Install' },
+  { value: 'meter', label: 'Meter' },
+  { value: 'switching', label: 'Switching' },
+  { value: 'streetlight', label: 'Streetlight' }
+];
+
+export default function ProcedureManager() {
+  const [procedures, setProcedures] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  
+  // Upload form state
+  const [file, setFile] = useState(null);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [docType, setDocType] = useState('as-built-procedure');
+  const [selectedWorkTypes, setSelectedWorkTypes] = useState(['all']);
+
+  useEffect(() => {
+    loadProcedures();
+  }, []);
+
+  const loadProcedures = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/procedures');
+      setProcedures(response.data);
+    } catch (err) {
+      setError('Failed to load procedure documents');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+    if (!file) {
+      setError('Please select a PDF file');
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError(null);
+      
+      const formData = new FormData();
+      formData.append('document', file);
+      formData.append('name', name || file.name.replace('.pdf', ''));
+      formData.append('description', description);
+      formData.append('docType', docType);
+      formData.append('applicableWorkTypes', selectedWorkTypes.join(','));
+
+      const response = await api.post('/api/procedures/upload', formData);
+      
+      setSuccess(`${response.data.procedureDoc.name} uploaded! AI is processing the document to learn the requirements.`);
+      setFile(null);
+      setName('');
+      setDescription('');
+      
+      // Reload to show the new document
+      setTimeout(loadProcedures, 1000);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to upload document');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'completed':
+        return <CheckIcon color="success" />;
+      case 'processing':
+        return <CircularProgress size={20} />;
+      case 'failed':
+        return <ErrorIcon color="error" />;
+      default:
+        return <PendingIcon color="warning" />;
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'completed': return 'success';
+      case 'processing': return 'info';
+      case 'failed': return 'error';
+      default: return 'warning';
+    }
+  };
+
+  return (
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Procedure Document Manager
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Upload PG&E procedure documents to teach the AI how to help foremen fill out as-builts and other field documentation.
+      </Typography>
+
+      {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>{success}</Alert>}
+
+      {/* Upload Form */}
+      <Paper sx={{ p: 3, mb: 4 }}>
+        <Typography variant="h6" gutterBottom>
+          Upload New Procedure Document
+        </Typography>
+        <form onSubmit={handleUpload}>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<UploadIcon />}
+                fullWidth
+                sx={{ height: 56, borderStyle: 'dashed' }}
+              >
+                {file ? file.name : 'Select PDF Document'}
+                <input
+                  type="file"
+                  hidden
+                  accept=".pdf"
+                  onChange={(e) => setFile(e.target.files[0])}
+                />
+              </Button>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Document Name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g., PG&E As-Built Procedure Rev 2024"
+              />
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Document Type</InputLabel>
+                <Select
+                  value={docType}
+                  label="Document Type"
+                  onChange={(e) => setDocType(e.target.value)}
+                >
+                  {docTypes.map(dt => (
+                    <MenuItem key={dt.value} value={dt.value}>{dt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Brief description of what this document covers..."
+              />
+            </Grid>
+            
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Applicable Work Types</InputLabel>
+                <Select
+                  multiple
+                  value={selectedWorkTypes}
+                  label="Applicable Work Types"
+                  onChange={(e) => setSelectedWorkTypes(e.target.value)}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                      {selected.map((value) => (
+                        <Chip 
+                          key={value} 
+                          label={workTypes.find(w => w.value === value)?.label || value} 
+                          size="small" 
+                        />
+                      ))}
+                    </Box>
+                  )}
+                >
+                  {workTypes.map(wt => (
+                    <MenuItem key={wt.value} value={wt.value}>{wt.label}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={!file || uploading}
+                startIcon={uploading ? <CircularProgress size={20} /> : <UploadIcon />}
+              >
+                {uploading ? 'Uploading & Processing...' : 'Upload Document'}
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
+      </Paper>
+
+      <Divider sx={{ my: 4 }} />
+
+      {/* Uploaded Documents List */}
+      <Typography variant="h6" gutterBottom>
+        Uploaded Procedure Documents ({procedures.length})
+      </Typography>
+      
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+          <CircularProgress />
+        </Box>
+      ) : procedures.length === 0 ? (
+        <Paper sx={{ p: 4, textAlign: 'center' }}>
+          <DocIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+          <Typography variant="body1" color="text.secondary">
+            No procedure documents uploaded yet.
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Upload PG&E procedure documents above to get started.
+          </Typography>
+        </Paper>
+      ) : (
+        <Grid container spacing={2}>
+          {procedures.map((proc) => (
+            <Grid item xs={12} md={6} key={proc._id}>
+              <Card>
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                    <Typography variant="h6" sx={{ fontSize: '1rem' }}>
+                      {proc.name}
+                    </Typography>
+                    {getStatusIcon(proc.processingStatus)}
+                  </Box>
+                  
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                    <Chip 
+                      size="small" 
+                      label={docTypes.find(d => d.value === proc.docType)?.label || proc.docType}
+                      color="primary"
+                      variant="outlined"
+                    />
+                    <Chip 
+                      size="small" 
+                      label={proc.processingStatus}
+                      color={getStatusColor(proc.processingStatus)}
+                    />
+                  </Box>
+                  
+                  {proc.description && (
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {proc.description}
+                    </Typography>
+                  )}
+                  
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    Work Types: {proc.applicableWorkTypes?.join(', ') || 'All'}
+                  </Typography>
+                  
+                  {proc.processingStatus === 'completed' && proc.extractedContent && (
+                    <Accordion sx={{ mt: 2, boxShadow: 'none', border: '1px solid', borderColor: 'divider' }}>
+                      <AccordionSummary expandIcon={<ExpandIcon />}>
+                        <Typography variant="body2">
+                          <QuestionIcon sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'text-bottom' }} />
+                          {proc.extractedContent.questions?.length || 0} Questions Extracted
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <List dense>
+                          {proc.extractedContent.questions?.slice(0, 5).map((q, idx) => (
+                            <ListItem key={idx}>
+                              <ListItemIcon sx={{ minWidth: 32 }}>
+                                <Typography variant="caption" color="text.secondary">{idx + 1}.</Typography>
+                              </ListItemIcon>
+                              <ListItemText 
+                                primary={q.question}
+                                secondary={`Field: ${q.field} | Type: ${q.inputType}`}
+                              />
+                            </ListItem>
+                          ))}
+                          {(proc.extractedContent.questions?.length || 0) > 5 && (
+                            <ListItem>
+                              <ListItemText 
+                                secondary={`... and ${proc.extractedContent.questions.length - 5} more questions`}
+                              />
+                            </ListItem>
+                          )}
+                        </List>
+                      </AccordionDetails>
+                    </Accordion>
+                  )}
+                  
+                  {proc.processingStatus === 'processing' && (
+                    <Box sx={{ mt: 2 }}>
+                      <Typography variant="caption" color="info.main">
+                        AI is analyzing this document...
+                      </Typography>
+                      <LinearProgress sx={{ mt: 1 }} />
+                    </Box>
+                  )}
+                  
+                  {proc.processingStatus === 'failed' && proc.processingError && (
+                    <Alert severity="error" sx={{ mt: 2 }}>
+                      {proc.processingError}
+                    </Alert>
+                  )}
+                </CardContent>
+                
+                <CardActions>
+                  <Typography variant="caption" color="text.secondary">
+                    Uploaded {new Date(proc.createdAt).toLocaleDateString()}
+                    {proc.uploadedBy && ` by ${proc.uploadedBy.name || proc.uploadedBy.email}`}
+                  </Typography>
+                </CardActions>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+    </Box>
+  );
+}
+

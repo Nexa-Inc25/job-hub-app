@@ -19,6 +19,8 @@ import AdminJobsOverview from './components/AdminJobsOverview';
 import AdminAICosts from './components/AdminAICosts';
 import QADashboard from './components/QADashboard';
 import SpecLibrary from './components/SpecLibrary';
+import ProcedureManager from './components/ProcedureManager';
+import AsBuiltAssistant from './components/AsBuiltAssistant';
 import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
@@ -52,6 +54,8 @@ function App() {
             <Route path="/admin/ai-costs" element={<AdminAICosts />} />
             <Route path="/qa/dashboard" element={<QADashboard />} />
             <Route path="/qa/spec-library" element={<SpecLibrary />} />
+            <Route path="/admin/procedures" element={<ProcedureManager />} />
+            <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="*" element={<div>404 - Not Found</div>} />
           </Routes>

@@ -37,6 +37,8 @@ const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
 const apiRoutes = require('./routes/api');
+const proceduresRoutes = require('./routes/procedures.routes');
+const asbuiltAssistantRoutes = require('./routes/asbuilt-assistant.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -846,6 +848,12 @@ app.get('/api/admin/templates', authenticateUser, async (req, res) => {
 
 // Mount API routes (for /api/ai/* endpoints) - must be before /api/jobs middleware
 app.use('/api', authenticateUser, apiRoutes);
+
+// Mount procedure document routes (for AI learning from PG&E docs)
+app.use('/api/procedures', authenticateUser, proceduresRoutes);
+
+// Mount as-built assistant routes (AI-guided as-built documentation)
+app.use('/api/asbuilt-assistant', authenticateUser, asbuiltAssistantRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
