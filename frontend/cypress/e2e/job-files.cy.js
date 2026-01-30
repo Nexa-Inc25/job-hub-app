@@ -33,6 +33,18 @@ describe('Job File System', () => {
   beforeEach(() => {
     cy.waitForApi();
 
+    // Mock user authentication endpoint
+    cy.intercept('GET', '**/api/users/me', {
+      statusCode: 200,
+      body: {
+        _id: 'user1',
+        name: 'Test GF',
+        email: 'gf@example.com',
+        role: 'gf',
+        isAdmin: false
+      }
+    }).as('getMe');
+
     // Mock API responses
     cy.intercept('GET', '**/api/jobs*', {
       statusCode: 200,

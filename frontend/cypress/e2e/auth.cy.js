@@ -11,6 +11,12 @@ describe('Authentication', () => {
 
   describe('Login Page', () => {
     beforeEach(() => {
+      // Mock login endpoint for invalid credentials
+      cy.intercept('POST', '**/api/login', {
+        statusCode: 401,
+        body: { error: 'Invalid email or password' }
+      }).as('loginFailed');
+
       cy.visit('/login');
     });
 
@@ -24,6 +30,8 @@ describe('Authentication', () => {
       cy.get('input[name="email"]').type('invalid@example.com');
       cy.get('input[name="password"]').type('wrongpassword');
       cy.get('button[type="submit"]').click();
+      
+      cy.wait('@loginFailed');
       
       // Should show error message
       cy.contains(/invalid|error|failed/i).should('be.visible');
@@ -48,6 +56,12 @@ describe('Authentication', () => {
 
   describe('Signup Page', () => {
     beforeEach(() => {
+      // Mock signup endpoint for weak password
+      cy.intercept('POST', '**/api/signup', {
+        statusCode: 400,
+        body: { error: 'Password must be at least 8 characters' }
+      }).as('signupFailed');
+
       cy.visit('/signup');
     });
 
@@ -73,6 +87,25 @@ describe('Authentication', () => {
   });
 
   describe('Protected Routes', () => {
+    beforeEach(() => {
+      // Ensure no auth tokens exist
+      cy.window().then((win) => {
+        win.localStorage.removeItem('token');
+        win.localStorage.removeItem('user');
+      });
+
+      // Mock unauthenticated API responses (401)
+      cy.intercept('GET', '**/api/users/me', {
+        statusCode: 401,
+        body: { error: 'Not authenticated' }
+      }).as('getMe');
+
+      cy.intercept('GET', '**/api/jobs*', {
+        statusCode: 401,
+        body: { error: 'Not authenticated' }
+      }).as('getJobs');
+    });
+
     it('should redirect to login when not authenticated', () => {
       cy.visit('/dashboard');
       cy.url().should('include', '/login');
@@ -86,6 +119,17 @@ describe('Authentication', () => {
 
   describe('Logout', () => {
     it('should clear session on logout', () => {
+      // Mock unauthenticated API responses
+      cy.intercept('GET', '**/api/users/me', {
+        statusCode: 401,
+        body: { error: 'Not authenticated' }
+      }).as('getMe');
+
+      cy.intercept('GET', '**/api/jobs*', {
+        statusCode: 401,
+        body: { error: 'Not authenticated' }
+      }).as('getJobs');
+
       // Set up a mock authenticated state
       cy.window().then((win) => {
         win.localStorage.setItem('token', 'mock-token');
