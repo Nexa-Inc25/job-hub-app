@@ -54,8 +54,16 @@ let NodeCanvasFactory = null;
 try {
   canvasModule = require('canvas');
   createCanvas = canvasModule.createCanvas;
-  pdfjsLib = require('pdfjs-dist/legacy/build/pdf.js');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  // pdfjs-dist v4+ uses different import path
+  try {
+    pdfjsLib = require('pdfjs-dist/legacy/build/pdf.mjs');
+  } catch {
+    // Fallback for different module resolution
+    pdfjsLib = require('pdfjs-dist');
+  }
+  if (pdfjsLib.GlobalWorkerOptions) {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = '';
+  }
   
   // Canvas factory for pdfjs-dist compatibility with node-canvas
   // Must be defined after createCanvas is available
