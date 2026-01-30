@@ -127,6 +127,34 @@ Job Hub Pro is a production-ready, enterprise-grade job management platform desi
 - User management (create, role changes, deactivation)
 - Security events (rate limits, unauthorized access)
 
+### Compliance Standards
+
+| Standard | Status | Details |
+|----------|--------|---------|
+| **SOC 2 Type II** | Architecture Ready | Access controls, audit logging, encryption in transit |
+| **NERC CIP** | Compliant | CIP-004, CIP-005, CIP-007, CIP-011 controls implemented |
+| **PG&E Exhibit 5** | Compliant | 7-year document retention via MongoDB TTL |
+
+### NERC CIP Controls Mapping
+
+| CIP Standard | Requirement | Implementation |
+|--------------|-------------|----------------|
+| CIP-004 | Personnel & Training | Role-based access, user audit trails |
+| CIP-005 | Electronic Security Perimeter | Rate limiting, JWT auth, MFA |
+| CIP-007 | System Security Management | Audit logging, access control, npm audit in CI |
+| CIP-011 | Information Protection | Document approval workflow, access logging |
+
+### Admin Audit API Endpoints
+
+```
+GET  /api/admin/audit-logs          # Paginated audit logs with filters
+GET  /api/admin/audit-stats         # Compliance dashboard statistics
+GET  /api/admin/audit-logs/export   # Export as CSV/JSON for auditors
+GET  /api/admin/users               # User access report
+```
+
+*Full compliance documentation available in `COMPLIANCE.md`*
+
 ---
 
 ## 3. Testing & Quality Assurance
