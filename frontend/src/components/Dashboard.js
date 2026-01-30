@@ -59,6 +59,7 @@ import {
   Analytics as AnalyticsIcon,
   Download as DownloadIcon,
   FactCheck as FactCheckIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material';
 import Dialog from '@mui/material/Dialog';
 import FeedbackButton from './FeedbackButton';
@@ -1105,6 +1106,15 @@ const Dashboard = () => {
             <Tooltip title="QA Dashboard">
               <IconButton color="inherit" onClick={() => navigate('/qa/dashboard')} sx={{ mr: 1 }} aria-label="QA Dashboard">
                 <FactCheckIcon />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {/* Procedure Manager - Admin/PM can upload PG&E procedure docs */}
+          {['admin', 'pm', 'owner'].includes(userRole) && (
+            <Tooltip title="Procedure Documents (AI Learning)">
+              <IconButton color="inherit" onClick={() => navigate('/admin/procedures')} sx={{ mr: 1 }} aria-label="Procedure Manager">
+                <MenuBookIcon />
               </IconButton>
             </Tooltip>
           )}
