@@ -260,6 +260,15 @@ REQUIRED EXTRACTION (return as JSON object):
 - projectName: Project name (e.g., "STS-+TRAN_CORR_REPL")
 - orderType: Order type code (e.g., "E460")
 
+JOB SCOPE (extract from Face Sheet "Scope" or "Description" sections):
+- jobScope.summary: 1-2 sentence work description (e.g., "Install new transformer and 150ft underground primary")
+- jobScope.workType: Type of work (e.g., "New Service", "Service Upgrade", "Pole Replacement", "Underground Conversion")
+- jobScope.equipment: Array of equipment (e.g., ["Transformer 25kVA", "Pole 45ft Class 3", "Conductor 1/0 AL"])
+- jobScope.footage: Total footage if mentioned (e.g., "150 ft UG, 75 ft OH")
+- jobScope.voltage: Voltage level (e.g., "12kV", "21kV Primary", "120/240V Secondary")
+- jobScope.phases: Number of phases (e.g., "1-phase", "3-phase")
+- jobScope.specialNotes: Special conditions or notes
+
 LOOK FOR THESE PATTERNS:
 - "PM Order Number:" followed by digits
 - "Notification:" followed by digits
@@ -267,6 +276,7 @@ LOOK FOR THESE PATTERNS:
 - "City:" followed by city name
 - "Project name:" followed by project description
 - "Order Type:" followed by code
+- "Scope of Work", "Job Description", "Work Description", "Material List"
 - Look in "Face Sheet" or header sections
 
 VALIDATION RULES:
@@ -276,7 +286,7 @@ VALIDATION RULES:
 - Return ONLY valid JSON, no markdown or explanation
 
 EXAMPLE OUTPUT:
-{"pmNumber":"35611981","notificationNumber":"126940062","address":"2PN/O 105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","projectName":"STS-+TRAN_CORR_REPL","orderType":"E460","woNumber":"35611981"}`;
+{"pmNumber":"35611981","notificationNumber":"126940062","address":"2PN/O 105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","projectName":"STS-+TRAN_CORR_REPL","orderType":"E460","woNumber":"35611981","jobScope":{"summary":"Install 25kVA transformer and 150ft underground primary cable","workType":"New Service","equipment":["Transformer 25kVA","Conductor 1/0 AL XLPE"],"footage":"150 ft UG","voltage":"12kV Primary","phases":"1-phase"}}`;
 
     const result = await getPdfUtils().extractWithAI(req.file.path, prompt);
     console.log('AI extraction completed successfully');
