@@ -1,0 +1,67 @@
+/**
+ * ErrorBoundary Component Tests
+ */
+
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+
+// Lazy load component
+let ErrorBoundary;
+beforeAll(() => {
+  ErrorBoundary = require('../ErrorBoundary').default;
+});
+
+// Component that throws an error
+const ThrowError = ({ shouldThrow }) => {
+  if (shouldThrow) {
+    throw new Error('Test error');
+  }
+  return <div>No error</div>;
+};
+
+// Suppress console.error for these tests
+const originalError = console.error;
+beforeAll(() => {
+  console.error = jest.fn();
+});
+afterAll(() => {
+  console.error = originalError;
+});
+
+describe('ErrorBoundary Component', () => {
+  it('should render children when no error', () => {
+    render(
+      <ErrorBoundary>
+        <div>Test content</div>
+      </ErrorBoundary>
+    );
+    
+    expect(screen.getByText('Test content')).toBeInTheDocument();
+  });
+
+  it('should catch errors and show fallback UI', () => {
+    render(
+      <ErrorBoundary>
+        <ThrowError shouldThrow={true} />
+      </ErrorBoundary>
+    );
+    
+    // Should not show the component that threw
+    expect(screen.queryByText('No error')).not.toBeInTheDocument();
+    
+    // Should show some error UI
+    expect(document.body.textContent).toBeTruthy();
+  });
+
+  it('should render multiple children', () => {
+    render(
+      <ErrorBoundary>
+        <div>Child 1</div>
+        <div>Child 2</div>
+      </ErrorBoundary>
+    );
+    
+    expect(screen.getByText('Child 1')).toBeInTheDocument();
+    expect(screen.getByText('Child 2')).toBeInTheDocument();
+  });
+});
