@@ -111,25 +111,6 @@ router.post('/signup', authController.signup);
  */
 router.post('/auth/mfa/verify', authController.verifyMfa);
 
-// Protected routes require authentication middleware
-// These will be mounted with authenticateUser middleware in server.js
-
-/**
- * @swagger
- * /api/users/me:
- *   get:
- *     summary: Get current user profile
- *     tags: [Users]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: User profile
- *       401:
- *         description: Not authenticated
- */
-// router.get('/users/me', authController.getProfile); // Requires auth middleware
-
 /**
  * @swagger
  * /api/auth/mfa/setup:
