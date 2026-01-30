@@ -70,6 +70,21 @@ console.log('R2 Storage configured:', r2Storage.isR2Configured());
 const app = express();
 const server = http.createServer(app);
 
+// ============================================
+// HEALTH CHECK - FIRST! (Before all middleware for fast response)
+// This ensures Railway/Docker healthchecks pass quickly
+// ============================================
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'connecting',
+    uptime: process.uptime()
+  });
+});
+
+console.log('Health endpoint registered');
+
 // Trust proxy - required for rate limiting behind Railway/Vercel reverse proxy
 // This allows express-rate-limit to correctly identify users via X-Forwarded-For
 app.set('trust proxy', 1);
@@ -172,15 +187,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint for Railway
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    r2: r2Storage.isR2Configured() ? 'configured' : 'not configured'
-  });
-});
+// Health check endpoint moved to top of file for fast response (line ~75)
 
 // Root endpoint - redirect to health check or show status
 app.get('/', (req, res) => {
