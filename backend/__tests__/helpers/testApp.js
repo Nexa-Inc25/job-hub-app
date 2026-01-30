@@ -15,6 +15,9 @@ const jwt = require('jsonwebtoken');
 const User = require('../../models/User');
 const Job = require('../../models/Job');
 
+// Controllers
+const adminController = require('../../controllers/admin.controller');
+
 /**
  * Create a test-ready Express app with minimal middleware
  */
@@ -27,6 +30,26 @@ function createTestApp() {
   app.use(cors());
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(mongoSanitize());
+  
+  // Simple header-based auth for testing (no JWT required)
+  app.use((req, res, next) => {
+    if (req.headers['x-test-user-id']) {
+      req.userId = req.headers['x-test-user-id'];
+      req.isAdmin = req.headers['x-test-is-admin'] === 'true';
+      req.isSuperAdmin = req.headers['x-test-is-super-admin'] === 'true';
+      req.userRole = req.headers['x-test-role'] || 'crew';
+      req.companyId = req.headers['x-test-company-id'] || null;
+    }
+    next();
+  });
+  
+  // Admin routes
+  app.get('/api/admin/audit-logs', adminController.getAuditLogs);
+  app.get('/api/admin/audit-stats', adminController.getAuditStats);
+  app.get('/api/admin/audit-logs/export', adminController.exportAuditLogs);
+  app.get('/api/admin/users', adminController.getUsers);
+  app.put('/api/admin/users/:id/role', adminController.updateUserRole);
+  app.delete('/api/admin/users/:id', adminController.deactivateUser);
   
   return app;
 }
