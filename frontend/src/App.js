@@ -25,8 +25,8 @@ import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
 
-// Set PDF.js worker globally - use non-ESM build for CRA compatibility
-pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.js';
+// Set PDF.js worker globally - use CDN for react-pdf v9 compatibility
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 function App() {
   return (
