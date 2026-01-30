@@ -68,7 +68,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Run tests with coverage
         working-directory: frontend
@@ -126,7 +126,7 @@ jobs:
 
       - name: Install frontend dependencies
         working-directory: frontend
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Install Cypress binary
         working-directory: frontend
@@ -230,7 +230,7 @@ jobs:
       - name: Build Frontend
         working-directory: frontend
         run: |
-          npm ci
+          npm install --legacy-peer-deps
           npm run build
         env:
           GENERATE_SOURCEMAP: false
