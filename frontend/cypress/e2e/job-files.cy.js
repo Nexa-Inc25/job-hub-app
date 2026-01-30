@@ -68,21 +68,26 @@ describe('Job File System', () => {
       body: mockJob
     }).as('getJob');
 
-    // Set authenticated state BEFORE visiting pages
-    cy.window().then((win) => {
-      win.localStorage.setItem('token', 'mock-token');
-      win.localStorage.setItem('user', JSON.stringify({
-        _id: 'user1',
-        name: 'Test GF',
-        email: 'gf@example.com',
-        role: 'gf'
-      }));
-    });
   });
+
+  // Helper to set up authenticated state and visit job files page
+  const visitJobFiles = () => {
+    cy.visit('/jobs/job123/files', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('token', 'mock-token');
+        win.localStorage.setItem('user', JSON.stringify({
+          _id: 'user1',
+          name: 'Test GF',
+          email: 'gf@example.com',
+          role: 'gf'
+        }));
+      }
+    });
+  };
 
   describe('Navigation', () => {
     it('should display job file system page', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Should show job identifier
@@ -90,7 +95,7 @@ describe('Job File System', () => {
     });
 
     it('should have back navigation', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Should have back button
@@ -100,7 +105,7 @@ describe('Job File System', () => {
 
   describe('Folder Structure', () => {
     it('should display folder tree', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Should show main folders
@@ -109,7 +114,7 @@ describe('Job File System', () => {
     });
 
     it('should expand folders on click', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Click on ACI folder to expand
@@ -121,7 +126,7 @@ describe('Job File System', () => {
     });
 
     it('should show document count in folders', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Should show count indicators
@@ -131,7 +136,7 @@ describe('Job File System', () => {
 
   describe('Document Actions', () => {
     it('should have upload button', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Select a folder first
@@ -143,7 +148,7 @@ describe('Job File System', () => {
     });
 
     it('should have export button when documents exist', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Navigate to folder with documents
@@ -157,7 +162,7 @@ describe('Job File System', () => {
 
   describe('Photo Upload Flow', () => {
     it('should show photo upload options in GF Audit folder', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Navigate to GF Audit
@@ -172,7 +177,7 @@ describe('Job File System', () => {
 
   describe('PDF Viewer', () => {
     it('should open PDF viewer when document clicked', () => {
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Navigate to folder with PDF
@@ -197,7 +202,7 @@ describe('Job File System', () => {
   describe('Mobile Responsiveness', () => {
     it('should work on iPad horizontal', () => {
       cy.viewport(1024, 768);
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       cy.contains('ACI').should('be.visible');
@@ -206,7 +211,7 @@ describe('Job File System', () => {
 
     it('should work on mobile', () => {
       cy.viewport('iphone-x');
-      cy.visit('/jobs/job123/files');
+      visitJobFiles();
       cy.wait('@getJob');
       
       // Core elements should be visible

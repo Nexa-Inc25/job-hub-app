@@ -74,21 +74,26 @@ describe('Work Order Details', () => {
       body: mockJob.dependencies
     }).as('getDependencies');
 
-    // Set authenticated state in localStorage
-    cy.window().then((win) => {
-      win.localStorage.setItem('token', 'mock-token');
-      win.localStorage.setItem('user', JSON.stringify({
-        _id: 'user1',
-        name: 'Test User',
-        email: 'test@example.com',
-        role: 'gf'
-      }));
-    });
   });
+
+  // Helper to set up authenticated state and visit page
+  const visitJobDetails = () => {
+    cy.visit('/jobs/job123', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('token', 'mock-token');
+        win.localStorage.setItem('user', JSON.stringify({
+          _id: 'user1',
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'gf'
+        }));
+      }
+    });
+  };
 
   describe('Page Layout', () => {
     it('should display job information', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       cy.contains('PM-35440499').should('be.visible');
@@ -96,7 +101,7 @@ describe('Work Order Details', () => {
     });
 
     it('should display current status', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Status should be shown as chip/badge
@@ -104,14 +109,14 @@ describe('Work Order Details', () => {
     });
 
     it('should have back to dashboard navigation', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       cy.get('[aria-label*="back" i]').should('exist');
     });
 
     it('should have files button', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       cy.contains(/files/i).should('be.visible');
@@ -120,7 +125,7 @@ describe('Work Order Details', () => {
 
   describe('Dependencies Section', () => {
     it('should display dependencies list', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Should show dependency types
@@ -129,7 +134,7 @@ describe('Work Order Details', () => {
     });
 
     it('should show dependency status', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Status indicators should be present
@@ -139,14 +144,14 @@ describe('Work Order Details', () => {
 
   describe('Notes Section', () => {
     it('should display existing notes', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       cy.contains('Initial assessment complete').should('be.visible');
     });
 
     it('should have add note input', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Look for note input
@@ -160,7 +165,7 @@ describe('Work Order Details', () => {
         body: { _id: 'note2', message: 'New test note', noteType: 'update', createdAt: new Date().toISOString() }
       }).as('addNote');
 
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       cy.get('textarea, input[placeholder*="note" i], input[placeholder*="message" i]')
@@ -176,7 +181,7 @@ describe('Work Order Details', () => {
 
   describe('Photo Upload Section', () => {
     it('should have photo upload for pre-field', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Should show upload photos section
@@ -186,7 +191,7 @@ describe('Work Order Details', () => {
 
   describe('Status Updates', () => {
     it('should show workflow progress', () => {
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Should have progress indicator or workflow steps
@@ -197,7 +202,7 @@ describe('Work Order Details', () => {
   describe('Responsive Design', () => {
     it('should reorganize layout on horizontal iPad', () => {
       cy.viewport(1024, 768);
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       // Main content should be visible
@@ -206,7 +211,7 @@ describe('Work Order Details', () => {
 
     it('should stack sections on mobile', () => {
       cy.viewport('iphone-x');
-      cy.visit('/jobs/job123');
+      visitJobDetails();
       cy.wait('@getJobDetails');
       
       cy.get('header').should('be.visible');

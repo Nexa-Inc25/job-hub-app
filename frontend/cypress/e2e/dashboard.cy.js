@@ -52,27 +52,32 @@ describe('Dashboard', () => {
       body: []
     }).as('getPendingApprovals');
 
-    // Set up authenticated session
-    cy.window().then((win) => {
-      win.localStorage.setItem('token', 'mock-token-for-testing');
-      win.localStorage.setItem('user', JSON.stringify({
-        _id: 'user1',
-        name: 'Test User',
-        email: 'test@example.com',
-        role: 'gf',
-        isAdmin: false
-      }));
-    });
   });
+
+  // Helper to set up authenticated state and visit dashboard
+  const visitDashboard = () => {
+    cy.visit('/dashboard', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('token', 'mock-token-for-testing');
+        win.localStorage.setItem('user', JSON.stringify({
+          _id: 'user1',
+          name: 'Test User',
+          email: 'test@example.com',
+          role: 'gf',
+          isAdmin: false
+        }));
+      }
+    });
+  };
 
   describe('Layout', () => {
     it('should display the app bar', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.get('header').should('be.visible');
     });
 
     it('should display navigation elements', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       
       // Should have main navigation
       cy.get('header').within(() => {
@@ -81,7 +86,7 @@ describe('Dashboard', () => {
     });
 
     it('should have dark mode toggle', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       
       // Look for dark mode toggle button
       cy.get('[aria-label*="dark" i], [aria-label*="mode" i], [aria-label*="theme" i]')
@@ -97,14 +102,14 @@ describe('Dashboard', () => {
         body: []
       }).as('getJobsDelayed');
 
-      cy.visit('/dashboard');
+      visitDashboard();
       
       // Should show loading indicator
       cy.get('[role="progressbar"], .MuiCircularProgress-root').should('be.visible');
     });
 
     it('should display jobs after loading', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       // Should display job cards or list items
@@ -113,7 +118,7 @@ describe('Dashboard', () => {
     });
 
     it('should have filter options', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       // Look for filter button or dropdown
@@ -123,7 +128,7 @@ describe('Dashboard', () => {
 
   describe('Search', () => {
     it('should have search input', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       // Look for search input
@@ -132,7 +137,7 @@ describe('Dashboard', () => {
     });
 
     it('should filter jobs when searching', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       cy.get('input[placeholder*="search" i], input[aria-label*="search" i]')
@@ -145,7 +150,7 @@ describe('Dashboard', () => {
 
   describe('Create Job', () => {
     it('should have create job button', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       // Look for create/add button
@@ -156,7 +161,7 @@ describe('Dashboard', () => {
 
   describe('Job Actions', () => {
     it('should navigate to job details on click', () => {
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       // Mock job details response
@@ -181,7 +186,7 @@ describe('Dashboard', () => {
   describe('Responsive Design', () => {
     it('should work on mobile viewport', () => {
       cy.viewport('iphone-x');
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       // Header should still be visible
@@ -193,7 +198,7 @@ describe('Dashboard', () => {
 
     it('should work on tablet viewport', () => {
       cy.viewport('ipad-2');
-      cy.visit('/dashboard');
+      visitDashboard();
       cy.wait('@getJobs');
       
       cy.get('header').should('be.visible');
