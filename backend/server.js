@@ -39,6 +39,7 @@ const SpecDocument = require('./models/SpecDocument');
 const apiRoutes = require('./routes/api');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
+const { setupSwagger } = require('./config/swagger');
 const OpenAI = require('openai');
 const sharp = require('sharp');
 const heicConvert = require('heic-convert');
@@ -74,6 +75,35 @@ const server = http.createServer(app);
 // HEALTH CHECK - FIRST! (Before all middleware for fast response)
 // This ensures Railway/Docker healthchecks pass quickly
 // ============================================
+/**
+ * @swagger
+ * /api/health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Returns server health status. Does not require authentication.
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                 mongodb:
+ *                   type: string
+ *                   enum: [connected, connecting, disconnected]
+ *                 uptime:
+ *                   type: number
+ *                   description: Server uptime in seconds
+ */
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
     status: 'ok', 
@@ -93,6 +123,11 @@ server.listen(PORT, '0.0.0.0', () => {
 });
 
 console.log('Health endpoint registered');
+
+// ============================================
+// API DOCUMENTATION (Swagger/OpenAPI)
+// ============================================
+setupSwagger(app);
 
 // Trust proxy - required for rate limiting behind Railway/Vercel reverse proxy
 // This allows express-rate-limit to correctly identify users via X-Forwarded-For
@@ -337,11 +372,62 @@ const requireSuperAdmin = (req, res, next) => {
   next();
 };
 
-// Signup Endpoint - Now using modular controller
-// Roles: crew (default), foreman, gf (general foreman), pm (project manager), admin
+/**
+ * @swagger
+ * /api/signup:
+ *   post:
+ *     summary: Register a new user
+ *     description: Create a new user account. Password must be 8+ chars with uppercase, lowercase, and number.
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SignupRequest'
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       400:
+ *         description: Validation error or email already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 app.post('/api/signup', authController.signup);
 
-// Login Endpoint - Now using modular controller
+/**
+ * @swagger
+ * /api/login:
+ *   post:
+ *     summary: Authenticate user
+ *     description: Login with email and password. Returns JWT token or MFA challenge.
+ *     tags: [Auth]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       200:
+ *         description: Login successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/LoginResponse'
+ *       401:
+ *         description: Invalid credentials
+ *       423:
+ *         description: Account locked due to too many failed attempts
+ */
 app.post('/api/login', authController.login);
 
 // ==================== MFA ENDPOINTS (PG&E Compliance) ====================
@@ -1017,12 +1103,41 @@ app.get('/api/my-assignments', authenticateUser, async (req, res) => {
   }
 });
 
-// Protect jobs route - this applies to all /api/jobs/* routes defined below
-// All /api/jobs routes require authentication
-// Role-based filtering:
-//   - Admin/PM: See all jobs in their company
-//   - GF: See jobs assigned to them for pre-field/review
-//   - Foreman/Crew: See only jobs assigned to them
+/**
+ * @swagger
+ * /api/jobs:
+ *   get:
+ *     summary: List work orders
+ *     description: |
+ *       Returns work orders accessible to the authenticated user.
+ *       Results are filtered by company (multi-tenant) and user role:
+ *       - **Admin/PM**: All jobs in their company
+ *       - **GF**: Jobs assigned to them
+ *       - **Foreman/Crew**: Only jobs directly assigned to them
+ *     tags: [Jobs]
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by PM#, WO#, title, address, or client
+ *       - in: query
+ *         name: includeArchived
+ *         schema:
+ *           type: boolean
+ *         description: Include archived jobs (admin only)
+ *     responses:
+ *       200:
+ *         description: List of jobs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Job'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ */
 app.get('/api/jobs', authenticateUser, async (req, res) => {
   try {
     // Reduced logging for high-frequency endpoint
