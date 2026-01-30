@@ -1534,18 +1534,24 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
 
 app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) => {
   try {
-    const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode, jobScope } = req.body;
+    const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode, jobScope, preFieldLabels, ecTag } = req.body;
     const resolvedTitle = title || pmNumber || woNumber || 'Untitled Work Order';
     
-    // Parse jobScope if it's a string (from form data)
-    let parsedJobScope = null;
-    if (jobScope) {
+    // Parse JSON fields if they're strings (from form data)
+    const parseJsonField = (field, name) => {
+      if (!field) return null;
       try {
-        parsedJobScope = typeof jobScope === 'string' ? JSON.parse(jobScope) : jobScope;
+        return typeof field === 'string' ? JSON.parse(field) : field;
       } catch (e) {
-        console.warn('Failed to parse jobScope:', e.message);
+        console.warn(`Failed to parse ${name}:`, e.message);
+        return null;
       }
-    }
+    };
+    
+    const parsedJobScope = parseJsonField(jobScope, 'jobScope');
+    const parsedPreFieldLabels = parseJsonField(preFieldLabels, 'preFieldLabels');
+    const parsedEcTag = parseJsonField(ecTag, 'ecTag');
+    
     const resolvedDescription = description || [address, city, client].filter(Boolean).join(' | ') || '';
     
     // Get user's company for multi-tenant job creation and folder template
@@ -1647,6 +1653,8 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       division: division || 'DA',
       matCode,
       jobScope: parsedJobScope,  // Scope extracted from PG&E Face Sheet
+      preFieldLabels: parsedPreFieldLabels,  // Pre-field crew labels
+      ecTag: parsedEcTag,  // EC Tag and program info
       userId: req.userId,
       companyId: user?.companyId,  // MULTI-TENANT: Assign job to user's company
       status: 'pending',

@@ -44,6 +44,8 @@ const CreateWorkOrder = ({ token }) => {
   const [division, setDivision] = useState('DA');
   const [matCode, setMatCode] = useState('');
   const [jobScope, setJobScope] = useState(null);  // Scope extracted from Face Sheet
+  const [preFieldLabels, setPreFieldLabels] = useState(null);  // Pre-field crew labels
+  const [ecTag, setEcTag] = useState(null);  // EC Tag info
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -97,6 +99,14 @@ const CreateWorkOrder = ({ token }) => {
           if (data.jobScope) {
             setJobScope(data.jobScope);
           }
+          // Store pre-field labels for crew planning
+          if (data.preFieldLabels) {
+            setPreFieldLabels(data.preFieldLabels);
+          }
+          // Store EC tag info
+          if (data.ecTag) {
+            setEcTag(data.ecTag);
+          }
         }
       }).catch(err => {
         // AI extraction is optional - user can fill fields manually
@@ -141,6 +151,14 @@ const CreateWorkOrder = ({ token }) => {
     // Include job scope extracted from Face Sheet
     if (jobScope) {
       jobFormData.append('jobScope', JSON.stringify(jobScope));
+    }
+    // Include pre-field labels for crew planning
+    if (preFieldLabels) {
+      jobFormData.append('preFieldLabels', JSON.stringify(preFieldLabels));
+    }
+    // Include EC tag info
+    if (ecTag) {
+      jobFormData.append('ecTag', JSON.stringify(ecTag));
     }
     // Skip AI text extraction since we already did it on file select
     jobFormData.append('skipAiExtract', 'true');

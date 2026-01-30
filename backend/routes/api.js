@@ -251,42 +251,55 @@ router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
     const prompt = req.body.prompt || `You are an expert at extracting work order information from PG&E and utility maintenance documents.
 
 REQUIRED EXTRACTION (return as JSON object):
-- pmNumber: PM Order Number (e.g., "35611981" from "PM Order Number:35611981")
+- pmNumber: PM Order Number (e.g., "35611981")
 - notificationNumber: Notification number (e.g., "126940062")
-- woNumber: Work order number (often same as PM number, or separate WO#)
+- woNumber: Work order number
 - address: Street address (e.g., "2PN/O 105 HIGHLAND AV")
 - city: City name (e.g., "LOS GATOS")
 - client: Company name (e.g., "PG&E")
-- projectName: Project name (e.g., "STS-+TRAN_CORR_REPL")
+- projectName: Project name
 - orderType: Order type code (e.g., "E460")
 
-JOB SCOPE (extract from Face Sheet "Scope" or "Description" sections):
-- jobScope.summary: 1-2 sentence work description (e.g., "Install new transformer and 150ft underground primary")
-- jobScope.workType: Type of work (e.g., "New Service", "Service Upgrade", "Pole Replacement", "Underground Conversion")
-- jobScope.equipment: Array of equipment (e.g., ["Transformer 25kVA", "Pole 45ft Class 3", "Conductor 1/0 AL"])
-- jobScope.footage: Total footage if mentioned (e.g., "150 ft UG, 75 ft OH")
-- jobScope.voltage: Voltage level (e.g., "12kV", "21kV Primary", "120/240V Secondary")
-- jobScope.phases: Number of phases (e.g., "1-phase", "3-phase")
-- jobScope.specialNotes: Special conditions or notes
+JOB SCOPE:
+- jobScope.summary: 1-2 sentence work description
+- jobScope.workType: Type of work (New Service, Pole Replacement, etc.)
+- jobScope.equipment: Array of equipment mentioned
+- jobScope.footage: Total footage if mentioned
+- jobScope.voltage: Voltage level
+- jobScope.phases: Number of phases (1-phase, 3-phase)
+
+PRE-FIELD LABELS (for crew planning):
+- preFieldLabels.roadAccess: One of "accessible", "limited", "non-accessible", "backyard", "easement" based on location description
+- preFieldLabels.accessNotes: Details about access (e.g., "150ft from road", "locked gate", "steep terrain")
+- preFieldLabels.craneRequired: true if pole set/change in backyard, limited access, or crane mentioned
+- preFieldLabels.craneType: Type needed if applicable (e.g., "Digger Derrick", "Crane Truck")
+- preFieldLabels.constructionType: "overhead", "underground", or "both" based on work described
+- preFieldLabels.poleWork: "set" (new pole), "change-out" (replace), "removal", "transfer", or null
+
+EC TAG / PROGRAM INFO:
+- ecTag.tagType: PG&E tag classification - "A", "B", "C", "D", "E", or "emergency"
+- ecTag.tagDueDate: Due date from EC tag (ISO format YYYY-MM-DD)
+- ecTag.programType: One of "new-business", "capacity", "reliability", "maintenance", "tag-work", "pole-replacement", "underground-conversion"
+- ecTag.programCode: Program code like "NB", "CAP", "REL", "A-TAG", "E-TAG"
+- ecTag.isUrgent: true if A-tag, E-tag, emergency, or due within 30 days
 
 LOOK FOR THESE PATTERNS:
-- "PM Order Number:" followed by digits
-- "Notification:" followed by digits
-- "Address:" followed by street
-- "City:" followed by city name
-- "Project name:" followed by project description
-- "Order Type:" followed by code
-- "Scope of Work", "Job Description", "Work Description", "Material List"
-- Look in "Face Sheet" or header sections
+- "PM Order Number:" or "PM#"
+- "EC Tag", "Tag Type", "A Tag", "B Tag", "E Tag"
+- "Required Date", "Due Date", "Completion Date"
+- "Program:", "Project Type:", "Work Type:"
+- "Backyard", "easement", "off-road", "limited access"
+- "Crane", "digger", "pole set", "pole change"
+- "OH" or "Overhead", "UG" or "Underground"
+- "New Business", "NB", "Capacity", "Reliability"
 
-VALIDATION RULES:
-- Extract numbers without leading zeros if present
-- Keep address as street only, city separate
-- Use empty string "" for any missing fields
-- Return ONLY valid JSON, no markdown or explanation
+VALIDATION:
+- Use null for missing optional fields
+- Dates in ISO format (YYYY-MM-DD)
+- Return ONLY valid JSON
 
 EXAMPLE OUTPUT:
-{"pmNumber":"35611981","notificationNumber":"126940062","address":"2PN/O 105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","projectName":"STS-+TRAN_CORR_REPL","orderType":"E460","woNumber":"35611981","jobScope":{"summary":"Install 25kVA transformer and 150ft underground primary cable","workType":"New Service","equipment":["Transformer 25kVA","Conductor 1/0 AL XLPE"],"footage":"150 ft UG","voltage":"12kV Primary","phases":"1-phase"}}`;
+{"pmNumber":"35611981","address":"105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","orderType":"E460","jobScope":{"summary":"Replace 45ft pole in backyard, transfer existing equipment","workType":"Pole Replacement","constructionType":"overhead"},"preFieldLabels":{"roadAccess":"backyard","accessNotes":"120ft from street, gate access required","craneRequired":true,"craneType":"Crane Truck","constructionType":"overhead","poleWork":"change-out"},"ecTag":{"tagType":"B","tagDueDate":"2026-03-15","programType":"pole-replacement","programCode":"B-TAG","isUrgent":false}}`;
 
     const result = await getPdfUtils().extractWithAI(req.file.path, prompt);
     console.log('AI extraction completed successfully');

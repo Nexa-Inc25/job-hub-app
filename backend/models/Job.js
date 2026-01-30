@@ -78,6 +78,62 @@ const jobSchema = new mongoose.Schema({
     phases: String,            // Number of phases
     specialNotes: String,      // Any special conditions or notes
   },
+  
+  // Pre-field labels for crew planning (AI-extracted from job package)
+  preFieldLabels: {
+    // Access assessment
+    roadAccess: { 
+      type: String, 
+      enum: ['accessible', 'limited', 'non-accessible', 'backyard', 'easement', null],
+      default: null 
+    },
+    accessNotes: String,       // Details about access (e.g., "150ft from road", "locked gate")
+    
+    // Equipment requirements
+    craneRequired: { type: Boolean, default: false },
+    craneType: String,         // e.g., "Digger Derrick", "Crane Truck", "Mini Crane"
+    specialEquipment: [String], // Other special equipment needed
+    
+    // Job type classification
+    constructionType: { 
+      type: String, 
+      enum: ['overhead', 'underground', 'both', null],
+      default: null 
+    },
+    poleWork: {
+      type: String,
+      enum: ['set', 'change-out', 'removal', 'transfer', null],
+      default: null
+    },
+  },
+  
+  // EC Tag / Job Program information (extracted from job package)
+  ecTag: {
+    tagType: {
+      type: String,
+      enum: ['A', 'B', 'C', 'D', 'E', 'emergency', 'none', null], // PG&E tag classifications
+      default: null
+    },
+    tagDueDate: Date,          // Due date from EC tag
+    programType: {
+      type: String,
+      enum: [
+        'new-business',        // New service installations
+        'capacity',            // Capacity upgrades
+        'reliability',         // Reliability improvements
+        'maintenance',         // Routine maintenance
+        'storm-damage',        // Storm restoration
+        'customer-request',    // Customer-initiated
+        'tag-work',            // Tag program work
+        'pole-replacement',    // Pole replacement program
+        'underground-conversion', // UG conversion
+        null
+      ],
+      default: null
+    },
+    programCode: String,       // e.g., "NB", "CAP", "REL", etc.
+    isUrgent: { type: Boolean, default: false },
+  },
   // Job status workflow:
   // new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
   // pending_gf_review → pending_qa_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced

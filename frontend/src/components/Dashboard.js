@@ -1432,6 +1432,62 @@ const Dashboard = () => {
                                       📍 {job.address}
                                     </Typography>
                                   )}
+                                  {/* EC Tag & Pre-field Labels */}
+                                  {(job.ecTag?.tagType || job.preFieldLabels?.craneRequired) && (
+                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                                      {job.ecTag?.tagType && (
+                                        <Chip 
+                                          size="small" 
+                                          label={`${job.ecTag.tagType}-TAG`}
+                                          sx={{ 
+                                            height: 20, 
+                                            fontWeight: 700,
+                                            fontSize: '0.65rem',
+                                            bgcolor: job.ecTag.tagType === 'A' ? '#d32f2f' : 
+                                                     job.ecTag.tagType === 'E' ? '#f57c00' : 
+                                                     job.ecTag.tagType === 'B' ? '#1976d2' : undefined,
+                                            color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
+                                          }}
+                                        />
+                                      )}
+                                      {job.ecTag?.tagDueDate && (
+                                        <Chip 
+                                          size="small" 
+                                          label={`Due ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
+                                          color={new Date(job.ecTag.tagDueDate) < new Date() ? 'error' : 'default'}
+                                          variant="outlined"
+                                          sx={{ height: 20, fontSize: '0.65rem' }}
+                                        />
+                                      )}
+                                      {job.preFieldLabels?.constructionType && (
+                                        <Chip 
+                                          size="small" 
+                                          label={job.preFieldLabels.constructionType.toUpperCase()}
+                                          sx={{ 
+                                            height: 20,
+                                            fontSize: '0.65rem',
+                                            bgcolor: job.preFieldLabels.constructionType === 'underground' ? '#795548' : '#4caf50',
+                                            color: 'white'
+                                          }}
+                                        />
+                                      )}
+                                      {job.preFieldLabels?.roadAccess && job.preFieldLabels.roadAccess !== 'accessible' && (
+                                        <Chip 
+                                          size="small" 
+                                          label={job.preFieldLabels.roadAccess === 'backyard' ? 'BACKYARD' : job.preFieldLabels.roadAccess.toUpperCase()}
+                                          color="warning"
+                                          sx={{ height: 20, fontSize: '0.65rem' }}
+                                        />
+                                      )}
+                                      {job.preFieldLabels?.craneRequired && (
+                                        <Chip 
+                                          size="small" 
+                                          label={job.preFieldLabels.craneType || 'CRANE'}
+                                          sx={{ height: 20, fontSize: '0.65rem', bgcolor: '#ff5722', color: 'white', fontWeight: 700 }}
+                                        />
+                                      )}
+                                    </Box>
+                                  )}
                                   {/* Job Scope Summary from Face Sheet */}
                                   {job.jobScope?.summary && (
                                     <Typography 
@@ -1446,7 +1502,7 @@ const Dashboard = () => {
                                         lineHeight: 1.3
                                       }}
                                     >
-                                      📋 {job.jobScope.summary}
+                                      {job.jobScope.summary}
                                     </Typography>
                                   )}
                                 </Box>
@@ -1873,6 +1929,90 @@ const Dashboard = () => {
                           }}>
                             {job.description}
                           </Typography>
+                        )}
+
+                        {/* EC Tag & Pre-field Labels - Critical info for crews */}
+                        {(job.ecTag?.tagType || job.ecTag?.tagDueDate || job.preFieldLabels) && (
+                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+                            {/* EC Tag Type with urgency coloring */}
+                            {job.ecTag?.tagType && (
+                              <Chip 
+                                size="small" 
+                                label={`${job.ecTag.tagType}-TAG`}
+                                color={['A', 'E', 'emergency'].includes(job.ecTag.tagType) ? 'error' : 'default'}
+                                sx={{ 
+                                  height: 22, 
+                                  fontWeight: 700,
+                                  bgcolor: job.ecTag.tagType === 'A' ? '#d32f2f' : 
+                                           job.ecTag.tagType === 'E' ? '#f57c00' : 
+                                           job.ecTag.tagType === 'B' ? '#1976d2' : undefined,
+                                  color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
+                                }}
+                              />
+                            )}
+                            {/* Tag Due Date */}
+                            {job.ecTag?.tagDueDate && (
+                              <Chip 
+                                size="small" 
+                                label={`Due: ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
+                                color={new Date(job.ecTag.tagDueDate) < new Date() ? 'error' : 
+                                       new Date(job.ecTag.tagDueDate) < new Date(Date.now() + 7*24*60*60*1000) ? 'warning' : 'default'}
+                                variant="outlined"
+                                sx={{ height: 22, fontWeight: 600 }}
+                              />
+                            )}
+                            {/* Construction Type */}
+                            {job.preFieldLabels?.constructionType && (
+                              <Chip 
+                                size="small" 
+                                label={job.preFieldLabels.constructionType.toUpperCase()}
+                                sx={{ 
+                                  height: 22,
+                                  bgcolor: job.preFieldLabels.constructionType === 'underground' ? '#795548' : '#4caf50',
+                                  color: 'white'
+                                }}
+                              />
+                            )}
+                            {/* Road Access */}
+                            {job.preFieldLabels?.roadAccess && (
+                              <Chip 
+                                size="small" 
+                                label={job.preFieldLabels.roadAccess === 'accessible' ? 'Road Access' : 
+                                       job.preFieldLabels.roadAccess === 'backyard' ? 'Backyard' : 
+                                       job.preFieldLabels.roadAccess}
+                                color={job.preFieldLabels.roadAccess === 'accessible' ? 'success' : 
+                                       job.preFieldLabels.roadAccess === 'non-accessible' ? 'error' : 'warning'}
+                                variant="outlined"
+                                sx={{ height: 22 }}
+                              />
+                            )}
+                            {/* Crane Required */}
+                            {job.preFieldLabels?.craneRequired && (
+                              <Chip 
+                                size="small" 
+                                label={job.preFieldLabels.craneType || 'CRANE'}
+                                sx={{ height: 22, bgcolor: '#ff5722', color: 'white', fontWeight: 700 }}
+                              />
+                            )}
+                            {/* Pole Work Type */}
+                            {job.preFieldLabels?.poleWork && (
+                              <Chip 
+                                size="small" 
+                                label={`Pole ${job.preFieldLabels.poleWork}`}
+                                variant="outlined"
+                                sx={{ height: 22 }}
+                              />
+                            )}
+                            {/* Program Type */}
+                            {job.ecTag?.programType && (
+                              <Chip 
+                                size="small" 
+                                label={job.ecTag.programCode || job.ecTag.programType.replace('-', ' ')}
+                                variant="outlined"
+                                sx={{ height: 22, fontSize: '0.65rem' }}
+                              />
+                            )}
+                          </Box>
                         )}
 
                         {/* Job Scope Summary from Face Sheet */}
