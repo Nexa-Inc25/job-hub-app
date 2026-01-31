@@ -6056,13 +6056,17 @@ const specUpload = multer({
 // Get all specs for a utility (with optional category filter)
 app.get('/api/specs', authenticateUser, async (req, res) => {
   try {
-    const { utilityId, category, section, search } = req.query;
+    const { utilityId, category, section, division, search } = req.query;
     const user = await User.findById(req.userId);
     
     const query = { isDeleted: { $ne: true } };
     
     if (utilityId) {
       query.utilityId = utilityId;
+    }
+    
+    if (division) {
+      query.division = division;
     }
     
     if (category) {
@@ -6085,20 +6089,45 @@ app.get('/api/specs', authenticateUser, async (req, res) => {
     
     let specs;
     if (search) {
-      // Text search
-      specs = await SpecDocument.find({
-        ...query,
-        $text: { $search: search }
-      })
-        .populate('utilityId', 'name shortName')
-        .populate('createdBy', 'name email')
-        .sort({ score: { $meta: 'textScore' } })
-        .lean();
+      // Try text search first, fallback to regex if no results
+      try {
+        specs = await SpecDocument.find({
+          ...query,
+          $text: { $search: search }
+        })
+          .populate('utilityId', 'name shortName')
+          .populate('createdBy', 'name email')
+          .sort({ score: { $meta: 'textScore' } })
+          .lean();
+      } catch {
+        // Text search failed, use regex fallback
+        specs = [];
+      }
+      
+      // If text search returned no results, try regex search
+      if (specs.length === 0) {
+        const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        specs = await SpecDocument.find({
+          ...query,
+          $or: [
+            { name: searchRegex },
+            { description: searchRegex },
+            { documentNumber: searchRegex },
+            { section: searchRegex },
+            { category: searchRegex },
+            { tags: searchRegex }
+          ]
+        })
+          .populate('utilityId', 'name shortName')
+          .populate('createdBy', 'name email')
+          .sort({ division: 1, category: 1, name: 1 })
+          .lean();
+      }
     } else {
       specs = await SpecDocument.find(query)
         .populate('utilityId', 'name shortName')
         .populate('createdBy', 'name email')
-        .sort({ category: 1, section: 1, name: 1 })
+        .sort({ division: 1, category: 1, name: 1 })
         .lean();
     }
     
@@ -6145,13 +6174,16 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
     }
     
     const { 
-      name, description, documentNumber, category, section, subcategory, 
+      name, description, documentNumber, division, category, section, subcategory, 
       utilityId, effectiveDate, tags, versionNumber 
     } = req.body;
     
     if (!name || !category || !utilityId) {
       return res.status(400).json({ error: 'Name, category, and utility are required' });
     }
+    
+    // Default division based on category if not provided
+    const specDivision = division || 'general';
     
     if (!req.file) {
       return res.status(400).json({ error: 'File is required' });
@@ -6183,6 +6215,7 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
       name,
       description,
       documentNumber,
+      division: specDivision,
       category,
       section,
       subcategory,
@@ -6281,7 +6314,7 @@ app.put('/api/specs/:id', authenticateUser, async (req, res) => {
       return res.status(403).json({ error: 'Permission denied' });
     }
     
-    const { name, description, documentNumber, category, section, subcategory, effectiveDate, expirationDate, tags } = req.body;
+    const { name, description, documentNumber, division, category, section, subcategory, effectiveDate, expirationDate, tags } = req.body;
     
     const spec = await SpecDocument.findById(req.params.id);
     if (!spec || spec.isDeleted) {
@@ -6291,6 +6324,7 @@ app.put('/api/specs/:id', authenticateUser, async (req, res) => {
     if (name) spec.name = name;
     if (description !== undefined) spec.description = description;
     if (documentNumber !== undefined) spec.documentNumber = documentNumber;
+    if (division) spec.division = division;
     if (category) spec.category = category;
     if (section !== undefined) spec.section = section;
     if (subcategory !== undefined) spec.subcategory = subcategory;

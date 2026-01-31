@@ -21,28 +21,52 @@ const specDocumentSchema = new mongoose.Schema({
   description: String,                               // Brief description
   documentNumber: String,                            // Utility's document number (e.g., "TD-0100S-001")
   
-  // Classification
+  // Primary Division - Overhead vs Underground (PG&E has tons of specs)
+  division: {
+    type: String,
+    enum: ['overhead', 'underground', 'general'],
+    default: 'general',
+    required: true
+  },
+  
+  // Category/Section within division (e.g., Grounding, Pole Installation, Conduit)
   category: {
     type: String,
     enum: [
-      'overhead',           // Overhead construction
-      'underground',        // Underground construction
-      'safety',             // Safety standards
-      'equipment',          // Equipment specs
-      'materials',          // Material specifications
-      'procedures',         // Work procedures
-      'forms',              // Required forms/templates
-      'traffic_control',    // TCP standards
-      'environmental',      // Environmental requirements
+      // Overhead categories
+      'pole_installation',      // Poles, setting, framing
+      'conductor',              // Wire, conductor installation
+      'transformer_oh',         // Overhead transformers
+      'grounding_oh',           // Overhead grounding
+      'guy_anchor',             // Guys and anchors
+      'overhead_clearances',    // Clearance requirements
+      'street_lights',          // Street lighting
+      // Underground categories
+      'conduit_duct',           // Conduit and duct bank
+      'cable_installation',     // UG cable pulling, splicing
+      'transformer_ug',         // Padmount transformers
+      'grounding_ug',           // Underground grounding
+      'switching_equipment',    // Switches, sectionalizers
+      'vault_manhole',          // Vaults, manholes, handholes
+      'ug_clearances',          // Underground clearances
+      // General categories
+      'safety',                 // Safety standards
+      'traffic_control',        // TCP standards
+      'environmental',          // Environmental requirements
+      'materials',              // Material specifications
+      'procedures',             // Work procedures
+      'forms',                  // Required forms/templates
+      'equipment',              // Equipment specs
+      'metering',               // Meter installations
       'other'
     ],
     required: true
   },
   
-  // Section - groups specs within a category (2nd level folder)
-  section: String,                                   // e.g., "Grounding", "Pole Installation", "Conduit"
+  // Section - additional grouping within category (3rd level if needed)
+  section: String,                                   // e.g., "Residential", "Commercial", "Primary", "Secondary"
   
-  // Sub-category for more specific filtering (3rd level if needed)
+  // Legacy subcategory field - kept for backwards compatibility
   subcategory: String,                               // e.g., "Residential", "Commercial"
   
   // Which utility this spec belongs to
@@ -83,12 +107,13 @@ const specDocumentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries
-specDocumentSchema.index({ utilityId: 1, category: 1, section: 1 });
+specDocumentSchema.index({ utilityId: 1, division: 1, category: 1 });
 specDocumentSchema.index({ utilityId: 1, isDeleted: 1 });
 specDocumentSchema.index({ companyId: 1 });
+specDocumentSchema.index({ division: 1 });
 specDocumentSchema.index({ tags: 1 });
 specDocumentSchema.index({ section: 1 });
-specDocumentSchema.index({ name: 'text', description: 'text', documentNumber: 'text', section: 'text' }); // Full-text search
+specDocumentSchema.index({ name: 'text', description: 'text', documentNumber: 'text', section: 'text', category: 'text' }); // Full-text search
 
 // Method to add a new version
 specDocumentSchema.methods.addVersion = async function(versionData, userId) {

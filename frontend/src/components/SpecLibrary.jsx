@@ -63,18 +63,41 @@ import {
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors, LoadingState } from './shared';
 
-// Category icons and colors
+// Division configuration (primary grouping: OH vs UG)
+const DIVISION_CONFIG = {
+  overhead: { icon: ElectricalServicesIcon, color: '#f59e0b', label: 'Overhead' },
+  underground: { icon: LandscapeIcon, color: '#8b5cf6', label: 'Underground' },
+  general: { icon: DescriptionIcon, color: '#6366f1', label: 'General' },
+};
+
+// Category icons and colors (organized by division)
 const CATEGORY_CONFIG = {
-  overhead: { icon: ElectricalServicesIcon, color: '#f59e0b', label: 'Overhead Construction' },
-  underground: { icon: LandscapeIcon, color: '#8b5cf6', label: 'Underground Construction' },
-  safety: { icon: SecurityIcon, color: '#ef4444', label: 'Safety Standards' },
-  equipment: { icon: BuildIcon, color: '#06b6d4', label: 'Equipment Specs' },
-  materials: { icon: CategoryIcon, color: '#22c55e', label: 'Material Specifications' },
-  procedures: { icon: DescriptionIcon, color: '#6366f1', label: 'Work Procedures' },
-  forms: { icon: DescriptionIcon, color: '#ec4899', label: 'Required Forms' },
-  traffic_control: { icon: SecurityIcon, color: '#f97316', label: 'Traffic Control Plans' },
-  environmental: { icon: LandscapeIcon, color: '#14b8a6', label: 'Environmental Requirements' },
-  other: { icon: DescriptionIcon, color: '#64748b', label: 'Other' },
+  // Overhead categories
+  pole_installation: { icon: ElectricalServicesIcon, color: '#f59e0b', label: 'Pole Installation', division: 'overhead' },
+  conductor: { icon: ElectricalServicesIcon, color: '#eab308', label: 'Conductor', division: 'overhead' },
+  transformer_oh: { icon: BuildIcon, color: '#f97316', label: 'OH Transformers', division: 'overhead' },
+  grounding_oh: { icon: SecurityIcon, color: '#ef4444', label: 'OH Grounding', division: 'overhead' },
+  guy_anchor: { icon: BuildIcon, color: '#d97706', label: 'Guys & Anchors', division: 'overhead' },
+  overhead_clearances: { icon: SecurityIcon, color: '#dc2626', label: 'OH Clearances', division: 'overhead' },
+  street_lights: { icon: ElectricalServicesIcon, color: '#fbbf24', label: 'Street Lights', division: 'overhead' },
+  // Underground categories
+  conduit_duct: { icon: LandscapeIcon, color: '#8b5cf6', label: 'Conduit & Duct', division: 'underground' },
+  cable_installation: { icon: LandscapeIcon, color: '#a855f7', label: 'Cable Installation', division: 'underground' },
+  transformer_ug: { icon: BuildIcon, color: '#7c3aed', label: 'UG Transformers', division: 'underground' },
+  grounding_ug: { icon: SecurityIcon, color: '#6366f1', label: 'UG Grounding', division: 'underground' },
+  switching_equipment: { icon: BuildIcon, color: '#818cf8', label: 'Switching Equipment', division: 'underground' },
+  vault_manhole: { icon: LandscapeIcon, color: '#4f46e5', label: 'Vaults & Manholes', division: 'underground' },
+  ug_clearances: { icon: SecurityIcon, color: '#4338ca', label: 'UG Clearances', division: 'underground' },
+  // General categories
+  safety: { icon: SecurityIcon, color: '#ef4444', label: 'Safety Standards', division: 'general' },
+  traffic_control: { icon: SecurityIcon, color: '#f97316', label: 'Traffic Control', division: 'general' },
+  environmental: { icon: LandscapeIcon, color: '#14b8a6', label: 'Environmental', division: 'general' },
+  materials: { icon: CategoryIcon, color: '#22c55e', label: 'Materials', division: 'general' },
+  procedures: { icon: DescriptionIcon, color: '#3b82f6', label: 'Procedures', division: 'general' },
+  forms: { icon: DescriptionIcon, color: '#ec4899', label: 'Forms', division: 'general' },
+  equipment: { icon: BuildIcon, color: '#06b6d4', label: 'Equipment', division: 'general' },
+  metering: { icon: BuildIcon, color: '#10b981', label: 'Metering', division: 'general' },
+  other: { icon: DescriptionIcon, color: '#64748b', label: 'Other', division: 'general' },
 };
 
 // Spec Card Component
@@ -111,17 +134,28 @@ const SpecCard = ({ spec, onDownload, onEdit, onDelete, onViewVersions, themePro
           </Box>
         </Box>
         
-        <Chip 
-          label={config.label}
-          size="small"
-          sx={{ 
-            bgcolor: `${config.color}20`,
-            color: config.color,
-            fontWeight: 600,
-            fontSize: '0.7rem',
-            mb: 1
-          }}
-        />
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
+          <Chip 
+            label={DIVISION_CONFIG[spec.division]?.label || spec.division || 'General'}
+            size="small"
+            sx={{ 
+              bgcolor: `${DIVISION_CONFIG[spec.division]?.color || '#6366f1'}20`,
+              color: DIVISION_CONFIG[spec.division]?.color || '#6366f1',
+              fontWeight: 600,
+              fontSize: '0.65rem'
+            }}
+          />
+          <Chip 
+            label={config.label}
+            size="small"
+            sx={{ 
+              bgcolor: `${config.color}20`,
+              color: config.color,
+              fontWeight: 600,
+              fontSize: '0.65rem'
+            }}
+          />
+        </Box>
         
         {spec.description && (
           <Typography variant="body2" sx={{ color: textSecondary, mt: 1 }} noWrap title={spec.description}>
@@ -187,8 +221,9 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
     name: '',
     description: '',
     documentNumber: '',
-    category: 'overhead',
-    subcategory: '',
+    division: 'overhead',
+    category: 'pole_installation',
+    section: '',
     utilityId: '',
     effectiveDate: '',
     tags: '',
@@ -222,8 +257,9 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
         name: spec.name || '',
         description: spec.description || '',
         documentNumber: spec.documentNumber || '',
-        category: spec.category || 'overhead',
-        subcategory: spec.subcategory || '',
+        division: spec.division || 'general',
+        category: spec.category || 'other',
+        section: spec.section || '',
         utilityId: spec.utilityId?._id || spec.utilityId || '',
         effectiveDate: spec.effectiveDate ? spec.effectiveDate.split('T')[0] : '',
         tags: spec.tags?.join(', ') || '',
@@ -234,8 +270,9 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
         name: '',
         description: '',
         documentNumber: '',
-        category: 'overhead',
-        subcategory: '',
+        division: 'overhead',
+        category: 'pole_installation',
+        section: '',
         utilityId: utilities[0]?._id || '',
         effectiveDate: '',
         tags: '',
@@ -311,27 +348,22 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
           <Grid item xs={12}>
             <TextField
               fullWidth
-              label="Spec Name"
+              label="Spec Name / Title"
               value={formData.name}
               onChange={handleChange('name')}
               required
+              placeholder="e.g., Pole Setting and Framing Standards"
             />
           </Grid>
           
           <Grid item xs={12} sm={6}>
-            <FormControl fullWidth required>
-              <InputLabel>Category</InputLabel>
-              <Select id="spec-category" name="category" value={formData.category} onChange={handleChange('category')} label="Category">
-                {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-                  <MenuItem key={key} value={key}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <config.icon sx={{ color: config.color, fontSize: 18 }} />
-                      {config.label}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <TextField
+              fullWidth
+              label="Document Number"
+              value={formData.documentNumber}
+              onChange={handleChange('documentNumber')}
+              placeholder="e.g., TD-0100S-001"
+            />
           </Grid>
           
           <Grid item xs={12} sm={6}>
@@ -347,13 +379,61 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             </FormControl>
           </Grid>
           
+          <Grid item xs={12} sm={4}>
+            <FormControl fullWidth required>
+              <InputLabel>Division</InputLabel>
+              <Select 
+                id="spec-division" 
+                name="division" 
+                value={formData.division} 
+                onChange={(e) => {
+                  const newDivision = e.target.value;
+                  setFormData(prev => ({ 
+                    ...prev, 
+                    division: newDivision,
+                    // Reset category to first matching one for this division
+                    category: Object.entries(CATEGORY_CONFIG).find(([, c]) => c.division === newDivision)?.[0] || 'other'
+                  }));
+                }} 
+                label="Division"
+              >
+                {Object.entries(DIVISION_CONFIG).map(([key, config]) => (
+                  <MenuItem key={key} value={key}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <config.icon sx={{ color: config.color, fontSize: 18 }} />
+                      {config.label}
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12} sm={8}>
+            <FormControl fullWidth required>
+              <InputLabel>Category</InputLabel>
+              <Select id="spec-category" name="category" value={formData.category} onChange={handleChange('category')} label="Category">
+                {Object.entries(CATEGORY_CONFIG)
+                  .filter(([, config]) => config.division === formData.division)
+                  .map(([key, config]) => (
+                    <MenuItem key={key} value={key}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <config.icon sx={{ color: config.color, fontSize: 18 }} />
+                        {config.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="Document Number"
-              value={formData.documentNumber}
-              onChange={handleChange('documentNumber')}
-              placeholder="e.g., TD-0100S-001"
+              label="Section (optional)"
+              value={formData.section}
+              onChange={handleChange('section')}
+              placeholder="e.g., Primary, Secondary, Residential"
             />
           </Grid>
           
@@ -381,16 +461,6 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
           <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
-              label="Subcategory"
-              value={formData.subcategory}
-              onChange={handleChange('subcategory')}
-              placeholder="e.g., Pole Installation"
-            />
-          </Grid>
-          
-          <Grid item xs={12} sm={6}>
-            <TextField
-              fullWidth
               type="date"
               label="Effective Date"
               value={formData.effectiveDate}
@@ -399,7 +469,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid item xs={12} sm={6}>
             <TextField
               fullWidth
               label="Tags"
@@ -532,6 +602,7 @@ const SpecLibrary = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [divisionFilter, setDivisionFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [specDialog, setSpecDialog] = useState({ open: false, spec: null });
   const [versionDialog, setVersionDialog] = useState({ open: false, spec: null });
@@ -546,8 +617,13 @@ const SpecLibrary = () => {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      const params = {};
+      if (search) params.search = search;
+      if (divisionFilter) params.division = divisionFilter;
+      if (categoryFilter) params.category = categoryFilter;
+      
       const [specsRes, utilitiesRes] = await Promise.all([
-        api.get('/api/specs', { params: { search, category: categoryFilter } }),
+        api.get('/api/specs', { params }),
         api.get('/api/utilities'),
       ]);
       setSpecs(specsRes.data);
@@ -558,7 +634,7 @@ const SpecLibrary = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, categoryFilter]);
+  }, [search, divisionFilter, categoryFilter]);
 
   useEffect(() => {
     fetchData();
@@ -635,13 +711,20 @@ const SpecLibrary = () => {
     }
   };
 
-  // Group specs by category
+  // Group specs by division -> category
   const groupedSpecs = specs.reduce((acc, spec) => {
+    const div = spec.division || 'general';
     const cat = spec.category || 'other';
-    if (!acc[cat]) acc[cat] = [];
-    acc[cat].push(spec);
+    
+    if (!acc[div]) acc[div] = {};
+    if (!acc[div][cat]) acc[div][cat] = [];
+    acc[div][cat].push(spec);
+    
     return acc;
   }, {});
+  
+  // Division order for display
+  const divisionOrder = ['overhead', 'underground', 'general'];
 
   if (loading && specs.length === 0) {
     return <LoadingState bgcolor={mode === 'dark' ? '#0f0f1a' : '#f8fafc'} />;
@@ -691,7 +774,29 @@ const SpecLibrary = () => {
                 size="small"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid item xs={6} sm={3}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Division</InputLabel>
+                <Select
+                  id="division-filter"
+                  name="divisionFilter"
+                  value={divisionFilter} 
+                  onChange={(e) => setDivisionFilter(e.target.value)}
+                  label="Division"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {Object.entries(DIVISION_CONFIG).map(([key, config]) => (
+                    <MenuItem key={key} value={key}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <config.icon sx={{ color: config.color, fontSize: 18 }} />
+                        {config.label}
+                      </Box>
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <FormControl fullWidth size="small">
                 <InputLabel>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -706,21 +811,23 @@ const SpecLibrary = () => {
                   label="Category"
                 >
                   <MenuItem value="">All Categories</MenuItem>
-                  {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
-                    <MenuItem key={key} value={key}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <config.icon sx={{ color: config.color, fontSize: 18 }} />
-                        {config.label}
-                      </Box>
-                    </MenuItem>
-                  ))}
+                  {Object.entries(CATEGORY_CONFIG)
+                    .filter(([, config]) => !divisionFilter || config.division === divisionFilter)
+                    .map(([key, config]) => (
+                      <MenuItem key={key} value={key}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <config.icon sx={{ color: config.color, fontSize: 18 }} />
+                          {config.label}
+                        </Box>
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
             </Grid>
           </Grid>
         </Paper>
 
-        {/* Specs by Category */}
+        {/* Specs by Division -> Category */}
         {Object.keys(groupedSpecs).length === 0 ? (
           <Paper sx={{ p: 6, textAlign: 'center', bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 3 }}>
             <MenuBookIcon sx={{ fontSize: 64, color: textSecondary, mb: 2 }} />
@@ -738,52 +845,103 @@ const SpecLibrary = () => {
             </Button>
           </Paper>
         ) : (
-          Object.entries(groupedSpecs)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([category, categorySpecs]) => {
-              const config = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other;
+          divisionOrder
+            .filter(div => groupedSpecs[div])
+            .map((division) => {
+              const divConfig = DIVISION_CONFIG[division] || DIVISION_CONFIG.general;
+              const divCategories = groupedSpecs[division];
+              const totalSpecs = Object.values(divCategories).reduce((sum, arr) => sum + arr.length, 0);
+              
               return (
                 <Accordion 
-                  key={category} 
+                  key={division} 
                   defaultExpanded 
                   sx={{ 
                     bgcolor: cardBg, 
-                    border: `1px solid ${borderColor}`, 
-                    borderRadius: '12px !important',
-                    mb: 2,
+                    border: `2px solid ${divConfig.color}40`, 
+                    borderRadius: '16px !important',
+                    mb: 3,
                     '&:before': { display: 'none' }
                   }}
                 >
-                  <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: textPrimary }} />}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Box sx={{ bgcolor: `${config.color}20`, borderRadius: 2, p: 0.75 }}>
-                        <config.icon sx={{ color: config.color, fontSize: 20 }} />
+                  <AccordionSummary 
+                    expandIcon={<ExpandMoreIcon sx={{ color: textPrimary }} />}
+                    sx={{ 
+                      bgcolor: `${divConfig.color}10`,
+                      borderRadius: '14px 14px 0 0'
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box sx={{ bgcolor: `${divConfig.color}30`, borderRadius: 2, p: 1 }}>
+                        <divConfig.icon sx={{ color: divConfig.color, fontSize: 28 }} />
                       </Box>
-                      <Typography sx={{ color: textPrimary, fontWeight: 600 }}>
-                        {config.label}
-                      </Typography>
-                      <Chip 
-                        label={categorySpecs.length}
-                        size="small"
-                        sx={{ bgcolor: `${config.color}20`, color: config.color }}
-                      />
+                      <Box>
+                        <Typography variant="h6" sx={{ color: textPrimary, fontWeight: 700 }}>
+                          {divConfig.label}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: textSecondary }}>
+                          {totalSpecs} spec{totalSpecs !== 1 ? 's' : ''} in {Object.keys(divCategories).length} categor{Object.keys(divCategories).length !== 1 ? 'ies' : 'y'}
+                        </Typography>
+                      </Box>
                     </Box>
                   </AccordionSummary>
-                  <AccordionDetails>
-                    <Grid container spacing={2}>
-                      {categorySpecs.map((spec) => (
-                        <Grid item xs={12} sm={6} md={4} key={spec._id}>
-                          <SpecCard
-                            spec={spec}
-                            onDownload={handleDownload}
-                            onEdit={(s) => setSpecDialog({ open: true, spec: s })}
-                            onDelete={(s) => setDeleteConfirm({ open: true, spec: s })}
-                            onViewVersions={(s) => setVersionDialog({ open: true, spec: s })}
-                            themeProps={themeProps}
-                          />
-                        </Grid>
-                      ))}
-                    </Grid>
+                  <AccordionDetails sx={{ pt: 2 }}>
+                    {/* Categories within this division */}
+                    {Object.entries(divCategories)
+                      .sort(([a], [b]) => {
+                        const labelA = CATEGORY_CONFIG[a]?.label || a;
+                        const labelB = CATEGORY_CONFIG[b]?.label || b;
+                        return labelA.localeCompare(labelB);
+                      })
+                      .map(([category, categorySpecs]) => {
+                        const catConfig = CATEGORY_CONFIG[category] || CATEGORY_CONFIG.other;
+                        return (
+                          <Accordion 
+                            key={category} 
+                            defaultExpanded={categorySpecs.length <= 5}
+                            sx={{ 
+                              bgcolor: 'transparent',
+                              boxShadow: 'none',
+                              border: `1px solid ${borderColor}`,
+                              borderRadius: '8px !important',
+                              mb: 1.5,
+                              '&:before': { display: 'none' }
+                            }}
+                          >
+                            <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: textSecondary }} />}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                <Box sx={{ bgcolor: `${catConfig.color}20`, borderRadius: 1.5, p: 0.5 }}>
+                                  <catConfig.icon sx={{ color: catConfig.color, fontSize: 18 }} />
+                                </Box>
+                                <Typography sx={{ color: textPrimary, fontWeight: 600, fontSize: '0.95rem' }}>
+                                  {catConfig.label}
+                                </Typography>
+                                <Chip 
+                                  label={categorySpecs.length}
+                                  size="small"
+                                  sx={{ bgcolor: `${catConfig.color}20`, color: catConfig.color, fontSize: '0.7rem', height: 20 }}
+                                />
+                              </Box>
+                            </AccordionSummary>
+                            <AccordionDetails>
+                              <Grid container spacing={2}>
+                                {categorySpecs.map((spec) => (
+                                  <Grid item xs={12} sm={6} md={4} key={spec._id}>
+                                    <SpecCard
+                                      spec={spec}
+                                      onDownload={handleDownload}
+                                      onEdit={(s) => setSpecDialog({ open: true, spec: s })}
+                                      onDelete={(s) => setDeleteConfirm({ open: true, spec: s })}
+                                      onViewVersions={(s) => setVersionDialog({ open: true, spec: s })}
+                                      themeProps={themeProps}
+                                    />
+                                  </Grid>
+                                ))}
+                              </Grid>
+                            </AccordionDetails>
+                          </Accordion>
+                        );
+                      })}
                   </AccordionDetails>
                 </Accordion>
               );
