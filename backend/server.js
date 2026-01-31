@@ -1,3 +1,9 @@
+/**
+ * Job Hub Pro - Work Order Management System
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * Proprietary and Confidential. Unauthorized copying or distribution prohibited.
+ */
+
 require('dotenv').config();
 
 console.log('=== Server starting ===');

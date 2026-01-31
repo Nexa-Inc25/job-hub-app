@@ -1,3 +1,8 @@
+/**
+ * Job Hub Pro - Job Model
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ */
+
 const mongoose = require('mongoose');
 
 // Document schema for files stored in folders

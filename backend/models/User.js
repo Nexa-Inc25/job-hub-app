@@ -1,3 +1,8 @@
+/**
+ * Job Hub Pro - User Model
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ */
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 

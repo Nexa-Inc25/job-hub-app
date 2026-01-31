@@ -1,3 +1,8 @@
+/**
+ * Job Hub Pro - API Client
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ */
+
 import axios from 'axios';
 
 // Create axios instance with base URL

@@ -1,5 +1,6 @@
 /**
- * Email Service
+ * Job Hub Pro - Email Service
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
  * 
  * Handles email notifications and document sharing.
  * Uses Resend as the email provider.

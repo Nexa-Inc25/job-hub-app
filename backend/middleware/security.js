@@ -1,5 +1,6 @@
 /**
- * Security Hardening Middleware
+ * Job Hub Pro - Security Hardening Middleware
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
  * 
  * Additional security layers for PG&E/enterprise compliance.
  */

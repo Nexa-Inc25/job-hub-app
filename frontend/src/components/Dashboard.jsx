@@ -1,4 +1,8 @@
-// src/components/Dashboard.js
+/**
+ * Job Hub Pro - Dashboard Component
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ */
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api';

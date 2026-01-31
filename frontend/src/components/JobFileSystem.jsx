@@ -1,4 +1,8 @@
-// src/components/JobFileSystem.js
+/**
+ * Job Hub Pro - Job File System Component
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ */
+
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';

@@ -1,3 +1,8 @@
+/**
+ * Job Hub Pro - Theme Context
+ * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ */
+
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { ThemeProvider as MuiThemeProvider } from '@mui/material/styles';
