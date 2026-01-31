@@ -190,12 +190,12 @@ const TailboardForm = () => {
         setLoading(true);
         
         // Load job details
-        const jobRes = await api.get(`/jobs/${jobId}`);
+        const jobRes = await api.get(`/api/jobs/${jobId}`);
         setJob(jobRes.data);
         
         // Check for existing tailboard today
         try {
-          const tailboardRes = await api.get(`/tailboards/job/${jobId}/today`);
+          const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
           setTailboard(tailboardRes.data);
           
           // Populate form with existing data
@@ -250,11 +250,11 @@ const TailboardForm = () => {
       
       if (tailboard?._id) {
         // Update existing
-        const res = await api.put(`/tailboards/${tailboard._id}`, data);
+        const res = await api.put(`/api/tailboards/${tailboard._id}`, data);
         setTailboard(res.data);
       } else {
         // Create new
-        const res = await api.post('/tailboards', data);
+        const res = await api.post('/api/tailboards', data);
         setTailboard(res.data);
       }
       
@@ -290,16 +290,16 @@ const TailboardForm = () => {
       };
       
       if (currentTailboard?._id) {
-        const res = await api.put(`/tailboards/${currentTailboard._id}`, saveData);
+        const res = await api.put(`/api/tailboards/${currentTailboard._id}`, saveData);
         currentTailboard = res.data;
       } else {
-        const res = await api.post('/tailboards', saveData);
+        const res = await api.post('/api/tailboards', saveData);
         currentTailboard = res.data;
       }
       setTailboard(currentTailboard);
       
       // Then complete
-      const res = await api.post(`/tailboards/${currentTailboard._id}/complete`);
+      const res = await api.post(`/api/tailboards/${currentTailboard._id}/complete`);
       setTailboard(res.data);
       
       setSnackbar({ open: true, message: 'Tailboard completed!', severity: 'success' });
@@ -353,7 +353,7 @@ const TailboardForm = () => {
     try {
       if (tailboard?._id) {
         // Save to server
-        const res = await api.post(`/tailboards/${tailboard._id}/sign`, signatureData);
+        const res = await api.post(`/api/tailboards/${tailboard._id}/sign`, signatureData);
         setCrewMembers(res.data.crewMembers);
       } else {
         // Just add locally for now
