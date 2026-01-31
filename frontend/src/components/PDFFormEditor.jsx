@@ -494,7 +494,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         await onSave(base64, documentName);
       }
 
-      setSnackbar({ open: true, message: 'Document saved!', severity: 'success' });
+      setSnackbar({ open: true, message: 'Document saved to Close Out Documents!', severity: 'success' });
       setAnnotations([]);
     } catch (err) {
       console.error('Error saving PDF:', err);

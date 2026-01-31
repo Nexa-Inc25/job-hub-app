@@ -2378,11 +2378,12 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
     let docUrl = `/uploads/${newFilename}`;
     let r2Key = null;
     
-    // Upload to R2 if configured
+    // Upload to R2 if configured - always to Close Out Documents folder
     if (r2Storage.isR2Configured()) {
       try {
-        const folderPath = subfolderName ? `${folderName}/${subfolderName}` : folderName;
-        const result = await r2Storage.uploadJobFile(filePath, id, folderPath, newFilename);
+        // All edited documents go to ACI/Close Out Documents for submission
+        const closeOutFolderPath = 'ACI/Close Out Documents';
+        const result = await r2Storage.uploadJobFile(filePath, id, closeOutFolderPath, newFilename);
         docUrl = r2Storage.getPublicUrl(result.key);
         r2Key = result.key;
         // Clean up local file
@@ -2394,49 +2395,59 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       }
     }
     
-    // Add to the appropriate folder in the job
-    const folder = jobToUpdate.folders.find(f => f.name === folderName);
-    if (folder) {
-      let targetDocuments;
-      if (subfolderName) {
-        const subfolder = folder.subfolders.find(sf => sf.name === subfolderName);
-        if (subfolder) {
-          targetDocuments = subfolder.documents;
-        }
-      } else {
-        targetDocuments = folder.documents;
+    // Always save edited documents to ACI > Close Out Documents for submission
+    // This ensures all completed/filled forms are collected in one place for closeout
+    const aciFolder = jobToUpdate.folders.find(f => f.name === 'ACI');
+    if (aciFolder) {
+      // Ensure subfolders array exists
+      if (!aciFolder.subfolders) {
+        aciFolder.subfolders = [];
       }
       
-      if (targetDocuments) {
-        targetDocuments.push({
-          name: newFilename,
-          url: docUrl,
-          r2Key: r2Key,
-          type: 'pdf',
-          isTemplate: false,
-          isCompleted: canAutoApprove,
-          completedDate: canAutoApprove ? new Date() : null,
-          completedBy: canAutoApprove ? req.userId : null,
-          uploadDate: new Date(),
-          uploadedBy: req.userId,
-          // Approval workflow fields
-          approvalStatus: canAutoApprove ? 'approved' : 'pending_approval',
-          draftName: canAutoApprove ? null : draftFilename,
-          finalName: finalFilename,
-          approvedBy: canAutoApprove ? req.userId : null,
-          approvedDate: canAutoApprove ? new Date() : null
-        });
+      // Find or create the Close Out Documents subfolder
+      let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
+      if (!closeOutFolder) {
+        closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
+        aciFolder.subfolders.push(closeOutFolder);
       }
+      
+      // Ensure documents array exists
+      if (!closeOutFolder.documents) {
+        closeOutFolder.documents = [];
+      }
+      
+      closeOutFolder.documents.push({
+        name: newFilename,
+        url: docUrl,
+        r2Key: r2Key,
+        type: 'pdf',
+        isTemplate: false,
+        isCompleted: canAutoApprove,
+        completedDate: canAutoApprove ? new Date() : null,
+        completedBy: canAutoApprove ? req.userId : null,
+        uploadDate: new Date(),
+        uploadedBy: req.userId,
+        // Approval workflow fields
+        approvalStatus: canAutoApprove ? 'approved' : 'pending_approval',
+        draftName: canAutoApprove ? null : draftFilename,
+        finalName: finalFilename,
+        approvedBy: canAutoApprove ? req.userId : null,
+        approvedDate: canAutoApprove ? new Date() : null,
+        // Track source location for reference
+        sourceFolder: folderName,
+        sourceSubfolder: subfolderName || null
+      });
     }
     
     await jobToUpdate.save();
     
     const statusMsg = canAutoApprove ? 'approved' : 'pending approval';
-    console.log(`Edited PDF saved (${statusMsg}):`, newFilename);
+    console.log(`Edited PDF saved to Close Out Documents (${statusMsg}):`, newFilename);
     res.json({ 
-      message: `PDF saved successfully (${statusMsg})`, 
+      message: `PDF saved to Close Out Documents (${statusMsg})`, 
       filename: newFilename,
       url: docUrl,
+      folder: 'ACI/Close Out Documents',
       approvalStatus: canAutoApprove ? 'approved' : 'pending_approval',
       needsApproval: !canAutoApprove
     });
@@ -3743,7 +3754,8 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
     
     // Generate temporary password (user will reset on first login)
     // Use crypto.randomBytes for cryptographically secure randomness
-    const tempPassword = crypto.randomBytes(6).toString('base64url') + 'A1!';
+    // Suffix ensures password meets complexity requirements: uppercase (A), lowercase (x), number (1), special (!)
+    const tempPassword = crypto.randomBytes(6).toString('base64url') + 'Ax1!';
     
     const validRoles = ['crew', 'foreman', 'gf', 'qa', 'pm'];
     const userRole = validRoles.includes(role) ? role : 'crew';
