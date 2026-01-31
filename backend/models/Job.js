@@ -430,8 +430,8 @@ const jobSchema = new mongoose.Schema({
     proceduresLoaded: Number,
     totalQuestions: Number,
     answeredQuestions: Number,
-    answers: mongoose.Schema.Types.Mixed,  // { fieldName: value }
-    questions: [mongoose.Schema.Types.Mixed],  // Full question objects
+    answers: mongoose.Schema.Types.Mixed,
+    questions: [mongoose.Schema.Types.Mixed],
     procedureContext: [mongoose.Schema.Types.Mixed],
     startedAt: Date
   },

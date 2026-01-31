@@ -1,8 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const ProcedureDoc = require('../models/ProcedureDoc');
 
 // Configure multer for PDF uploads
@@ -192,8 +192,8 @@ Focus on practical field data that a foreman would need to record. Include photo
         processingStatus: 'failed',
         processingError: err.message
       });
-    } catch (updateErr) {
-      console.error('Failed to update processing status:', updateErr);
+    } catch (error_) {
+      console.error('Failed to update processing status:', error_);
     }
   }
 }

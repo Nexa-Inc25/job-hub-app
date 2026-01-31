@@ -60,6 +60,26 @@ const workTypes = [
   { value: 'streetlight', label: 'Streetlight' }
 ];
 
+// Helper: Empty state component
+const EmptyState = () => (
+  <Paper sx={{ p: 4, textAlign: 'center' }}>
+    <DocIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+    <Typography variant="body1" color="text.secondary">
+      No procedure documents uploaded yet.
+    </Typography>
+    <Typography variant="body2" color="text.secondary">
+      Upload PG&E procedure documents above to get started.
+    </Typography>
+  </Paper>
+);
+
+// Helper: Loading state component
+const LoadingState = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+    <CircularProgress />
+  </Box>
+);
+
 export default function ProcedureManager() {
   const [procedures, setProcedures] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -84,6 +104,7 @@ export default function ProcedureManager() {
       const response = await api.get('/api/procedures');
       setProcedures(response.data);
     } catch (err) {
+      console.error('Load procedures error:', err);
       setError('Failed to load procedure documents');
     } finally {
       setLoading(false);
@@ -268,21 +289,9 @@ export default function ProcedureManager() {
         Uploaded Procedure Documents ({procedures.length})
       </Typography>
       
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
-        </Box>
-      ) : procedures.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <DocIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-          <Typography variant="body1" color="text.secondary">
-            No procedure documents uploaded yet.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Upload PG&E procedure documents above to get started.
-          </Typography>
-        </Paper>
-      ) : (
+      {loading && <LoadingState />}
+      {!loading && procedures.length === 0 && <EmptyState />}
+      {!loading && procedures.length > 0 && (
         <Grid container spacing={2}>
           {procedures.map((proc) => (
             <Grid item xs={12} md={6} key={proc._id}>
@@ -330,7 +339,7 @@ export default function ProcedureManager() {
                       <AccordionDetails>
                         <List dense>
                           {proc.extractedContent.questions?.slice(0, 5).map((q, idx) => (
-                            <ListItem key={idx}>
+                            <ListItem key={q.field || `q-${proc._id}-${idx}`}>
                               <ListItemIcon sx={{ minWidth: 32 }}>
                                 <Typography variant="caption" color="text.secondary">{idx + 1}.</Typography>
                               </ListItemIcon>

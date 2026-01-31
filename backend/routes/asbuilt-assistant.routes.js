@@ -111,7 +111,7 @@ router.post('/answer/:jobId', async (req, res) => {
     const { answers } = req.body; // { fieldName: value, ... }
 
     const job = await Job.findById(jobId);
-    if (!job || !job.asBuiltSession) {
+    if (!job?.asBuiltSession) {
       return res.status(404).json({ error: 'No active as-built session' });
     }
 
@@ -154,7 +154,7 @@ router.post('/generate/:jobId', async (req, res) => {
     const { jobId } = req.params;
 
     const job = await Job.findById(jobId);
-    if (!job || !job.asBuiltSession) {
+    if (!job?.asBuiltSession) {
       return res.status(404).json({ error: 'No active as-built session' });
     }
 
@@ -162,8 +162,13 @@ router.post('/generate/:jobId', async (req, res) => {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     // Build context from procedure requirements
+    const formatRequirement = (r) => `- ${r.field}: ${r.description}`;
+    const formatProcedure = (p) => {
+      const reqList = p.requirements.map(formatRequirement).join('\n');
+      return `${p.name}:\n${reqList}`;
+    };
     const procedureRequirements = session.procedureContext
-      .map(p => `${p.name}:\n${p.requirements.map(r => `- ${r.field}: ${r.description}`).join('\n')}`)
+      .map(formatProcedure)
       .join('\n\n');
 
     // Format answers
