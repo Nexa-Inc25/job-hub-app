@@ -41,7 +41,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --chown=nodejs:nodejs . .
 
 # Remove unnecessary files
-RUN rm -rf __tests__ scripts/*.js *.md .git
+RUN rm -rf __tests__ ./scripts/*.js ./*.md .git
 
 # Switch to non-root user
 USER nodejs
