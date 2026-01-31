@@ -7,6 +7,7 @@
 
 const Tailboard = require('../models/Tailboard');
 const Job = require('../models/Job');
+const User = require('../models/User');
 const crypto = require('node:crypto');
 const { generateTailboardPdf } = require('../services/pdf.service');
 
@@ -59,6 +60,12 @@ const createTailboard = async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
+    // Get current user info
+    const user = await User.findById(req.userId).select('name companyId');
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
     // Initialize special mitigations with defaults if not provided
     const defaultMitigations = Tailboard.SPECIAL_MITIGATIONS.map(m => ({
       item: m.id,
@@ -74,7 +81,7 @@ const createTailboard = async (req, res) => {
     // Create tailboard with job info pre-populated
     const tailboard = new Tailboard({
       jobId,
-      companyId: job.companyId || req.user.companyId,
+      companyId: job.companyId || user.companyId,
       date: date || new Date(),
       startTime,
       jobLocation: job.address || `${job.city || ''}`,
@@ -83,8 +90,8 @@ const createTailboard = async (req, res) => {
       pmNumber: pmNumber || job.pmNumber,
       circuit,
       showUpYardLocation,
-      foremanId: req.user._id,
-      foremanName: req.user.name,
+      foremanId: req.userId,
+      foremanName: user.name,
       generalForemanId,
       generalForemanName,
       inspector,
