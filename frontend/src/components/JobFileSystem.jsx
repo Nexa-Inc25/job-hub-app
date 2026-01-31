@@ -60,6 +60,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EmailIcon from '@mui/icons-material/Email';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import PDFFormEditor from './PDFFormEditor';
@@ -1114,6 +1115,24 @@ const JobFileSystem = () => {
                 <CameraAltIcon />
               </Badge>
             </IconButton>
+          </Tooltip>
+          
+          {/* Daily Tailboard / JHA Button */}
+          <Tooltip title="Daily Tailboard / JHA">
+            <Button
+              color="inherit"
+              startIcon={<AssignmentIcon />}
+              onClick={() => navigate(`/jobs/${id}/tailboard`)}
+              sx={{ 
+                mr: 1,
+                textTransform: 'none',
+                fontWeight: 600,
+                bgcolor: 'rgba(255,255,255,0.1)',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
+              }}
+            >
+              Tailboard
+            </Button>
           </Tooltip>
           
           {/* Feedback Button - Critical for Pilot */}

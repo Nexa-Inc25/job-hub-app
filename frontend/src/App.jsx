@@ -33,6 +33,7 @@ const QADashboard = lazy(() => import('./components/QADashboard'));
 const SpecLibrary = lazy(() => import('./components/SpecLibrary'));
 const ProcedureManager = lazy(() => import('./components/ProcedureManager'));
 const AsBuiltAssistant = lazy(() => import('./components/AsBuiltAssistant'));
+const TailboardForm = lazy(() => import('./components/TailboardForm'));
 
 // Set PDF.js worker globally - use CDN for react-pdf v9 compatibility
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -79,6 +80,7 @@ function App() {
               <Route path="/qa/spec-library" element={<SpecLibrary />} />
               <Route path="/admin/procedures" element={<ProcedureManager />} />
               <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
+              <Route path="/jobs/:jobId/tailboard" element={<TailboardForm />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="*" element={<div>404 - Not Found</div>} />
             </Routes>

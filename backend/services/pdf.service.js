@@ -148,12 +148,301 @@ async function applyAnnotations(pdfBuffer, annotations) {
   return currentBuffer;
 }
 
+/**
+ * Generate a tailboard/JHA PDF document
+ * 
+ * @param {Object} tailboard - Tailboard document data
+ * @param {Object} options - PDF generation options
+ * @returns {Promise<Buffer>} Generated PDF buffer
+ */
+async function generateTailboardPdf(tailboard, options = {}) {
+  const { rgb, StandardFonts } = require('pdf-lib');
+  
+  const pdfDoc = await PDFDocument.create();
+  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  
+  // Create first page
+  let page = pdfDoc.addPage([612, 792]); // Letter size
+  const { width, height } = page.getSize();
+  
+  let yPos = height - 50;
+  const leftMargin = 50;
+  const rightMargin = width - 50;
+  const contentWidth = rightMargin - leftMargin;
+  
+  // Helper function to add text
+  const drawText = (text, x, y, options = {}) => {
+    page.drawText(text, {
+      x,
+      y,
+      size: options.size || 10,
+      font: options.bold ? helveticaBold : helvetica,
+      color: options.color || rgb(0, 0, 0)
+    });
+  };
+  
+  // Helper to draw a line
+  const drawLine = (x1, y1, x2, y2) => {
+    page.drawLine({
+      start: { x: x1, y: y1 },
+      end: { x: x2, y: y2 },
+      thickness: 1,
+      color: rgb(0.7, 0.7, 0.7)
+    });
+  };
+  
+  // Helper to check if we need a new page
+  const checkNewPage = (needed = 100) => {
+    if (yPos < needed) {
+      page = pdfDoc.addPage([612, 792]);
+      yPos = height - 50;
+    }
+  };
+  
+  // === HEADER ===
+  drawText('DAILY TAILBOARD / JHA', leftMargin, yPos, { size: 18, bold: true });
+  yPos -= 25;
+  
+  // Date and WO info
+  const dateStr = new Date(tailboard.date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  drawText(`Date: ${dateStr}`, leftMargin, yPos, { size: 11 });
+  drawText(`Time: ${tailboard.startTime || 'N/A'}`, leftMargin + 300, yPos, { size: 11 });
+  yPos -= 15;
+  
+  drawText(`WO#: ${tailboard.woNumber || 'N/A'}`, leftMargin, yPos, { size: 11 });
+  yPos -= 15;
+  
+  drawText(`Location: ${tailboard.jobLocation || 'N/A'}`, leftMargin, yPos, { size: 11 });
+  yPos -= 15;
+  
+  drawText(`Foreman: ${tailboard.foremanName || 'N/A'}`, leftMargin, yPos, { size: 11 });
+  yPos -= 15;
+  
+  if (tailboard.weatherConditions) {
+    drawText(`Weather: ${tailboard.weatherConditions}`, leftMargin, yPos, { size: 11 });
+    yPos -= 15;
+  }
+  
+  drawLine(leftMargin, yPos, rightMargin, yPos);
+  yPos -= 20;
+  
+  // === WORK DESCRIPTION ===
+  drawText('WORK DESCRIPTION', leftMargin, yPos, { size: 12, bold: true });
+  yPos -= 15;
+  
+  // Word wrap task description
+  const taskDesc = tailboard.taskDescription || 'No description provided';
+  const words = taskDesc.split(' ');
+  let line = '';
+  const maxLineWidth = contentWidth;
+  
+  for (const word of words) {
+    const testLine = line + (line ? ' ' : '') + word;
+    const testWidth = helvetica.widthOfTextAtSize(testLine, 10);
+    
+    if (testWidth > maxLineWidth && line) {
+      drawText(line, leftMargin, yPos);
+      yPos -= 12;
+      line = word;
+      checkNewPage();
+    } else {
+      line = testLine;
+    }
+  }
+  if (line) {
+    drawText(line, leftMargin, yPos);
+    yPos -= 20;
+  }
+  
+  drawLine(leftMargin, yPos, rightMargin, yPos);
+  yPos -= 20;
+  
+  // === HAZARD ANALYSIS ===
+  drawText('HAZARD ANALYSIS', leftMargin, yPos, { size: 12, bold: true });
+  yPos -= 20;
+  
+  // Hazard category labels
+  const hazardLabels = {
+    electrical: 'Electrical',
+    fall: 'Fall Protection',
+    traffic: 'Traffic Control',
+    excavation: 'Excavation',
+    overhead: 'Overhead Work',
+    environmental: 'Environmental',
+    confined_space: 'Confined Space',
+    chemical: 'Chemical/Materials',
+    ergonomic: 'Ergonomic',
+    other: 'Other'
+  };
+  
+  if (tailboard.hazards && tailboard.hazards.length > 0) {
+    for (const hazard of tailboard.hazards) {
+      checkNewPage(80);
+      
+      const categoryLabel = hazardLabels[hazard.category] || hazard.category;
+      const riskColor = hazard.riskLevel === 'high' ? rgb(0.8, 0, 0) : 
+                        hazard.riskLevel === 'medium' ? rgb(0.8, 0.5, 0) : 
+                        rgb(0, 0.6, 0);
+      
+      drawText(`[${hazard.riskLevel?.toUpperCase() || 'MEDIUM'}]`, leftMargin, yPos, { size: 9, color: riskColor, bold: true });
+      drawText(`${categoryLabel}: ${hazard.description}`, leftMargin + 60, yPos, { size: 10, bold: true });
+      yPos -= 15;
+      
+      // Controls
+      if (hazard.controls && hazard.controls.length > 0) {
+        drawText('Controls:', leftMargin + 20, yPos, { size: 9, color: rgb(0.3, 0.3, 0.3) });
+        yPos -= 12;
+        
+        for (const control of hazard.controls) {
+          checkNewPage(20);
+          drawText(`• ${control}`, leftMargin + 30, yPos, { size: 9 });
+          yPos -= 12;
+        }
+      }
+      yPos -= 5;
+    }
+  } else {
+    drawText('No hazards identified', leftMargin, yPos, { size: 10, color: rgb(0.5, 0.5, 0.5) });
+    yPos -= 15;
+  }
+  
+  yPos -= 10;
+  drawLine(leftMargin, yPos, rightMargin, yPos);
+  yPos -= 20;
+  
+  // === PPE REQUIREMENTS ===
+  checkNewPage(100);
+  drawText('PPE REQUIREMENTS', leftMargin, yPos, { size: 12, bold: true });
+  yPos -= 15;
+  
+  if (tailboard.ppeRequired && tailboard.ppeRequired.length > 0) {
+    const checkedPPE = tailboard.ppeRequired.filter(p => p.checked);
+    
+    if (checkedPPE.length > 0) {
+      let ppeX = leftMargin;
+      let ppeCount = 0;
+      
+      for (const ppe of checkedPPE) {
+        if (ppeCount > 0 && ppeCount % 3 === 0) {
+          yPos -= 15;
+          ppeX = leftMargin;
+          checkNewPage(20);
+        }
+        
+        drawText(`☑ ${ppe.item}`, ppeX, yPos, { size: 9 });
+        ppeX += 170;
+        ppeCount++;
+      }
+      yPos -= 20;
+    } else {
+      drawText('No PPE selected', leftMargin, yPos, { size: 10, color: rgb(0.5, 0.5, 0.5) });
+      yPos -= 15;
+    }
+  }
+  
+  yPos -= 10;
+  drawLine(leftMargin, yPos, rightMargin, yPos);
+  yPos -= 20;
+  
+  // === EMERGENCY INFORMATION ===
+  checkNewPage(60);
+  drawText('EMERGENCY INFORMATION', leftMargin, yPos, { size: 12, bold: true });
+  yPos -= 15;
+  
+  drawText(`Emergency Contact: ${tailboard.emergencyContact || '911'}`, leftMargin, yPos, { size: 10 });
+  yPos -= 12;
+  
+  if (tailboard.nearestHospital) {
+    drawText(`Nearest Hospital: ${tailboard.nearestHospital}`, leftMargin, yPos, { size: 10 });
+    yPos -= 12;
+  }
+  
+  yPos -= 10;
+  drawLine(leftMargin, yPos, rightMargin, yPos);
+  yPos -= 20;
+  
+  // === CREW ACKNOWLEDGMENT ===
+  checkNewPage(150);
+  drawText('CREW ACKNOWLEDGMENT', leftMargin, yPos, { size: 12, bold: true });
+  yPos -= 5;
+  drawText('By signing below, each crew member acknowledges participation in this tailboard meeting', leftMargin, yPos, { size: 8, color: rgb(0.4, 0.4, 0.4) });
+  yPos -= 5;
+  drawText('and understanding of the identified hazards and required controls.', leftMargin, yPos, { size: 8, color: rgb(0.4, 0.4, 0.4) });
+  yPos -= 20;
+  
+  if (tailboard.crewMembers && tailboard.crewMembers.length > 0) {
+    // Table header
+    drawText('Name', leftMargin, yPos, { size: 9, bold: true });
+    drawText('Role', leftMargin + 150, yPos, { size: 9, bold: true });
+    drawText('Signature', leftMargin + 250, yPos, { size: 9, bold: true });
+    drawText('Time', leftMargin + 420, yPos, { size: 9, bold: true });
+    yPos -= 5;
+    drawLine(leftMargin, yPos, rightMargin, yPos);
+    yPos -= 15;
+    
+    for (const member of tailboard.crewMembers) {
+      checkNewPage(50);
+      
+      drawText(member.name || 'Unknown', leftMargin, yPos, { size: 10 });
+      drawText(member.role || 'Crew', leftMargin + 150, yPos, { size: 10 });
+      
+      // Signature placeholder or indicator
+      if (member.signatureData) {
+        drawText('[Signed]', leftMargin + 250, yPos, { size: 10, color: rgb(0, 0.5, 0) });
+        
+        // Embed signature image if possible
+        try {
+          if (member.signatureData.startsWith('data:image/png')) {
+            const base64Data = member.signatureData.split(',')[1];
+            const sigImage = await pdfDoc.embedPng(Buffer.from(base64Data, 'base64'));
+            const sigDims = sigImage.scale(0.3);
+            page.drawImage(sigImage, {
+              x: leftMargin + 300,
+              y: yPos - 10,
+              width: Math.min(sigDims.width, 100),
+              height: Math.min(sigDims.height, 25)
+            });
+          }
+        } catch {
+          // If embedding fails, just show [Signed]
+        }
+      } else {
+        drawText('________________', leftMargin + 250, yPos, { size: 10 });
+      }
+      
+      const signedTime = member.signedAt ? 
+        new Date(member.signedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : 
+        'N/A';
+      drawText(signedTime, leftMargin + 420, yPos, { size: 10 });
+      
+      yPos -= 35;
+    }
+  } else {
+    drawText('No crew signatures recorded', leftMargin, yPos, { size: 10, color: rgb(0.5, 0.5, 0.5) });
+    yPos -= 15;
+  }
+  
+  // === FOOTER ===
+  const footerY = 30;
+  drawText(`Generated: ${new Date().toLocaleString()}`, leftMargin, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
+  drawText('Job Hub Pro - Tailboard/JHA', rightMargin - 120, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
+  
+  return Buffer.from(await pdfDoc.save());
+}
+
 module.exports = {
   loadPdf,
   getPdfInfo,
   mergePdfs,
   extractPages,
   addTextAnnotation,
-  applyAnnotations
+  applyAnnotations,
+  generateTailboardPdf
 };
 

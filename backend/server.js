@@ -45,6 +45,7 @@ const SpecDocument = require('./models/SpecDocument');
 const apiRoutes = require('./routes/api');
 const proceduresRoutes = require('./routes/procedures.routes');
 const asbuiltAssistantRoutes = require('./routes/asbuilt-assistant.routes');
+const tailboardRoutes = require('./routes/tailboard.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -859,6 +860,9 @@ app.use('/api/procedures', authenticateUser, proceduresRoutes);
 
 // Mount as-built assistant routes (AI-guided as-built documentation)
 app.use('/api/asbuilt-assistant', authenticateUser, asbuiltAssistantRoutes);
+
+// Mount tailboard/JHA routes (daily safety tailboards)
+app.use('/api/tailboards', authenticateUser, tailboardRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
