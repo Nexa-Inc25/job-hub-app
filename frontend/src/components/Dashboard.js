@@ -221,6 +221,45 @@ const canMarkAsStuck = (job) => {
   return !terminalStatuses.includes(job.status);
 };
 
+// Get background color for EC tag type chips
+const getTagBackgroundColor = (tagType) => {
+  const colorMap = {
+    'A': '#d32f2f',
+    'E': '#f57c00',
+    'B': '#1976d2'
+  };
+  return colorMap[tagType];
+};
+
+// Get color for tag due date chip based on urgency
+const getTagDueDateColor = (dueDate) => {
+  const due = new Date(dueDate);
+  const now = new Date();
+  const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  
+  if (due < now) return 'error';
+  if (due < oneWeekFromNow) return 'warning';
+  return 'default';
+};
+
+// Get display label for road access type
+const getRoadAccessLabel = (roadAccess) => {
+  const labelMap = {
+    'accessible': 'Road Access',
+    'backyard': 'Backyard'
+  };
+  return labelMap[roadAccess] || roadAccess;
+};
+
+// Get color for road access chip
+const getRoadAccessColor = (roadAccess) => {
+  const colorMap = {
+    'accessible': 'success',
+    'non-accessible': 'error'
+  };
+  return colorMap[roadAccess] || 'warning';
+};
+
 // Get welcome message
 const getWelcomeMessage = (userName) => {
   if (!userName) return 'Welcome Back!';
@@ -1454,9 +1493,7 @@ const Dashboard = () => {
                                             height: 20, 
                                             fontWeight: 700,
                                             fontSize: '0.65rem',
-                                            bgcolor: job.ecTag.tagType === 'A' ? '#d32f2f' : 
-                                                     job.ecTag.tagType === 'E' ? '#f57c00' : 
-                                                     job.ecTag.tagType === 'B' ? '#1976d2' : undefined,
+                                            bgcolor: getTagBackgroundColor(job.ecTag.tagType),
                                             color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
                                           }}
                                         />
@@ -1951,14 +1988,12 @@ const Dashboard = () => {
                                 size="small" 
                                 label={`${job.ecTag.tagType}-TAG`}
                                 color={['A', 'E', 'emergency'].includes(job.ecTag.tagType) ? 'error' : 'default'}
-                                sx={{ 
-                                  height: 22, 
-                                  fontWeight: 700,
-                                  bgcolor: job.ecTag.tagType === 'A' ? '#d32f2f' : 
-                                           job.ecTag.tagType === 'E' ? '#f57c00' : 
-                                           job.ecTag.tagType === 'B' ? '#1976d2' : undefined,
-                                  color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
-                                }}
+                                  sx={{ 
+                                    height: 22, 
+                                    fontWeight: 700,
+                                    bgcolor: getTagBackgroundColor(job.ecTag.tagType),
+                                    color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
+                                  }}
                               />
                             )}
                             {/* Tag Due Date */}
@@ -1966,8 +2001,7 @@ const Dashboard = () => {
                               <Chip 
                                 size="small" 
                                 label={`Due: ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
-                                color={new Date(job.ecTag.tagDueDate) < new Date() ? 'error' : 
-                                       new Date(job.ecTag.tagDueDate) < new Date(Date.now() + 7*24*60*60*1000) ? 'warning' : 'default'}
+                                color={getTagDueDateColor(job.ecTag.tagDueDate)}
                                 variant="outlined"
                                 sx={{ height: 22, fontWeight: 600 }}
                               />
@@ -1988,11 +2022,8 @@ const Dashboard = () => {
                             {job.preFieldLabels?.roadAccess && (
                               <Chip 
                                 size="small" 
-                                label={job.preFieldLabels.roadAccess === 'accessible' ? 'Road Access' : 
-                                       job.preFieldLabels.roadAccess === 'backyard' ? 'Backyard' : 
-                                       job.preFieldLabels.roadAccess}
-                                color={job.preFieldLabels.roadAccess === 'accessible' ? 'success' : 
-                                       job.preFieldLabels.roadAccess === 'non-accessible' ? 'error' : 'warning'}
+                                label={getRoadAccessLabel(job.preFieldLabels.roadAccess)}
+                                color={getRoadAccessColor(job.preFieldLabels.roadAccess)}
                                 variant="outlined"
                                 sx={{ height: 22 }}
                               />

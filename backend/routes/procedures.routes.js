@@ -198,6 +198,18 @@ Focus on practical field data that a foreman would need to record. Include photo
   }
 }
 
+// Valid enum values for query parameter validation (prevents NoSQL injection)
+const VALID_DOC_TYPES = [
+  'as-built-procedure', 'as-built-template', 'field-checklist', 
+  'safety-procedure', 'construction-standard', 'material-spec', 
+  'inspection-guide', 'other'
+];
+const VALID_WORK_TYPES = [
+  'overhead', 'underground', 'pole-replacement', 'transformer',
+  'service-install', 'meter', 'switching', 'streetlight', 'all'
+];
+const VALID_PROCESSING_STATUSES = ['pending', 'processing', 'completed', 'failed'];
+
 /**
  * @route GET /api/procedures
  * @desc List all procedure documents
@@ -208,9 +220,17 @@ router.get('/', async (req, res) => {
     const { docType, workType, status } = req.query;
     
     const filter = { isActive: true };
-    if (docType) filter.docType = docType;
-    if (workType) filter.applicableWorkTypes = workType;
-    if (status) filter.processingStatus = status;
+    
+    // Validate and sanitize query parameters against allowed enum values
+    if (docType && typeof docType === 'string' && VALID_DOC_TYPES.includes(docType)) {
+      filter.docType = docType;
+    }
+    if (workType && typeof workType === 'string' && VALID_WORK_TYPES.includes(workType)) {
+      filter.applicableWorkTypes = workType;
+    }
+    if (status && typeof status === 'string' && VALID_PROCESSING_STATUSES.includes(status)) {
+      filter.processingStatus = status;
+    }
     if (req.user?.companyId) filter.companyId = req.user.companyId;
 
     const procedures = await ProcedureDoc.find(filter)
