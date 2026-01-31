@@ -5153,7 +5153,7 @@ app.post('/api/jobs/:id/review', authenticateUser, async (req, res) => {
     }
     
     const isGF = ['gf'].includes(userRole) || job.assignedToGF?.toString() === req.userId;
-    const isQA = ['qa'].includes(userRole);
+    const isQA = ['qa', 'admin'].includes(userRole);  // Admin can perform QA reviews
     const isPM = ['pm', 'admin'].includes(userRole) || job.userId?.toString() === req.userId;
     
     // Determine which review stage we're in
@@ -6993,28 +6993,12 @@ app.put('/api/admin/feedback/:id', authenticateUser, async (req, res) => {
 
 // ==================== CSV EXPORT FOR JOBS ====================
 // Essential for contractors to share data outside the system
-// Uses Authorization header only - tokens in URLs are a security risk
+// Uses standard authenticateUser middleware for security
 
-app.get('/api/jobs/export/csv', async (req, res) => {
+app.get('/api/jobs/export/csv', authenticateUser, async (req, res) => {
   try {
-    // SECURITY: Only accept tokens via Authorization header
-    // Query param tokens are logged in browser history, server logs, and referer headers
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided' });
-    }
-    
-    let userId;
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      userId = decoded.userId;
-    } catch (err) {
-      return res.status(401).json({ error: 'Invalid token' });
-    }
-    
-    // Get user's company
-    const user = await User.findById(userId).select('companyId isSuperAdmin');
+    // Get user's company (req.userId set by authenticateUser middleware)
+    const user = await User.findById(req.userId).select('companyId isSuperAdmin');
     
     // Handle deleted/missing user
     if (!user) {

@@ -215,14 +215,33 @@ async function generateTailboardPdf(tailboard, options = {}) {
   drawText(`Time: ${tailboard.startTime || 'N/A'}`, leftMargin + 300, yPos, { size: 11 });
   yPos -= 15;
   
+  // WO# and PM#
   drawText(`WO#: ${tailboard.woNumber || 'N/A'}`, leftMargin, yPos, { size: 11 });
+  if (tailboard.pmNumber) {
+    drawText(`PM#: ${tailboard.pmNumber}`, leftMargin + 200, yPos, { size: 11 });
+  }
+  if (tailboard.circuit) {
+    drawText(`Circuit: ${tailboard.circuit}`, leftMargin + 350, yPos, { size: 11 });
+  }
   yPos -= 15;
   
-  drawText(`Location: ${tailboard.jobLocation || 'N/A'}`, leftMargin, yPos, { size: 11 });
+  drawText(`Location: ${tailboard.jobLocation || tailboard.jobAddress || 'N/A'}`, leftMargin, yPos, { size: 11 });
   yPos -= 15;
   
   drawText(`Foreman: ${tailboard.foremanName || 'N/A'}`, leftMargin, yPos, { size: 11 });
+  if (tailboard.generalForemanName) {
+    drawText(`General Foreman: ${tailboard.generalForemanName}`, leftMargin + 250, yPos, { size: 11 });
+  }
   yPos -= 15;
+  
+  // EIC info
+  if (tailboard.eicName) {
+    drawText(`EIC: ${tailboard.eicName}`, leftMargin, yPos, { size: 11 });
+    if (tailboard.eicPhone) {
+      drawText(`Phone: ${tailboard.eicPhone}`, leftMargin + 200, yPos, { size: 11 });
+    }
+    yPos -= 15;
+  }
   
   if (tailboard.weatherConditions) {
     drawText(`Weather: ${tailboard.weatherConditions}`, leftMargin, yPos, { size: 11 });
@@ -232,32 +251,56 @@ async function generateTailboardPdf(tailboard, options = {}) {
   drawLine(leftMargin, yPos, rightMargin, yPos);
   yPos -= 20;
   
-  // === WORK DESCRIPTION ===
-  drawText('WORK DESCRIPTION', leftMargin, yPos, { size: 12, bold: true });
+  // Helper function to wrap and draw text
+  const drawWrappedText = (text, startY) => {
+    const textWords = (text || '').split(' ');
+    let textLine = '';
+    let currentY = startY;
+    
+    for (const word of textWords) {
+      const testLine = textLine + (textLine ? ' ' : '') + word;
+      const testWidth = helvetica.widthOfTextAtSize(testLine, 10);
+      
+      if (testWidth > contentWidth && textLine) {
+        drawText(textLine, leftMargin, currentY);
+        currentY -= 12;
+        textLine = word;
+        checkNewPage();
+      } else {
+        textLine = testLine;
+      }
+    }
+    if (textLine) {
+      drawText(textLine, leftMargin, currentY);
+      currentY -= 12;
+    }
+    return currentY;
+  };
+
+  // === JOB STEPS / WORK DESCRIPTION ===
+  drawText('SUMMARY OF WORK - JOB STEPS', leftMargin, yPos, { size: 12, bold: true });
   yPos -= 15;
   
-  // Word wrap task description
-  const taskDesc = tailboard.taskDescription || 'No description provided';
-  const words = taskDesc.split(' ');
-  let line = '';
-  const maxLineWidth = contentWidth;
+  const jobStepsText = tailboard.jobSteps || tailboard.taskDescription || 'No description provided';
+  yPos = drawWrappedText(jobStepsText, yPos);
+  yPos -= 10;
   
-  for (const word of words) {
-    const testLine = line + (line ? ' ' : '') + word;
-    const testWidth = helvetica.widthOfTextAtSize(testLine, 10);
-    
-    if (testWidth > maxLineWidth && line) {
-      drawText(line, leftMargin, yPos);
-      yPos -= 12;
-      line = word;
-      checkNewPage();
-    } else {
-      line = testLine;
-    }
+  // === HAZARDS DESCRIPTION ===
+  if (tailboard.hazardsDescription) {
+    checkNewPage(60);
+    drawText('HAZARDS ASSOCIATED WITH WORK', leftMargin, yPos, { size: 12, bold: true });
+    yPos -= 15;
+    yPos = drawWrappedText(tailboard.hazardsDescription, yPos);
+    yPos -= 10;
   }
-  if (line) {
-    drawText(line, leftMargin, yPos);
-    yPos -= 20;
+  
+  // === MITIGATION DESCRIPTION ===
+  if (tailboard.mitigationDescription) {
+    checkNewPage(60);
+    drawText('MITIGATION MEASURES', leftMargin, yPos, { size: 12, bold: true });
+    yPos -= 15;
+    yPos = drawWrappedText(tailboard.mitigationDescription, yPos);
+    yPos -= 10;
   }
   
   drawLine(leftMargin, yPos, rightMargin, yPos);
@@ -274,10 +317,13 @@ async function generateTailboardPdf(tailboard, options = {}) {
     traffic: 'Traffic Control',
     excavation: 'Excavation',
     overhead: 'Overhead Work',
+    rigging: 'Rigging',
     environmental: 'Environmental',
     confined_space: 'Confined Space',
     chemical: 'Chemical/Materials',
     ergonomic: 'Ergonomic',
+    backing: 'Backing/Vehicles',
+    third_party: '3rd Party Contractors',
     other: 'Other'
   };
   
@@ -350,6 +396,87 @@ async function generateTailboardPdf(tailboard, options = {}) {
   drawLine(leftMargin, yPos, rightMargin, yPos);
   yPos -= 20;
   
+  // === SPECIAL MITIGATION MEASURES ===
+  if (tailboard.specialMitigations && tailboard.specialMitigations.length > 0) {
+    const answeredMitigations = tailboard.specialMitigations.filter(m => m.value);
+    if (answeredMitigations.length > 0) {
+      checkNewPage(100);
+      drawText('SPECIAL MITIGATION MEASURES', leftMargin, yPos, { size: 12, bold: true });
+      yPos -= 15;
+      
+      const mitigationLabels = {
+        liveLineWork: 'Live-Line Work',
+        rubberGloving: 'Rubber Gloving',
+        backfeedDiscussed: 'Back-feed Discussed',
+        groundingPerTitle8: 'Grounding per Title 8 §2941',
+        madDiscussed: 'MAD Discussed',
+        ppeDiscussed: 'PPE Discussed',
+        publicPedestrianSafety: 'Public/Pedestrian Safety',
+        rotationDiscussed: 'Rotation Discussed',
+        phaseMarkingDiscussed: 'Phase Marking Discussed',
+        voltageTesting: 'Voltage Testing',
+        switchLog: 'Switch Log',
+        dielectricInspection: 'Di-Electric Inspection',
+        adequateCover: 'Adequate Cover'
+      };
+      
+      let mitX = leftMargin;
+      let mitCount = 0;
+      
+      for (const mit of answeredMitigations) {
+        if (mitCount > 0 && mitCount % 2 === 0) {
+          yPos -= 15;
+          mitX = leftMargin;
+          checkNewPage(20);
+        }
+        
+        const label = mitigationLabels[mit.item] || mit.item;
+        const valueStr = mit.value === 'yes' ? '✓ Yes' : mit.value === 'no' ? '✗ No' : 'N/A';
+        const color = mit.value === 'yes' ? rgb(0, 0.5, 0) : mit.value === 'no' ? rgb(0.8, 0, 0) : rgb(0.5, 0.5, 0.5);
+        
+        drawText(`${label}: `, mitX, yPos, { size: 9 });
+        drawText(valueStr, mitX + 150, yPos, { size: 9, color });
+        mitX += 250;
+        mitCount++;
+      }
+      yPos -= 20;
+      drawLine(leftMargin, yPos, rightMargin, yPos);
+      yPos -= 20;
+    }
+  }
+  
+  // === GROUNDING INFORMATION ===
+  if (tailboard.grounding && tailboard.grounding.needed) {
+    checkNewPage(80);
+    drawText('GROUNDING (Per Title 8, §2941)', leftMargin, yPos, { size: 12, bold: true });
+    yPos -= 15;
+    
+    const groundNeededStr = tailboard.grounding.needed === 'yes' ? 'Yes' : 'No';
+    drawText(`Grounding Needed: ${groundNeededStr}`, leftMargin, yPos, { size: 10 });
+    
+    if (tailboard.grounding.accountedFor) {
+      const accountedStr = tailboard.grounding.accountedFor === 'yes' ? 'Yes' : 'No';
+      drawText(`Accounted by Foreman: ${accountedStr}`, leftMargin + 200, yPos, { size: 10 });
+    }
+    yPos -= 15;
+    
+    if (tailboard.grounding.locations && tailboard.grounding.locations.length > 0) {
+      drawText('Grounding Locations:', leftMargin, yPos, { size: 9, bold: true });
+      yPos -= 12;
+      for (const loc of tailboard.grounding.locations) {
+        checkNewPage(15);
+        const status = [];
+        if (loc.installed) status.push('Installed');
+        if (loc.removed) status.push('Removed');
+        drawText(`• ${loc.location} ${status.length ? `(${status.join(', ')})` : ''}`, leftMargin + 10, yPos, { size: 9 });
+        yPos -= 12;
+      }
+    }
+    yPos -= 10;
+    drawLine(leftMargin, yPos, rightMargin, yPos);
+    yPos -= 20;
+  }
+  
   // === EMERGENCY INFORMATION ===
   checkNewPage(60);
   drawText('EMERGENCY INFORMATION', leftMargin, yPos, { size: 12, bold: true });
@@ -366,6 +493,55 @@ async function generateTailboardPdf(tailboard, options = {}) {
   yPos -= 10;
   drawLine(leftMargin, yPos, rightMargin, yPos);
   yPos -= 20;
+  
+  // === UG WORK CHECKLIST ===
+  if (tailboard.ugChecklist && tailboard.ugChecklist.length > 0) {
+    const answeredItems = tailboard.ugChecklist.filter(c => c.value);
+    if (answeredItems.length > 0) {
+      checkNewPage(150);
+      drawText('UG WORK COMPLETED CHECKLIST', leftMargin, yPos, { size: 12, bold: true });
+      yPos -= 15;
+      
+      const ugLabels = {
+        elbowsSeated: 'Elbows Fully Seated',
+        deadbreakBails: '200A Deadbreak Bails On',
+        groundsMadeUp: 'Grounds Made Up',
+        bleedersInstalled: 'Bleeders Installed',
+        tagsInstalledNewWork: 'Tags Installed on New Work',
+        tagsUpdatedAdjacent: 'Tags Updated on Adjacent Equipment',
+        voltagePhaseTagsApplied: 'Voltage & Phase Tags Applied',
+        primaryNeutralIdentified: 'Primary Neutral Identified',
+        spareDuctsPlugged: 'Spare Ducts Plugged',
+        equipmentNumbersInstalled: 'Equipment Numbers Installed',
+        lidsFramesBonded: 'Lids/Frames Bonded',
+        allBoltsInstalled: 'All Bolts Installed',
+        equipmentBoltedDown: 'Equipment Bolted Down'
+      };
+      
+      for (const item of answeredItems) {
+        checkNewPage(15);
+        const label = ugLabels[item.item] || item.item;
+        let valueStr, color;
+        if (item.value === 'yes') {
+          valueStr = '✓ Yes';
+          color = rgb(0, 0.5, 0);
+        } else if (item.value === 'no') {
+          valueStr = '✗ No';
+          color = rgb(0.8, 0, 0);
+        } else {
+          valueStr = 'N/A';
+          color = rgb(0.5, 0.5, 0.5);
+        }
+        
+        drawText(`${label}: `, leftMargin, yPos, { size: 9 });
+        drawText(valueStr, leftMargin + 200, yPos, { size: 9, color });
+        yPos -= 12;
+      }
+      yPos -= 10;
+      drawLine(leftMargin, yPos, rightMargin, yPos);
+      yPos -= 20;
+    }
+  }
   
   // === CREW ACKNOWLEDGMENT ===
   checkNewPage(150);

@@ -21,14 +21,36 @@ const createTailboard = async (req, res) => {
       date,
       startTime,
       taskDescription,
+      jobSteps,
       hazards,
+      hazardsDescription,
+      mitigationDescription,
+      specialMitigations,
       ppeRequired,
       crewMembers,
       weatherConditions,
       siteConditions,
       emergencyContact,
+      emergencyPhone,
       nearestHospital,
-      additionalNotes
+      nearMissReporting,
+      additionalNotes,
+      // New Alvah-specific fields
+      pmNumber,
+      circuit,
+      showUpYardLocation,
+      generalForemanId,
+      generalForemanName,
+      inspector,
+      inspectorName,
+      eicName,
+      eicPhone,
+      sourceSideDevices,
+      grounding,
+      nominalVoltages,
+      copperConditionInspected,
+      notTiedIntoCircuit,
+      ugChecklist
     } = req.body;
 
     // Validate job exists
@@ -37,6 +59,18 @@ const createTailboard = async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
+    // Initialize special mitigations with defaults if not provided
+    const defaultMitigations = Tailboard.SPECIAL_MITIGATIONS.map(m => ({
+      item: m.id,
+      value: null
+    }));
+
+    // Initialize UG checklist with defaults if not provided
+    const defaultUgChecklist = Tailboard.UG_CHECKLIST_ITEMS.map(item => ({
+      item: item.id,
+      value: null
+    }));
+
     // Create tailboard with job info pre-populated
     const tailboard = new Tailboard({
       jobId,
@@ -44,20 +78,46 @@ const createTailboard = async (req, res) => {
       date: date || new Date(),
       startTime,
       jobLocation: job.address || `${job.city || ''}`,
+      jobAddress: job.address,
       woNumber: job.woNumber,
+      pmNumber: pmNumber || job.pmNumber,
+      circuit,
+      showUpYardLocation,
       foremanId: req.user._id,
       foremanName: req.user.name,
+      generalForemanId,
+      generalForemanName,
+      inspector,
+      inspectorName,
+      eicName,
+      eicPhone,
       taskDescription,
+      jobSteps,
+      hazardsDescription,
+      mitigationDescription,
       hazards: hazards || [],
+      specialMitigations: specialMitigations || defaultMitigations,
       ppeRequired: ppeRequired || Tailboard.STANDARD_PPE.map(ppe => ({
         item: ppe.item,
         checked: false
       })),
+      sourceSideDevices: sourceSideDevices || [],
+      grounding: grounding || {
+        needed: null,
+        accountedFor: null,
+        locations: []
+      },
+      nominalVoltages,
+      copperConditionInspected,
+      notTiedIntoCircuit,
+      ugChecklist: ugChecklist || defaultUgChecklist,
       crewMembers: crewMembers || [],
       weatherConditions,
       siteConditions,
       emergencyContact,
+      emergencyPhone,
       nearestHospital,
+      nearMissReporting,
       additionalNotes,
       status: 'draft'
     });
@@ -131,9 +191,16 @@ const updateTailboard = async (req, res) => {
     }
 
     const allowedUpdates = [
-      'date', 'startTime', 'taskDescription', 'hazards', 'ppeRequired',
-      'crewMembers', 'weatherConditions', 'siteConditions', 'emergencyContact',
-      'nearestHospital', 'additionalNotes', 'foremanSignature'
+      'date', 'startTime', 'taskDescription', 'jobSteps', 'hazards', 
+      'hazardsDescription', 'mitigationDescription', 'specialMitigations',
+      'ppeRequired', 'crewMembers', 'weatherConditions', 'siteConditions', 
+      'emergencyContact', 'emergencyPhone', 'nearestHospital', 'nearMissReporting',
+      'additionalNotes', 'foremanSignature',
+      // New Alvah-specific fields
+      'pmNumber', 'circuit', 'showUpYardLocation', 'generalForemanId',
+      'generalForemanName', 'inspector', 'inspectorName', 'eicName', 'eicPhone',
+      'sourceSideDevices', 'grounding', 'nominalVoltages', 'copperConditionInspected',
+      'notTiedIntoCircuit', 'ugChecklist'
     ];
 
     allowedUpdates.forEach(field => {
@@ -211,9 +278,12 @@ const completeTailboard = async (req, res) => {
       return res.status(404).json({ error: 'Tailboard not found' });
     }
 
-    // Validate minimum requirements
-    if (!tailboard.hazards || tailboard.hazards.length === 0) {
-      return res.status(400).json({ error: 'At least one hazard must be identified' });
+    // Validate minimum requirements - need either hazards array or hazards description
+    const hasHazards = (tailboard.hazards && tailboard.hazards.length > 0) || 
+                       (tailboard.hazardsDescription && tailboard.hazardsDescription.trim().length > 0);
+    
+    if (!hasHazards) {
+      return res.status(400).json({ error: 'Hazards must be identified (either structured or description)' });
     }
 
     if (!tailboard.crewMembers || tailboard.crewMembers.length === 0) {
@@ -283,14 +353,17 @@ const getTailboardByToken = async (req, res) => {
 };
 
 /**
- * Get hazard categories and common items
+ * Get hazard categories, PPE, mitigations, and checklist items
  * GET /api/tailboards/categories
  */
 const getCategories = async (req, res) => {
   try {
     res.json({
       hazardCategories: Tailboard.HAZARD_CATEGORIES,
-      standardPPE: Tailboard.STANDARD_PPE
+      standardPPE: Tailboard.STANDARD_PPE,
+      specialMitigations: Tailboard.SPECIAL_MITIGATIONS,
+      ugChecklistItems: Tailboard.UG_CHECKLIST_ITEMS,
+      inspectorOptions: Tailboard.INSPECTOR_OPTIONS
     });
   } catch (error) {
     console.error('Error fetching categories:', error);

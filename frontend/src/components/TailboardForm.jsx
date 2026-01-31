@@ -39,7 +39,11 @@ import {
   AccordionDetails,
   Avatar,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  ToggleButtonGroup,
+  ToggleButton,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   ArrowBack as BackIcon,
@@ -54,7 +58,10 @@ import {
   Save as SaveIcon,
   Send as SendIcon,
   LocalHospital as HospitalIcon,
-  WbSunny as WeatherIcon
+  WbSunny as WeatherIcon,
+  ElectricalServices as ElectricalIcon,
+  Engineering as EngineeringIcon,
+  Checklist as ChecklistIcon
 } from '@mui/icons-material';
 import api from '../api';
 import SignaturePad from './shared/SignaturePad';
@@ -65,22 +72,22 @@ const HAZARD_CATEGORIES = {
     label: 'Electrical',
     icon: '⚡',
     color: '#f44336',
-    commonHazards: ['Energized equipment', 'Arc flash potential', 'Exposed conductors', 'Working near power lines'],
-    commonControls: ['De-energize and LOTO', 'Maintain clearance distances', 'Use insulated tools', 'Wear arc-rated PPE']
+    commonHazards: ['Energized equipment', 'Arc flash potential', 'Exposed conductors', 'Working near power lines', 'Accidental contacts', 'Back-feed potential'],
+    commonControls: ['De-energize and LOTO', 'Maintain clearance distances', 'Use insulated tools', 'Wear arc-rated PPE', 'Voltage testing', 'Rubber gloving']
   },
   fall: {
     label: 'Fall Protection',
     icon: '🪜',
     color: '#ff9800',
-    commonHazards: ['Working at heights', 'Ladder work', 'Unprotected edges', 'Unstable surfaces'],
-    commonControls: ['Use fall protection harness', 'Set up guardrails', 'Inspect ladder before use', '3-point contact on ladders']
+    commonHazards: ['Working at heights', 'Ladder work', 'Unprotected edges', 'Unstable surfaces', 'Open holes'],
+    commonControls: ['Use fall protection harness', 'Set up guardrails', 'Inspect ladder before use', '3-point contact on ladders', 'Watch footing']
   },
   traffic: {
     label: 'Traffic Control',
     icon: '🚧',
     color: '#ff5722',
-    commonHazards: ['Work zone traffic', 'Moving vehicles', 'Limited visibility', 'Pedestrian conflicts'],
-    commonControls: ['Set up traffic control plan', 'Use flaggers', 'Wear high-visibility vest', 'Position escape routes']
+    commonHazards: ['Work zone traffic', 'Moving vehicles', 'Limited visibility', 'Pedestrian conflicts', 'Public safety'],
+    commonControls: ['Set up traffic control plan', 'Use flaggers', 'Wear high-visibility vest', 'Position escape routes', 'Cone off work area']
   },
   excavation: {
     label: 'Excavation',
@@ -93,15 +100,22 @@ const HAZARD_CATEGORIES = {
     label: 'Overhead Work',
     icon: '🏗️',
     color: '#9c27b0',
-    commonHazards: ['Overhead power lines', 'Falling objects', 'Crane operations', 'Suspended loads'],
-    commonControls: ['Maintain clearance from lines', 'Use tag lines', 'Establish drop zones', 'Wear hard hat']
+    commonHazards: ['Overhead power lines', 'Falling objects', 'Crane operations', 'Suspended loads', 'Overhead loads'],
+    commonControls: ['Maintain clearance from lines', 'Use tag lines', 'Establish drop zones', 'Wear hard hat', 'Stay out from under loads']
+  },
+  rigging: {
+    label: 'Rigging',
+    icon: '🪝',
+    color: '#673ab7',
+    commonHazards: ['Rigging failure', 'Load shift', 'Overloading', 'Improper rigging'],
+    commonControls: ['Inspect rigging before use', 'Verify load weight', 'Use proper rigging techniques', 'Boom spotter/backup']
   },
   environmental: {
     label: 'Environmental',
     icon: '🌡️',
     color: '#4caf50',
-    commonHazards: ['Heat stress', 'Cold exposure', 'Severe weather', 'Sun exposure'],
-    commonControls: ['Hydration breaks', 'Monitor weather conditions', 'Provide shade/shelter', 'Adjust work schedule']
+    commonHazards: ['Heat stress', 'Cold exposure', 'Severe weather', 'Sun exposure', 'Atmosphere/COVID'],
+    commonControls: ['Hydration breaks', 'Monitor weather conditions', 'Provide shade/shelter', 'Adjust work schedule', 'Drink water']
   },
   confined_space: {
     label: 'Confined Space',
@@ -121,8 +135,22 @@ const HAZARD_CATEGORIES = {
     label: 'Ergonomic',
     icon: '💪',
     color: '#00bcd4',
-    commonHazards: ['Heavy lifting', 'Repetitive motion', 'Awkward positions', 'Vibration exposure'],
+    commonHazards: ['Heavy lifting', 'Repetitive motion', 'Awkward positions', 'Pulling tension', 'Slip/trip hazards'],
     commonControls: ['Use mechanical aids', 'Team lifts for heavy items', 'Rotate tasks', 'Take stretch breaks']
+  },
+  backing: {
+    label: 'Backing/Vehicles',
+    icon: '🚛',
+    color: '#ff7043',
+    commonHazards: ['Backing incidents', 'Limited visibility', 'Pedestrians in area'],
+    commonControls: ['Use spotter when backing', 'GOAL (Get Out And Look)', '360 walk-around', 'Back into parking spots']
+  },
+  third_party: {
+    label: '3rd Party Contractors',
+    icon: '👷',
+    color: '#8d6e63',
+    commonHazards: ['Coordination issues', 'Unknown hazards', 'Communication gaps', 'New crew members'],
+    commonControls: ['Pre-job briefing with all parties', 'Ask questions', '3 points contact', 'Verify certifications']
   },
   other: {
     label: 'Other',
@@ -147,6 +175,49 @@ const STANDARD_PPE = [
   { item: 'Fall Protection Harness', icon: '🪢' }
 ];
 
+// Special Mitigation Measures (from Alvah Electric Tailboard Form)
+const SPECIAL_MITIGATIONS = [
+  { id: 'liveLineWork', label: 'Live-Line Work' },
+  { id: 'rubberGloving', label: 'Rubber Gloving' },
+  { id: 'backfeedDiscussed', label: 'Possible Back-feed Discussed' },
+  { id: 'groundingPerTitle8', label: 'Grounding per Title 8 §2941' },
+  { id: 'madDiscussed', label: 'MAD Discussed' },
+  { id: 'ppeDiscussed', label: 'Personal Protective Equipment' },
+  { id: 'publicPedestrianSafety', label: 'Public / Pedestrian Safety - T/C' },
+  { id: 'rotationDiscussed', label: 'Rotation Discussed' },
+  { id: 'phaseMarkingDiscussed', label: 'Phase Marking Discussed' },
+  { id: 'voltageTesting', label: 'Voltage Testing' },
+  { id: 'switchLog', label: 'Switch Log' },
+  { id: 'dielectricInspection', label: 'Di-Electric & Live-Line Tool Inspection' },
+  { id: 'adequateCover', label: 'Adequate Cover on Secondary Points of Contact' }
+];
+
+// UG Work Completed Checklist Items
+const UG_CHECKLIST_ITEMS = [
+  { id: 'elbowsSeated', label: 'Are all Elbows Fully Seated?' },
+  { id: 'deadbreakBails', label: 'Are all 200A Deadbreak Bails on?' },
+  { id: 'groundsMadeUp', label: 'Are all Grounds Made Up (Splices, Switches, TX, etc.)?' },
+  { id: 'bleedersInstalled', label: 'Bleeders all Installed?' },
+  { id: 'tagsInstalledNewWork', label: 'Are all Tags Installed on New Work?' },
+  { id: 'tagsUpdatedAdjacent', label: 'Have Tags Been Updated on Adjacent Equipment?' },
+  { id: 'voltagePhaseTagsApplied', label: 'Correct Voltage & Phase Tags Applied?' },
+  { id: 'primaryNeutralIdentified', label: 'Primary Neutral Identified - 4 KV & 21 KV?' },
+  { id: 'spareDuctsPlugged', label: 'All Spare Ducts Plugged?' },
+  { id: 'equipmentNumbersInstalled', label: 'Equipment Numbers Installed?' },
+  { id: 'lidsFramesBonded', label: 'Lids or Frames Bonded?' },
+  { id: 'allBoltsInstalled', label: 'All Bolts Installed on Lids?' },
+  { id: 'equipmentBoltedDown', label: 'Is Equipment Bolted Down Correctly?' }
+];
+
+// Inspector options
+const INSPECTOR_OPTIONS = [
+  { id: 'pge', label: 'PG&E' },
+  { id: 'sce', label: 'SCE' },
+  { id: 'sdge', label: 'SDG&E' },
+  { id: 'smud', label: 'SMUD' },
+  { id: 'other', label: 'Other' }
+];
+
 const TailboardForm = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
@@ -156,22 +227,63 @@ const TailboardForm = () => {
   const [saving, setSaving] = useState(false);
   const [job, setJob] = useState(null);
   const [tailboard, setTailboard] = useState(null);
+  const [activeTab, setActiveTab] = useState(0);
   
-  // Form fields
+  // Basic form fields
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState(
     new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })
   );
   const [taskDescription, setTaskDescription] = useState('');
+  const [jobSteps, setJobSteps] = useState('');
   const [hazards, setHazards] = useState([]);
+  const [hazardsDescription, setHazardsDescription] = useState('');
+  const [mitigationDescription, setMitigationDescription] = useState('');
   const [ppeRequired, setPpeRequired] = useState(
     STANDARD_PPE.map(ppe => ({ item: ppe.item, checked: false }))
   );
   const [crewMembers, setCrewMembers] = useState([]);
   const [weatherConditions, setWeatherConditions] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('911');
+  const [emergencyPhone, setEmergencyPhone] = useState('');
   const [nearestHospital, setNearestHospital] = useState('');
   const [additionalNotes, setAdditionalNotes] = useState('');
+  
+  // Alvah-specific fields
+  const [pmNumber, setPmNumber] = useState('');
+  const [circuit, setCircuit] = useState('');
+  const [showUpYardLocation, setShowUpYardLocation] = useState('');
+  const [generalForemanName, setGeneralForemanName] = useState('');
+  const [inspector, setInspector] = useState('');
+  const [inspectorName, setInspectorName] = useState('');
+  const [eicName, setEicName] = useState('');
+  const [eicPhone, setEicPhone] = useState('');
+  
+  // Special Mitigation Measures (Yes/No/N/A)
+  const [specialMitigations, setSpecialMitigations] = useState(
+    SPECIAL_MITIGATIONS.map(m => ({ item: m.id, value: null }))
+  );
+  
+  // Grounding section
+  const [groundingNeeded, setGroundingNeeded] = useState(null);
+  const [groundingAccountedFor, setGroundingAccountedFor] = useState(null);
+  const [groundingLocations, setGroundingLocations] = useState([]);
+  
+  // Source Side Devices
+  const [sourceSideDevices, setSourceSideDevices] = useState([
+    { device: '', physicalLocation: '' }
+  ]);
+  
+  // Line characteristics
+  const [nominalVoltages, setNominalVoltages] = useState('');
+  const [copperConditionInspected, setCopperConditionInspected] = useState(null);
+  const [notTiedIntoCircuit, setNotTiedIntoCircuit] = useState(false);
+  
+  // UG Work Checklist
+  const [ugChecklist, setUgChecklist] = useState(
+    UG_CHECKLIST_ITEMS.map(item => ({ item: item.id, value: null }))
+  );
+  const [showUgChecklist, setShowUgChecklist] = useState(false);
   
   // UI state
   const [signatureOpen, setSignatureOpen] = useState(false);
@@ -193,6 +305,9 @@ const TailboardForm = () => {
         const jobRes = await api.get(`/api/jobs/${jobId}`);
         setJob(jobRes.data);
         
+        // Pre-fill PM number from job if available
+        if (jobRes.data.pmNumber) setPmNumber(jobRes.data.pmNumber);
+        
         // Check for existing tailboard today
         try {
           const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
@@ -203,13 +318,41 @@ const TailboardForm = () => {
           if (tb.date) setDate(new Date(tb.date).toISOString().split('T')[0]);
           if (tb.startTime) setStartTime(tb.startTime);
           if (tb.taskDescription) setTaskDescription(tb.taskDescription);
+          if (tb.jobSteps) setJobSteps(tb.jobSteps);
           if (tb.hazards) setHazards(tb.hazards);
+          if (tb.hazardsDescription) setHazardsDescription(tb.hazardsDescription);
+          if (tb.mitigationDescription) setMitigationDescription(tb.mitigationDescription);
           if (tb.ppeRequired) setPpeRequired(tb.ppeRequired);
           if (tb.crewMembers) setCrewMembers(tb.crewMembers);
           if (tb.weatherConditions) setWeatherConditions(tb.weatherConditions);
           if (tb.emergencyContact) setEmergencyContact(tb.emergencyContact);
+          if (tb.emergencyPhone) setEmergencyPhone(tb.emergencyPhone);
           if (tb.nearestHospital) setNearestHospital(tb.nearestHospital);
           if (tb.additionalNotes) setAdditionalNotes(tb.additionalNotes);
+          
+          // Alvah-specific fields
+          if (tb.pmNumber) setPmNumber(tb.pmNumber);
+          if (tb.circuit) setCircuit(tb.circuit);
+          if (tb.showUpYardLocation) setShowUpYardLocation(tb.showUpYardLocation);
+          if (tb.generalForemanName) setGeneralForemanName(tb.generalForemanName);
+          if (tb.inspector) setInspector(tb.inspector);
+          if (tb.inspectorName) setInspectorName(tb.inspectorName);
+          if (tb.eicName) setEicName(tb.eicName);
+          if (tb.eicPhone) setEicPhone(tb.eicPhone);
+          if (tb.specialMitigations?.length) setSpecialMitigations(tb.specialMitigations);
+          if (tb.grounding) {
+            setGroundingNeeded(tb.grounding.needed);
+            setGroundingAccountedFor(tb.grounding.accountedFor);
+            if (tb.grounding.locations?.length) setGroundingLocations(tb.grounding.locations);
+          }
+          if (tb.sourceSideDevices?.length) setSourceSideDevices(tb.sourceSideDevices);
+          if (tb.nominalVoltages) setNominalVoltages(tb.nominalVoltages);
+          if (tb.copperConditionInspected !== undefined) setCopperConditionInspected(tb.copperConditionInspected);
+          if (tb.notTiedIntoCircuit) setNotTiedIntoCircuit(tb.notTiedIntoCircuit);
+          if (tb.ugChecklist?.length) {
+            setUgChecklist(tb.ugChecklist);
+            setShowUgChecklist(true);
+          }
         } catch {
           // No tailboard for today - that's fine
         }
@@ -229,24 +372,51 @@ const TailboardForm = () => {
     loadData();
   }, [jobId]);
 
+  // Build full data object for save/complete
+  const buildTailboardData = () => ({
+    jobId,
+    date: new Date(date),
+    startTime,
+    taskDescription,
+    jobSteps,
+    hazards,
+    hazardsDescription,
+    mitigationDescription,
+    specialMitigations,
+    ppeRequired,
+    crewMembers,
+    weatherConditions,
+    emergencyContact,
+    emergencyPhone,
+    nearestHospital,
+    additionalNotes,
+    // Alvah-specific fields
+    pmNumber,
+    circuit,
+    showUpYardLocation,
+    generalForemanName,
+    inspector,
+    inspectorName,
+    eicName,
+    eicPhone,
+    sourceSideDevices: sourceSideDevices.filter(d => d.device || d.physicalLocation),
+    grounding: {
+      needed: groundingNeeded,
+      accountedFor: groundingAccountedFor,
+      locations: groundingLocations
+    },
+    nominalVoltages,
+    copperConditionInspected,
+    notTiedIntoCircuit,
+    ugChecklist: showUgChecklist ? ugChecklist : []
+  });
+
   // Save tailboard (draft)
   const handleSave = async () => {
     try {
       setSaving(true);
       
-      const data = {
-        jobId,
-        date: new Date(date),
-        startTime,
-        taskDescription,
-        hazards,
-        ppeRequired,
-        crewMembers,
-        weatherConditions,
-        emergencyContact,
-        nearestHospital,
-        additionalNotes
-      };
+      const data = buildTailboardData();
       
       if (tailboard?._id) {
         // Update existing
@@ -274,20 +444,7 @@ const TailboardForm = () => {
       
       // Save first and get the tailboard ID
       let currentTailboard = tailboard;
-      
-      const saveData = {
-        jobId,
-        date: new Date(date),
-        startTime,
-        taskDescription,
-        hazards,
-        ppeRequired,
-        crewMembers,
-        weatherConditions,
-        emergencyContact,
-        nearestHospital,
-        additionalNotes
-      };
+      const saveData = buildTailboardData();
       
       if (currentTailboard?._id) {
         const res = await api.put(`/api/tailboards/${currentTailboard._id}`, saveData);
@@ -378,6 +535,56 @@ const TailboardForm = () => {
     setSelectedControls(selectedControls.filter(c => c !== control));
   };
 
+  // Toggle special mitigation value (yes/no/na)
+  const handleMitigationChange = (itemId, value) => {
+    setSpecialMitigations(prev => 
+      prev.map(m => m.item === itemId ? { ...m, value } : m)
+    );
+  };
+
+  // Toggle UG checklist value (yes/no/na)
+  const handleUgChecklistChange = (itemId, value) => {
+    setUgChecklist(prev => 
+      prev.map(item => item.item === itemId ? { ...item, value } : item)
+    );
+  };
+
+  // Add source side device row
+  const handleAddSourceDevice = () => {
+    setSourceSideDevices([...sourceSideDevices, { device: '', physicalLocation: '' }]);
+  };
+
+  // Update source side device
+  const handleSourceDeviceChange = (index, field, value) => {
+    const updated = [...sourceSideDevices];
+    updated[index][field] = value;
+    setSourceSideDevices(updated);
+  };
+
+  // Remove source side device
+  const handleRemoveSourceDevice = (index) => {
+    setSourceSideDevices(sourceSideDevices.filter((_, i) => i !== index));
+  };
+
+  // Add grounding location
+  const handleAddGroundingLocation = () => {
+    setGroundingLocations([...groundingLocations, { location: '', installed: false, removed: false }]);
+  };
+
+  // Update grounding location
+  const handleGroundingLocationChange = (index, field, value) => {
+    const updated = [...groundingLocations];
+    updated[index][field] = value;
+    setGroundingLocations(updated);
+  };
+
+  // Check if form has required fields to complete
+  const canComplete = () => {
+    const hasHazards = hazards.length > 0 || hazardsDescription.trim().length > 0;
+    const hasSignatures = crewMembers.length > 0;
+    return hasHazards && hasSignatures;
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -409,7 +616,8 @@ const TailboardForm = () => {
           )}
         </Box>
         
-        <Grid container spacing={2}>
+        {/* General Information - Row 1 */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={6} sm={3}>
             <TextField
               label="Date"
@@ -434,7 +642,109 @@ const TailboardForm = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
+          <Grid item xs={6} sm={3}>
+            <TextField
+              label="PM#"
+              value={pmNumber}
+              onChange={(e) => setPmNumber(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+              placeholder="Project #"
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <TextField
+              label="Circuit#"
+              value={circuit}
+              onChange={(e) => setCircuit(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+            />
+          </Grid>
+        </Grid>
+
+        {/* General Information - Row 2 */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
           <Grid item xs={12} sm={6}>
+            <TextField
+              label="General Foreman"
+              value={generalForemanName}
+              onChange={(e) => setGeneralForemanName(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+            />
+          </Grid>
+          <Grid item xs={6} sm={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Inspector</InputLabel>
+              <Select
+                value={inspector}
+                onChange={(e) => setInspector(e.target.value)}
+                label="Inspector"
+                disabled={isCompleted}
+              >
+                <MenuItem value="">None</MenuItem>
+                {INSPECTOR_OPTIONS.map(opt => (
+                  <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+          {inspector === 'other' && (
+            <Grid item xs={6} sm={3}>
+              <TextField
+                label="Inspector Name"
+                value={inspectorName}
+                onChange={(e) => setInspectorName(e.target.value)}
+                fullWidth
+                size="small"
+                disabled={isCompleted}
+              />
+            </Grid>
+          )}
+        </Grid>
+
+        {/* General Information - Row 3 */}
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={6} sm={4}>
+            <TextField
+              label="EIC Name"
+              value={eicName}
+              onChange={(e) => setEicName(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+              placeholder="Employee In Charge"
+            />
+          </Grid>
+          <Grid item xs={6} sm={4}>
+            <TextField
+              label="EIC Phone"
+              value={eicPhone}
+              onChange={(e) => setEicPhone(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Show Up Yard Location"
+              value={showUpYardLocation}
+              onChange={(e) => setShowUpYardLocation(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+            />
+          </Grid>
+        </Grid>
+
+        {/* Weather */}
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
             <TextField
               label="Weather Conditions"
               value={weatherConditions}
@@ -451,19 +761,47 @@ const TailboardForm = () => {
         </Grid>
       </Paper>
 
-      {/* Task Description */}
+      {/* Work Description & Job Steps */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-          Work Description
+          Summary of Work - Job Steps
         </Typography>
         <TextField
-          value={taskDescription}
-          onChange={(e) => setTaskDescription(e.target.value)}
+          value={jobSteps}
+          onChange={(e) => setJobSteps(e.target.value)}
           fullWidth
           multiline
           rows={3}
           disabled={isCompleted}
-          placeholder="Describe the work to be performed today..."
+          placeholder="Describe the work steps to be performed today..."
+          sx={{ mb: 2 }}
+        />
+        
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+          Hazards Associated with Work
+        </Typography>
+        <TextField
+          value={hazardsDescription}
+          onChange={(e) => setHazardsDescription(e.target.value)}
+          fullWidth
+          multiline
+          rows={2}
+          disabled={isCompleted}
+          placeholder="Traffic, pedestrians, overhead loads, rigging failure, accidental contacts, pulling tension, slip/trip, open holes, atmosphere, COVID, new crew, backing incidents, 3rd party contractors..."
+          sx={{ mb: 2 }}
+        />
+        
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+          Mitigation Measures - What Will Be Done to Eliminate Hazards
+        </Typography>
+        <TextField
+          value={mitigationDescription}
+          onChange={(e) => setMitigationDescription(e.target.value)}
+          fullWidth
+          multiline
+          rows={2}
+          disabled={isCompleted}
+          placeholder="T/C, stay out from under loads, inspect tools and rigging, boom spotter, watch footing, 3-way comm, ask questions, 3 points contact, drink water, test boxes before entering, TAPE TAPE TAPE..."
         />
       </Paper>
 
@@ -540,6 +878,185 @@ const TailboardForm = () => {
             })}
           </Box>
         )}
+      </Paper>
+
+      {/* Special Mitigation Measures */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <ElectricalIcon color="warning" />
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Special Mitigation Measures
+          </Typography>
+        </Box>
+        
+        <Grid container spacing={1}>
+          {SPECIAL_MITIGATIONS.map((mitigation) => {
+            const current = specialMitigations.find(m => m.item === mitigation.id);
+            return (
+              <Grid item xs={12} sm={6} key={mitigation.id}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  p: 1,
+                  bgcolor: 'grey.50',
+                  borderRadius: 1,
+                  mb: 0.5
+                }}>
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    {mitigation.label}
+                  </Typography>
+                  <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    value={current?.value || null}
+                    onChange={(e, val) => handleMitigationChange(mitigation.id, val)}
+                    disabled={isCompleted}
+                  >
+                    <ToggleButton value="yes" sx={{ px: 1.5, py: 0.5 }}>
+                      <Typography variant="caption">Yes</Typography>
+                    </ToggleButton>
+                    <ToggleButton value="no" sx={{ px: 1.5, py: 0.5 }}>
+                      <Typography variant="caption">No</Typography>
+                    </ToggleButton>
+                  </ToggleButtonGroup>
+                </Box>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </Paper>
+
+      {/* Grounding Section */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <EngineeringIcon color="primary" />
+          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+            Grounding Per Title 8, §2941
+          </Typography>
+        </Box>
+        
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2">Will Grounding Be Needed?</Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={groundingNeeded}
+                onChange={(e, val) => setGroundingNeeded(val)}
+                disabled={isCompleted}
+              >
+                <ToggleButton value="yes">Yes</ToggleButton>
+                <ToggleButton value="no">No</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2">Grounds accounted for by foreman?</Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={groundingAccountedFor}
+                onChange={(e, val) => setGroundingAccountedFor(val)}
+                disabled={isCompleted}
+              >
+                <ToggleButton value="yes">Yes</ToggleButton>
+                <ToggleButton value="no">No</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          </Grid>
+        </Grid>
+        
+        {groundingNeeded === 'yes' && (
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              List ALL Locations Requiring Grounding:
+            </Typography>
+            {groundingLocations.map((loc, index) => (
+              <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+                <TextField
+                  size="small"
+                  value={loc.location}
+                  onChange={(e) => handleGroundingLocationChange(index, 'location', e.target.value)}
+                  placeholder="Grounding location"
+                  sx={{ flex: 1 }}
+                  disabled={isCompleted}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox 
+                      checked={loc.installed} 
+                      onChange={(e) => handleGroundingLocationChange(index, 'installed', e.target.checked)}
+                      disabled={isCompleted}
+                      size="small"
+                    />
+                  }
+                  label="Installed"
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox 
+                      checked={loc.removed} 
+                      onChange={(e) => handleGroundingLocationChange(index, 'removed', e.target.checked)}
+                      disabled={isCompleted}
+                      size="small"
+                    />
+                  }
+                  label="Removed"
+                />
+              </Box>
+            ))}
+            {!isCompleted && (
+              <Button size="small" startIcon={<AddIcon />} onClick={handleAddGroundingLocation}>
+                Add Location
+              </Button>
+            )}
+          </Box>
+        )}
+        
+        <Divider sx={{ my: 2 }} />
+        
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              label="Nominal Voltages of Lines/Equipment"
+              value={nominalVoltages}
+              onChange={(e) => setNominalVoltages(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body2">#6-Copper condition inspected?</Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={copperConditionInspected}
+                onChange={(e, val) => setCopperConditionInspected(val)}
+                disabled={isCompleted}
+              >
+                <ToggleButton value="yes">Yes</ToggleButton>
+                <ToggleButton value="no">No</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+          </Grid>
+          <Grid item xs={12}>
+            <FormControlLabel
+              control={
+                <Checkbox 
+                  checked={notTiedIntoCircuit}
+                  onChange={(e) => setNotTiedIntoCircuit(e.target.checked)}
+                  disabled={isCompleted}
+                />
+              }
+              label="Not Tied Into Circuit"
+            />
+          </Grid>
+        </Grid>
       </Paper>
 
       {/* PPE Requirements */}
@@ -644,6 +1161,76 @@ const TailboardForm = () => {
         )}
       </Paper>
 
+      {/* UG Work Completed Checklist */}
+      <Paper sx={{ p: 2, mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <ChecklistIcon color="primary" />
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              UG Work Completed Checklist
+            </Typography>
+          </Box>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={showUgChecklist}
+                onChange={(e) => setShowUgChecklist(e.target.checked)}
+                disabled={isCompleted}
+              />
+            }
+            label="Show UG Checklist"
+          />
+        </Box>
+        
+        {showUgChecklist && (
+          <Grid container spacing={1}>
+            {UG_CHECKLIST_ITEMS.map((checkItem) => {
+              const current = ugChecklist.find(c => c.item === checkItem.id);
+              return (
+                <Grid item xs={12} key={checkItem.id}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    p: 1,
+                    bgcolor: 'grey.50',
+                    borderRadius: 1,
+                    mb: 0.5
+                  }}>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {checkItem.label}
+                    </Typography>
+                    <ToggleButtonGroup
+                      size="small"
+                      exclusive
+                      value={current?.value || null}
+                      onChange={(e, val) => handleUgChecklistChange(checkItem.id, val)}
+                      disabled={isCompleted}
+                    >
+                      <ToggleButton value="na" sx={{ px: 1, py: 0.5 }}>
+                        <Typography variant="caption">N/A</Typography>
+                      </ToggleButton>
+                      <ToggleButton value="yes" color="success" sx={{ px: 1, py: 0.5 }}>
+                        <Typography variant="caption">Yes</Typography>
+                      </ToggleButton>
+                      <ToggleButton value="no" color="error" sx={{ px: 1, py: 0.5 }}>
+                        <Typography variant="caption">No</Typography>
+                      </ToggleButton>
+                    </ToggleButtonGroup>
+                  </Box>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+        
+        {!showUgChecklist && (
+          <Typography variant="body2" color="text.secondary">
+            Enable "Show UG Checklist" if performing underground electrical work.
+          </Typography>
+        )}
+      </Paper>
+
       {/* Emergency Info */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -654,7 +1241,7 @@ const TailboardForm = () => {
         </Box>
         
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
             <TextField
               label="Emergency Contact"
               value={emergencyContact}
@@ -664,7 +1251,18 @@ const TailboardForm = () => {
               disabled={isCompleted}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid item xs={12} sm={4}>
+            <TextField
+              label="Emergency Phone"
+              value={emergencyPhone}
+              onChange={(e) => setEmergencyPhone(e.target.value)}
+              fullWidth
+              size="small"
+              disabled={isCompleted}
+              placeholder="911"
+            />
+          </Grid>
+          <Grid item xs={12} sm={4}>
             <TextField
               label="Nearest Hospital"
               value={nearestHospital}
@@ -696,7 +1294,7 @@ const TailboardForm = () => {
 
       {/* Action Buttons */}
       {!isCompleted && (
-        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+        <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mb: 4 }}>
           <Button
             variant="outlined"
             startIcon={<SaveIcon />}
@@ -710,7 +1308,7 @@ const TailboardForm = () => {
             color="success"
             startIcon={<SendIcon />}
             onClick={handleComplete}
-            disabled={saving || hazards.length === 0 || crewMembers.length === 0}
+            disabled={saving || !canComplete()}
           >
             Complete Tailboard
           </Button>
