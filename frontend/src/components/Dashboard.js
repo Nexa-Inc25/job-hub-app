@@ -1988,12 +1988,12 @@ const Dashboard = () => {
                                 size="small" 
                                 label={`${job.ecTag.tagType}-TAG`}
                                 color={['A', 'E', 'emergency'].includes(job.ecTag.tagType) ? 'error' : 'default'}
-                                  sx={{ 
-                                    height: 22, 
-                                    fontWeight: 700,
+                                sx={{ 
+                                  height: 22, 
+                                  fontWeight: 700,
                                     bgcolor: getTagBackgroundColor(job.ecTag.tagType),
-                                    color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
-                                  }}
+                                  color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
+                                }}
                               />
                             )}
                             {/* Tag Due Date */}
