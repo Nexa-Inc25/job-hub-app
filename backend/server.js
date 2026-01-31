@@ -6120,14 +6120,14 @@ app.get('/api/specs', authenticateUser, async (req, res) => {
         })
           .populate('utilityId', 'name shortName')
           .populate('createdBy', 'name email')
-          .sort({ division: 1, category: 1, name: 1 })
+          .sort({ division: 1, section: 1, documentNumber: 1, name: 1 })
           .lean();
       }
     } else {
       specs = await SpecDocument.find(query)
         .populate('utilityId', 'name shortName')
         .populate('createdBy', 'name email')
-        .sort({ division: 1, category: 1, name: 1 })
+        .sort({ division: 1, section: 1, documentNumber: 1, name: 1 })
         .lean();
     }
     
@@ -6178,12 +6178,16 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
       utilityId, effectiveDate, tags, versionNumber 
     } = req.body;
     
-    if (!name || !category || !utilityId) {
-      return res.status(400).json({ error: 'Name, category, and utility are required' });
+    // Section is now primary, category is optional (use section if not provided)
+    const specSection = section || category || 'General';
+    const specCategory = category || section || 'general';
+    
+    if (!name || !utilityId) {
+      return res.status(400).json({ error: 'Name and utility are required' });
     }
     
-    // Default division based on category if not provided
-    const specDivision = division || 'general';
+    // Division defaults to overhead if not provided
+    const specDivision = division || 'overhead';
     
     if (!req.file) {
       return res.status(400).json({ error: 'File is required' });
@@ -6196,7 +6200,7 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
     if (r2Storage.isR2Configured()) {
       const r2Result = await r2Storage.uploadFile(
         req.file.path,
-        `specs/${utilityId}/${category}/${Date.now()}_${req.file.originalname}`,
+        `specs/${utilityId}/${specDivision}/${specSection}/${Date.now()}_${req.file.originalname}`,
         req.file.mimetype || 'application/pdf'
       );
       r2Key = r2Result.key;
@@ -6216,8 +6220,8 @@ app.post('/api/specs', authenticateUser, specUpload.single('file'), async (req, 
       description,
       documentNumber,
       division: specDivision,
-      category,
-      section,
+      category: specCategory,
+      section: specSection,
       subcategory,
       utilityId,
       companyId: user.companyId || null,
