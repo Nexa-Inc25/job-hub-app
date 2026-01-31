@@ -3,7 +3,7 @@ import axios from 'axios';
 // Create axios instance with base URL
 // Use custom domain for API
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com',
+  baseURL: import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com',
   timeout: 60000, // 60 second timeout for large PDF uploads
   maxContentLength: 100 * 1024 * 1024, // 100MB
   maxBodyLength: 100 * 1024 * 1024, // 100MB

@@ -1,23 +1,24 @@
 /**
- * Jest Test Setup for Frontend
+ * Vitest Test Setup for Frontend
  * 
  * Configures testing environment with React Testing Library matchers.
  */
 
 import '@testing-library/jest-dom';
+import { vi, beforeAll, afterAll } from 'vitest';
 
 // Mock window.matchMedia (used by MUI)
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
-  value: jest.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation(query => ({
     matches: false,
     media: query,
     onchange: null,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
   })),
 });
 
@@ -54,4 +55,3 @@ beforeAll(() => {
 afterAll(() => {
   console.error = originalError;
 });
-

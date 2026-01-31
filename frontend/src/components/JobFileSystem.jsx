@@ -693,7 +693,7 @@ const JobFileSystem = () => {
     
     setExportLoading(true);
     try {
-      const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
+      const apiBase = import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com';
       let exportUrl = `${apiBase}/api/jobs/${job._id}/folders/${encodeURIComponent(getRootFolderName(selectedFolder))}/export`;
       const subfolderPath = getSubfolderPath(selectedFolder);
       if (subfolderPath) {
@@ -892,7 +892,7 @@ const JobFileSystem = () => {
   const getDocUrl = (doc) => {
     if (!doc) return '';
     // Use Railway backend URL directly for file access (Vercel proxy doesn't work for file streaming)
-    const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
+    const apiBase = import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com';
     
     let resultUrl = '';
     

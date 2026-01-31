@@ -30,6 +30,7 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "qrcode": "^1.5.3",
+    "resend": "^6.9.1",
     "socket.io": "^4.7.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"

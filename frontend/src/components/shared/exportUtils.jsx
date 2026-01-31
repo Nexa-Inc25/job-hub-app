@@ -8,7 +8,7 @@ export const getPhotoUrl = (photo, apiBase = '') => {
   if (!photo) return '';
   if (photo.url?.startsWith('http')) return photo.url;
   if (photo.r2Key) {
-    const base = apiBase || process.env.REACT_APP_API_URL || '';
+    const base = apiBase || import.meta.env.VITE_API_URL || '';
     return `${base}/api/files/${photo.r2Key}`;
   }
   return photo.url || '';
@@ -21,11 +21,11 @@ export const getDocumentUrl = (doc, apiBase = '') => {
   if (!doc) return '';
   if (doc.url?.startsWith('http')) return doc.url;
   if (doc.r2Key) {
-    const base = apiBase || process.env.REACT_APP_API_URL || '';
+    const base = apiBase || import.meta.env.VITE_API_URL || '';
     return `${base}/api/files/${doc.r2Key}`;
   }
   if (doc.path) {
-    const base = apiBase || process.env.REACT_APP_API_URL || '';
+    const base = apiBase || import.meta.env.VITE_API_URL || '';
     return `${base}${doc.path.startsWith('/') ? '' : '/'}${doc.path}`;
   }
   return doc.url || '';

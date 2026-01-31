@@ -303,7 +303,7 @@ const WorkOrderDetails = () => {
     
     setExportLoading(true);
     try {
-      const apiBase = process.env.REACT_APP_API_URL || 'https://api.jobhubpro.com';
+      const apiBase = import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com';
       const exportUrl = `${apiBase}/api/jobs/${job._id}/folders/ACI/export?subfolder=GF%20Audit`;
       
       const result = await exportFolderToEmail({ exportUrl, job, folderName: 'GF Audit' });

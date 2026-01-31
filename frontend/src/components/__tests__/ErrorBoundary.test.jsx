@@ -4,12 +4,8 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-
-// Lazy load component
-let ErrorBoundary;
-beforeAll(() => {
-  ErrorBoundary = require('../ErrorBoundary').default;
-});
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
+import ErrorBoundary from '../ErrorBoundary';
 
 // Component that throws an error
 const ThrowError = ({ shouldThrow }) => {
@@ -22,7 +18,7 @@ const ThrowError = ({ shouldThrow }) => {
 // Suppress console.error for these tests
 const originalError = console.error;
 beforeAll(() => {
-  console.error = jest.fn();
+  console.error = vi.fn();
 });
 afterAll(() => {
   console.error = originalError;

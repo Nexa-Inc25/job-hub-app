@@ -48,6 +48,7 @@ const heicConvert = require('heic-convert');
 const aiDataCapture = require('./utils/aiDataCapture');
 const documentAutoFill = require('./utils/documentAutoFill');
 const archiver = require('archiver');
+const { sendInvitation } = require('./services/email.service');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -3749,8 +3750,27 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
     
     await newUser.save();
     
-    // TODO: Send invitation email with temp password
+    // Get company name for the invitation email
+    const company = await Company.findById(inviter.companyId);
+    const companyName = company?.name || 'Your Company';
+    
+    // Send invitation email with temp password
     // tempPassword should ONLY be sent via secure email, never in API responses
+    try {
+      await sendInvitation({
+        email,
+        name: newUser.name,
+        tempPassword,
+        inviterName: inviter.name,
+        companyName,
+        role: userRole
+      });
+      console.log('Invitation email sent to:', email);
+    } catch (emailErr) {
+      // Log but don't fail the invite if email fails
+      console.error('Failed to send invitation email:', emailErr);
+    }
+    
     console.log('Invited user:', email, 'to company:', inviter.companyId);
     res.status(201).json({ 
       message: 'User invited successfully. Temporary password sent via email.',

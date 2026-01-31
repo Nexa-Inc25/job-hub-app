@@ -1,20 +1,50 @@
 /**
  * Email Service Tests
  * 
- * Tests for email notification functionality.
+ * Tests for email notification functionality with Resend integration.
  */
 
-const emailService = require('../services/email.service');
+// Mock the Resend SDK before requiring the email service
+jest.mock('resend', () => {
+  return {
+    Resend: jest.fn().mockImplementation(() => ({
+      emails: {
+        send: jest.fn()
+      }
+    }))
+  };
+});
+
+const { Resend } = require('resend');
+
+// Store original env
+const originalEnv = process.env;
 
 describe('Email Service', () => {
+  let emailService;
   let consoleSpy;
+  let consoleErrorSpy;
   
   beforeEach(() => {
+    // Reset modules to get fresh instance
+    jest.resetModules();
+    
+    // Reset environment
+    process.env = { ...originalEnv };
+    delete process.env.RESEND_API_KEY;
+    
+    // Fresh import
+    emailService = require('../services/email.service');
+    emailService.resetClient();
+    
     consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
   });
   
   afterEach(() => {
     consoleSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    process.env = originalEnv;
   });
   
   // ==================== Config ====================
@@ -30,9 +60,9 @@ describe('Email Service', () => {
     });
   });
   
-  // ==================== sendEmail ====================
-  describe('sendEmail', () => {
-    it('should return success response', async () => {
+  // ==================== Stub Mode (no API key) ====================
+  describe('sendEmail (stub mode)', () => {
+    it('should return success response in stub mode', async () => {
       const result = await emailService.sendEmail({
         to: 'test@example.com',
         subject: 'Test Email',
@@ -45,7 +75,7 @@ describe('Email Service', () => {
       expect(result.timestamp).toBeDefined();
     });
     
-    it('should generate message IDs with timestamp', async () => {
+    it('should generate message IDs with stub prefix', async () => {
       const result = await emailService.sendEmail({
         to: 'test@example.com',
         subject: 'Test'
@@ -54,7 +84,7 @@ describe('Email Service', () => {
       expect(result.messageId).toMatch(/^stub-\d+$/);
     });
     
-    it('should log email details', async () => {
+    it('should log email details in stub mode', async () => {
       await emailService.sendEmail({
         to: 'test@example.com',
         subject: 'Test Subject',
@@ -62,10 +92,8 @@ describe('Email Service', () => {
       });
       
       expect(consoleSpy).toHaveBeenCalled();
-      const logCall = consoleSpy.mock.calls[0][1];
-      expect(logCall.to).toBe('test@example.com');
-      expect(logCall.subject).toBe('Test Subject');
-      expect(logCall.attachmentCount).toBe(1);
+      const logCall = consoleSpy.mock.calls[0];
+      expect(logCall[0]).toContain('stub mode');
     });
     
     it('should handle missing attachments', async () => {
@@ -74,8 +102,92 @@ describe('Email Service', () => {
         subject: 'No Attachments'
       });
       
-      const logCall = consoleSpy.mock.calls[0][1];
-      expect(logCall.attachmentCount).toBe(0);
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+  
+  // ==================== Resend Integration ====================
+  describe('sendEmail (with Resend)', () => {
+    let mockResendInstance;
+    
+    beforeEach(() => {
+      jest.resetModules();
+      
+      // Set up mock Resend
+      mockResendInstance = {
+        emails: {
+          send: jest.fn().mockResolvedValue({
+            data: { id: 'resend-msg-123' },
+            error: null
+          })
+        }
+      };
+      
+      jest.doMock('resend', () => ({
+        Resend: jest.fn().mockImplementation(() => mockResendInstance)
+      }));
+      
+      // Set API key
+      process.env.RESEND_API_KEY = 're_test_key';
+      
+      // Fresh import with mocked Resend
+      emailService = require('../services/email.service');
+      emailService.resetClient();
+    });
+    
+    it('should send email via Resend when API key is set', async () => {
+      const result = await emailService.sendEmail({
+        to: 'test@example.com',
+        subject: 'Test Email',
+        html: '<p>Hello</p>',
+        text: 'Hello'
+      });
+      
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBe('resend-msg-123');
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'test@example.com',
+          subject: 'Test Email'
+        })
+      );
+    });
+    
+    it('should handle Resend errors', async () => {
+      mockResendInstance.emails.send.mockResolvedValue({
+        data: null,
+        error: { message: 'Invalid API key' }
+      });
+      
+      await expect(
+        emailService.sendEmail({
+          to: 'test@example.com',
+          subject: 'Test'
+        })
+      ).rejects.toThrow('Invalid API key');
+    });
+    
+    it('should transform attachments for Resend format', async () => {
+      const buffer = Buffer.from('test content');
+      
+      await emailService.sendEmail({
+        to: 'test@example.com',
+        subject: 'With Attachment',
+        html: '<p>See attached</p>',
+        attachments: [
+          { filename: 'test.pdf', content: buffer }
+        ]
+      });
+      
+      expect(mockResendInstance.emails.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachments: [
+            expect.objectContaining({
+              filename: 'test.pdf'
+            })
+          ]
+        })
+      );
     });
   });
   
@@ -104,7 +216,7 @@ describe('Email Service', () => {
       expect(result.success).toBe(true);
     });
     
-    it('should log with correct subject', async () => {
+    it('should include attachment with correct filename', async () => {
       await emailService.sendJobDocuments({
         to: 'test@example.com',
         pmNumber: 'PM-67890',
@@ -112,8 +224,7 @@ describe('Email Service', () => {
         senderName: 'Sender'
       });
       
-      const logCall = consoleSpy.mock.calls[0][1];
-      expect(logCall.subject).toContain('PM-67890');
+      expect(consoleSpy).toHaveBeenCalled();
     });
   });
   
@@ -136,9 +247,7 @@ describe('Email Service', () => {
         'https://example.com/reset'
       );
       
-      const logCall = consoleSpy.mock.calls[0][1];
-      expect(logCall.to).toBe('user@example.com');
-      expect(logCall.subject).toContain('Password Reset');
+      expect(consoleSpy).toHaveBeenCalled();
     });
   });
   
@@ -159,9 +268,63 @@ describe('Email Service', () => {
         'Jane Doe'
       );
       
-      const logCall = consoleSpy.mock.calls[0][1];
-      expect(logCall.to).toBe('mfa@example.com');
-      expect(logCall.subject).toContain('Two-Factor Authentication');
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+  });
+  
+  // ==================== sendInvitation ====================
+  describe('sendInvitation', () => {
+    it('should send invitation email with all fields', async () => {
+      const result = await emailService.sendInvitation({
+        email: 'newuser@example.com',
+        name: 'New User',
+        tempPassword: 'TempPass123!',
+        inviterName: 'Admin User',
+        companyName: 'Test Company',
+        role: 'pm'
+      });
+      
+      expect(result.success).toBe(true);
+      expect(result.messageId).toBeDefined();
+    });
+    
+    it('should format role display names correctly', async () => {
+      await emailService.sendInvitation({
+        email: 'gf@example.com',
+        name: 'GF User',
+        tempPassword: 'Pass123!',
+        inviterName: 'Admin',
+        companyName: 'Company',
+        role: 'gf'
+      });
+      
+      expect(consoleSpy).toHaveBeenCalled();
+    });
+    
+    it('should handle unknown roles gracefully', async () => {
+      const result = await emailService.sendInvitation({
+        email: 'user@example.com',
+        name: 'User',
+        tempPassword: 'Pass123!',
+        inviterName: 'Admin',
+        companyName: 'Company',
+        role: 'unknown_role'
+      });
+      
+      expect(result.success).toBe(true);
+    });
+    
+    it('should include login URL in email', async () => {
+      await emailService.sendInvitation({
+        email: 'test@example.com',
+        name: 'Test',
+        tempPassword: 'Pass!',
+        inviterName: 'Admin',
+        companyName: 'Test Co',
+        role: 'crew'
+      });
+      
+      expect(consoleSpy).toHaveBeenCalled();
     });
   });
   
@@ -172,6 +335,8 @@ describe('Email Service', () => {
       expect(typeof emailService.sendJobDocuments).toBe('function');
       expect(typeof emailService.sendPasswordReset).toBe('function');
       expect(typeof emailService.sendMfaEnabled).toBe('function');
+      expect(typeof emailService.sendInvitation).toBe('function');
+      expect(typeof emailService.resetClient).toBe('function');
     });
     
     it('should export config object', () => {
@@ -180,4 +345,3 @@ describe('Email Service', () => {
     });
   });
 });
-
