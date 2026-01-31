@@ -272,11 +272,34 @@ const TailboardForm = () => {
     try {
       setSaving(true);
       
-      // Save first
-      await handleSave();
+      // Save first and get the tailboard ID
+      let currentTailboard = tailboard;
+      
+      const saveData = {
+        jobId,
+        date: new Date(date),
+        startTime,
+        taskDescription,
+        hazards,
+        ppeRequired,
+        crewMembers,
+        weatherConditions,
+        emergencyContact,
+        nearestHospital,
+        additionalNotes
+      };
+      
+      if (currentTailboard?._id) {
+        const res = await api.put(`/tailboards/${currentTailboard._id}`, saveData);
+        currentTailboard = res.data;
+      } else {
+        const res = await api.post('/tailboards', saveData);
+        currentTailboard = res.data;
+      }
+      setTailboard(currentTailboard);
       
       // Then complete
-      const res = await api.post(`/tailboards/${tailboard._id}/complete`);
+      const res = await api.post(`/tailboards/${currentTailboard._id}/complete`);
       setTailboard(res.data);
       
       setSnackbar({ open: true, message: 'Tailboard completed!', severity: 'success' });
