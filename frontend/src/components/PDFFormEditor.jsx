@@ -2,9 +2,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { Document, Page } from 'react-pdf';
+import { Document, Page, pdfjs } from 'react-pdf';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+
+// Set PDF.js worker - initialized here to avoid loading react-pdf in main bundle
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
 import {
   Box,
   Button,
@@ -44,8 +48,6 @@ import TagIcon from '@mui/icons-material/Tag';
 import AddIcon from '@mui/icons-material/Add';
 import RemoveIcon from '@mui/icons-material/Remove';
 import SettingsIcon from '@mui/icons-material/Settings';
-
-// PDF.js worker is set globally in App.js
 
 // Color palette
 const INK_COLORS = {
@@ -650,13 +652,13 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
           {/* Zoom - compact */}
-          <IconButton size="small" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
+          <IconButton size="small" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} aria-label="Zoom out">
             <ZoomOutIcon fontSize="small" />
           </IconButton>
           <Typography variant="caption" sx={{ minWidth: 32, textAlign: 'center', fontWeight: 500 }}>
             {Math.round(zoom * 100)}%
           </Typography>
-          <IconButton size="small" onClick={() => setZoom(z => Math.min(2, z + 0.25))}>
+          <IconButton size="small" onClick={() => setZoom(z => Math.min(2, z + 0.25))} aria-label="Zoom in">
             <ZoomInIcon fontSize="small" />
           </IconButton>
 
@@ -915,11 +917,11 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             <ListItem>
               <ListItemText primary="Font Size" />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <IconButton onClick={() => setFontSize(s => Math.max(8, s - 2))}>
+                <IconButton onClick={() => setFontSize(s => Math.max(8, s - 2))} aria-label="Decrease font size">
                   <RemoveIcon />
                 </IconButton>
                 <Chip label={fontSize} sx={{ minWidth: 40 }} />
-                <IconButton onClick={() => setFontSize(s => Math.min(32, s + 2))}>
+                <IconButton onClick={() => setFontSize(s => Math.min(32, s + 2))} aria-label="Increase font size">
                   <AddIcon />
                 </IconButton>
               </Box>
@@ -990,7 +992,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             <GestureIcon color="primary" />
             <Typography variant="h6">Draw Your Signature</Typography>
           </Box>
-          <IconButton onClick={() => setSignatureDialogOpen(false)}>
+          <IconButton onClick={() => setSignatureDialogOpen(false)} aria-label="Close signature dialog">
             <CloseIcon />
           </IconButton>
         </DialogTitle>

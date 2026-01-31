@@ -25,11 +25,44 @@ export default defineConfig({
     chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
-          'vendor-mui': ['@mui/material', '@mui/icons-material', '@mui/system', '@emotion/react', '@emotion/styled'],
-          'vendor-charts': ['recharts'],
-          'vendor-pdf': ['react-pdf', 'pdf-lib']
+        manualChunks(id) {
+          // Core React - needed immediately
+          if (id.includes('node_modules/react-dom') || 
+              id.includes('node_modules/react/') ||
+              id.includes('node_modules/scheduler')) {
+            return 'vendor-react';
+          }
+          // React Router - needed for routing
+          if (id.includes('node_modules/react-router') ||
+              id.includes('node_modules/@remix-run')) {
+            return 'vendor-router';
+          }
+          // MUI core components - theming essentials
+          if (id.includes('node_modules/@mui/material') ||
+              id.includes('node_modules/@mui/system') ||
+              id.includes('node_modules/@mui/base') ||
+              id.includes('node_modules/@mui/utils')) {
+            return 'vendor-mui-core';
+          }
+          // MUI icons - large, split separately for lazy loading
+          if (id.includes('node_modules/@mui/icons-material')) {
+            return 'vendor-mui-icons';
+          }
+          // Emotion (MUI styling) - needed with MUI
+          if (id.includes('node_modules/@emotion')) {
+            return 'vendor-emotion';
+          }
+          // Charts - only needed on dashboard/reports
+          if (id.includes('node_modules/recharts') ||
+              id.includes('node_modules/d3-')) {
+            return 'vendor-charts';
+          }
+          // PDF libraries - only needed for PDF viewer/editor
+          if (id.includes('node_modules/react-pdf') ||
+              id.includes('node_modules/pdf-lib') ||
+              id.includes('node_modules/pdfjs-dist')) {
+            return 'vendor-pdf';
+          }
         }
       }
     }

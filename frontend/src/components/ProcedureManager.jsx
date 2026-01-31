@@ -158,12 +158,17 @@ export default function ProcedureManager() {
     }
   };
 
-  const getStatusColor = (status) => {
+  // Custom status chip styles for better contrast (WCAG AA compliant)
+  const getStatusChipSx = (status) => {
     switch (status) {
-      case 'completed': return 'success';
-      case 'processing': return 'info';
-      case 'failed': return 'error';
-      default: return 'warning';
+      case 'completed': 
+        return { bgcolor: '#15803d', color: '#fff', fontWeight: 600 }; // darker green
+      case 'processing': 
+        return { bgcolor: '#0369a1', color: '#fff', fontWeight: 600 }; // darker blue  
+      case 'failed': 
+        return { bgcolor: '#b91c1c', color: '#fff', fontWeight: 600 }; // darker red
+      default: 
+        return { bgcolor: '#a16207', color: '#fff', fontWeight: 600 }; // darker amber
     }
   };
 
@@ -181,7 +186,7 @@ export default function ProcedureManager() {
 
       {/* Upload Form */}
       <Paper sx={{ p: 3, mb: 4 }}>
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h5" component="h2" gutterBottom>
           Upload New Procedure Document
         </Typography>
         <form onSubmit={handleUpload}>
@@ -216,8 +221,10 @@ export default function ProcedureManager() {
             
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Document Type</InputLabel>
+                <InputLabel id="doc-type-label">Document Type</InputLabel>
                 <Select
+                  labelId="doc-type-label"
+                  id="doc-type-select"
                   value={docType}
                   label="Document Type"
                   onChange={(e) => setDocType(e.target.value)}
@@ -243,8 +250,10 @@ export default function ProcedureManager() {
             
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel>Applicable Work Types</InputLabel>
+                <InputLabel id="work-types-label">Applicable Work Types</InputLabel>
                 <Select
+                  labelId="work-types-label"
+                  id="work-types-select"
                   multiple
                   value={selectedWorkTypes}
                   label="Applicable Work Types"
@@ -285,7 +294,7 @@ export default function ProcedureManager() {
       <Divider sx={{ my: 4 }} />
 
       {/* Uploaded Documents List */}
-      <Typography variant="h6" gutterBottom>
+      <Typography variant="h5" component="h2" gutterBottom>
         Uploaded Procedure Documents ({procedures.length})
       </Typography>
       
@@ -314,7 +323,7 @@ export default function ProcedureManager() {
                     <Chip 
                       size="small" 
                       label={proc.processingStatus}
-                      color={getStatusColor(proc.processingStatus)}
+                      sx={getStatusChipSx(proc.processingStatus)}
                     />
                   </Box>
                   

@@ -64,9 +64,10 @@ import { useThemeMode } from '../ThemeContext';
 import { getThemeColors, LoadingState } from './shared';
 
 // Division configuration (Overhead vs Underground)
+// Colors adjusted for WCAG AA contrast (4.5:1) with white text
 const DIVISION_CONFIG = {
-  overhead: { icon: ElectricalServicesIcon, color: '#f59e0b', label: 'OVERHEAD SPEC' },
-  underground: { icon: LandscapeIcon, color: '#8b5cf6', label: 'UNDERGROUND SPEC' },
+  overhead: { icon: ElectricalServicesIcon, color: '#d97706', label: 'OVERHEAD SPEC' },
+  underground: { icon: LandscapeIcon, color: '#7c3aed', label: 'UNDERGROUND SPEC' },
 };
 
 // Spec Card Component - Shows Document Number prominently
@@ -137,23 +138,23 @@ const SpecCard = ({ spec, onDownload, onEdit, onDelete, onViewVersions, themePro
       
       <CardActions sx={{ borderTop: `1px solid ${borderColor}`, px: 2, py: 1 }}>
         <Tooltip title="Download">
-          <IconButton size="small" onClick={() => onDownload(spec)}>
-            <DownloadIcon fontSize="small" sx={{ color: '#22c55e' }} />
+          <IconButton size="small" onClick={() => onDownload(spec)} aria-label="Download spec">
+            <DownloadIcon fontSize="small" sx={{ color: '#16a34a' }} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Version History">
-          <IconButton size="small" onClick={() => onViewVersions(spec)}>
+          <IconButton size="small" onClick={() => onViewVersions(spec)} aria-label="View version history">
             <HistoryIcon fontSize="small" sx={{ color: '#6366f1' }} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Edit">
-          <IconButton size="small" onClick={() => onEdit(spec)}>
-            <EditIcon fontSize="small" sx={{ color: '#f59e0b' }} />
+          <IconButton size="small" onClick={() => onEdit(spec)} aria-label="Edit spec">
+            <EditIcon fontSize="small" sx={{ color: '#d97706' }} />
           </IconButton>
         </Tooltip>
         <Tooltip title="Delete">
-          <IconButton size="small" onClick={() => onDelete(spec)}>
-            <DeleteIcon fontSize="small" sx={{ color: '#ef4444' }} />
+          <IconButton size="small" onClick={() => onDelete(spec)} aria-label="Delete spec">
+            <DeleteIcon fontSize="small" sx={{ color: '#dc2626' }} />
           </IconButton>
         </Tooltip>
       </CardActions>
@@ -509,7 +510,7 @@ const VersionHistoryDialog = ({ open, onClose, spec, onDownloadVersion }) => {
                 />
                 <ListItemSecondaryAction>
                   <Tooltip title="Download this version">
-                    <IconButton onClick={() => onDownloadVersion(spec._id, version.versionNumber)}>
+                    <IconButton onClick={() => onDownloadVersion(spec._id, version.versionNumber)} aria-label={`Download version ${version.versionNumber}`}>
                       <DownloadIcon sx={{ color: '#6366f1' }} />
                     </IconButton>
                   </Tooltip>
@@ -670,7 +671,11 @@ const SpecLibrary = () => {
     <Box sx={{ minHeight: '100vh', bgcolor: mode === 'dark' ? '#0f0f1a' : '#f1f5f9' }}>
       <AppBar position="sticky" elevation={0} sx={{ bgcolor: mode === 'dark' ? '#1e1e2e' : '#ffffff', borderBottom: `1px solid ${borderColor}` }}>
         <Toolbar>
-          <IconButton onClick={() => navigate('/qa/dashboard')} sx={{ mr: 2, color: textPrimary }}>
+          <IconButton 
+            onClick={() => navigate('/qa/dashboard')} 
+            sx={{ mr: 2, color: textPrimary }}
+            aria-label="Go back to QA dashboard"
+          >
             <ArrowBackIcon />
           </IconButton>
           <MenuBookIcon sx={{ mr: 1.5, color: '#6366f1' }} />
@@ -802,7 +807,7 @@ const SpecLibrary = () => {
                         <Typography variant="h5" sx={{ color: 'white', fontWeight: 800, letterSpacing: 1 }}>
                           {divConfig.label}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.95)', fontWeight: 500 }}>
                           {totalSpecs} spec{totalSpecs !== 1 ? 's' : ''} • {Object.keys(divSections).length} section{Object.keys(divSections).length !== 1 ? 's' : ''}
                         </Typography>
                       </Box>
@@ -835,7 +840,7 @@ const SpecLibrary = () => {
                               <Chip 
                                 label={`${sectionSpecs.length} spec${sectionSpecs.length !== 1 ? 's' : ''}`}
                                 size="small"
-                                sx={{ bgcolor: `${divConfig.color}20`, color: divConfig.color, fontSize: '0.75rem', fontWeight: 600 }}
+                                sx={{ bgcolor: `${divConfig.color}30`, color: divConfig.color, fontSize: '0.75rem', fontWeight: 700 }}
                               />
                             </Box>
                           </AccordionSummary>

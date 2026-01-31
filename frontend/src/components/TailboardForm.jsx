@@ -600,7 +600,7 @@ const TailboardForm = () => {
       {/* Header */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <IconButton onClick={() => navigate(`/jobs/${jobId}`)}>
+          <IconButton onClick={() => navigate(`/jobs/${jobId}`)} aria-label="Go back to job">
             <BackIcon />
           </IconButton>
           <Box sx={{ flex: 1 }}>

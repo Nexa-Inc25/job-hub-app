@@ -6,11 +6,9 @@
 
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { pdfjs } from 'react-pdf';
 import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
-import { Box, CircularProgress } from '@mui/material';
 
 // Lazy load all route components for code splitting
 const Login = lazy(() => import('./components/Login'));
@@ -35,20 +33,32 @@ const ProcedureManager = lazy(() => import('./components/ProcedureManager'));
 const AsBuiltAssistant = lazy(() => import('./components/AsBuiltAssistant'));
 const TailboardForm = lazy(() => import('./components/TailboardForm'));
 
-// Set PDF.js worker globally - use CDN for react-pdf v9 compatibility
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+// CSS-only loading spinner - avoids MUI import in critical path
+const spinnerStyle = {
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  minHeight: '100vh',
+  background: 'var(--bg-default, #fafafa)',
+};
 
-// Loading fallback component
+const loaderStyle = {
+  width: 48,
+  height: 48,
+  border: '4px solid #e0e0e0',
+  borderTopColor: '#1976d2',
+  borderRadius: '50%',
+  animation: 'spin 1s linear infinite',
+};
+
+// Loading fallback component - pure CSS to minimize bundle in critical path
 const PageLoader = () => (
-  <Box sx={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    minHeight: '100vh',
-    bgcolor: 'background.default'
-  }}>
-    <CircularProgress size={48} />
-  </Box>
+  <>
+    <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    <div style={spinnerStyle}>
+      <div style={loaderStyle} />
+    </div>
+  </>
 );
 
 function App() {
