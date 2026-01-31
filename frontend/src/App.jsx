@@ -4,35 +4,51 @@
  * Proprietary and Confidential. Unauthorized copying or distribution prohibited.
  */
 
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { pdfjs } from 'react-pdf';
-import Login from './components/Login';
-import Signup from './components/Signup';
-import Dashboard from './components/Dashboard';
-import CreateWorkOrder from './components/CreateWorkOrder';
-import EmergencyWO from './components/EmergencyWO';
-import Forms from './components/Forms';
-import WorkOrderDetails from './components/WorkOrderDetails';
-import JobFileSystem from './components/JobFileSystem';
-import TemplateManager from './components/TemplateManager';
-import Calendar from './components/Calendar';
-import OwnerDashboard from './components/OwnerDashboard';
-import SecurityDashboard from './components/SecurityDashboard';
-import CompanyOnboarding from './components/CompanyOnboarding';
-import AdminUsersList from './components/AdminUsersList';
-import AdminJobsOverview from './components/AdminJobsOverview';
-import AdminAICosts from './components/AdminAICosts';
-import QADashboard from './components/QADashboard';
-import SpecLibrary from './components/SpecLibrary';
-import ProcedureManager from './components/ProcedureManager';
-import AsBuiltAssistant from './components/AsBuiltAssistant';
 import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
+import { Box, CircularProgress } from '@mui/material';
+
+// Lazy load all route components for code splitting
+const Login = lazy(() => import('./components/Login'));
+const Signup = lazy(() => import('./components/Signup'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const CreateWorkOrder = lazy(() => import('./components/CreateWorkOrder'));
+const EmergencyWO = lazy(() => import('./components/EmergencyWO'));
+const Forms = lazy(() => import('./components/Forms'));
+const WorkOrderDetails = lazy(() => import('./components/WorkOrderDetails'));
+const JobFileSystem = lazy(() => import('./components/JobFileSystem'));
+const TemplateManager = lazy(() => import('./components/TemplateManager'));
+const Calendar = lazy(() => import('./components/Calendar'));
+const OwnerDashboard = lazy(() => import('./components/OwnerDashboard'));
+const SecurityDashboard = lazy(() => import('./components/SecurityDashboard'));
+const CompanyOnboarding = lazy(() => import('./components/CompanyOnboarding'));
+const AdminUsersList = lazy(() => import('./components/AdminUsersList'));
+const AdminJobsOverview = lazy(() => import('./components/AdminJobsOverview'));
+const AdminAICosts = lazy(() => import('./components/AdminAICosts'));
+const QADashboard = lazy(() => import('./components/QADashboard'));
+const SpecLibrary = lazy(() => import('./components/SpecLibrary'));
+const ProcedureManager = lazy(() => import('./components/ProcedureManager'));
+const AsBuiltAssistant = lazy(() => import('./components/AsBuiltAssistant'));
 
 // Set PDF.js worker globally - use CDN for react-pdf v9 compatibility
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
+
+// Loading fallback component
+const PageLoader = () => (
+  <Box sx={{ 
+    display: 'flex', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    minHeight: '100vh',
+    bgcolor: 'background.default'
+  }}>
+    <CircularProgress size={48} />
+  </Box>
+);
 
 function App() {
   return (
@@ -40,31 +56,33 @@ function App() {
       <ThemeProvider>
         <NetworkStatus />
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/jobs/:id" element={<JobFileSystem />} />
-            <Route path="/jobs/:id/files" element={<JobFileSystem />} />
-            <Route path="/jobs/:id/details" element={<WorkOrderDetails />} />
-            <Route path="/create-wo" element={<CreateWorkOrder />} />
-            <Route path="/emergency-wo" element={<EmergencyWO />} />
-            <Route path="/forms" element={<Forms />} />
-            <Route path="/admin/templates" element={<TemplateManager />} />
-            <Route path="/admin/owner-dashboard" element={<OwnerDashboard />} />
-            <Route path="/admin/security" element={<SecurityDashboard />} />
-            <Route path="/admin/onboarding" element={<CompanyOnboarding />} />
-            <Route path="/admin/users" element={<AdminUsersList />} />
-            <Route path="/admin/jobs-overview" element={<AdminJobsOverview />} />
-            <Route path="/admin/ai-costs" element={<AdminAICosts />} />
-            <Route path="/qa/dashboard" element={<QADashboard />} />
-            <Route path="/qa/spec-library" element={<SpecLibrary />} />
-            <Route path="/admin/procedures" element={<ProcedureManager />} />
-            <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="*" element={<div>404 - Not Found</div>} />
-          </Routes>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/jobs/:id" element={<JobFileSystem />} />
+              <Route path="/jobs/:id/files" element={<JobFileSystem />} />
+              <Route path="/jobs/:id/details" element={<WorkOrderDetails />} />
+              <Route path="/create-wo" element={<CreateWorkOrder />} />
+              <Route path="/emergency-wo" element={<EmergencyWO />} />
+              <Route path="/forms" element={<Forms />} />
+              <Route path="/admin/templates" element={<TemplateManager />} />
+              <Route path="/admin/owner-dashboard" element={<OwnerDashboard />} />
+              <Route path="/admin/security" element={<SecurityDashboard />} />
+              <Route path="/admin/onboarding" element={<CompanyOnboarding />} />
+              <Route path="/admin/users" element={<AdminUsersList />} />
+              <Route path="/admin/jobs-overview" element={<AdminJobsOverview />} />
+              <Route path="/admin/ai-costs" element={<AdminAICosts />} />
+              <Route path="/qa/dashboard" element={<QADashboard />} />
+              <Route path="/qa/spec-library" element={<SpecLibrary />} />
+              <Route path="/admin/procedures" element={<ProcedureManager />} />
+              <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="*" element={<div>404 - Not Found</div>} />
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </ThemeProvider>
     </ErrorBoundary>

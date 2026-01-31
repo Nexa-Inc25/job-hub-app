@@ -22,11 +22,14 @@ export default defineConfig({
   build: {
     outDir: 'build',
     sourcemap: false,
+    chunkSizeWarningLimit: 600,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          mui: ['@mui/material', '@mui/icons-material', '@mui/system']
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-mui': ['@mui/material', '@mui/icons-material', '@mui/system', '@emotion/react', '@emotion/styled'],
+          'vendor-charts': ['recharts'],
+          'vendor-pdf': ['react-pdf', 'pdf-lib']
         }
       }
     }
