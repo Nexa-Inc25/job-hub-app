@@ -15,15 +15,17 @@ const isLocalhost = Boolean(
 
 export function register(config) {
   if ('serviceWorker' in navigator) {
-    const publicUrl = new URL(process.env.PUBLIC_URL, globalThis.location.href);
+    // Use Vite's BASE_URL or default to root
+    const baseUrl = import.meta.env.BASE_URL || '/';
+    const publicUrl = new URL(baseUrl, globalThis.location.href);
     
-    // Don't register if PUBLIC_URL is on a different origin
+    // Don't register if base URL is on a different origin
     if (publicUrl.origin !== globalThis.location.origin) {
       return;
     }
 
     globalThis.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL}/service-worker.js`;
+      const swUrl = `${baseUrl}service-worker.js`;
 
       if (isLocalhost) {
         // Running on localhost - check if service worker exists
