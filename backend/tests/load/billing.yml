@@ -8,7 +8,7 @@
 #   - Test user exists: pm@contractor.com / password123
 
 config:
-  target: "http://localhost:5001"
+  target: "http://localhost:5000"
   phases:
     # Quick smoke load test (use full phases for production testing)
     - duration: 5

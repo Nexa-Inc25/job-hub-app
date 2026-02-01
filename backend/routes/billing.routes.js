@@ -1528,7 +1528,7 @@ router.post('/claims/bulk-export-fbdi', async (req, res) => {
       claim.changeLog.push({
         userId: user._id,
         action: 'oracle_bulk_export',
-        details: `Bulk exported with ${claims.length} other claims`
+        details: `Bulk exported with ${claims.length - 1} other claims`
       });
       await claim.save();
     }
