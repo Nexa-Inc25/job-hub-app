@@ -1558,7 +1558,7 @@ const Dashboard = () => {
                                         display: 'block',
                                         mt: 0.5,
                                         p: 0.75,
-                                        bgcolor: 'info.light',
+                                        bgcolor: 'rgba(59, 130, 246, 0.15)',
                                         borderRadius: 1,
                                         color: 'text.primary',
                                         lineHeight: 1.3
@@ -2076,10 +2076,10 @@ const Dashboard = () => {
                           <Box sx={{ 
                             p: 1, 
                             mb: 1.5, 
-                            bgcolor: 'info.light', 
+                            bgcolor: 'rgba(59, 130, 246, 0.12)', 
                             borderRadius: 1,
                             borderLeft: '3px solid',
-                            borderColor: 'info.main'
+                            borderColor: '#3b82f6'
                           }}>
                             <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', display: 'block', mb: 0.5 }}>
                               📋 Scope

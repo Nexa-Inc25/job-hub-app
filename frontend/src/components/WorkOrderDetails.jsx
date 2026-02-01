@@ -664,12 +664,12 @@ const WorkOrderDetails = () => {
                     <Box sx={{ 
                       mt: 2, 
                       p: 2, 
-                      bgcolor: 'info.light', 
+                      bgcolor: 'rgba(59, 130, 246, 0.1)', 
                       borderRadius: 2,
                       borderLeft: '4px solid',
-                      borderColor: 'info.main'
+                      borderColor: '#3b82f6'
                     }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'info.dark', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#1e40af', mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         Job Scope
                       </Typography>
                       <Typography variant="body2" sx={{ mb: 1 }}>
