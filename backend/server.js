@@ -2646,11 +2646,18 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       }
       
       // =========================================================================
-      // REPLACE OLD VERSION: If same document (by base name) exists, remove it
-      // This prevents duplicate versions when a doc is re-edited and saved
+      // REPLACE OLD FILLED VERSION: If same document (by base name) exists in 
+      // Close Out folder, remove the OLD FILLED copy and replace with new one.
+      // 
+      // IMPORTANT: We NEVER delete the original blank template from its source
+      // folder (Pre-Field Documents, General Forms, etc.). That stays available
+      // for future use. We only manage filled copies here in Close Out.
       // =========================================================================
       const baseDocPattern = `${pmNumber}_${docName}`;
       const existingDocIndex = closeOutFolder.documents.findIndex(doc => {
+        // Never match templates - only match previously filled copies
+        if (doc.isTemplate) return false;
+        
         // Match by finalName field (canonical name without DRAFT prefix or timestamp)
         if (doc.finalName === finalFilename) return true;
         // Also match by base pattern in the name (for legacy docs)
@@ -2660,29 +2667,36 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
       
       if (existingDocIndex !== -1) {
         const oldDoc = closeOutFolder.documents[existingDocIndex];
-        console.log(`Replacing existing document in Close Out: ${oldDoc.name} -> ${newFilename}`);
+        console.log(`Replacing existing FILLED document in Close Out: ${oldDoc.name} -> ${newFilename}`);
         
-        // Delete old file from R2 storage if it exists
+        // Delete old FILLED file from R2 storage if it exists
+        // (This is the previously filled version, NOT the original template)
         if (oldDoc.r2Key && r2Storage.isR2Configured()) {
           try {
             await r2Storage.deleteFile(oldDoc.r2Key);
-            console.log(`Deleted old R2 file: ${oldDoc.r2Key}`);
+            console.log(`Deleted old filled R2 file: ${oldDoc.r2Key}`);
           } catch (delErr) {
             console.warn(`Failed to delete old R2 file ${oldDoc.r2Key}:`, delErr.message);
           }
         }
         
-        // Remove old document from array
+        // Remove old filled document from array
         closeOutFolder.documents.splice(existingDocIndex, 1);
       }
       
-      // Add the new/updated document
+      // NOTE: The original blank template remains in its source folder
+      // (e.g., Pre-Field Documents, General Forms) and is NOT affected.
+      // This ensures a blank form is always available for future jobs.
+      
+      // Add the new/updated FILLED document (copy, not template)
+      const existingVersion = existingDocIndex !== -1 ? closeOutFolder.documents[existingDocIndex] : null;
       closeOutFolder.documents.push({
         name: newFilename,
         url: docUrl,
         r2Key: r2Key,
-        type: 'pdf',
-        isTemplate: false,
+        type: 'filled_pdf', // Distinguish from 'template' type
+        isTemplate: false,  // This is a FILLED copy, not the original blank
+        isFilled: true,     // Explicit flag that this is a completed form
         isCompleted: canAutoApprove,
         completedDate: canAutoApprove ? new Date() : null,
         completedBy: canAutoApprove ? req.userId : null,
@@ -2694,12 +2708,13 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
         finalName: finalFilename,
         approvedBy: canAutoApprove ? req.userId : null,
         approvedDate: canAutoApprove ? new Date() : null,
-        // Track source location for reference
+        // Track source location (where the blank template lives)
         sourceFolder: folderName,
         sourceSubfolder: subfolderName || null,
-        // Version tracking
-        version: (existingDocIndex !== -1) ? 2 : 1, // Increment if replacing
-        previousVersion: existingDocIndex !== -1 ? closeOutFolder.documents[existingDocIndex]?.name : null
+        sourceTemplateName: originalName, // Original blank template name
+        // Version tracking for re-edits
+        version: existingVersion ? (existingVersion.version || 1) + 1 : 1,
+        previousVersion: existingVersion?.name || null
       });
     }
     
