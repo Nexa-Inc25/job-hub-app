@@ -1,60 +1,40 @@
+import React from 'react';
+import { Box, Typography, Button, Paper } from '@mui/material';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import RefreshIcon from '@mui/icons-material/Refresh';
+
 /**
- * Error Boundary Component
- * 
- * Catches React rendering errors and displays a user-friendly fallback.
- * Prevents the entire app from crashing due to component errors.
+ * Error Boundary - Catches JavaScript errors in child components
+ * Prevents entire app from crashing, shows friendly error message
  */
-
-import React, { Component } from 'react';
-import PropTypes from 'prop-types';
-import { Box, Typography, Button, Paper, Alert } from '@mui/material';
-import Refresh from '@mui/icons-material/Refresh';
-import BugReport from '@mui/icons-material/BugReport';
-import Home from '@mui/icons-material/Home';
-
-class ErrorBoundary extends Component {
+class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { 
-      hasError: false, 
-      error: null, 
-      errorInfo: null 
-    };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error) {
+    // Update state so next render shows fallback UI
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
+    // Log error details for debugging
+    console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
     
-    // Log error for debugging
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
-    // You could send this to an error tracking service here
-    // e.g., Sentry, LogRocket, etc.
+    // TODO: Send to error monitoring service (Sentry, etc.)
+    // if (window.Sentry) {
+    //   window.Sentry.captureException(error, { extra: errorInfo });
+    // }
   }
 
   handleReload = () => {
-    globalThis.location.reload();
+    window.location.reload();
   };
 
   handleGoHome = () => {
-    globalThis.location.href = '/dashboard';
-  };
-
-  handleReportBug = () => {
-    // Open feedback mechanism if available
-    const feedbackButton = document.querySelector('[data-feedback-button]');
-    if (feedbackButton) {
-      feedbackButton.click();
-    } else {
-      // Fallback - copy error to clipboard
-      const errorText = `Error: ${this.state.error?.message}\n\nStack: ${this.state.error?.stack}`;
-      navigator.clipboard?.writeText(errorText);
-      alert('Error details copied to clipboard. Please share with support.');
-    }
+    window.location.href = '/';
   };
 
   render() {
@@ -66,69 +46,69 @@ class ErrorBoundary extends Component {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: 'background.default',
+            bgcolor: '#f5f5f5',
             p: 3
           }}
         >
           <Paper
             elevation={3}
             sx={{
-              maxWidth: 500,
               p: 4,
+              maxWidth: 500,
               textAlign: 'center',
-              borderRadius: 3
+              borderRadius: 2
             }}
           >
-            <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'error.main' }}>
+            <ErrorOutlineIcon 
+              sx={{ fontSize: 64, color: 'error.main', mb: 2 }} 
+            />
+            
+            <Typography variant="h5" gutterBottom fontWeight="bold">
               Something went wrong
             </Typography>
             
             <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-              We're sorry, but something unexpected happened. Your data is safe - 
-              try refreshing the page or going back to the dashboard.
+              We're sorry, but something unexpected happened. 
+              Please try refreshing the page or go back to the dashboard.
             </Typography>
 
-            <Alert severity="error" sx={{ mb: 3, textAlign: 'left' }}>
-              <Typography variant="body2" component="pre" sx={{ 
-                whiteSpace: 'pre-wrap', 
-                wordBreak: 'break-word',
-                fontSize: '0.75rem',
-                maxHeight: 100,
-                overflow: 'auto'
-              }}>
-                {this.state.error?.message || 'Unknown error'}
-              </Typography>
-            </Alert>
+            {process.env.NODE_ENV === 'development' && this.state.error && (
+              <Paper 
+                variant="outlined" 
+                sx={{ 
+                  p: 2, 
+                  mb: 3, 
+                  bgcolor: '#fff3f3',
+                  textAlign: 'left',
+                  overflow: 'auto',
+                  maxHeight: 200
+                }}
+              >
+                <Typography variant="caption" component="pre" sx={{ m: 0, fontSize: 11 }}>
+                  {this.state.error.toString()}
+                  {this.state.errorInfo?.componentStack}
+                </Typography>
+              </Paper>
+            )}
 
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
               <Button
                 variant="contained"
-                startIcon={<Refresh />}
+                startIcon={<RefreshIcon />}
                 onClick={this.handleReload}
               >
                 Refresh Page
               </Button>
-              
               <Button
                 variant="outlined"
-                startIcon={<Home />}
                 onClick={this.handleGoHome}
               >
                 Go to Dashboard
               </Button>
-              
-              <Button
-                variant="text"
-                startIcon={<BugReport />}
-                onClick={this.handleReportBug}
-                color="secondary"
-              >
-                Report Bug
-              </Button>
             </Box>
 
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 3 }}>
-              If this keeps happening, please contact support.
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 3, display: 'block' }}>
+              If this problem persists, please contact support.
             </Typography>
           </Paper>
         </Box>
@@ -139,9 +119,4 @@ class ErrorBoundary extends Component {
   }
 }
 
-ErrorBoundary.propTypes = {
-  children: PropTypes.node.isRequired,
-};
-
 export default ErrorBoundary;
-

@@ -10,6 +10,25 @@ console.log('=== Server starting ===');
 console.log('Node version:', process.version);
 console.log('Memory usage:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
+// ============================================
+// ENVIRONMENT VALIDATION - Fail fast on missing config
+// ============================================
+const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
+if (missingVars.length > 0) {
+  console.error('❌ FATAL: Missing required environment variables:', missingVars.join(', '));
+  console.error('   Please check your .env file or environment configuration.');
+  console.error('   See .env.example for required variables.');
+  process.exit(1);
+}
+
+// Warn about insecure defaults in production
+if (process.env.NODE_ENV === 'production') {
+  if (process.env.JWT_SECRET?.length < 32) {
+    console.warn('⚠️  WARNING: JWT_SECRET is too short for production. Use 32+ characters.');
+  }
+}
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
