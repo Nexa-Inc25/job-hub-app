@@ -228,8 +228,8 @@ const CreateWorkOrder = ({ token }) => {
                 mb: 3, 
                 textAlign: 'center',
                 borderStyle: 'dashed',
-                borderColor: file ? 'success.main' : 'divider',
-                bgcolor: file ? 'success.light' : 'transparent',
+                borderColor: file ? '#16a34a' : 'divider',
+                bgcolor: file ? 'rgba(22, 163, 74, 0.1)' : 'transparent',
                 cursor: 'pointer',
                 '&:hover': { borderColor: 'primary.main' }
               }}
@@ -243,8 +243,8 @@ const CreateWorkOrder = ({ token }) => {
                 style={{ display: 'none' }}
               />
                 <Box>
-                <CloudUploadIcon sx={{ fontSize: 48, color: file ? 'success.main' : 'text.secondary', mb: 1 }} />
-                <Typography variant="h6" color={file ? 'success.main' : 'text.secondary'}>
+                <CloudUploadIcon sx={{ fontSize: 48, color: file ? '#16a34a' : 'text.secondary', mb: 1 }} />
+                <Typography variant="h6" color={file ? '#16a34a' : 'text.secondary'}>
                   {file ? file.name : 'Upload Job Package (PDF)'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -266,12 +266,12 @@ const CreateWorkOrder = ({ token }) => {
                 sx={{
                   p: 2,
                   mb: 3,
-                  bgcolor: 'info.light',
-                  borderColor: 'info.main',
+                  bgcolor: 'rgba(59, 130, 246, 0.08)',
+                  borderColor: '#3b82f6',
                   borderRadius: 2
                 }}
               >
-                <Typography variant="subtitle2" sx={{ color: 'info.dark', fontWeight: 700, mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: '#1e40af', fontWeight: 700, mb: 1 }}>
                   📋 Job Scope (from Face Sheet)
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>
@@ -280,22 +280,22 @@ const CreateWorkOrder = ({ token }) => {
                 {(jobScope.workType || jobScope.footage || jobScope.voltage) && (
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
                     {jobScope.workType && (
-                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
                         <strong>Work:</strong> {jobScope.workType}
                       </Typography>
                     )}
                     {jobScope.footage && (
-                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
                         <strong>Footage:</strong> {jobScope.footage}
                       </Typography>
                     )}
                     {jobScope.voltage && (
-                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
                         <strong>Voltage:</strong> {jobScope.voltage}
                       </Typography>
                     )}
                     {jobScope.phases && (
-                      <Typography variant="caption" sx={{ bgcolor: 'white', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
                         <strong>Phases:</strong> {jobScope.phases}
                       </Typography>
                     )}
