@@ -615,20 +615,23 @@ router.post('/units/:id/resolve-dispute', async (req, res) => {
         break;
         
       case 'adjust':
-        // Adjust quantity and re-approve
-        if (adjustedQuantity !== undefined && adjustedQuantity !== unit.quantity) {
-          unit.adjustments.push({
-            date: new Date(),
-            adjustedBy: user._id,
-            reason: adjustedReason || 'Dispute resolution adjustment',
-            previousQuantity: unit.quantity,
-            newQuantity: adjustedQuantity,
-            previousTotal: unit.totalAmount,
-            newTotal: adjustedQuantity * unit.unitPrice
+        // Adjust quantity and re-approve - quantity must be different from current
+        if (adjustedQuantity === undefined || adjustedQuantity === unit.quantity) {
+          return res.status(400).json({ 
+            error: 'Adjusted quantity must be provided and different from current quantity' 
           });
-          unit.quantity = adjustedQuantity;
-          unit.totalAmount = adjustedQuantity * unit.unitPrice;
         }
+        unit.adjustments.push({
+          date: new Date(),
+          adjustedBy: user._id,
+          reason: adjustedReason || 'Dispute resolution adjustment',
+          originalQuantity: unit.quantity,  // Match schema field name
+          newQuantity: adjustedQuantity,
+          originalTotal: unit.totalAmount,  // Match schema field name
+          newTotal: adjustedQuantity * unit.unitPrice
+        });
+        unit.quantity = adjustedQuantity;
+        unit.totalAmount = adjustedQuantity * unit.unitPrice;
         unit.status = 'approved';
         unit.approvedAt = new Date();
         unit.approvedBy = user._id;

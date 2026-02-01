@@ -244,9 +244,15 @@ const ResolveDisputeDialog = ({ open, onClose, unit, onSuccess }) => {
       return;
     }
 
-    if (action === 'adjust' && !adjustedReason.trim()) {
-      setError('Please provide a reason for the adjustment');
-      return;
+    if (action === 'adjust') {
+      if (!adjustedReason.trim()) {
+        setError('Please provide a reason for the adjustment');
+        return;
+      }
+      if (adjustedQuantity === unit?.quantity) {
+        setError('Adjusted quantity must be different from the current quantity');
+        return;
+      }
     }
 
     setSubmitting(true);
