@@ -1,0 +1,180 @@
+# Artillery Load Test - FieldLedger Billing API
+#
+# Run with: npm run test:load
+# Or directly: npx artillery run tests/load/billing.yml
+#
+# Prerequisites:
+#   - Backend server running on localhost:5001 (or set TARGET env var)
+#   - Test user exists: pm@contractor.com / password123
+
+config:
+  target: "http://localhost:5001"
+  phases:
+    # Quick smoke load test (use full phases for production testing)
+    - duration: 5
+      arrivalRate: 5
+      name: "Warm-up"
+    - duration: 10
+      arrivalRate: 10
+      rampTo: 20
+      name: "Ramp-up"
+    - duration: 10
+      arrivalRate: 20
+      name: "Sustained load"
+    - duration: 5
+      arrivalRate: 5
+      name: "Cool-down"
+  
+  defaults:
+    headers:
+      Content-Type: "application/json"
+  
+  plugins:
+    expect: {}
+  
+  # Variables for test data
+  # Run: node scripts/createTestAccounts.js to create these
+  variables:
+    testEmail: "pm@test.com"
+    testPassword: "Test123!"
+  
+  # Capture auth token for authenticated requests
+  processor: "./load-helpers.js"
+
+scenarios:
+  # ============================================
+  # Scenario 1: Browse billing dashboard (70% of traffic)
+  # ============================================
+  - name: "Browse Billing Dashboard"
+    weight: 70
+    flow:
+      # Login
+      - post:
+          url: "/api/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+      
+      # Get units list (main dashboard view)
+      - get:
+          url: "/api/billing/units"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Think time - user browsing
+      - think: 2
+      
+      # Get claims list
+      - get:
+          url: "/api/billing/claims"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Get analytics
+      - get:
+          url: "/api/billing/analytics/summary"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # ============================================
+  # Scenario 2: Foreman submits unit (20% of traffic)
+  # ============================================
+  - name: "Foreman Unit Submission"
+    weight: 20
+    flow:
+      # Login
+      - post:
+          url: "/api/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+      
+      # Get price books
+      - get:
+          url: "/api/pricebooks"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          capture:
+            - json: "$[0]._id"
+              as: "priceBookId"
+          expect:
+            - statusCode: 200
+      
+      # Think time - selecting item
+      - think: 1
+      
+      # Get jobs
+      - get:
+          url: "/api/jobs?limit=1"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          capture:
+            - json: "$.jobs[0]._id"
+              as: "jobId"
+          expect:
+            - statusCode: 200
+
+  # ============================================
+  # Scenario 3: PM reviews and exports (10% of traffic)
+  # ============================================
+  - name: "PM Review and Export"
+    weight: 10
+    flow:
+      # Login
+      - post:
+          url: "/api/login"
+          json:
+            email: "{{ testEmail }}"
+            password: "{{ testPassword }}"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+      
+      # Get units needing review
+      - get:
+          url: "/api/billing/units?status=pending"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Get claims
+      - get:
+          url: "/api/billing/claims"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          capture:
+            - json: "$[0]._id"
+              as: "claimId"
+          expect:
+            - statusCode: 200
+      
+      # Think time - reviewing
+      - think: 3
+      
+      # Get analytics for reporting
+      - get:
+          url: "/api/billing/analytics/summary?timeframe=30d"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+

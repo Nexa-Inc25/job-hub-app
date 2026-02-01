@@ -6,7 +6,10 @@
     "start": "node server.js",
     "test": "jest --coverage --detectOpenHandles --forceExit",
     "test:watch": "jest --watch",
-    "test:ci": "jest --coverage --ci --forceExit"
+    "test:ci": "jest --coverage --ci --forceExit",
+    "test:smoke": "node tests/smoke.test.js",
+    "test:load": "artillery run tests/load/billing.yml",
+    "test:load:report": "artillery run --output report.json tests/load/billing.yml && artillery report report.json"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",
@@ -43,6 +46,9 @@
   },
   "devDependencies": {
     "@jest/test-sequencer": "^30.2.0",
+    "artillery": "^2.0.0",
+    "artillery-plugin-expect": "^2.0.0",
+    "axios": "^1.13.4",
     "jest": "^29.7.0",
     "mongodb-memory-server": "^10.0.0",
     "supertest": "^7.0.0"
