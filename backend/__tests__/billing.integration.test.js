@@ -1046,16 +1046,16 @@ describe('Billing Integration Tests', () => {
       // InvoiceAmount = amountDue (after retention: 26000 - 2600 = 23400)
       expect(payload).toHaveProperty('InvoiceAmount', 23400);
       expect(payload).toHaveProperty('PaymentTerms');
-      expect(payload).toHaveProperty('lines');
-      expect(payload.lines).toHaveLength(2);
+      expect(payload).toHaveProperty('invoiceLines');
+      expect(payload.invoiceLines).toHaveLength(2);
       
       // Verify line item structure
-      const line1 = payload.lines[0];
+      const line1 = payload.invoiceLines[0];
       expect(line1).toHaveProperty('LineNumber', 1);
       expect(line1).toHaveProperty('Amount', 12500);
       expect(line1).toHaveProperty('Quantity', 5);
       expect(line1).toHaveProperty('UnitPrice', 2500);
-      expect(line1).toHaveProperty('Description');
+      expect(line1).toHaveProperty('ItemDescription');
       
       // Verify export tracking
       const updatedClaim = await Claim.findById(claim._id);
@@ -1254,10 +1254,10 @@ describe('Billing Integration Tests', () => {
       
       expect(oracleRes.status).toBe(200);
       expect(oracleRes.body.payload.InvoiceAmount).toBe(11000);
-      expect(oracleRes.body.payload.lines).toHaveLength(2);
+      expect(oracleRes.body.payload.invoiceLines).toHaveLength(2);
       
       // Verify line items have correct data
-      const lines = oracleRes.body.payload.lines;
+      const lines = oracleRes.body.payload.invoiceLines;
       expect(lines.find(l => l.Amount === 6000)).toBeDefined(); // 2 poles @ 3000
       expect(lines.find(l => l.Amount === 5000)).toBeDefined(); // 100 LF trench @ 50
       

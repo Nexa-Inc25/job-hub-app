@@ -396,13 +396,13 @@ describe('Claim Model', () => {
       
       const payload = claim.toOraclePayload();
       
-      expect(payload.lines).toBeDefined();
-      expect(payload.lines.length).toBe(1);
-      expect(payload.lines[0].LineNumber).toBe(1);
-      expect(payload.lines[0].Quantity).toBe(200);
-      expect(payload.lines[0].UnitPrice).toBe(25);
-      expect(payload.lines[0].Amount).toBe(5000);
-      expect(payload.lines[0].ProjectNumber).toBe('PM-12345');
+      expect(payload.invoiceLines).toBeDefined();
+      expect(payload.invoiceLines.length).toBe(1);
+      expect(payload.invoiceLines[0].LineNumber).toBe(1);
+      expect(payload.invoiceLines[0].Quantity).toBe(200);
+      expect(payload.invoiceLines[0].UnitPrice).toBe(25);
+      expect(payload.invoiceLines[0].Amount).toBe(5000);
+      expect(payload.invoiceLines[0].ProjectNumber).toBe('PM-12345');
     });
     
     it('should handle multiple line items', async () => {
@@ -419,10 +419,10 @@ describe('Claim Model', () => {
       
       const payload = claim.toOraclePayload();
       
-      expect(payload.lines.length).toBe(3);
-      expect(payload.lines[0].Description).toContain('A');
-      expect(payload.lines[1].Description).toContain('B');
-      expect(payload.lines[2].Description).toContain('C');
+      expect(payload.invoiceLines.length).toBe(3);
+      expect(payload.invoiceLines[0].ItemDescription).toContain('A');
+      expect(payload.invoiceLines[1].ItemDescription).toContain('B');
+      expect(payload.invoiceLines[2].ItemDescription).toContain('C');
     });
     
     it('should track export status', async () => {
