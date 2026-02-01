@@ -317,6 +317,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="pmNumber"
                   name="pmNumber"
+                  autoComplete="off"
                   fullWidth
                   label="PM Number"
                   value={pmNumber}
@@ -328,6 +329,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="notificationNumber"
                   name="notificationNumber"
+                  autoComplete="off"
                   fullWidth
                   label="Notification Number"
                   value={notificationNumber}
@@ -339,6 +341,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="woNumber"
                   name="woNumber"
+                  autoComplete="off"
                   fullWidth
                   label="WO Number"
                   value={woNumber}
@@ -349,6 +352,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="orderType"
                   name="orderType"
+                  autoComplete="off"
                   fullWidth
                   label="Order Type"
                   value={orderType}
@@ -360,6 +364,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="address"
                   name="address"
+                  autoComplete="street-address"
                   fullWidth
                   label="Address"
                   value={address}
@@ -370,6 +375,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="city"
                   name="city"
+                  autoComplete="address-level2"
                   fullWidth
                   label="City"
                   value={city}
@@ -380,6 +386,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="client"
                   name="client"
+                  autoComplete="organization"
                   fullWidth
                   label="Client"
                   value={client}
@@ -390,6 +397,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="projectName"
                   name="projectName"
+                  autoComplete="off"
                   fullWidth
                   label="Project Name"
                   value={projectName}
@@ -400,6 +408,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="division"
                   name="division"
+                  autoComplete="off"
                   fullWidth
                   select
                   label="Division"
@@ -417,6 +426,7 @@ const CreateWorkOrder = ({ token }) => {
                 <TextField
                   id="matCode"
                   name="matCode"
+                  autoComplete="off"
                   fullWidth
                   label="MAT Code"
                   value={matCode}
