@@ -57,7 +57,7 @@ const procedureDocSchema = new mongoose.Schema({
       required: Boolean,
       dataType: String,        // text, number, date, photo, signature
       validationRules: String, // e.g., "Must match material list"
-      exampleValue: String
+      exampleValue: mongoose.Schema.Types.Mixed  // Can be string, array, or object
     }],
     // Questions the AI should ask foremen
     questions: [{
@@ -66,7 +66,7 @@ const procedureDocSchema = new mongoose.Schema({
       helpText: String,        // Additional context for the foreman
       inputType: String,       // text, number, select, multiselect, photo
       options: [String],       // For select/multiselect
-      dependsOn: String        // Conditional question based on previous answer
+      dependsOn: mongoose.Schema.Types.Mixed  // Can be string or object with conditions
     }]
   },
   
