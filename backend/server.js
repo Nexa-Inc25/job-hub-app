@@ -48,6 +48,7 @@ const asbuiltAssistantRoutes = require('./routes/asbuilt-assistant.routes');
 const tailboardRoutes = require('./routes/tailboard.routes');
 const priceBookRoutes = require('./routes/pricebook.routes');
 const billingRoutes = require('./routes/billing.routes');
+const asbuiltRoutes = require('./routes/asbuilt.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -871,6 +872,9 @@ app.use('/api/pricebooks', authenticateUser, priceBookRoutes);
 
 // Mount billing routes (unit entries, claims, Oracle export)
 app.use('/api/billing', authenticateUser, billingRoutes);
+
+// Mount as-built document routing (intelligent document router)
+app.use('/api/asbuilt', authenticateUser, asbuiltRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 

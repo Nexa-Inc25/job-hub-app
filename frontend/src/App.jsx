@@ -36,6 +36,7 @@ const BillingDashboard = lazy(() => import('./components/billing/BillingDashboar
 const UnitEntryForm = lazy(() => import('./components/billing/UnitEntryForm'));
 const ForemanCapturePage = lazy(() => import('./components/billing/ForemanCapturePage'));
 const PriceBookAdmin = lazy(() => import('./components/billing/PriceBookAdmin'));
+const AsBuiltRouter = lazy(() => import('./components/asbuilt/AsBuiltRouter'));
 
 // CSS-only loading spinner - avoids MUI import in critical path
 const spinnerStyle = {
@@ -101,6 +102,7 @@ function App() {
               <Route path="/billing/capture" element={<UnitEntryForm />} />
               <Route path="/billing/capture/:jobId" element={<ForemanCapturePage />} />
               <Route path="/jobs/:jobId/log-unit" element={<ForemanCapturePage />} />
+              <Route path="/asbuilt-router" element={<AsBuiltRouter />} />
               <Route path="*" element={<div>404 - Not Found</div>} />
             </Routes>
           </Suspense>
