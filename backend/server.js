@@ -983,6 +983,84 @@ app.get('/api/admin/templates', authenticateUser, async (req, res) => {
   }
 });
 
+// Add templates to an existing job (for jobs created before templates were uploaded)
+app.post('/api/jobs/:id/add-templates', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const job = await Job.findById(id);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Get templates from R2 or local storage
+    let templateFiles = [];
+    if (r2Storage.isR2Configured()) {
+      const r2Templates = await r2Storage.listFiles('templates/');
+      templateFiles = r2Templates.map(f => ({
+        name: f.Key.replace('templates/', ''),
+        url: r2Storage.getPublicUrl(f.Key),
+        r2Key: f.Key
+      })).filter(f => f.name);
+    } else {
+      const masterTemplatesDir = path.join(__dirname, 'templates', 'master');
+      if (fs.existsSync(masterTemplatesDir)) {
+        const files = fs.readdirSync(masterTemplatesDir);
+        templateFiles = files.map(filename => ({
+          name: filename,
+          url: `/templates/master/${encodeURIComponent(filename)}`,
+          r2Key: null
+        }));
+      }
+    }
+
+    if (templateFiles.length === 0) {
+      return res.json({ message: 'No templates available to add', templatesAdded: 0 });
+    }
+
+    // Find or create General Forms folder
+    let aciFolder = job.folders.find(f => f.name === 'ACI');
+    if (!aciFolder) {
+      aciFolder = { name: 'ACI', documents: [], subfolders: [] };
+      job.folders.push(aciFolder);
+    }
+    if (!aciFolder.subfolders) aciFolder.subfolders = [];
+
+    let generalFormsFolder = aciFolder.subfolders.find(sf => sf.name === 'General Forms');
+    if (!generalFormsFolder) {
+      generalFormsFolder = { name: 'General Forms', documents: [] };
+      aciFolder.subfolders.push(generalFormsFolder);
+    }
+    if (!generalFormsFolder.documents) generalFormsFolder.documents = [];
+
+    // Only add templates that aren't already in the folder
+    const existingNames = generalFormsFolder.documents.map(d => d.name);
+    const newTemplates = templateFiles.filter(t => !existingNames.includes(t.name));
+
+    for (const template of newTemplates) {
+      generalFormsFolder.documents.push({
+        name: template.name,
+        url: template.url,
+        r2Key: template.r2Key,
+        type: 'template',
+        isTemplate: true,
+        uploadDate: new Date()
+      });
+    }
+
+    job.markModified('folders');
+    await job.save();
+
+    res.json({ 
+      message: `Added ${newTemplates.length} templates to General Forms`,
+      templatesAdded: newTemplates.length,
+      templates: newTemplates.map(t => t.name)
+    });
+  } catch (err) {
+    console.error('Error adding templates to job:', err);
+    res.status(500).json({ error: 'Failed to add templates' });
+  }
+});
+
 // Mount API routes (for /api/ai/* endpoints) - must be before /api/jobs middleware
 app.use('/api', authenticateUser, apiRoutes);
 
