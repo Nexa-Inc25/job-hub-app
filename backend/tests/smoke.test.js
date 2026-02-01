@@ -13,7 +13,7 @@
 const axios = require('axios');
 
 // Configuration
-const BASE_URL = process.env.API_URL || 'http://localhost:5001';
+const BASE_URL = process.env.API_URL || 'http://localhost:5000';
 const TIMEOUT = 10000;
 
 // Test credentials (should exist in test database)
