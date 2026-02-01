@@ -4840,6 +4840,105 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
   }
 });
 
+// ==================== JOB PACKAGE EXPORT FOR UTILITY SUBMISSION ====================
+// Export complete job package (timesheet + tailboard + units) in Oracle/SAP format
+// This accompanies the job package submission to PG&E, SCE, etc.
+app.get('/api/jobs/:id/export-package', authenticateUser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { format = 'oracle', output = 'json' } = req.query; // format: oracle|sap, output: json|csv|pdf
+
+    const user = await User.findById(req.userId).select('companyId role');
+    const job = await Job.findOne({ _id: id, companyId: user?.companyId });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Load related data
+    const Timesheet = require('./models/Timesheet');
+    const Tailboard = mongoose.models.Tailboard; // May not exist yet
+    const UnitEntry = require('./models/UnitEntry');
+
+    // Get latest timesheet for this job
+    const timesheet = await Timesheet.findOne({ jobId: id })
+      .sort({ date: -1 })
+      .lean();
+
+    // Get tailboard (stored in job or separate collection)
+    let tailboard = null;
+    if (Tailboard) {
+      tailboard = await Tailboard.findOne({ jobId: id })
+        .sort({ date: -1 })
+        .lean();
+    } else if (job.tailboard) {
+      tailboard = job.tailboard;
+    }
+
+    // Get all approved/submitted units
+    const units = await UnitEntry.find({
+      jobId: id,
+      status: { $in: ['approved', 'submitted', 'pending'] }
+    }).lean();
+
+    // Generate export
+    const { 
+      generateJobPackageExport, 
+      generateJobPackageCSV,
+      generateJobPackagePDF
+    } = require('./utils/jobPackageExport');
+
+    const exportData = generateJobPackageExport(job, {
+      format,
+      timesheet,
+      tailboard,
+      units,
+    });
+
+    // Return based on output format
+    if (output === 'csv') {
+      const csvFiles = generateJobPackageCSV(exportData);
+      
+      // If multiple files, zip them
+      const fileCount = Object.keys(csvFiles).length;
+      if (fileCount > 1) {
+        const archive = archiver('zip', { zlib: { level: 5 } });
+        const chunks = [];
+        
+        archive.on('data', chunk => chunks.push(chunk));
+        
+        for (const [filename, content] of Object.entries(csvFiles)) {
+          archive.append(content, { name: filename });
+        }
+        
+        await archive.finalize();
+        const zipBuffer = Buffer.concat(chunks);
+        
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="${job.woNumber || job.pmNumber}_package.zip"`);
+        return res.send(zipBuffer);
+      } else {
+        // Single file, return directly
+        const [filename, content] = Object.entries(csvFiles)[0] || ['export.csv', ''];
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(content);
+      }
+    } else if (output === 'pdf') {
+      const pdfBuffer = await generateJobPackagePDF(exportData);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${job.woNumber || job.pmNumber}_package.pdf"`);
+      return res.send(Buffer.from(pdfBuffer));
+    } else {
+      // Default: JSON
+      res.json(exportData);
+    }
+
+  } catch (err) {
+    console.error('Job package export error:', err);
+    res.status(500).json({ error: 'Failed to export job package', details: err.message });
+  }
+});
+
 // Helper function to recursively find and remove a document from nested folders
 function findAndRemoveDocument(folders, docId) {
   for (const folder of folders) {

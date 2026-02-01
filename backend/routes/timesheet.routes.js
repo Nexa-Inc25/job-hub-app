@@ -171,5 +171,35 @@ router.patch('/:id/reject', authenticateUser, async (req, res) => {
   }
 });
 
+/**
+ * GET /api/timesheets/:id/export
+ * Export timesheet in Oracle or SAP format
+ */
+router.get('/:id/export', authenticateUser, async (req, res) => {
+  try {
+    const { format = 'oracle' } = req.query;
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
+
+    const timesheet = await Timesheet.findOne({
+      _id: req.params.id,
+      companyId: user.companyId,
+    }).populate('jobId');
+
+    if (!timesheet) return res.status(404).json({ error: 'Timesheet not found' });
+
+    const { formatTimesheetForOracle, formatTimesheetForSAP } = require('../utils/jobPackageExport');
+    
+    const exportData = format === 'sap'
+      ? formatTimesheetForSAP(timesheet, timesheet.jobId)
+      : formatTimesheetForOracle(timesheet, timesheet.jobId);
+
+    res.json(exportData);
+  } catch (err) {
+    console.error('Export timesheet error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
 

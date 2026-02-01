@@ -436,6 +436,36 @@ const generatePdf = async (req, res) => {
   }
 };
 
+/**
+ * Export tailboard in Oracle/SAP format for utility submission
+ * GET /api/tailboards/:id/export?format=oracle|sap
+ */
+const exportTailboard = async (req, res) => {
+  try {
+    const { format = 'oracle' } = req.query;
+    
+    const tailboard = await Tailboard.findById(req.params.id)
+      .populate('jobId', 'woNumber pmNumber address city projectName')
+      .lean();
+
+    if (!tailboard) {
+      return res.status(404).json({ error: 'Tailboard not found' });
+    }
+
+    const { formatTailboardForOracle, formatTailboardForSAP } = require('../utils/jobPackageExport');
+    
+    const job = tailboard.jobId || {};
+    const exportData = format === 'sap'
+      ? formatTailboardForSAP(tailboard, job)
+      : formatTailboardForOracle(tailboard, job);
+
+    res.json(exportData);
+  } catch (error) {
+    console.error('Error exporting tailboard:', error);
+    res.status(500).json({ error: 'Failed to export tailboard' });
+  }
+};
+
 module.exports = {
   createTailboard,
   getTailboardsByJob,
@@ -446,5 +476,6 @@ module.exports = {
   getTailboardByToken,
   getCategories,
   getTodaysTailboard,
-  generatePdf
+  generatePdf,
+  exportTailboard
 };

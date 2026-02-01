@@ -42,4 +42,7 @@ router.post('/:id/complete', tailboardController.completeTailboard);
 // Generate PDF for tailboard
 router.get('/:id/pdf', tailboardController.generatePdf);
 
+// Export tailboard in Oracle/SAP format for utility submission
+router.get('/:id/export', tailboardController.exportTailboard);
+
 module.exports = router;
