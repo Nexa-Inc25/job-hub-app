@@ -13,14 +13,21 @@ console.log('Memory usage:', Math.round(process.memoryUsage().heapUsed / 1024 / 
 // ============================================
 // ENVIRONMENT VALIDATION - Fail fast on missing config
 // ============================================
-const requiredEnvVars = ['MONGODB_URI', 'JWT_SECRET'];
-const missingVars = requiredEnvVars.filter(v => !process.env[v]);
-if (missingVars.length > 0) {
-  console.error('❌ FATAL: Missing required environment variables:', missingVars.join(', '));
-  console.error('   Please check your .env file or environment configuration.');
+// Support both MONGODB_URI and MONGO_URI for flexibility
+const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+if (!mongoUri) {
+  console.error('❌ FATAL: Missing MongoDB connection string');
+  console.error('   Set either MONGODB_URI or MONGO_URI environment variable.');
   console.error('   See .env.example for required variables.');
   process.exit(1);
 }
+if (!process.env.JWT_SECRET) {
+  console.error('❌ FATAL: Missing JWT_SECRET environment variable');
+  console.error('   See .env.example for required variables.');
+  process.exit(1);
+}
+// Normalize to MONGODB_URI for consistent access
+process.env.MONGODB_URI = mongoUri;
 
 // Warn about insecure defaults in production
 if (process.env.NODE_ENV === 'production') {
