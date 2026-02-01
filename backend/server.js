@@ -4564,6 +4564,245 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
   }
 });
 
+// ==================== GENERIC FILE UPLOAD ====================
+// Used by ForemanCloseOut and other components to upload files to a job folder
+// Supports: folder, subfolder, file (single file upload)
+app.post('/api/jobs/:id/upload', authenticateUser, upload.single('file'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { folder = 'ACI', subfolder = 'GF Audit', photoType, latitude, longitude } = req.body;
+    
+    const currentUser = await User.findById(req.userId).select('companyId');
+    
+    // Build query with company filter
+    let query = { _id: id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    // Allow access for admin/PM or assigned users
+    if (!(req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin')) {
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
+      ];
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found or access denied' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const file = req.file;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].includes(ext);
+    const timestamp = Date.now();
+    
+    // Generate filename
+    const pmNumber = job.pmNumber || 'NOPM';
+    const notifNumber = job.notificationNumber || '';
+    const matCode = job.matCode || '';
+    let newFilename;
+    
+    if (isPhoto) {
+      newFilename = `${job.division || 'DA'}_${pmNumber}_${notifNumber}_${matCode}_Photo_${timestamp}${ext}`;
+    } else {
+      const baseName = file.originalname.replace(/[^a-zA-Z0-9\-_.]/g, '_');
+      newFilename = `${pmNumber}_${baseName}_${timestamp}${ext}`;
+    }
+    
+    // Upload to R2 or save locally
+    let docUrl = `/uploads/${newFilename}`;
+    let r2Key = null;
+    
+    if (r2Storage.isR2Configured()) {
+      try {
+        const folderPath = subfolder ? `${folder}/${subfolder}` : folder;
+        const result = await r2Storage.uploadJobFile(file.path, id, folderPath, newFilename);
+        docUrl = r2Storage.getPublicUrl(result.key);
+        r2Key = result.key;
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (uploadErr) {
+        console.error('R2 upload failed:', uploadErr.message);
+      }
+    } else {
+      const destPath = path.join(__dirname, 'uploads', newFilename);
+      fs.renameSync(file.path, destPath);
+    }
+    
+    // Find target folder and subfolder
+    let targetFolder = job.folders.find(f => f.name === folder);
+    if (!targetFolder) {
+      targetFolder = { name: folder, documents: [], subfolders: [] };
+      job.folders.push(targetFolder);
+    }
+    
+    let targetDocs = targetFolder.documents;
+    if (subfolder) {
+      if (!targetFolder.subfolders) targetFolder.subfolders = [];
+      let subfolderObj = targetFolder.subfolders.find(sf => sf.name === subfolder);
+      if (!subfolderObj) {
+        subfolderObj = { name: subfolder, documents: [], subfolders: [] };
+        targetFolder.subfolders.push(subfolderObj);
+      }
+      if (!subfolderObj.documents) subfolderObj.documents = [];
+      targetDocs = subfolderObj.documents;
+    }
+    
+    // Add document to folder
+    const newDoc = {
+      name: newFilename,
+      url: docUrl,
+      r2Key: r2Key,
+      type: isPhoto ? 'photo' : 'document',
+      photoType: photoType || null,
+      latitude: latitude ? parseFloat(latitude) : null,
+      longitude: longitude ? parseFloat(longitude) : null,
+      uploadDate: new Date(),
+      uploadedBy: req.userId,
+    };
+    targetDocs.push(newDoc);
+    
+    await job.save();
+    
+    console.log(`File uploaded: ${newFilename} to ${folder}/${subfolder || ''}`);
+    res.status(201).json({ 
+      message: 'File uploaded successfully', 
+      document: newDoc 
+    });
+  } catch (err) {
+    console.error('File upload error:', err);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
+  }
+});
+
+// ==================== GENERIC DOCUMENT UPLOAD (for offline sync) ====================
+// Used by offline sync to upload documents/photos to a job
+// Supports: folderName, subfolderName, document (file)
+app.post('/api/jobs/:id/documents', authenticateUser, upload.single('document'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { folderName = 'ACI', subfolderName = 'GF Audit' } = req.body;
+    
+    const currentUser = await User.findById(req.userId).select('companyId');
+    
+    // Build query with company filter
+    let query = { _id: id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    // Allow access for admin/PM or assigned users
+    if (!(req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin')) {
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
+      ];
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found or access denied' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    // Determine file type and generate appropriate name
+    const file = req.file;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].includes(ext);
+    const timestamp = Date.now();
+    
+    // Generate filename
+    const pmNumber = job.pmNumber || 'NOPM';
+    const notifNumber = job.notificationNumber || '';
+    const matCode = job.matCode || '';
+    let newFilename;
+    
+    if (isPhoto) {
+      newFilename = `${job.division || 'DA'}_${pmNumber}_${notifNumber}_${matCode}_Photo_${timestamp}${ext}`;
+    } else {
+      const baseName = file.originalname.replace(/[^a-zA-Z0-9\-_.]/g, '_');
+      newFilename = `${pmNumber}_${baseName}`;
+    }
+    
+    // Upload to R2 or save locally
+    let docUrl = `/uploads/${newFilename}`;
+    let r2Key = null;
+    
+    if (r2Storage.isR2Configured()) {
+      try {
+        const folderPath = subfolderName ? `${folderName}/${subfolderName}` : folderName;
+        const result = await r2Storage.uploadJobFile(file.path, id, folderPath, newFilename);
+        docUrl = r2Storage.getPublicUrl(result.key);
+        r2Key = result.key;
+        // Clean up local temp file
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (uploadErr) {
+        console.error('R2 upload failed, using local storage:', uploadErr.message);
+        // Keep local file as fallback
+      }
+    } else {
+      // Move to uploads folder
+      const destPath = path.join(__dirname, 'uploads', newFilename);
+      fs.renameSync(file.path, destPath);
+    }
+    
+    // Find target folder and subfolder
+    let folder = job.folders.find(f => f.name === folderName);
+    if (!folder) {
+      folder = { name: folderName, documents: [], subfolders: [] };
+      job.folders.push(folder);
+    }
+    
+    let targetDocs = folder.documents;
+    if (subfolderName) {
+      if (!folder.subfolders) folder.subfolders = [];
+      let subfolder = folder.subfolders.find(sf => sf.name === subfolderName);
+      if (!subfolder) {
+        subfolder = { name: subfolderName, documents: [], subfolders: [] };
+        folder.subfolders.push(subfolder);
+      }
+      if (!subfolder.documents) subfolder.documents = [];
+      targetDocs = subfolder.documents;
+    }
+    
+    // Add document to folder
+    const newDoc = {
+      name: newFilename,
+      url: docUrl,
+      r2Key: r2Key,
+      type: isPhoto ? 'photo' : 'document',
+      uploadDate: new Date(),
+      uploadedBy: req.userId,
+    };
+    targetDocs.push(newDoc);
+    
+    await job.save();
+    
+    console.log(`Document uploaded: ${newFilename} to ${folderName}/${subfolderName || ''}`);
+    res.status(201).json({ 
+      message: 'Document uploaded successfully', 
+      document: newDoc 
+    });
+  } catch (err) {
+    console.error('Document upload error:', err);
+    res.status(500).json({ error: 'Upload failed', details: err.message });
+  }
+});
+
 // Upload photos specifically (for foreman job completion photos)
 // Photos are named: DA_PM#_Notification#_MAT_Photo_timestamp.ext
 app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), async (req, res) => {
