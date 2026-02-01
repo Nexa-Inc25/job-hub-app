@@ -75,6 +75,7 @@ const tailboardRoutes = require('./routes/tailboard.routes');
 const priceBookRoutes = require('./routes/pricebook.routes');
 const billingRoutes = require('./routes/billing.routes');
 const asbuiltRoutes = require('./routes/asbuilt.routes');
+const oracleRoutes = require('./routes/oracle.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1005,6 +1006,9 @@ app.use('/api/billing', authenticateUser, billingRoutes);
 
 // Mount as-built document routing (intelligent document router)
 app.use('/api/asbuilt', authenticateUser, asbuiltRoutes);
+
+// Mount Oracle integration routes (Unifier, EAM, P6)
+app.use('/api/oracle', authenticateUser, oracleRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
