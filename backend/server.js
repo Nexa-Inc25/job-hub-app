@@ -137,13 +137,40 @@ const server = http.createServer(app);
  *                   description: Server uptime in seconds
  */
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ 
-    status: 'ok', 
+  const memUsage = process.memoryUsage();
+  const dbState = mongoose.connection.readyState;
+  const dbStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
+  
+  // Determine overall health
+  const isHealthy = dbState === 1;
+  const statusCode = isHealthy ? 200 : 503;
+  
+  res.status(statusCode).json({ 
+    status: isHealthy ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
-    mongodb: mongoose.connection.readyState === 1 ? 'connected' : 'connecting',
-    uptime: process.uptime(),
-    aiEnabled: Boolean(process.env.OPENAI_API_KEY),
-    r2Enabled: r2Storage.isR2Configured()
+    version: process.env.npm_package_version || '1.0.0',
+    
+    // Database health
+    database: {
+      status: dbStates[dbState] || 'unknown',
+      connected: dbState === 1
+    },
+    
+    // System metrics
+    system: {
+      uptime: Math.floor(process.uptime()),
+      memory: {
+        heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+        heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+        unit: 'MB'
+      }
+    },
+    
+    // Feature flags
+    features: {
+      aiEnabled: Boolean(process.env.OPENAI_API_KEY),
+      r2Storage: r2Storage.isR2Configured()
+    }
   });
 });
 
@@ -186,33 +213,63 @@ app.use(slowRequestLogger(15000));     // Log requests taking > 15 seconds
 // MongoDB query sanitization - prevents NoSQL injection
 app.use(mongoSanitize());
 
-// Rate limiting for auth endpoints (prevent brute force)
+// ============================================
+// RATE LIMITING CONFIGURATION (Production-Tuned)
+// ============================================
+// Tiered rate limits based on endpoint sensitivity
+
+// Auth endpoints - strict limits (prevent brute force)
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 attempts per window
-  message: { error: 'Too many login attempts, please try again after 15 minutes' },
+  max: 15, // 15 attempts per 15 min (1 per minute average)
+  message: { 
+    error: 'Too many login attempts, please try again after 15 minutes',
+    retryAfter: 15 * 60
+  },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
-    // Skip rate limiting for super admins (in case they're testing)
-    // This is safe because they already need to be authenticated
-    return false;
+  keyGenerator: (req) => {
+    // Use forwarded IP for users behind proxies
+    return req.ip || req.headers['x-forwarded-for']?.split(',')[0] || 'unknown';
   }
 });
 
-// General API rate limiting (prevent abuse)
+// General API rate limiting - balanced for real usage
 const apiLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 200, // 200 requests per minute
-  message: { error: 'Too many requests, please slow down' },
+  max: 300, // 300 requests per minute (5 per second)
+  message: { 
+    error: 'Too many requests, please slow down',
+    retryAfter: 60
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Don't rate limit health checks
+    return req.path === '/api/health';
+  }
+});
+
+// Heavy endpoints (file uploads, exports) - stricter limits
+const heavyLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // 30 heavy operations per minute
+  message: { 
+    error: 'Too many file operations, please wait',
+    retryAfter: 60
+  },
   standardHeaders: true,
   legacyHeaders: false
 });
 
-// Apply rate limiters
+// Apply rate limiters (order matters - more specific first)
 app.use('/api/login', authLimiter);
 app.use('/api/signup', authLimiter);
-app.use('/api/', apiLimiter);
+app.use('/api/billing/claims/*/export', heavyLimiter);  // Export endpoints
+app.use('/api/billing/export', heavyLimiter);           // Bulk exports
+app.use('/api/files/upload', heavyLimiter);             // File uploads
+app.use('/api/asbuilt/submit', heavyLimiter);           // As-built submissions
+app.use('/api/', apiLimiter);                           // General API
 
 // ============================================
 // CORS - whitelist allowed origins for security
@@ -333,12 +390,59 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
 });
 
-// MongoDB Connection
+// ============================================
+// MONGODB CONNECTION WITH RETRY LOGIC
+// ============================================
 const { runMigration } = require('./utils/migration');
 
-mongoose.connect(process.env.MONGO_URI)
+const MONGO_OPTIONS = {
+  maxPoolSize: 10,              // Connection pool size
+  serverSelectionTimeoutMS: 5000, // Timeout for server selection
+  socketTimeoutMS: 45000,       // Socket timeout
+  retryWrites: true,
+  w: 'majority'
+};
+
+// Retry connection with exponential backoff
+async function connectWithRetry(maxRetries = 5) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI || process.env.MONGO_URI, MONGO_OPTIONS);
+      console.log('MongoDB connected successfully');
+      return true;
+    } catch (err) {
+      console.error(`MongoDB connection attempt ${attempt}/${maxRetries} failed:`, err.message);
+      if (attempt === maxRetries) {
+        console.error('❌ FATAL: Could not connect to MongoDB after', maxRetries, 'attempts');
+        // In production, exit to trigger container restart
+        if (process.env.NODE_ENV === 'production') {
+          process.exit(1);
+        }
+        throw err;
+      }
+      // Exponential backoff: 1s, 2s, 4s, 8s, 16s
+      const delay = Math.pow(2, attempt - 1) * 1000;
+      console.log(`Retrying in ${delay / 1000} seconds...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
+// MongoDB connection event handlers
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️ MongoDB disconnected. Attempting to reconnect...');
+});
+
+mongoose.connection.on('reconnected', () => {
+  console.log('✅ MongoDB reconnected');
+});
+
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err.message);
+});
+
+connectWithRetry()
   .then(async () => {
-    console.log('MongoDB connected successfully');
     // Run migration to set up default utility/company for existing data
     await runMigration();
     
@@ -7188,19 +7292,41 @@ io.on('connection', (socket) => {
   });
 });
 
-// Error handler
+// ============================================
+// ERROR HANDLING (Production-Grade)
+// ============================================
+
+// Express error handler - sanitized responses
 app.use((err, req, res, next) => {
-  console.error('Express error:', err);
-  res.status(500).send('Server Error');
+  const requestId = req.headers['x-request-id'] || 'unknown';
+  
+  // Log full error internally
+  console.error(`[${requestId}] Express error:`, {
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    path: req.path,
+    method: req.method
+  });
+  
+  // Send sanitized response (no stack traces in production)
+  const statusCode = err.statusCode || err.status || 500;
+  res.status(statusCode).json({
+    error: statusCode === 500 ? 'Internal server error' : err.message,
+    requestId,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
+  console.error('❌ Uncaught Exception:', err.message);
+  console.error(err.stack);
+  // Give time for logs to flush, then exit
+  setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  console.error('❌ Unhandled Rejection:', reason);
 });
 
 // ============================================
@@ -7210,10 +7336,71 @@ process.on('unhandledRejection', (reason, promise) => {
 app.use(secureErrorHandler);
 
 // ============================================
+// GRACEFUL SHUTDOWN HANDLING
+// ============================================
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  
+  // Stop accepting new connections
+  server.close(async () => {
+    console.log('HTTP server closed');
+    
+    try {
+      // Close database connection
+      await mongoose.connection.close();
+      console.log('MongoDB connection closed');
+      
+      // Close Socket.io
+      io.close();
+      console.log('Socket.io closed');
+      
+      console.log('✅ Graceful shutdown complete');
+      process.exit(0);
+    } catch (err) {
+      console.error('Error during shutdown:', err);
+      process.exit(1);
+    }
+  });
+  
+  // Force shutdown after 30 seconds
+  setTimeout(() => {
+    console.error('⚠️ Forced shutdown after timeout');
+    process.exit(1);
+  }, 30000);
+}
+
+// Register shutdown handlers
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+// ============================================
+// REQUEST TIMEOUT MIDDLEWARE
+// ============================================
+const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+
+app.use((req, res, next) => {
+  // Set timeout for all requests
+  req.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (!res.headersSent) {
+      console.warn(`Request timeout: ${req.method} ${req.path}`);
+      res.status(408).json({ error: 'Request timeout' });
+    }
+  });
+  next();
+});
+
+// ============================================
 // START SERVER (after all middleware and routes are registered)
 // ============================================
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server listening on port ${PORT}`);
-  console.log('Health endpoint ready at /api/health');
+  console.log(`✅ Server listening on port ${PORT}`);
+  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`   Health endpoint: /api/health`);
+  console.log(`   API docs: /api-docs`);
 });
 
