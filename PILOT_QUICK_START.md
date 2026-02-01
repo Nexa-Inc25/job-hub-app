@@ -1,12 +1,12 @@
-# Job Hub - Pilot Quick Start Guide
+# FieldLedger - Pilot Quick Start Guide
 
-Welcome to Job Hub! This guide will help you get started quickly.
+Welcome to FieldLedger! This guide will help you get started quickly.
 
 ---
 
 ## 📱 Accessing the App
 
-**Web URL:** [https://job-hub-frontend.vercel.app](https://job-hub-frontend.vercel.app)
+**Web URL:** [https://app.fieldledger.io](https://app.fieldledger.io)
 
 Works on desktop, tablet, and mobile devices.
 

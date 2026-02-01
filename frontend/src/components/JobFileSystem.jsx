@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Job File System Component
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Job File System Component
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
@@ -61,6 +61,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EmailIcon from '@mui/icons-material/Email';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { TreeView } from '@mui/x-tree-view/TreeView';
 import { TreeItem } from '@mui/x-tree-view/TreeItem';
 import PDFFormEditor from './PDFFormEditor';
@@ -698,7 +699,7 @@ const JobFileSystem = () => {
     
     setExportLoading(true);
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com';
+      const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
       let exportUrl = `${apiBase}/api/jobs/${job._id}/folders/${encodeURIComponent(getRootFolderName(selectedFolder))}/export`;
       const subfolderPath = getSubfolderPath(selectedFolder);
       if (subfolderPath) {
@@ -897,7 +898,7 @@ const JobFileSystem = () => {
   const getDocUrl = (doc) => {
     if (!doc) return '';
     // Use Railway backend URL directly for file access (Vercel proxy doesn't work for file streaming)
-    const apiBase = import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com';
+    const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
     
     let resultUrl = '';
     
@@ -1115,6 +1116,24 @@ const JobFileSystem = () => {
                 <CameraAltIcon />
               </Badge>
             </IconButton>
+          </Tooltip>
+          
+          {/* Log Unit - Field Billing */}
+          <Tooltip title="Log Unit (Field Billing)">
+            <Button
+              color="inherit"
+              startIcon={<ReceiptIcon />}
+              onClick={() => navigate(`/jobs/${id}/log-unit`)}
+              sx={{ 
+                mr: 1,
+                textTransform: 'none',
+                fontWeight: 600,
+                bgcolor: 'rgba(0,230,118,0.2)',
+                '&:hover': { bgcolor: 'rgba(0,230,118,0.3)' }
+              }}
+            >
+              Log Unit
+            </Button>
           </Tooltip>
           
           {/* Daily Tailboard / JHA Button */}

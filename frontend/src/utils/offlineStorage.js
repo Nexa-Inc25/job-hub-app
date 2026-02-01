@@ -7,7 +7,7 @@
  * - Captured photos pending upload
  */
 
-const DB_NAME = 'jobhub-offline';
+const DB_NAME = 'fieldledger-offline';
 const DB_VERSION = 1;
 
 // Store names
@@ -15,7 +15,9 @@ const STORES = {
   PENDING_OPS: 'pendingOperations',
   CACHED_JOBS: 'cachedJobs',
   PENDING_PHOTOS: 'pendingPhotos',
-  USER_DATA: 'userData'
+  USER_DATA: 'userData',
+  PENDING_UNITS: 'pendingUnitEntries',  // New store for offline unit entries
+  CACHED_PRICEBOOKS: 'cachedPriceBooks', // Cached price book for offline rate lookup
 };
 
 let db = null;
@@ -78,6 +80,25 @@ export async function initOfflineDB() {
       // User data cache
       if (!database.objectStoreNames.contains(STORES.USER_DATA)) {
         database.createObjectStore(STORES.USER_DATA, { keyPath: 'key' });
+      }
+
+      // Pending unit entries (Digital Receipts waiting for sync)
+      if (!database.objectStoreNames.contains(STORES.PENDING_UNITS)) {
+        const unitsStore = database.createObjectStore(STORES.PENDING_UNITS, { 
+          keyPath: 'offlineId'
+        });
+        unitsStore.createIndex('jobId', 'jobId', { unique: false });
+        unitsStore.createIndex('status', 'syncStatus', { unique: false });
+        unitsStore.createIndex('createdAt', 'createdAt', { unique: false });
+      }
+
+      // Cached price books for offline rate lookup
+      if (!database.objectStoreNames.contains(STORES.CACHED_PRICEBOOKS)) {
+        const pbStore = database.createObjectStore(STORES.CACHED_PRICEBOOKS, { 
+          keyPath: '_id' 
+        });
+        pbStore.createIndex('utilityId', 'utilityId', { unique: false });
+        pbStore.createIndex('status', 'status', { unique: false });
       }
     };
   });
@@ -358,6 +379,155 @@ export async function getUserData(key) {
   });
 }
 
+// ==================== PENDING UNIT ENTRIES ====================
+
+/**
+ * Save a unit entry for later sync (Digital Receipt)
+ * @param {Object} unitData - Complete unit entry data with photos
+ */
+export async function savePendingUnit(unitData) {
+  await initOfflineDB();
+  
+  const offlineId = `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const unit = {
+    ...unitData,
+    offlineId,
+    createdAt: new Date().toISOString(),
+    syncStatus: 'pending',
+    syncAttempts: 0,
+    lastSyncError: null,
+  };
+
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.PENDING_UNITS, 'readwrite');
+    const request = store.add(unit);
+    request.onsuccess = () => resolve({ ...unit, offlineId });
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Get pending unit entries for a job
+ */
+export async function getPendingUnits(jobId = null) {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.PENDING_UNITS);
+    
+    if (jobId) {
+      const index = store.index('jobId');
+      const request = index.getAll(jobId);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    } else {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    }
+  });
+}
+
+/**
+ * Update unit sync status
+ */
+export async function updateUnitSyncStatus(offlineId, syncStatus, error = null) {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.PENDING_UNITS, 'readwrite');
+    const request = store.get(offlineId);
+    
+    request.onsuccess = () => {
+      const unit = request.result;
+      if (unit) {
+        unit.syncStatus = syncStatus;
+        unit.lastSyncAttempt = new Date().toISOString();
+        if (error) unit.lastSyncError = error;
+        if (syncStatus === 'failed') unit.syncAttempts = (unit.syncAttempts || 0) + 1;
+        
+        const putRequest = store.put(unit);
+        putRequest.onsuccess = () => resolve(unit);
+        putRequest.onerror = () => reject(putRequest.error);
+      } else {
+        resolve(null);
+      }
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Remove synced unit entry
+ */
+export async function removePendingUnit(offlineId) {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.PENDING_UNITS, 'readwrite');
+    const request = store.delete(offlineId);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+// ==================== CACHED PRICE BOOKS ====================
+
+/**
+ * Cache a price book for offline rate lookup
+ */
+export async function cachePriceBook(priceBook) {
+  await initOfflineDB();
+  
+  const cached = {
+    ...priceBook,
+    _cachedAt: new Date().toISOString()
+  };
+
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.CACHED_PRICEBOOKS, 'readwrite');
+    const request = store.put(cached);
+    request.onsuccess = () => resolve(cached);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Get cached price book for a utility
+ */
+export async function getCachedPriceBook(utilityId) {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.CACHED_PRICEBOOKS);
+    const index = store.index('utilityId');
+    const request = index.getAll(utilityId);
+    
+    request.onsuccess = () => {
+      const books = request.result || [];
+      // Return active one, or most recently cached
+      const active = books.find(b => b.status === 'active');
+      resolve(active || books[0] || null);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Get all cached price books
+ */
+export async function getAllCachedPriceBooks() {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.CACHED_PRICEBOOKS);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
 const offlineStorageExports = {
   initOfflineDB,
   queueOperation,
@@ -373,7 +543,16 @@ const offlineStorageExports = {
   removePendingPhoto,
   getPendingCounts,
   saveUserData,
-  getUserData
+  getUserData,
+  // Unit entries
+  savePendingUnit,
+  getPendingUnits,
+  updateUnitSyncStatus,
+  removePendingUnit,
+  // Price books
+  cachePriceBook,
+  getCachedPriceBook,
+  getAllCachedPriceBooks,
 };
 
 export default offlineStorageExports;

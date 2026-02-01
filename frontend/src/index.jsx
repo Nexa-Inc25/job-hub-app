@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Work Order Management System
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Unit-Price Billing for Utility Contractors
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * Proprietary and Confidential. Unauthorized copying or distribution prohibited.
  */
 

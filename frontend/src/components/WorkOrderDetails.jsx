@@ -35,34 +35,32 @@ import {
   Toolbar,
   LinearProgress,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  Add as AddIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Send as SendIcon,
-  Build as BuildIcon,
-  LocalShipping as LocalShippingIcon,
-  Security as SecurityIcon,
-  Construction as ConstructionIcon,
-  Description as DescriptionIcon,
-  Person as PersonIcon,
-  CalendarMonth as CalendarIcon,
-  Chat as ChatIcon,
-  Folder as FolderIcon,
-  Refresh as RefreshIcon,
-  CameraAlt as CameraAltIcon,
-  PhotoLibrary as PhotoLibraryIcon,
-  CloudUpload as CloudUploadIcon,
-  Email as EmailIcon,
-  PictureAsPdf as PdfIcon,
-  Architecture as SketchIcon,
-  Assignment as InstructionsIcon,
-  OpenInNew as OpenInNewIcon,
-} from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import SendIcon from '@mui/icons-material/Send';
+import BuildIcon from '@mui/icons-material/Build';
+import LocalShippingIcon from '@mui/icons-material/LocalShipping';
+import SecurityIcon from '@mui/icons-material/Security';
+import ConstructionIcon from '@mui/icons-material/Construction';
+import DescriptionIcon from '@mui/icons-material/Description';
+import PersonIcon from '@mui/icons-material/Person';
+import CalendarIcon from '@mui/icons-material/CalendarMonth';
+import ChatIcon from '@mui/icons-material/Chat';
+import FolderIcon from '@mui/icons-material/Folder';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import EmailIcon from '@mui/icons-material/Email';
+import PdfIcon from '@mui/icons-material/PictureAsPdf';
+import SketchIcon from '@mui/icons-material/Architecture';
+import InstructionsIcon from '@mui/icons-material/Assignment';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 
 // Helper to determine status color (avoids nested ternary) - uses high-contrast colors
 const getTimelineStatusColor = (status, defaultColor) => {
@@ -303,7 +301,7 @@ const WorkOrderDetails = () => {
     
     setExportLoading(true);
     try {
-      const apiBase = import.meta.env.VITE_API_URL || 'https://api.jobhubpro.com';
+      const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
       const exportUrl = `${apiBase}/api/jobs/${job._id}/folders/ACI/export?subfolder=GF%20Audit`;
       
       const result = await exportFolderToEmail({ exportUrl, job, folderName: 'GF Audit' });

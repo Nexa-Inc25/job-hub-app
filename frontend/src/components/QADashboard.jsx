@@ -38,20 +38,18 @@ import {
   Tooltip,
   Badge,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  FactCheck as FactCheckIcon,
-  Warning as WarningIcon,
-  Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
-  Cancel as CancelIcon,
-  Visibility as VisibilityIcon,
-  MenuBook as MenuBookIcon,
-  Replay as ReplayIcon,
-  ThumbUp as ThumbUpIcon,
-  ThumbDown as ThumbDownIcon,
-  CloudUpload as CloudUploadIcon,
-} from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import WarningIcon from '@mui/icons-material/Warning';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CancelIcon from '@mui/icons-material/Cancel';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
+import ReplayIcon from '@mui/icons-material/Replay';
+import ThumbUpIcon from '@mui/icons-material/ThumbUp';
+import ThumbDownIcon from '@mui/icons-material/ThumbDown';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import { useThemeMode } from '../ThemeContext';
 import { StatCard, getThemeColors, STATUS_COLORS, LoadingState, ErrorState } from './shared';
 

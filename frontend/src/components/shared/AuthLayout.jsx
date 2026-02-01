@@ -34,7 +34,7 @@ const AuthLayout = ({ children, title }) => {
         >
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <Typography variant="h4" component="h1" fontWeight={700} gutterBottom>
-              JobHub
+              FieldLedger
             </Typography>
             <Typography variant="body1" color="text.secondary">
               Work Order Management System

@@ -607,7 +607,7 @@ async function generateTailboardPdf(tailboard, options = {}) {
   // === FOOTER ===
   const footerY = 30;
   drawText(`Generated: ${new Date().toLocaleString()}`, leftMargin, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
-  drawText('Job Hub Pro - Tailboard/JHA', rightMargin - 120, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
+  drawText('FieldLedger - Tailboard/JHA', rightMargin - 120, footerY, { size: 8, color: rgb(0.5, 0.5, 0.5) });
   
   return Buffer.from(await pdfDoc.save());
 }

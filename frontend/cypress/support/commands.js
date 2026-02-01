@@ -1,5 +1,5 @@
 // ***********************************************
-// Custom commands for Job Hub Pro E2E tests
+// Custom commands for FieldLedger E2E tests
 // ***********************************************
 
 // Create a mock JWT token for testing (valid JWT format that the app can parse)

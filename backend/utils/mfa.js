@@ -9,8 +9,8 @@ const { TOTP, Secret } = require('otpauth');
 const QRCode = require('qrcode');
 const crypto = require('node:crypto');
 
-const APP_NAME = 'Job Hub Pro';
-const ISSUER = 'JobHubPro';
+const APP_NAME = 'FieldLedger';
+const ISSUER = 'FieldLedger';
 
 /**
  * Generate a new TOTP secret for a user

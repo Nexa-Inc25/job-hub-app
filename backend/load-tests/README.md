@@ -34,7 +34,7 @@ k6 run load-tests/k6-load-test.js
 k6 run --vus 100 --duration 5m load-tests/k6-load-test.js
 
 # With environment variables
-k6 run -e BASE_URL=https://api.jobhubpro.com -e AUTH_TOKEN=xxx load-tests/k6-load-test.js
+k6 run -e BASE_URL=https://api.fieldledger.io -e AUTH_TOKEN=xxx load-tests/k6-load-test.js
 
 # Output to JSON
 k6 run --out json=results.json load-tests/k6-load-test.js

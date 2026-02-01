@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - User Model
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - User Model
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
 const mongoose = require('mongoose');
@@ -39,8 +39,8 @@ const userSchema = new mongoose.Schema({
     default: false
   },
   
-  // === SUPER ADMIN - Job Hub Platform Owners Only ===
-  // Only 2-3 people should have this - the actual owners of Job Hub SaaS
+  // === SUPER ADMIN - FieldLedger Platform Owners Only ===
+  // Only 2-3 people should have this - the actual owners of FieldLedger SaaS
   // Super admins can: access owner dashboard, onboard new companies, manage all users
   isSuperAdmin: {
     type: Boolean,

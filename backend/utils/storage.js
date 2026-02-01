@@ -3,7 +3,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'job-hub-uploads';
+const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'fieldledger-uploads';
 // Cloudflare Worker URL for direct file serving (bypasses Railway for faster loads)
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || null; // e.g., 'https://founder-30a.workers.dev'
 

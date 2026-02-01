@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Job Hub API Endpoint Test Script
+ * FieldLedger API Endpoint Test Script
  * 
  * Run with: node scripts/testEndpoints.js [base_url]
  * 
@@ -98,7 +98,7 @@ function makeRequest(method, path, data = null, token = null) {
 
 async function runTests() {
   console.log('\n' + '='.repeat(60));
-  console.log(colors.bold + '  JOB HUB API ENDPOINT TESTS' + colors.reset);
+  console.log(colors.bold + '  FIELDLEDGER API ENDPOINT TESTS' + colors.reset);
   console.log('='.repeat(60));
   console.log(`\nTesting: ${colors.cyan}${BASE_URL}${colors.reset}\n`);
 

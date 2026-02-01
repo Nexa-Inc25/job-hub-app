@@ -1,9 +1,9 @@
 /**
- * Setup Super Admin accounts for Job Hub platform owners
+ * Setup Super Admin accounts for FieldLedger platform owners
  * 
  * Run: node scripts/setupSuperAdmins.js
  * 
- * This creates/updates the three Job Hub owner accounts with Super Admin privileges.
+ * This creates/updates the three FieldLedger owner accounts with Super Admin privileges.
  */
 
 require('dotenv').config();
@@ -11,7 +11,7 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 // ========================================
-// CONFIGURE THESE - Job Hub Owner Accounts
+// CONFIGURE THESE - FieldLedger Owner Accounts
 // ========================================
 const SUPER_ADMINS = [
   {
@@ -46,7 +46,7 @@ async function setupSuperAdmins() {
     const User = require('../models/User');
     
     console.log('========================================');
-    console.log('Setting up Job Hub Super Admin accounts');
+    console.log('Setting up FieldLedger Super Admin accounts');
     console.log('========================================\n');
 
     for (const admin of SUPER_ADMINS) {

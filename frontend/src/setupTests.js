@@ -5,7 +5,78 @@
  */
 
 import '@testing-library/jest-dom';
-import { vi, beforeAll, afterAll } from 'vitest';
+import { vi, beforeAll, afterAll, afterEach } from 'vitest';
+
+// Reset all mocks after each test
+afterEach(() => {
+  vi.clearAllMocks();
+});
+
+// Mock navigator.geolocation
+const mockGeolocation = {
+  getCurrentPosition: vi.fn((success, error) => {
+    success({
+      coords: {
+        latitude: 37.7749,
+        longitude: -122.4194,
+        accuracy: 10,
+        altitude: 50,
+        altitudeAccuracy: 5,
+        heading: null,
+        speed: null
+      },
+      timestamp: Date.now()
+    });
+  }),
+  watchPosition: vi.fn(),
+  clearWatch: vi.fn()
+};
+
+Object.defineProperty(global.navigator, 'geolocation', {
+  value: mockGeolocation,
+  writable: true
+});
+
+// Mock URL.createObjectURL and revokeObjectURL
+global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+global.URL.revokeObjectURL = vi.fn();
+
+// Mock canvas for image processing
+HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+  drawImage: vi.fn(),
+  getImageData: vi.fn(() => ({ data: new Uint8ClampedArray(100) })),
+  putImageData: vi.fn(),
+  fillRect: vi.fn(),
+  fillText: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  translate: vi.fn(),
+  rotate: vi.fn()
+}));
+
+HTMLCanvasElement.prototype.toBlob = vi.fn((callback) => {
+  callback(new Blob(['mock-image'], { type: 'image/jpeg' }));
+});
+
+// Mock MediaDevices API for camera
+const mockMediaDevices = {
+  getUserMedia: vi.fn().mockResolvedValue({
+    getTracks: () => [{ stop: vi.fn() }]
+  }),
+  enumerateDevices: vi.fn().mockResolvedValue([
+    { kind: 'videoinput', deviceId: 'mock-camera', label: 'Mock Camera' }
+  ])
+};
+
+Object.defineProperty(global.navigator, 'mediaDevices', {
+  value: mockMediaDevices,
+  writable: true
+});
+
+// Mock crypto.randomUUID
+Object.defineProperty(global.crypto, 'randomUUID', {
+  value: vi.fn(() => 'mock-uuid-' + Math.random().toString(36).substr(2, 9))
+});
 
 // Mock window.matchMedia (used by MUI)
 Object.defineProperty(window, 'matchMedia', {

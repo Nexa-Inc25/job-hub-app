@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Job Hub Health Check & Debugging Script
+ * FieldLedger Health Check & Debugging Script
  * 
  * Run with: node scripts/healthCheck.js
  * 
@@ -38,7 +38,7 @@ const log = {
 
 async function runHealthCheck() {
   console.log('\n' + '='.repeat(60));
-  console.log(colors.bold + '  JOB HUB HEALTH CHECK & DEBUGGING SCRIPT' + colors.reset);
+  console.log(colors.bold + '  FIELDLEDGER HEALTH CHECK & DEBUGGING SCRIPT' + colors.reset);
   console.log('='.repeat(60));
 
   const results = {

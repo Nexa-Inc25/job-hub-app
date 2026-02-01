@@ -1,12 +1,12 @@
-# Job Hub Pro
+# FieldLedger
 
-**Enterprise Utility Construction Job Management Platform**
+**Unit-Price Billing Platform for Utility Contractors**
 
 [![SonarCloud](https://sonarcloud.io/api/project_badges/measure?project=Nexa-Inc25_job-hub-app&metric=alert_status)](https://sonarcloud.io/dashboard?id=Nexa-Inc25_job-hub-app)
 [![Security](https://img.shields.io/badge/security-enterprise--grade-green)](./docs/security.md)
 [![License](https://img.shields.io/badge/license-Proprietary-blue)](./LICENSE)
 
-Job Hub Pro is a comprehensive job management platform designed for utility construction companies working with major utilities like PG&E. It streamlines the entire job lifecycle from pre-fielding to billing, with AI-powered document processing, offline-first mobile support, and enterprise security features.
+FieldLedger is a comprehensive unit-price billing platform designed for utility construction companies working with major utilities like PG&E. It captures field work with GPS-verified "Digital Receipts," syncs offline data with NIST-compliant security, and exports directly to Oracle Payables for seamless ERP integration.
 
 ---
 
@@ -213,8 +213,8 @@ docker-compose down
 
 | Service | Platform | URL |
 |---------|----------|-----|
-| Frontend | Vercel | https://job-hub-app.vercel.app |
-| Backend | Railway | https://jobhubpro.com/api |
+| Frontend | Vercel | https://app.fieldledger.io |
+| Backend | Railway | https://api.fieldledger.io |
 | Database | MongoDB Atlas | M10 Cluster |
 | Storage | Cloudflare R2 | - |
 
@@ -240,7 +240,7 @@ API documentation is available via Swagger UI at `/api/docs` when running locall
 
 ## Security
 
-Job Hub Pro implements enterprise-grade security:
+FieldLedger implements enterprise-grade security:
 
 ### Authentication & Authorization
 - JWT-based authentication with 24-hour expiry
@@ -330,5 +330,5 @@ This software is proprietary and confidential.
 
 ## Support
 
-For support, contact: support@jobhubpro.com
+For support, contact: support@fieldledger.io
 

@@ -22,14 +22,12 @@ import {
   Tooltip,
   Chip,
 } from '@mui/material';
-import {
-  Feedback as FeedbackIcon,
-  BugReport as BugIcon,
-  Lightbulb as FeatureIcon,
-  Help as QuestionIcon,
-  Send as SendIcon,
-  Close as CloseIcon,
-} from '@mui/icons-material';
+import FeedbackIcon from '@mui/icons-material/Feedback';
+import BugIcon from '@mui/icons-material/BugReport';
+import FeatureIcon from '@mui/icons-material/Lightbulb';
+import QuestionIcon from '@mui/icons-material/Help';
+import SendIcon from '@mui/icons-material/Send';
+import CloseIcon from '@mui/icons-material/Close';
 import api from '../api';
 
 const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) => {
@@ -158,7 +156,7 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
             </IconButton>
           </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Help us improve Job Hub! Report bugs or suggest features.
+            Help us improve FieldLedger! Report bugs or suggest features.
           </Typography>
         </DialogTitle>
 

@@ -23,14 +23,12 @@ import {
   CircularProgress,
   Chip
 } from '@mui/material';
-import {
-  CloudOff,
-  CloudDone,
-  CloudSync,
-  Sync,
-  Photo,
-  Description
-} from '@mui/icons-material';
+import CloudOff from '@mui/icons-material/CloudOff';
+import CloudDone from '@mui/icons-material/CloudDone';
+import CloudSync from '@mui/icons-material/CloudSync';
+import Sync from '@mui/icons-material/Sync';
+import Photo from '@mui/icons-material/Photo';
+import Description from '@mui/icons-material/Description';
 import { useOffline } from '../hooks/useOffline';
 
 const OfflineIndicator = ({ color = 'inherit' }) => {

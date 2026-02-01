@@ -6,7 +6,7 @@ Set these environment variables in Railway dashboard:
 
 ```
 # MongoDB Connection
-MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/jobhub?retryWrites=true&w=majority
+MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/fieldledger?retryWrites=true&w=majority
 
 # JWT Secret (generate a random string - use: openssl rand -hex 32)
 JWT_SECRET=your-super-secret-jwt-key-change-this
@@ -27,7 +27,7 @@ When you add cloud storage for files:
 R2_ACCOUNT_ID=your-cloudflare-account-id
 R2_ACCESS_KEY_ID=your-r2-access-key
 R2_SECRET_ACCESS_KEY=your-r2-secret-key
-R2_BUCKET_NAME=job-hub-uploads
+R2_BUCKET_NAME=fieldledger-uploads
 R2_PUBLIC_URL=https://your-bucket.r2.dev
 ```
 

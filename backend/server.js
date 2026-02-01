@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Work Order Management System
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Unit-Price Billing for Utility Contractors
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * Proprietary and Confidential. Unauthorized copying or distribution prohibited.
  */
 
@@ -46,6 +46,8 @@ const apiRoutes = require('./routes/api');
 const proceduresRoutes = require('./routes/procedures.routes');
 const asbuiltAssistantRoutes = require('./routes/asbuilt-assistant.routes');
 const tailboardRoutes = require('./routes/tailboard.routes');
+const priceBookRoutes = require('./routes/pricebook.routes');
+const billingRoutes = require('./routes/billing.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -195,10 +197,10 @@ app.use('/api/', apiLimiter);
 // ============================================
 // CORS - whitelist allowed origins for security
 const allowedOrigins = [
-  'https://jobhubpro.com',
-  'https://www.jobhubpro.com',
-  'https://job-hub-app.vercel.app',
-  'https://job-hub-app-git-main.vercel.app',
+  'https://fieldledger.io',
+  'https://www.fieldledger.io',
+  'https://app.fieldledger.io',
+  'https://fieldledger.vercel.app',
   process.env.FRONTEND_URL,
   'http://localhost:3000',
   'http://localhost:5173'
@@ -244,7 +246,7 @@ app.use((req, res, next) => {
 // Root endpoint - redirect to health check or show status
 app.get('/', (req, res) => {
   res.json({
-    name: 'Job Hub API',
+    name: 'FieldLedger API',
     version: '1.0.0-pilot',
     status: 'running',
     health: '/api/health',
@@ -352,7 +354,7 @@ const authenticateUser = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.userId = decoded.userId;
     req.isAdmin = decoded.isAdmin || false;
-    req.isSuperAdmin = decoded.isSuperAdmin || false;  // Job Hub platform owners only
+    req.isSuperAdmin = decoded.isSuperAdmin || false;  // FieldLedger platform owners only
     req.userRole = decoded.role || null;  // crew, foreman, gf, pm, admin
     req.canApprove = decoded.canApprove || false;
     next();
@@ -371,11 +373,11 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-// Super Admin middleware (Job Hub platform owners only)
+// Super Admin middleware (FieldLedger platform owners only)
 const requireSuperAdmin = (req, res, next) => {
   if (!req.isSuperAdmin) {
     console.log('Super Admin access denied for user:', req.userId);
-    return res.status(403).json({ error: 'Super Admin access required. This feature is for Job Hub platform owners only.' });
+    return res.status(403).json({ error: 'Super Admin access required. This feature is for FieldLedger platform owners only.' });
   }
   next();
 };
@@ -864,6 +866,12 @@ app.use('/api/asbuilt-assistant', authenticateUser, asbuiltAssistantRoutes);
 // Mount tailboard/JHA routes (daily safety tailboards)
 app.use('/api/tailboards', authenticateUser, tailboardRoutes);
 
+// Mount price book routes (unit-price rate management)
+app.use('/api/pricebooks', authenticateUser, priceBookRoutes);
+
+// Mount billing routes (unit entries, claims, Oracle export)
+app.use('/api/billing', authenticateUser, billingRoutes);
+
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
 // Get current user profile - Now using modular controller
@@ -1180,7 +1188,7 @@ app.get('/api/jobs', authenticateUser, async (req, res) => {
     // MULTI-TENANT SECURITY: Filter by companyId
     // ============================================
     // Every user MUST only see jobs from their own company
-    // Super Admins see their own company's jobs (Job Hub) - they use Owner Dashboard for analytics
+    // Super Admins see their own company's jobs (FieldLedger) - they use Owner Dashboard for analytics
     if (userCompanyId) {
       query.companyId = userCompanyId;
     } else {

@@ -1,6 +1,6 @@
 // backend/test-mongo.js (for testing connection)
 const { MongoClient, ServerApiVersion } = require('mongodb');
-const uri = process.env.MONGO_URI || "mongodb+srv://jobhub:LBiS5%40u%26@nexa.sus4z0m.mongodb.net/jobhub?appName=nexa";
+const uri = process.env.MONGO_URI || "mongodb+srv://fieldledger:LBiS5%40u%26@nexa.sus4z0m.mongodb.net/fieldledger?appName=nexa";
 
 const client = new MongoClient(uri, {
   serverApi: {

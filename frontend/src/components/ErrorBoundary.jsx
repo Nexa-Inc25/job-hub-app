@@ -8,7 +8,9 @@
 import React, { Component } from 'react';
 import PropTypes from 'prop-types';
 import { Box, Typography, Button, Paper, Alert } from '@mui/material';
-import { Refresh, BugReport, Home } from '@mui/icons-material';
+import Refresh from '@mui/icons-material/Refresh';
+import BugReport from '@mui/icons-material/BugReport';
+import Home from '@mui/icons-material/Home';
 
 class ErrorBoundary extends Component {
   constructor(props) {

@@ -9,11 +9,9 @@ import {
   IconButton,
   InputAdornment,
 } from '@mui/material';
-import {
-  Visibility,
-  VisibilityOff,
-  PersonAdd as PersonAddIcon,
-} from '@mui/icons-material';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import { AuthLayout } from './shared';
 
 const Signup = () => {

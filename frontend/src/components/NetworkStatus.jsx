@@ -7,7 +7,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { Snackbar, Alert, Slide, Box, LinearProgress } from '@mui/material';
-import { WifiOff, Wifi, CloudSync } from '@mui/icons-material';
+import WifiOff from '@mui/icons-material/WifiOff';
+import Wifi from '@mui/icons-material/Wifi';
+import CloudSync from '@mui/icons-material/CloudSync';
 
 function SlideTransition(props) {
   return <Slide {...props} direction="down" />;

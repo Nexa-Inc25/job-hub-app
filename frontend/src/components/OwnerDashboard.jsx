@@ -24,26 +24,24 @@ import {
   CircularProgress,
   Snackbar,
 } from '@mui/material';
-import {
-  Dashboard as DashboardIcon,
-  People as PeopleIcon,
-  Work as WorkIcon,
-  Speed as SpeedIcon,
-  AttachMoney as MoneyIcon,
-  CheckCircle as CheckIcon,
-  Error as ErrorIcon,
-  Memory as MemoryIcon,
-  Cloud as CloudIcon,
-  ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
-  Schedule as ScheduleIcon,
-  Psychology as AIIcon,
-  Business as BusinessIcon,
-  Feedback as FeedbackIcon,
-  BugReport as BugIcon,
-  Lightbulb as FeatureIcon,
-  Help as QuestionIcon,
-} from '@mui/icons-material';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import PeopleIcon from '@mui/icons-material/People';
+import WorkIcon from '@mui/icons-material/Work';
+import SpeedIcon from '@mui/icons-material/Speed';
+import MoneyIcon from '@mui/icons-material/AttachMoney';
+import CheckIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import MemoryIcon from '@mui/icons-material/Memory';
+import CloudIcon from '@mui/icons-material/Cloud';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import AIIcon from '@mui/icons-material/Psychology';
+import BusinessIcon from '@mui/icons-material/Business';
+import FeedbackIcon from '@mui/icons-material/Feedback';
+import BugIcon from '@mui/icons-material/BugReport';
+import FeatureIcon from '@mui/icons-material/Lightbulb';
+import QuestionIcon from '@mui/icons-material/Help';
 import { useThemeMode } from '../ThemeContext';
 import {
   BarChart,
@@ -112,7 +110,7 @@ const handleFetchError = (err, navigate) => {
   const status = err.response?.status;
   
   if (status === 403) {
-    return 'Super Admin access required. This dashboard is only for Job Hub platform owners.';
+    return 'Super Admin access required. This dashboard is only for FieldLedger platform owners.';
   }
   if (status === 401) {
     navigate('/login');
@@ -183,7 +181,7 @@ const OwnerDashboard = () => {
         return;
       }
     if (!tokenCheck.valid) {
-          setError('Super Admin access required. This dashboard is only for Job Hub platform owners.');
+          setError('Super Admin access required. This dashboard is only for FieldLedger platform owners.');
           setLoading(false);
         return;
       }

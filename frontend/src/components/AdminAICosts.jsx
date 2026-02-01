@@ -10,14 +10,12 @@ import {
   Paper,
   Grid,
 } from '@mui/material';
-import {
-  AttachMoney as MoneyIcon,
-  Psychology as AIIcon,
-  Speed as SpeedIcon,
-  TrendingUp as TrendingUpIcon,
-  CheckCircle as CheckIcon,
-  Error as ErrorIcon,
-} from '@mui/icons-material';
+import MoneyIcon from '@mui/icons-material/AttachMoney';
+import AIIcon from '@mui/icons-material/Psychology';
+import SpeedIcon from '@mui/icons-material/Speed';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import CheckIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors } from './shared/themeUtils';
 import {

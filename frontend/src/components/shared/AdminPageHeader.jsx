@@ -11,7 +11,7 @@ import {
   Typography,
   Chip,
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const AdminPageHeader = ({
   title,

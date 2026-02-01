@@ -1,5 +1,5 @@
 /**
- * Job Hub Service Worker
+ * FieldLedger Service Worker
  * 
  * Provides:
  * - Static asset caching
@@ -9,9 +9,9 @@
  */
 
 const CACHE_VERSION = 'v2';
-const STATIC_CACHE = `jobhub-static-${CACHE_VERSION}`;
-const API_CACHE = `jobhub-api-${CACHE_VERSION}`;
-const IMAGE_CACHE = `jobhub-images-${CACHE_VERSION}`;
+const STATIC_CACHE = `fieldledger-static-${CACHE_VERSION}`;
+const API_CACHE = `fieldledger-api-${CACHE_VERSION}`;
+const IMAGE_CACHE = `fieldledger-images-${CACHE_VERSION}`;
 
 const OFFLINE_URL = '/offline.html';
 
@@ -56,7 +56,7 @@ self.addEventListener('activate', event => {
         return Promise.all(
           keys
             .filter(key => {
-              return key.startsWith('jobhub-') && 
+              return key.startsWith('fieldledger-') && 
                      key !== STATIC_CACHE && 
                      key !== API_CACHE && 
                      key !== IMAGE_CACHE;
@@ -246,39 +246,106 @@ function isImageRequest(request) {
 }
 
 // Handle background sync for pending operations
+// This is the "Secondary (Background Sync)" part of the Hybrid Sync Architecture
 self.addEventListener('sync', event => {
   console.log('[SW] Background sync triggered:', event.tag);
   
-  if (event.tag === 'sync-pending') {
-    event.waitUntil(
-      // Notify all clients to trigger sync
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({ type: 'SYNC_TRIGGERED' });
-        });
-      })
-    );
+  // Handle queue sync (matches registration from useSync hook)
+  if (event.tag === 'sync-queue' || event.tag === 'sync-pending') {
+    event.waitUntil(handleBackgroundSync());
+  }
+});
+
+/**
+ * Handle background sync - notify clients to process queue
+ * The actual queue processing happens in the main thread (QueueManager)
+ * because IndexedDB access is more reliable there.
+ */
+async function handleBackgroundSync() {
+  console.log('[SW] Starting background sync...');
+  
+  try {
+    // Get all clients (open windows/tabs)
+    const clients = await self.clients.matchAll({ type: 'window' });
+    
+    if (clients.length > 0) {
+      // Notify first available client to handle sync
+      // This triggers the QueueManager in the main thread
+      clients[0].postMessage({ 
+        type: 'BACKGROUND_SYNC_TRIGGERED',
+        timestamp: Date.now(),
+      });
+      console.log('[SW] Notified client to process sync queue');
+    } else {
+      // No clients open - we can't process the queue from SW
+      // because IndexedDB and our app code aren't available here
+      // The sync will happen when the app is next opened
+      console.log('[SW] No active clients - sync will resume when app opens');
+    }
+  } catch (err) {
+    console.error('[SW] Background sync error:', err);
+    throw err; // Let the browser retry
+  }
+}
+
+// Handle periodic background sync (if supported)
+self.addEventListener('periodicsync', event => {
+  console.log('[SW] Periodic sync triggered:', event.tag);
+  
+  if (event.tag === 'sync-queue-periodic') {
+    event.waitUntil(handleBackgroundSync());
   }
 });
 
 // Handle messages from main app
 self.addEventListener('message', event => {
-  if (event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  const { type, data } = event.data || {};
   
-  if (event.data.type === 'CACHE_JOB') {
-    // Cache a specific job's data
-    const jobUrl = event.data.url;
-    fetch(jobUrl)
-      .then(response => {
-        if (response.ok) {
-          caches.open(API_CACHE).then(cache => {
-            cache.put(jobUrl, response);
-          });
+  switch (type) {
+    case 'SKIP_WAITING':
+      self.skipWaiting();
+      break;
+      
+    case 'CACHE_JOB':
+      // Cache a specific job's data
+      const jobUrl = data?.url || event.data.url;
+      if (jobUrl) {
+        fetch(jobUrl)
+          .then(response => {
+            if (response.ok) {
+              caches.open(API_CACHE).then(cache => {
+                cache.put(jobUrl, response);
+              });
+            }
+          })
+          .catch(err => console.log('[SW] Failed to cache job:', err));
+      }
+      break;
+      
+    case 'GET_SYNC_STATUS':
+      // Respond with current SW status
+      event.source?.postMessage({
+        type: 'SYNC_STATUS',
+        data: {
+          cacheVersion: CACHE_VERSION,
+          online: self.navigator?.onLine ?? true,
         }
-      })
-      .catch(err => console.log('[SW] Failed to cache job:', err));
+      });
+      break;
+      
+    case 'REGISTER_PERIODIC_SYNC':
+      // Try to register periodic sync (progressive enhancement)
+      if ('periodicSync' in self.registration) {
+        self.registration.periodicSync.register('sync-queue-periodic', {
+          minInterval: 15 * 60 * 1000 // 15 minutes
+        }).then(() => {
+          console.log('[SW] Periodic sync registered');
+          event.source?.postMessage({ type: 'PERIODIC_SYNC_REGISTERED' });
+        }).catch(err => {
+          console.log('[SW] Periodic sync registration failed:', err);
+        });
+      }
+      break;
   }
 });
 

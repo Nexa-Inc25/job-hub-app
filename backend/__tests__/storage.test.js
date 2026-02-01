@@ -253,7 +253,7 @@ describe('Storage Utility', () => {
     });
     
     it('should use default bucket name when not set', () => {
-      expect(storage.BUCKET_NAME).toBe('job-hub-uploads');
+      expect(storage.BUCKET_NAME).toBe('fieldledger-uploads');
     });
   });
 });

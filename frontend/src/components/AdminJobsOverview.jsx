@@ -11,12 +11,10 @@ import {
   Grid,
   Chip,
 } from '@mui/material';
-import {
-  Work as WorkIcon,
-  Warning as WarningIcon,
-  Schedule as ScheduleIcon,
-  TrendingUp as TrendingUpIcon,
-} from '@mui/icons-material';
+import WorkIcon from '@mui/icons-material/Work';
+import WarningIcon from '@mui/icons-material/Warning';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import { useThemeMode } from '../ThemeContext';
 import {
   PieChart,

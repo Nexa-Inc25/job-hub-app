@@ -1,4 +1,4 @@
-# Job Hub Pro - Backend Dockerfile
+# FieldLedger - Backend Dockerfile
 # Multi-stage build for optimized production image
 
 # ============================================

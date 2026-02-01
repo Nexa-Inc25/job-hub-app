@@ -13,7 +13,7 @@ describe('Health Check', () => {
 
   it('should have correct page title', () => {
     cy.visit('/');
-    cy.title().should('include', 'Job Hub');
+    cy.title().should('include', 'FieldLedger');
   });
 
   it('should have no console errors on load', () => {

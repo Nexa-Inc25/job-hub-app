@@ -45,7 +45,36 @@ const utilitySchema = new mongoose.Schema({
   // AI extraction hints (utility-specific terminology)
   aiHints: String,
   
-  // SAP integration config (for future direct integration)
+  // === ERP/ORACLE INTEGRATION (for billing module) ===
+  erpIntegration: {
+    // Oracle Cloud specific
+    oracleVendorId: String,           // Utility's Oracle vendor ID
+    oracleBusinessUnit: String,       // Oracle Business Unit code
+    oracleProjectPrefix: String,      // How project numbers map (e.g., "PGE-" prefix)
+    oracleLegalEntity: String,        // Oracle Legal Entity
+    
+    // SAP specific (PG&E uses SAP/Oracle hybrid)
+    sapCompanyCode: String,           // SAP company code
+    sapVendorNumber: String,          // SAP vendor master number
+    sapPlant: String,                 // SAP plant code
+    sapPurchasingOrg: String,         // SAP purchasing organization
+    
+    // Generic integration
+    externalSystemId: String,         // Generic external system reference
+    apiEndpoint: String,              // Future: direct API endpoint for invoice submission
+    apiVersion: String,               // API version for compatibility
+    
+    // Rate sheet metadata
+    masterContractNumber: String,     // MSA contract number
+    rateSheetVersion: String,         // Current rate sheet version
+    rateEffectiveDate: Date,          // When current rates took effect
+    
+    // Sync tracking
+    lastSyncedAt: Date,               // Last successful data sync
+    syncEnabled: { type: Boolean, default: false }
+  },
+  
+  // Legacy SAP integration config (keeping for backwards compatibility)
   sapIntegration: {
     enabled: { type: Boolean, default: false },
     endpoint: String,

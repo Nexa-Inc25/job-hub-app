@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Job Hub Pro API uses URL-based versioning to ensure backwards compatibility as the API evolves.
+The FieldLedger API uses URL-based versioning to ensure backwards compatibility as the API evolves.
 
 ## Current Versions
 
@@ -16,14 +16,14 @@ The Job Hub Pro API uses URL-based versioning to ensure backwards compatibility 
 ### Recommended (Versioned)
 ```bash
 # Use explicit version
-curl https://api.jobhubpro.com/api/v1/jobs
-curl https://api.jobhubpro.com/api/v1/auth/login
+curl https://api.fieldledger.io/api/v1/jobs
+curl https://api.fieldledger.io/api/v1/auth/login
 ```
 
 ### Legacy (Unversioned)
 ```bash
 # Still works but deprecated
-curl https://api.jobhubpro.com/api/jobs
+curl https://api.fieldledger.io/api/jobs
 ```
 
 ## Version Lifecycle

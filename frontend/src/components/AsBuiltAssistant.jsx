@@ -18,14 +18,12 @@ import {
   List,
   ListItem
 } from '@mui/material';
-import {
-  SmartToy as AiIcon,
-  Send as SendIcon,
-  CheckCircle as CheckIcon,
-  Assignment as AsBuiltIcon,
-  Chat as ChatIcon,
-  Refresh as RefreshIcon
-} from '@mui/icons-material';
+import AiIcon from '@mui/icons-material/SmartToy';
+import SendIcon from '@mui/icons-material/Send';
+import CheckIcon from '@mui/icons-material/CheckCircle';
+import AsBuiltIcon from '@mui/icons-material/Assignment';
+import ChatIcon from '@mui/icons-material/Chat';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import api from '../api';
 
 // Helper to generate unique message IDs

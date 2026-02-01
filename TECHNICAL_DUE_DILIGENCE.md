@@ -1,4 +1,4 @@
-# Job Hub Pro - Technical Due Diligence Summary
+# FieldLedger - Technical Due Diligence Summary
 
 **Prepared for:** Enterprise Acquisition Review  
 **Date:** January 2026  
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Job Hub Pro is a production-ready, enterprise-grade job management platform designed for utility construction contractors. The platform manages the complete lifecycle of utility work orders, from dispatch through billing, with integrated document management, field crew coordination, and compliance tracking.
+FieldLedger is a production-ready, enterprise-grade unit-price billing platform designed for utility construction contractors. The platform captures field work with GPS-verified Digital Receipts, syncs with NIST-compliant security, and exports directly to Oracle Payables for seamless ERP integration.
 
 ### Key Technical Highlights
 
@@ -441,5 +441,5 @@ docker-compose up
 ---
 
 *Document generated: January 2026*  
-*Job Hub Pro v1.0 - Enterprise Edition*
+*FieldLedger v1.0 - Enterprise Edition*
 

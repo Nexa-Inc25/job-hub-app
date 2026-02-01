@@ -4,7 +4,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Box, IconButton, Tooltip } from '@mui/material';
-import { DarkMode as DarkModeIcon, LightMode as LightModeIcon } from '@mui/icons-material';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 
 const ThemeToggle = ({ darkMode, onToggle, position = 'absolute' }) => (
   <Box sx={{ position, top: 16, right: 16 }}>

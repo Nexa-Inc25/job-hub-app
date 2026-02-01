@@ -26,15 +26,13 @@ import {
   AccordionDetails,
   LinearProgress
 } from '@mui/material';
-import {
-  CloudUpload as UploadIcon,
-  Description as DocIcon,
-  ExpandMore as ExpandIcon,
-  CheckCircle as CheckIcon,
-  HourglassEmpty as PendingIcon,
-  Error as ErrorIcon,
-  QuestionAnswer as QuestionIcon
-} from '@mui/icons-material';
+import UploadIcon from '@mui/icons-material/CloudUpload';
+import DocIcon from '@mui/icons-material/Description';
+import ExpandIcon from '@mui/icons-material/ExpandMore';
+import CheckIcon from '@mui/icons-material/CheckCircle';
+import PendingIcon from '@mui/icons-material/HourglassEmpty';
+import ErrorIcon from '@mui/icons-material/Error';
+import QuestionIcon from '@mui/icons-material/QuestionAnswer';
 import api from '../api';
 
 const docTypes = [

@@ -1,5 +1,5 @@
 /**
- * Jest Configuration for Job Hub Backend
+ * Jest Configuration for FieldLedger Backend
  * 
  * Uses mongodb-memory-server for isolated database testing.
  */

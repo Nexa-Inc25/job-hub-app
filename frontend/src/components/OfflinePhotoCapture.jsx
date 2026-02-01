@@ -26,15 +26,13 @@ import {
   Chip,
   Stack
 } from '@mui/material';
-import {
-  CameraAlt,
-  FlipCameraIos,
-  Close,
-  CloudUpload,
-  CloudOff,
-  CheckCircle,
-  PhotoLibrary
-} from '@mui/icons-material';
+import CameraAlt from '@mui/icons-material/CameraAlt';
+import FlipCameraIos from '@mui/icons-material/FlipCameraIos';
+import Close from '@mui/icons-material/Close';
+import CloudUpload from '@mui/icons-material/CloudUpload';
+import CloudOff from '@mui/icons-material/CloudOff';
+import CheckCircle from '@mui/icons-material/CheckCircle';
+import PhotoLibrary from '@mui/icons-material/PhotoLibrary';
 import { useOffline } from '../hooks/useOffline';
 
 const OfflinePhotoCapture = ({ 

@@ -19,15 +19,13 @@ import {
   TextField,
   InputAdornment,
 } from '@mui/material';
-import {
-  People as PeopleIcon,
-  Business as BusinessIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Search as SearchIcon,
-  AdminPanelSettings as AdminIcon,
-  Person as PersonIcon,
-} from '@mui/icons-material';
+import PeopleIcon from '@mui/icons-material/People';
+import BusinessIcon from '@mui/icons-material/Business';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import SearchIcon from '@mui/icons-material/Search';
+import AdminIcon from '@mui/icons-material/AdminPanelSettings';
+import PersonIcon from '@mui/icons-material/Person';
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors, LoadingState, ErrorState, ROLE_COLORS, ROLE_LABELS, AdminPageHeader } from './shared';
 

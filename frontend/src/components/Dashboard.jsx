@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Dashboard Component
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Dashboard Component
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -31,40 +31,39 @@ import {
   Toolbar,
   Tooltip,
 } from '@mui/material';
-import {
-  Search as SearchIcon,
-  Add as AddIcon,
-  FilterList as FilterIcon,
-  MoreVert as MoreVertIcon,
-  Description as DescriptionIcon,
-  Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  // Error as ErrorIcon, // Currently unused
-  Person as PersonIcon,
-  Assessment as AssessmentIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Folder as FolderIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
-  Logout as LogoutIcon,
-  AssignmentInd as AssignIcon,
-  CalendarMonth as CalendarIcon,
-  Flip as FlipIcon,
-  Chat as ChatIcon,
-  Construction as ConstructionIcon,
-  Build as BuildIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Today as TodayIcon,
-  EventNote as EventNoteIcon,
-  Block as BlockIcon,
-  Analytics as AnalyticsIcon,
-  Download as DownloadIcon,
-  FactCheck as FactCheckIcon,
-  MenuBook as MenuBookIcon,
-} from '@mui/icons-material';
+import SearchIcon from '@mui/icons-material/Search';
+import AddIcon from '@mui/icons-material/Add';
+import FilterIcon from '@mui/icons-material/FilterList';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import DescriptionIcon from '@mui/icons-material/Description';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import WarningIcon from '@mui/icons-material/Warning';
+import ErrorIcon from '@mui/icons-material/Error';
+import PersonIcon from '@mui/icons-material/Person';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import FolderIcon from '@mui/icons-material/Folder';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import LogoutIcon from '@mui/icons-material/Logout';
+import AssignIcon from '@mui/icons-material/AssignmentInd';
+import CalendarIcon from '@mui/icons-material/CalendarMonth';
+import ReceiptIcon from '@mui/icons-material/Receipt';
+import FlipIcon from '@mui/icons-material/Flip';
+import ChatIcon from '@mui/icons-material/Chat';
+import ConstructionIcon from '@mui/icons-material/Construction';
+import BuildIcon from '@mui/icons-material/Build';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import TodayIcon from '@mui/icons-material/Today';
+import EventNoteIcon from '@mui/icons-material/EventNote';
+import BlockIcon from '@mui/icons-material/Block';
+import AnalyticsIcon from '@mui/icons-material/Analytics';
+import DownloadIcon from '@mui/icons-material/Download';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import MenuBookIcon from '@mui/icons-material/MenuBook';
 import Dialog from '@mui/material/Dialog';
 import FeedbackButton from './FeedbackButton';
 import OfflineIndicator from './OfflineIndicator';
@@ -472,7 +471,7 @@ const Dashboard = () => {
     assignmentNotes: ''
   });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Job Hub platform owners only
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // FieldLedger platform owners only
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
   const [userName, setUserName] = useState('');
   const [canApprove, setCanApprove] = useState(false);
@@ -1051,6 +1050,10 @@ const Dashboard = () => {
     navigate('/calendar');
   };
 
+  const handleGoToBilling = () => {
+    navigate('/billing');
+  };
+
   const handleCreateWorkOrder = () => {
     navigate('/create-wo');
   };
@@ -1132,10 +1135,10 @@ const Dashboard = () => {
       <AppBar position="static" elevation={0} sx={{ mb: 3 }}>
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
-            JobHub
+            FieldLedger
           </Typography>
           
-          {/* Owner Dashboard - Super Admin Only (Job Hub Owners) */}
+          {/* Owner Dashboard - Super Admin Only (FieldLedger Owners) */}
           {isSuperAdmin && (
             <Tooltip title="Owner Dashboard">
               <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }} aria-label="Admin Dashboard">
@@ -1162,6 +1165,13 @@ const Dashboard = () => {
             </Tooltip>
           )}
           
+          {/* Billing Button */}
+          <Tooltip title="Unit Billing">
+            <IconButton color="inherit" onClick={handleGoToBilling} sx={{ mr: 1 }} aria-label="Billing">
+              <ReceiptIcon />
+            </IconButton>
+          </Tooltip>
+
           {/* Calendar Button */}
           <Tooltip title="My Schedule">
             <IconButton color="inherit" onClick={handleGoToCalendar} sx={{ mr: 1 }} aria-label="Calendar">

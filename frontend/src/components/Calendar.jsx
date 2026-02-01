@@ -13,12 +13,10 @@ import {
   FormControlLabel,
   Switch
 } from '@mui/material';
-import {
-  ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
-  Today as TodayIcon,
-  Work as WorkIcon
-} from '@mui/icons-material';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import TodayIcon from '@mui/icons-material/Today';
+import WorkIcon from '@mui/icons-material/Work';
 import api from '../api';
 
 // Helper to get admin status from token synchronously

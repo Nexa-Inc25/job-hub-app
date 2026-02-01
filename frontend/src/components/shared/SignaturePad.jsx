@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - SignaturePad Component
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - SignaturePad Component
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * 
  * Reusable signature capture component for crew sign-offs.
  */
@@ -21,11 +21,9 @@ import {
   useTheme,
   useMediaQuery
 } from '@mui/material';
-import {
-  Clear as ClearIcon,
-  Check as CheckIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
+import ClearIcon from '@mui/icons-material/Clear';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 
 /**
  * SignaturePad Component

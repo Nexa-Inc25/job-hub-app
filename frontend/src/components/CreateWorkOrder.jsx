@@ -20,13 +20,11 @@ import {
   MenuItem,
   Divider,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  CloudUpload as CloudUploadIcon,
-  Save as SaveIcon,
-  DarkMode as DarkModeIcon,
-  LightMode as LightModeIcon,
-} from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
+import SaveIcon from '@mui/icons-material/Save';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import { useThemeMode } from '../ThemeContext';
 
 const CreateWorkOrder = ({ token }) => {

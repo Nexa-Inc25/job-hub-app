@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Tailboard Controller
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Tailboard Controller
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * 
  * Handles CRUD operations for daily tailboard/JHA meetings.
  */

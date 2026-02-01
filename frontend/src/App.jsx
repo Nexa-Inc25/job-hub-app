@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Work Order Management System
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Unit-Price Billing for Utility Contractors
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * Proprietary and Confidential. Unauthorized copying or distribution prohibited.
  */
 
@@ -32,6 +32,10 @@ const SpecLibrary = lazy(() => import('./components/SpecLibrary'));
 const ProcedureManager = lazy(() => import('./components/ProcedureManager'));
 const AsBuiltAssistant = lazy(() => import('./components/AsBuiltAssistant'));
 const TailboardForm = lazy(() => import('./components/TailboardForm'));
+const BillingDashboard = lazy(() => import('./components/billing/BillingDashboard'));
+const UnitEntryForm = lazy(() => import('./components/billing/UnitEntryForm'));
+const ForemanCapturePage = lazy(() => import('./components/billing/ForemanCapturePage'));
+const PriceBookAdmin = lazy(() => import('./components/billing/PriceBookAdmin'));
 
 // CSS-only loading spinner - avoids MUI import in critical path
 const spinnerStyle = {
@@ -92,6 +96,11 @@ function App() {
               <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
               <Route path="/jobs/:jobId/tailboard" element={<TailboardForm />} />
               <Route path="/calendar" element={<Calendar />} />
+              <Route path="/billing" element={<BillingDashboard />} />
+              <Route path="/billing/pricebooks" element={<PriceBookAdmin />} />
+              <Route path="/billing/capture" element={<UnitEntryForm />} />
+              <Route path="/billing/capture/:jobId" element={<ForemanCapturePage />} />
+              <Route path="/jobs/:jobId/log-unit" element={<ForemanCapturePage />} />
               <Route path="*" element={<div>404 - Not Found</div>} />
             </Routes>
           </Suspense>

@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Theme Context
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Theme Context
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';

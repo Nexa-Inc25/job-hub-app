@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Tailboard/JHA Model
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Tailboard/JHA Model
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * 
  * Daily tailboard meetings for crew safety briefings.
  * Records hazards, controls, PPE, and crew acknowledgments.

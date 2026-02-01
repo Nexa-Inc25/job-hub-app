@@ -1,5 +1,5 @@
 // src/components/CompanyOnboarding.js
-// Super simple UI for Job Hub owners to onboard new contractor companies
+// Super simple UI for FieldLedger owners to onboard new contractor companies
 // Designed to be usable by non-technical people
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -34,18 +34,16 @@ import {
   Collapse,
   CircularProgress,
 } from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Add as AddIcon,
-  Business as BusinessIcon,
-  Person as PersonIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Key as KeyIcon,
-  Folder as FolderIcon,
-  Delete as DeleteIcon,
-  CreateNewFolder as CreateNewFolderIcon,
-} from '@mui/icons-material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AddIcon from '@mui/icons-material/Add';
+import BusinessIcon from '@mui/icons-material/Business';
+import PersonIcon from '@mui/icons-material/Person';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import KeyIcon from '@mui/icons-material/Key';
+import FolderIcon from '@mui/icons-material/Folder';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
 import { useThemeMode } from '../ThemeContext';
 
 // Role descriptions for the dropdown

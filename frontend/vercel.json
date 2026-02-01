@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://api.jobhubpro.com/api/:path*"
+      "destination": "https://api.fieldledger.io/api/:path*"
     },
     {
       "source": "/(.*)",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Job Hub Security Audit Script
+ * FieldLedger Security Audit Script
  * 
  * Run with: node scripts/securityAudit.js
  * 
@@ -35,7 +35,7 @@ const log = {
 
 async function runSecurityAudit() {
   console.log('\n' + '='.repeat(60));
-  console.log(colors.bold + '  JOB HUB SECURITY AUDIT' + colors.reset);
+  console.log(colors.bold + '  FIELDLEDGER SECURITY AUDIT' + colors.reset);
   console.log('='.repeat(60));
 
   const issues = { critical: 0, warning: 0, info: 0 };

@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Job Model
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Job Model
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
 const mongoose = require('mongoose');

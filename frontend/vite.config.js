@@ -8,7 +8,27 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/setupTests.js',
-    css: true
+    css: true,
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: [
+        'src/components/billing/**',
+        'src/hooks/**',
+        'src/utils/offlineStorage.js'
+      ],
+      exclude: [
+        'node_modules',
+        'src/**/*.test.{js,jsx}',
+        'src/**/__tests__/**'
+      ],
+      thresholds: {
+        statements: 60,
+        branches: 60,
+        functions: 50,
+        lines: 60
+      }
+    }
   },
   server: {
     port: 3000,
@@ -79,5 +99,8 @@ export default defineConfig({
         '.js': 'jsx'
       }
     }
+  },
+  resolve: {
+    dedupe: ['react', 'react-dom', '@emotion/react', '@emotion/styled']
   }
 });

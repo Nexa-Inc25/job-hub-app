@@ -28,21 +28,19 @@ import {
   Tabs,
   Tab,
 } from '@mui/material';
-import {
-  Security as SecurityIcon,
-  Warning as WarningIcon,
-  CheckCircle as CheckCircleIcon,
-  Error as ErrorIcon,
-  Refresh as RefreshIcon,
-  Download as DownloadIcon,
-  ArrowBack as ArrowBackIcon,
-  Login as LoginIcon,
-  Logout as LogoutIcon,
-  Description as DescriptionIcon,
-  Person as PersonIcon,
-  Shield as ShieldIcon,
-  FilterList as FilterIcon,
-} from '@mui/icons-material';
+import SecurityIcon from '@mui/icons-material/Security';
+import WarningIcon from '@mui/icons-material/Warning';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import DownloadIcon from '@mui/icons-material/Download';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LoginIcon from '@mui/icons-material/Login';
+import LogoutIcon from '@mui/icons-material/Logout';
+import DescriptionIcon from '@mui/icons-material/Description';
+import PersonIcon from '@mui/icons-material/Person';
+import ShieldIcon from '@mui/icons-material/Shield';
+import FilterIcon from '@mui/icons-material/FilterList';
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors } from './shared/themeUtils';
 

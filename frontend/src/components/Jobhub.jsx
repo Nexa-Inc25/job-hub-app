@@ -1,9 +1,9 @@
-// src/components/JobHub.js
+// src/components/FieldLedger.js
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api';
 
-const JobHub = () => {
+const FieldLedger = () => {
   const { id } = useParams();
   const [job, setJob] = useState(null);
 
@@ -26,4 +26,4 @@ const JobHub = () => {
   );
 };
 
-export default JobHub;
+export default FieldLedger;

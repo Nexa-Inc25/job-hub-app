@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - TailboardForm Component
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - TailboardForm Component
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * 
  * Daily tailboard/JHA form for crew safety briefings.
  */
@@ -45,24 +45,22 @@ import {
   Tabs,
   Tab
 } from '@mui/material';
-import {
-  ArrowBack as BackIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  ExpandMore as ExpandIcon,
-  Warning as WarningIcon,
-  Shield as ShieldIcon,
-  People as PeopleIcon,
-  CheckCircle as CheckCircleIcon,
-  Save as SaveIcon,
-  Send as SendIcon,
-  LocalHospital as HospitalIcon,
-  WbSunny as WeatherIcon,
-  ElectricalServices as ElectricalIcon,
-  Engineering as EngineeringIcon,
-  Checklist as ChecklistIcon
-} from '@mui/icons-material';
+import BackIcon from '@mui/icons-material/ArrowBack';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
+import ExpandIcon from '@mui/icons-material/ExpandMore';
+import WarningIcon from '@mui/icons-material/Warning';
+import ShieldIcon from '@mui/icons-material/Shield';
+import PeopleIcon from '@mui/icons-material/People';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import SaveIcon from '@mui/icons-material/Save';
+import SendIcon from '@mui/icons-material/Send';
+import HospitalIcon from '@mui/icons-material/LocalHospital';
+import WeatherIcon from '@mui/icons-material/WbSunny';
+import ElectricalIcon from '@mui/icons-material/ElectricalServices';
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 import api from '../api';
 import SignaturePad from './shared/SignaturePad';
 

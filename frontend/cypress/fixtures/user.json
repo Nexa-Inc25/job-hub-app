@@ -27,7 +27,7 @@
   "superAdmin": {
     "_id": "user-super-123",
     "name": "Super Admin",
-    "email": "super@jobhubpro.com",
+    "email": "super@fieldledger.io",
     "role": "admin",
     "isAdmin": true,
     "isSuperAdmin": true

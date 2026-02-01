@@ -12,10 +12,10 @@ const options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Job Hub Pro API',
+      title: 'FieldLedger API',
       version: '1.0.0',
       description: `
-## Job Hub Pro - Enterprise Work Order Management API
+## FieldLedger - Unit-Price Billing API for Utility Contractors
 
 A comprehensive API for managing utility construction work orders, document workflows, 
 and field operations.
@@ -39,12 +39,12 @@ Authorization: Bearer <your-jwt-token>
 - General API: 200 requests per minute
       `,
       contact: {
-        name: 'Job Hub Pro Support',
-        email: 'support@jobhubpro.com'
+        name: 'FieldLedger Support',
+        email: 'support@fieldledger.io'
       },
       license: {
         name: 'Proprietary',
-        url: 'https://jobhubpro.com/terms'
+        url: 'https://fieldledger.io/terms'
       }
     },
     servers: [
@@ -246,7 +246,7 @@ const setupSwagger = (app) => {
   // Serve Swagger UI
   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
     customCss: '.swagger-ui .topbar { display: none }',
-    customSiteTitle: 'Job Hub Pro API Docs',
+    customSiteTitle: 'FieldLedger API Docs',
     swaggerOptions: {
       persistAuthorization: true,
       displayRequestDuration: true,

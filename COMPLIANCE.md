@@ -1,8 +1,8 @@
 # Compliance Documentation
 
-## Job Hub Pro - Security & Compliance Architecture
+## FieldLedger - Security & Compliance Architecture
 
-This document outlines how Job Hub Pro meets SOC 2 Type II, NERC CIP, and PG&E compliance requirements.
+This document outlines how FieldLedger meets SOC 2 Type II, NERC CIP, and PG&E compliance requirements.
 
 ---
 

@@ -1,6 +1,6 @@
 /**
- * Job Hub Pro - Email Service
- * Copyright (c) 2024-2026 Job Hub Pro. All Rights Reserved.
+ * FieldLedger - Email Service
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * 
  * Handles email notifications and document sharing.
  * Uses Resend as the email provider.
@@ -14,8 +14,8 @@ const { Resend } = require('resend');
  * Email configuration
  */
 const config = {
-  from: process.env.EMAIL_FROM || 'noreply@jobhubpro.com',
-  replyTo: process.env.EMAIL_REPLY_TO || 'support@jobhubpro.com'
+  from: process.env.EMAIL_FROM || 'noreply@fieldledger.io',
+  replyTo: process.env.EMAIL_REPLY_TO || 'support@fieldledger.io'
 };
 
 /**
@@ -122,7 +122,7 @@ async function sendJobDocuments(options) {
       <p>Please find the documents attached as a ZIP file.</p>
       <hr>
       <p style="color: #666; font-size: 12px;">
-        Sent via Job Hub Pro
+        Sent via FieldLedger
       </p>
     `,
     text: `Job Documents: ${pmNumber || jobTitle}\n\n${senderName} has shared job documents with you.\n\nPlease find the documents attached.`,
@@ -146,10 +146,10 @@ async function sendJobDocuments(options) {
 async function sendPasswordReset(email, resetToken, resetUrl) {
   return sendEmail({
     to: email,
-    subject: 'Password Reset - Job Hub Pro',
+    subject: 'Password Reset - FieldLedger',
     html: `
       <h2>Password Reset Request</h2>
-      <p>You requested a password reset for your Job Hub Pro account.</p>
+      <p>You requested a password reset for your FieldLedger account.</p>
       <p>Click the link below to reset your password:</p>
       <p><a href="${resetUrl}">${resetUrl}</a></p>
       <p>This link expires in 1 hour.</p>
@@ -169,7 +169,7 @@ async function sendPasswordReset(email, resetToken, resetUrl) {
 async function sendMfaEnabled(email, name) {
   return sendEmail({
     to: email,
-    subject: 'Two-Factor Authentication Enabled - Job Hub Pro',
+    subject: 'Two-Factor Authentication Enabled - FieldLedger',
     html: `
       <h2>Two-Factor Authentication Enabled</h2>
       <p>Hi ${name},</p>
@@ -195,7 +195,7 @@ async function sendMfaEnabled(email, name) {
  */
 async function sendInvitation(options) {
   const { email, name, tempPassword, inviterName, companyName, role } = options;
-  const loginUrl = process.env.FRONTEND_URL || 'https://job-hub-frontend.vercel.app';
+  const loginUrl = process.env.FRONTEND_URL || 'https://app.fieldledger.io';
   
   const roleDisplay = {
     'admin': 'Administrator',
@@ -208,12 +208,12 @@ async function sendInvitation(options) {
 
   return sendEmail({
     to: email,
-    subject: `You're invited to Job Hub Pro - ${companyName}`,
+    subject: `You're invited to FieldLedger - ${companyName}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #1976d2;">Welcome to Job Hub Pro!</h2>
+        <h2 style="color: #1976d2;">Welcome to FieldLedger!</h2>
         <p>Hi ${name},</p>
-        <p><strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Job Hub Pro as a <strong>${roleDisplay}</strong>.</p>
+        <p><strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on FieldLedger as a <strong>${roleDisplay}</strong>.</p>
         
         <div style="background-color: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="margin-top: 0;">Your Login Credentials</h3>
@@ -221,7 +221,7 @@ async function sendInvitation(options) {
           <p><strong>Temporary Password:</strong> <code style="background: #e0e0e0; padding: 4px 8px; border-radius: 4px;">${tempPassword}</code></p>
         </div>
         
-        <p><a href="${loginUrl}" style="display: inline-block; background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to Job Hub Pro</a></p>
+        <p><a href="${loginUrl}" style="display: inline-block; background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold;">Log In to FieldLedger</a></p>
         
         <p style="color: #666; font-size: 14px;"><strong>Important:</strong> For security, please change your password after your first login.</p>
         
@@ -232,11 +232,11 @@ async function sendInvitation(options) {
         </p>
       </div>
     `,
-    text: `Welcome to Job Hub Pro!
+    text: `Welcome to FieldLedger!
 
 Hi ${name},
 
-${inviterName} has invited you to join ${companyName} on Job Hub Pro as a ${roleDisplay}.
+${inviterName} has invited you to join ${companyName} on FieldLedger as a ${roleDisplay}.
 
 Your Login Credentials:
 - Email: ${email}
