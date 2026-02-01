@@ -76,6 +76,7 @@ const priceBookRoutes = require('./routes/pricebook.routes');
 const billingRoutes = require('./routes/billing.routes');
 const asbuiltRoutes = require('./routes/asbuilt.routes');
 const oracleRoutes = require('./routes/oracle.routes');
+const timesheetRoutes = require('./routes/timesheet.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1084,6 +1085,9 @@ app.use('/api/asbuilt', authenticateUser, asbuiltRoutes);
 
 // Mount Oracle integration routes (Unifier, EAM, P6)
 app.use('/api/oracle', authenticateUser, oracleRoutes);
+
+// Mount timesheet routes
+app.use('/api/timesheets', timesheetRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 

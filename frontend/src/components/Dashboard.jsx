@@ -920,7 +920,11 @@ const Dashboard = () => {
 
   const handleViewFiles = () => {
     if (selectedJobId) {
-      navigate(`/jobs/${selectedJobId}/files`);
+      // Foremen go to Close Out view, others to full file system
+      const path = (userRole === 'foreman' || userRole === 'crew') 
+        ? `/jobs/${selectedJobId}/closeout`
+        : `/jobs/${selectedJobId}/files`;
+      navigate(path);
     }
     handleJobMenuClose();
   };
@@ -1604,7 +1608,12 @@ const Dashboard = () => {
                                   <FlipIcon />
                                 </IconButton>
                               </Tooltip>
-                              <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                              {/* Foremen see Close Out, PM/GF/Admin see full Files */}
+                              {userRole === 'foreman' || userRole === 'crew' ? (
+                                <Button size="small" component={Link} to={`/jobs/${job._id}/closeout`} color="success">Close Out</Button>
+                              ) : (
+                                <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                              )}
                               <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
                               <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)} aria-label="Job options"><MoreVertIcon /></IconButton>
                             </CardActions>
@@ -1718,7 +1727,11 @@ const Dashboard = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                      {userRole === 'foreman' || userRole === 'crew' ? (
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/closeout`} color="success">Close Out</Button>
+                      ) : (
+                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
+                      )}
                       <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
                   </Box>

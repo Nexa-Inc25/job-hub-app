@@ -32,6 +32,8 @@ const SpecLibrary = lazy(() => import('./components/SpecLibrary'));
 const ProcedureManager = lazy(() => import('./components/ProcedureManager'));
 const AsBuiltAssistant = lazy(() => import('./components/AsBuiltAssistant'));
 const TailboardForm = lazy(() => import('./components/TailboardForm'));
+const ForemanCloseOut = lazy(() => import('./components/ForemanCloseOut'));
+const TimesheetEntry = lazy(() => import('./components/TimesheetEntry'));
 const BillingDashboard = lazy(() => import('./components/billing/BillingDashboard'));
 const UnitEntryForm = lazy(() => import('./components/billing/UnitEntryForm'));
 const ForemanCapturePage = lazy(() => import('./components/billing/ForemanCapturePage'));
@@ -96,6 +98,8 @@ function App() {
               <Route path="/admin/procedures" element={<ProcedureManager />} />
               <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
               <Route path="/jobs/:jobId/tailboard" element={<TailboardForm />} />
+              <Route path="/jobs/:jobId/closeout" element={<ForemanCloseOut />} />
+              <Route path="/jobs/:jobId/timesheet" element={<TimesheetEntry />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/billing" element={<BillingDashboard />} />
               <Route path="/billing/pricebooks" element={<PriceBookAdmin />} />
