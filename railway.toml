@@ -5,6 +5,10 @@ buildCommand = "cd backend && npm install"
 [deploy]
 startCommand = "cd backend && node server.js"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 300
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
+
+# Expose port 8080 (Railway default) - app uses process.env.PORT
+[service]
+internalPort = 8080
