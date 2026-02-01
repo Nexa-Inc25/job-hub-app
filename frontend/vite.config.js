@@ -43,28 +43,38 @@ export default defineConfig({
     outDir: 'build',
     sourcemap: false,
     chunkSizeWarningLimit: 600,
+    // Use esbuild for minification (faster than terser)
+    minify: 'esbuild',
     rollupOptions: {
       output: {
+        // Don't include hash in entry file for better caching
+        entryFileNames: 'assets/[name]-[hash].js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
         manualChunks(id) {
-          // Core React - needed immediately
+          // Core React - needed immediately (critical path)
           if (id.includes('node_modules/react-dom') || 
               id.includes('node_modules/react/') ||
               id.includes('node_modules/scheduler')) {
             return 'vendor-react';
           }
-          // React Router - needed for routing
+          // React Router - needed for routing (critical path)
           if (id.includes('node_modules/react-router') ||
               id.includes('node_modules/@remix-run')) {
             return 'vendor-router';
           }
-          // MUI core components - theming essentials
+          // MUI core - needed for UI (critical path)
           if (id.includes('node_modules/@mui/material') ||
               id.includes('node_modules/@mui/system') ||
               id.includes('node_modules/@mui/base') ||
               id.includes('node_modules/@mui/utils')) {
             return 'vendor-mui-core';
           }
-          // MUI icons - large, split separately for lazy loading
+          // MUI X Data Grid - only for billing grids
+          if (id.includes('node_modules/@mui/x-data-grid')) {
+            return 'vendor-mui-grid';
+          }
+          // MUI icons - can be deferred
           if (id.includes('node_modules/@mui/icons-material')) {
             return 'vendor-mui-icons';
           }
@@ -72,16 +82,25 @@ export default defineConfig({
           if (id.includes('node_modules/@emotion')) {
             return 'vendor-emotion';
           }
-          // Charts - only needed on dashboard/reports
+          // Charts - DEFERRED, only loaded on admin/analytics pages
           if (id.includes('node_modules/recharts') ||
               id.includes('node_modules/d3-')) {
             return 'vendor-charts';
           }
-          // PDF libraries - only needed for PDF viewer/editor
+          // PDF libraries - DEFERRED, only loaded for PDF editing
           if (id.includes('node_modules/react-pdf') ||
               id.includes('node_modules/pdf-lib') ||
               id.includes('node_modules/pdfjs-dist')) {
             return 'vendor-pdf';
+          }
+          // Date handling
+          if (id.includes('node_modules/date-fns') ||
+              id.includes('node_modules/dayjs')) {
+            return 'vendor-date';
+          }
+          // Form handling
+          if (id.includes('node_modules/axios')) {
+            return 'vendor-http';
           }
         }
       }
