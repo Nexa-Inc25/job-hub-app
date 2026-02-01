@@ -215,6 +215,7 @@ const ForemanCapturePage = () => {
       setLoading(true);
       try {
         // Load job details
+        let loadedItems = [];
         if (jobId) {
           const jobRes = await api.get(`/api/jobs/${jobId}`);
           setJob(jobRes.data);
@@ -223,7 +224,8 @@ const ForemanCapturePage = () => {
           if (jobRes.data.priceBookId) {
             const pbRes = await api.get(`/api/billing/pricebooks/${jobRes.data.priceBookId}`);
             setPriceBook(pbRes.data);
-            setPriceBookItems(pbRes.data.items || []);
+            loadedItems = pbRes.data.items || [];
+            setPriceBookItems(loadedItems);
           }
         }
         
@@ -241,8 +243,8 @@ const ForemanCapturePage = () => {
         setTodayUnits(todayRes.data?.units || []);
         
         // Auto-select if item code provided
-        if (preselectedItemCode && pbRes?.data?.items) {
-          const item = pbRes.data.items.find(i => i.itemCode === preselectedItemCode);
+        if (preselectedItemCode && loadedItems.length > 0) {
+          const item = loadedItems.find(i => i.itemCode === preselectedItemCode);
           if (item) {
             setSelectedItem(item);
             setStep('capture');
