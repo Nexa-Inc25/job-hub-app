@@ -235,9 +235,8 @@ const authLimiter = rateLimit({
     retryAfter: 15 * 60
   },
   standardHeaders: true,
-  legacyHeaders: false,
-  // Uses default keyGenerator which handles IPv6 properly via req.ip
-  validate: { xForwardedForHeader: false } // Railway handles proxies
+  legacyHeaders: false
+  // Default keyGenerator handles IPv6 properly via req.ip
 });
 
 // General API rate limiting - balanced for real usage
