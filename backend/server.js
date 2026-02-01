@@ -236,10 +236,8 @@ const authLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Use forwarded IP for users behind proxies
-    return req.ip || req.headers['x-forwarded-for']?.split(',')[0] || 'unknown';
-  }
+  // Uses default keyGenerator which handles IPv6 properly via req.ip
+  validate: { xForwardedForHeader: false } // Railway handles proxies
 });
 
 // General API rate limiting - balanced for real usage
