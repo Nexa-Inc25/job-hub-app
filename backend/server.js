@@ -77,6 +77,7 @@ const billingRoutes = require('./routes/billing.routes');
 const asbuiltRoutes = require('./routes/asbuilt.routes');
 const oracleRoutes = require('./routes/oracle.routes');
 const timesheetRoutes = require('./routes/timesheet.routes');
+const lmeRoutes = require('./routes/lme.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1088,6 +1089,9 @@ app.use('/api/oracle', authenticateUser, oracleRoutes);
 
 // Mount timesheet routes
 app.use('/api/timesheets', timesheetRoutes);
+
+// Mount LME routes (PG&E Daily Statement of Labor, Material, Equipment)
+app.use('/api/lme', lmeRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 

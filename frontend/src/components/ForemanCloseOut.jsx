@@ -549,7 +549,7 @@ const TailboardSection = ({ jobId, tailboard, onNavigateTailboard }) => {
 };
 
 /**
- * Timesheet Section - Crew time entry
+ * LME Section - Daily Statement of Labor, Material, Equipment (PG&E format)
  */
 const TimesheetSection = ({ jobId, timesheet, onNavigateTimesheet }) => {
   const todayEntries = timesheet?.entries?.filter(e => {
@@ -573,12 +573,12 @@ const TimesheetSection = ({ jobId, timesheet, onNavigateTimesheet }) => {
             </Avatar>
             <Box>
               <Typography sx={{ color: COLORS.text, fontWeight: 700, fontSize: '1.25rem' }}>
-                Timesheet
+                Daily LME
               </Typography>
               <Typography sx={{ color: COLORS.textSecondary }}>
                 {todayEntries.length > 0 
                   ? `${totalHours} hrs logged today`
-                  : 'No time logged today'
+                  : 'Labor, Material & Equipment'
                 }
               </Typography>
             </Box>
@@ -597,7 +597,7 @@ const TimesheetSection = ({ jobId, timesheet, onNavigateTimesheet }) => {
               '&:hover': { bgcolor: '#1565c0' },
             }}
           >
-            Log Time
+            Fill Out LME
           </Button>
         </CardContent>
       </Card>
@@ -704,7 +704,8 @@ const ForemanCloseOut = () => {
   };
 
   const handleNavigateTimesheet = () => {
-    navigate(`/jobs/${jobId}/timesheet`);
+    // Navigate to PG&E LME form (Daily Statement of Labor, Material, Equipment)
+    navigate(`/jobs/${jobId}/lme`);
   };
 
   const handleSubmitForReview = async () => {
