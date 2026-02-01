@@ -2641,6 +2641,38 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
         closeOutFolder.documents = [];
       }
       
+      // =========================================================================
+      // REPLACE OLD VERSION: If same document (by base name) exists, remove it
+      // This prevents duplicate versions when a doc is re-edited and saved
+      // =========================================================================
+      const baseDocPattern = `${pmNumber}_${docName}`;
+      const existingDocIndex = closeOutFolder.documents.findIndex(doc => {
+        // Match by finalName field (canonical name without DRAFT prefix or timestamp)
+        if (doc.finalName === finalFilename) return true;
+        // Also match by base pattern in the name (for legacy docs)
+        const docBaseName = doc.name?.replace(/^DRAFT_/, '').replace(/_\d{13}\.pdf$/, '.pdf');
+        return docBaseName === finalFilename || doc.name?.startsWith(baseDocPattern);
+      });
+      
+      if (existingDocIndex !== -1) {
+        const oldDoc = closeOutFolder.documents[existingDocIndex];
+        console.log(`Replacing existing document in Close Out: ${oldDoc.name} -> ${newFilename}`);
+        
+        // Delete old file from R2 storage if it exists
+        if (oldDoc.r2Key && r2Storage.isR2Configured()) {
+          try {
+            await r2Storage.deleteFile(oldDoc.r2Key);
+            console.log(`Deleted old R2 file: ${oldDoc.r2Key}`);
+          } catch (delErr) {
+            console.warn(`Failed to delete old R2 file ${oldDoc.r2Key}:`, delErr.message);
+          }
+        }
+        
+        // Remove old document from array
+        closeOutFolder.documents.splice(existingDocIndex, 1);
+      }
+      
+      // Add the new/updated document
       closeOutFolder.documents.push({
         name: newFilename,
         url: docUrl,
@@ -2660,7 +2692,10 @@ app.post('/api/jobs/:id/save-edited-pdf', authenticateUser, async (req, res) => 
         approvedDate: canAutoApprove ? new Date() : null,
         // Track source location for reference
         sourceFolder: folderName,
-        sourceSubfolder: subfolderName || null
+        sourceSubfolder: subfolderName || null,
+        // Version tracking
+        version: (existingDocIndex !== -1) ? 2 : 1, // Increment if replacing
+        previousVersion: existingDocIndex !== -1 ? closeOutFolder.documents[existingDocIndex]?.name : null
       });
     }
     

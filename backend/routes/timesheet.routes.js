@@ -104,6 +104,69 @@ router.post('/', authenticateUser, async (req, res) => {
       { upsert: true, new: true }
     );
 
+    // =========================================================================
+    // Save timesheet PDF to Close Out Documents folder for job package
+    // =========================================================================
+    try {
+      const { generateJobPackageExport, generateJobPackagePDF } = require('../utils/jobPackageExport');
+      
+      // Generate export data and PDF
+      const exportData = generateJobPackageExport(job, {
+        format: 'oracle',
+        timesheet: { crewMembers, totalHours, date: timesheetDate },
+        includeTailboard: false,
+        includeUnits: false,
+      });
+      
+      // Find or create Close Out Documents folder
+      const aciFolder = job.folders?.find(f => f.name === 'ACI');
+      if (aciFolder) {
+        if (!aciFolder.subfolders) aciFolder.subfolders = [];
+        let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
+        if (!closeOutFolder) {
+          closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
+          aciFolder.subfolders.push(closeOutFolder);
+        }
+        if (!closeOutFolder.documents) closeOutFolder.documents = [];
+        
+        // Create timesheet document entry (PDF generated on-demand via export endpoint)
+        const dateStr = timesheetDate.toISOString().split('T')[0];
+        const timesheetFilename = `${job.pmNumber || job.woNumber}_Timesheet_${dateStr}.json`;
+        
+        // Remove old version if exists
+        const existingIdx = closeOutFolder.documents.findIndex(d => 
+          d.name?.includes('Timesheet') && d.name?.includes(dateStr)
+        );
+        if (existingIdx !== -1) {
+          closeOutFolder.documents.splice(existingIdx, 1);
+        }
+        
+        // Add timesheet reference to close out folder
+        closeOutFolder.documents.push({
+          name: timesheetFilename,
+          type: 'timesheet',
+          timesheetId: timesheet._id,
+          date: timesheetDate,
+          totalHours,
+          crewSize: crewMembers?.length || 0,
+          uploadDate: new Date(),
+          uploadedBy: user._id,
+          isCompleted: true,
+          // Export URLs - frontend can call these to get formatted data
+          exportUrls: {
+            json: `/api/timesheets/${timesheet._id}/export?format=oracle`,
+            pdf: `/api/jobs/${jobId}/export-package?output=pdf`,
+          }
+        });
+        
+        await job.save();
+        console.log(`Timesheet saved to Close Out Documents: ${timesheetFilename}`);
+      }
+    } catch (closeOutErr) {
+      console.warn('Failed to save timesheet to Close Out folder:', closeOutErr.message);
+      // Don't fail the request - timesheet was saved successfully
+    }
+
     res.json(timesheet);
   } catch (err) {
     console.error('Save timesheet error:', err);
