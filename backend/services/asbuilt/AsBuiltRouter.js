@@ -261,14 +261,20 @@ class AsBuiltRouter {
   
   /**
    * Default destinations based on section type
+   * 
+   * NOTE: Crew instructions are routed to estimating/design department
+   * IF they contain redlines/bluelines (field markups showing changes from design).
+   * This allows the utility to update their design records.
    */
   getDefaultDestination(sectionType) {
     const defaults = {
       face_sheet: 'oracle_ppm',
-      crew_instructions: 'archive',
+      // Crew instructions with redlines/bluelines need to go to estimating/design
+      // to update their records - not just archived!
+      crew_instructions: 'email_estimating',
       crew_materials: 'archive',
       equipment_info: 'oracle_eam',
-      feedback_form: 'archive',
+      feedback_form: 'email_estimating',  // Feedback also goes to estimating
       construction_sketch: 'gis_esri',
       circuit_map: 'email_do',
       permits: 'sharepoint_permits',
@@ -350,6 +356,7 @@ class AsBuiltRouter {
         case 'email_do':
         case 'email_permits':
         case 'email_compliance':
+        case 'email_estimating':
           const EmailAdapter = require('./adapters/EmailAdapter');
           this.adapters[destination] = new EmailAdapter(destination);
           break;

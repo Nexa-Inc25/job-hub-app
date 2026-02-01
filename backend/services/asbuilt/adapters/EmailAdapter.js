@@ -31,6 +31,12 @@ class EmailAdapter {
         cc: [],
         subject: 'CCSC Submission: {{pmNumber}}',
         template: 'compliance_ccsc'
+      },
+      email_estimating: {
+        to: (process.env.EMAIL_ESTIMATING_DEPT || 'estimating@pge.com').split(','),
+        cc: [],
+        subject: 'Field Redlines/Bluelines: {{pmNumber}} - Crew Instructions',
+        template: 'estimating_redlines'
       }
     };
   }
@@ -182,6 +188,35 @@ class EmailAdapter {
             </tr>
           </table>
           <p>Document attached for CPUC compliance records.</p>
+        `;
+        break;
+        
+      case 'estimating_redlines':
+        content = `
+          <h2 style="color: #2d3748;">Field Redlines/Bluelines Attached</h2>
+          <div style="background: #e3f2fd; border: 1px solid #2196f3; padding: 15px; border-radius: 4px; margin: 20px 0;">
+            <strong>📝 Design Record Update Required</strong>
+            <p>The attached crew instructions contain field redlines/bluelines that may require updates to your design records.</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">PM Number:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${submission.pmNumber}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">Circuit ID:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${submission.circuitId || 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">Document Type:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${section.sectionType === 'crew_instructions' ? 'Crew Instructions' : 'Feedback Form'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">Contractor:</td>
+              <td style="padding: 10px; border-bottom: 1px solid #e2e8f0;">${submission.companyId || 'N/A'}</td>
+            </tr>
+          </table>
+          <p><strong>Action Required:</strong> Review attached document for any redline or blueline markups that indicate changes from the original design. Update design records as necessary.</p>
         `;
         break;
         

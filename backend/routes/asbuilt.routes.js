@@ -29,10 +29,19 @@ router.post('/submit', async (req, res) => {
       return res.status(400).json({ error: 'jobId, pmNumber, and fileKey are required' });
     }
     
-    // Validate job exists
-    const job = await Job.findById(jobId);
+    // Validate job exists and belongs to user's company
+    const job = await Job.findOne({ _id: jobId, companyId: user.companyId });
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Get utilityId - from request, job, or default to PG&E
+    let effectiveUtilityId = utilityId || job.utilityId;
+    if (!effectiveUtilityId) {
+      // Default to PG&E utility
+      const Utility = require('../models/Utility');
+      const defaultUtility = await Utility.findOne({ slug: 'pge' });
+      effectiveUtilityId = defaultUtility?._id;
     }
     
     // Create hash for original file
@@ -45,7 +54,7 @@ router.post('/submit', async (req, res) => {
     const submission = await AsBuiltSubmission.create({
       companyId: user.companyId,
       jobId: jobId,
-      utilityId: utilityId || job.utilityId,
+      utilityId: effectiveUtilityId,
       pmNumber: pmNumber,
       jobNumber: job.jobNumber,
       workOrderNumber: job.workOrderNumber,

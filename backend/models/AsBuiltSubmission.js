@@ -81,6 +81,7 @@ const documentSectionSchema = new mongoose.Schema({
       'email_do',             // Email to District Office
       'email_permits',        // Email to Permits
       'email_compliance',     // Email to Compliance
+      'email_estimating',     // Email to Estimating/Design (for redlines/bluelines)
       'regulatory_portal',    // CPUC/Regulatory Portal
       'archive',              // Long-term archive only
       'pending',              // Not yet routed
@@ -111,10 +112,9 @@ const documentSectionSchema = new mongoose.Schema({
  * Represents a complete as-built package submission
  */
 const asBuiltSubmissionSchema = new mongoose.Schema({
-  // Submission identification
+  // Submission identification (auto-generated in pre-save hook)
   submissionId: {
     type: String,
-    required: true,
     unique: true
   },
   
@@ -131,8 +131,8 @@ const asBuiltSubmissionSchema = new mongoose.Schema({
   },
   utilityId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Utility',
-    required: true
+    ref: 'Utility'
+    // Optional - will use job's utilityId or default PG&E utility
   },
   
   // Job identifiers

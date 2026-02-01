@@ -41,6 +41,7 @@ const destinationConfig = {
   email_mapping: { icon: <EmailIcon />, label: 'Email: Mapping', color: '#00acc1' },
   email_do: { icon: <EmailIcon />, label: 'Email: DO', color: '#00897b' },
   email_compliance: { icon: <EmailIcon />, label: 'Email: Compliance', color: '#43a047' },
+  email_estimating: { icon: <EmailIcon />, label: 'Email: Estimating', color: '#ff7043' },
   regulatory_portal: { icon: <GavelIcon />, label: 'CPUC Portal', color: '#7cb342' },
   archive: { icon: <ArticleIcon />, label: 'Archive', color: '#757575' },
   pending: { icon: <PendingIcon />, label: 'Pending', color: '#ff9800' },
