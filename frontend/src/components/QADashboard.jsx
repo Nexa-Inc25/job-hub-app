@@ -141,6 +141,14 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder={action === 'reject' ? 'Explain the issue...' : 'Optional notes...'}
+          sx={{
+            '& .MuiInputBase-input': {
+              color: themeMode === 'dark' ? '#e2e8f0' : '#1e293b',
+            },
+            '& .MuiOutlinedInput-root': {
+              bgcolor: themeMode === 'dark' ? '#252538' : '#f8fafc',
+            }
+          }}
         />
       </DialogContent>
       <DialogActions sx={{ bgcolor: dialogBg, p: 2 }}>
@@ -248,8 +256,12 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
           label="QA Notes"
           value={qaNotes}
           onChange={(e) => setQaNotes(e.target.value)}
-          sx={{ mb: 2 }}
           placeholder="Document your review findings..."
+          sx={{ 
+            mb: 2,
+            '& .MuiInputBase-input': { color: mode === 'dark' ? '#e2e8f0' : '#1e293b' },
+            '& .MuiOutlinedInput-root': { bgcolor: mode === 'dark' ? '#252538' : '#f8fafc' }
+          }}
         />
         
         {decision === 'disputed' && (
@@ -260,9 +272,13 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
             label="Dispute Reason"
             value={disputeReason}
             onChange={(e) => setDisputeReason(e.target.value)}
-            sx={{ mb: 2 }}
             placeholder="Why are you disputing this audit finding?"
             required
+            sx={{ 
+              mb: 2,
+              '& .MuiInputBase-input': { color: mode === 'dark' ? '#e2e8f0' : '#1e293b' },
+              '& .MuiOutlinedInput-root': { bgcolor: mode === 'dark' ? '#252538' : '#f8fafc' }
+            }}
           />
         )}
         
@@ -275,6 +291,10 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
             value={correctionNotes}
             onChange={(e) => setCorrectionNotes(e.target.value)}
             placeholder="Instructions for the crew to fix the infraction..."
+            sx={{ 
+              '& .MuiInputBase-input': { color: mode === 'dark' ? '#e2e8f0' : '#1e293b' },
+              '& .MuiOutlinedInput-root': { bgcolor: mode === 'dark' ? '#252538' : '#f8fafc' }
+            }}
           />
         )}
       </DialogContent>
