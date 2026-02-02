@@ -182,15 +182,18 @@ const UnitApprovalGrid = ({
       sortable: false,
       filterable: false,
       disableColumnMenu: true,
-      renderCell: (params) => (
-        <IconButton 
-          size="small" 
-          onClick={() => handleToggleExpand(params.row._id)}
-          aria-label={expandedRows.includes(params.row._id) ? 'Collapse' : 'Expand'}
-        >
-          {expandedRows.includes(params.row._id) ? <CollapseIcon /> : <ExpandIcon />}
-        </IconButton>
-      ),
+      renderCell: (params) => {
+        if (!params?.row) return null;
+        return (
+          <IconButton 
+            size="small" 
+            onClick={() => handleToggleExpand(params.row._id)}
+            aria-label={expandedRows.includes(params.row._id) ? 'Collapse' : 'Expand'}
+          >
+            {expandedRows.includes(params.row._id) ? <CollapseIcon /> : <ExpandIcon />}
+          </IconButton>
+        );
+      },
     },
     // Status with warnings
     {
@@ -198,6 +201,7 @@ const UnitApprovalGrid = ({
       headerName: 'Status',
       width: 140,
       renderCell: (params) => {
+        if (!params?.row) return null;
         const config = STATUS_CONFIG[params.value] || STATUS_CONFIG.draft;
         const warnings = getUnitWarnings(params.row);
         const hasError = warnings.some(w => w.severity === 'error');
@@ -252,7 +256,7 @@ const UnitApprovalGrid = ({
       headerName: 'Unit Price',
       width: 100,
       type: 'number',
-      valueFormatter: (params) => params.value ? `$${params.value.toFixed(2)}` : '-',
+      valueFormatter: (params) => params?.value ? `$${params.value.toFixed(2)}` : '-',
     },
     // Total
     {
@@ -261,7 +265,7 @@ const UnitApprovalGrid = ({
       width: 110,
       type: 'number',
       valueGetter: (params) => params.row?.totalAmount || ((params.row?.quantity || 0) * (params.row?.unitPrice || 0)),
-      valueFormatter: (params) => params.value ? `$${params.value.toFixed(2)}` : '-',
+      valueFormatter: (params) => params?.value ? `$${params.value.toFixed(2)}` : '-',
     },
     // Tier
     {
@@ -269,14 +273,17 @@ const UnitApprovalGrid = ({
       headerName: 'Tier',
       width: 100,
       valueGetter: (params) => params.row?.performedBy?.tier || 'prime',
-      renderCell: (params) => (
-        <Chip
-          label={params.value?.replace('_', ' ')}
-          color={TIER_COLORS[params.value] || 'default'}
-          size="small"
-          variant="outlined"
-        />
-      ),
+      renderCell: (params) => {
+        if (!params?.row) return null;
+        return (
+          <Chip
+            label={params.value?.replace('_', ' ') || 'prime'}
+            color={TIER_COLORS[params.value] || 'default'}
+            size="small"
+            variant="outlined"
+          />
+        );
+      },
     },
     // Work Date
     {
@@ -285,7 +292,7 @@ const UnitApprovalGrid = ({
       width: 110,
       type: 'date',
       valueGetter: (params) => params.row?.workDate ? new Date(params.row.workDate) : null,
-      valueFormatter: (params) => params.value ? params.value.toLocaleDateString() : '-',
+      valueFormatter: (params) => params?.value ? params.value.toLocaleDateString() : '-',
     },
     // Evidence indicators
     {
@@ -294,6 +301,7 @@ const UnitApprovalGrid = ({
       width: 100,
       sortable: false,
       renderCell: (params) => {
+        if (!params?.row) return null;
         const hasPhoto = params.row?.photos?.length > 0 || params.row?.photoWaived;
         const hasGPS = params.row?.location?.latitude && params.row?.location?.accuracy <= 50;
         
@@ -322,6 +330,7 @@ const UnitApprovalGrid = ({
       headerName: 'Actions',
       width: 120,
       getActions: (params) => {
+        if (!params?.row) return [];
         const actions = [];
         const status = params.row?.status;
 
@@ -536,7 +545,7 @@ const UnitApprovalGrid = ({
               printOptions: { disableToolbarButton: true },
             },
           }}
-          onRowDoubleClick={(params) => handleToggleExpand(params.row._id)}
+          onRowDoubleClick={(params) => params?.row && handleToggleExpand(params.row._id)}
           sx={{
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
