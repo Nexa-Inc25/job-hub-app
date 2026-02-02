@@ -152,7 +152,8 @@ app.get('/api/health', (req, res) => {
   const dbStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   
   // Determine overall health
-  const isHealthy = dbState === 1;
+  // Accept "connecting" state (2) during startup to pass initial healthcheck
+  const isHealthy = dbState === 1 || dbState === 2;
   const statusCode = isHealthy ? 200 : 503;
   
   res.status(statusCode).json({ 
