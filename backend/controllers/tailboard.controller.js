@@ -468,16 +468,22 @@ const getTodaysTailboard = async (req, res) => {
       return res.status(400).json({ error: 'Invalid job ID' });
     }
     
-    // Get start and end of today
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    // Get start of today in UTC, but also check yesterday to handle timezone differences
+    // This ensures we find tailboards created within the last 24-36 hours
+    const now = new Date();
+    const startOfYesterday = new Date(now);
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+    startOfYesterday.setHours(0, 0, 0, 0);
+    
+    const endOfToday = new Date(now);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+    endOfToday.setHours(23, 59, 59, 999);
 
+    // Find the most recent tailboard for this job within the date range
     const tailboard = await Tailboard.findOne({
       jobId: safeJobId,
-      date: { $gte: today, $lt: tomorrow }
-    }).lean();
+      date: { $gte: startOfYesterday, $lte: endOfToday }
+    }).sort({ date: -1, createdAt: -1 }).lean();
 
     if (!tailboard) {
       return res.status(404).json({ error: 'No tailboard for today' });
