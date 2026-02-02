@@ -86,6 +86,11 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 function getUnitWarnings(unit) {
   const warnings = [];
 
+  // Missing price book data check
+  if (!unit.itemCode || !unit.description || !unit.unitPrice) {
+    warnings.push({ type: 'data', severity: 'error', message: 'Missing price data' });
+  }
+
   // GPS accuracy check
   if (!unit.location?.latitude || !unit.location?.longitude) {
     warnings.push({ type: 'gps', severity: 'error', message: 'Missing GPS' });
