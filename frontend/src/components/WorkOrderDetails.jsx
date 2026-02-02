@@ -54,6 +54,9 @@ import ChatIcon from '@mui/icons-material/Chat';
 import FolderIcon from '@mui/icons-material/Folder';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EmailIcon from '@mui/icons-material/Email';
@@ -603,6 +606,26 @@ const WorkOrderDetails = () => {
           </Tooltip>
           <Button
             component={Link}
+            to={`/jobs/${jobId}/tailboard`}
+            startIcon={<PlaylistAddCheckIcon />}
+            variant="contained"
+            color="primary"
+            sx={{ ml: 1 }}
+          >
+            Tailboard
+          </Button>
+          <Button
+            component={Link}
+            to={`/jobs/${jobId}/log-unit`}
+            startIcon={<ReceiptLongIcon />}
+            variant="contained"
+            color="success"
+            sx={{ ml: 1 }}
+          >
+            Log Unit
+          </Button>
+          <Button
+            component={Link}
             to={`/jobs/${jobId}/files`}
             startIcon={<FolderIcon />}
             variant="outlined"
@@ -615,6 +638,79 @@ const WorkOrderDetails = () => {
 
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Grid container spacing={2}>
+
+          {/* Quick Actions Bar - Always visible */}
+          <Grid item xs={12}>
+            <Card sx={{ 
+              borderRadius: 2, 
+              bgcolor: 'primary.dark',
+              color: 'primary.contrastText',
+              mb: 1
+            }}>
+              <CardContent sx={{ py: 2, '&:last-child': { pb: 2 } }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
+                  <Box>
+                    <Typography variant="h6" fontWeight="bold">
+                      {job.pmNumber || job.woNumber || job.title || 'Work Order'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      {job.address || 'No address specified'}
+                    </Typography>
+                  </Box>
+                  <Box display="flex" gap={1.5} flexWrap="wrap">
+                    <Button
+                      component={Link}
+                      to={`/jobs/${jobId}/tailboard`}
+                      startIcon={<PlaylistAddCheckIcon />}
+                      variant="contained"
+                      size="large"
+                      sx={{ 
+                        bgcolor: 'warning.main',
+                        color: 'warning.contrastText',
+                        fontWeight: 700,
+                        px: 3,
+                        '&:hover': { bgcolor: 'warning.dark' }
+                      }}
+                    >
+                      Tailboard
+                    </Button>
+                    <Button
+                      component={Link}
+                      to={`/jobs/${jobId}/log-unit`}
+                      startIcon={<ReceiptLongIcon />}
+                      variant="contained"
+                      size="large"
+                      sx={{ 
+                        bgcolor: 'success.main',
+                        color: 'success.contrastText',
+                        fontWeight: 700,
+                        px: 3,
+                        '&:hover': { bgcolor: 'success.dark' }
+                      }}
+                    >
+                      Log Unit
+                    </Button>
+                    <Button
+                      component={Link}
+                      to={`/jobs/${jobId}/closeout`}
+                      startIcon={<AssignmentIcon />}
+                      variant="contained"
+                      size="large"
+                      sx={{ 
+                        bgcolor: 'info.main',
+                        color: 'info.contrastText',
+                        fontWeight: 700,
+                        px: 3,
+                        '&:hover': { bgcolor: 'info.dark' }
+                      }}
+                    >
+                      Close Out
+                    </Button>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
 
           {/* ROW 1: Three vertical columns - Job Info | Dependencies | Notes */}
           
