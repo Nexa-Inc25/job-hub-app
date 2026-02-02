@@ -1794,5 +1794,162 @@ router.post('/claims/bulk-export-fbdi', async (req, res) => {
   }
 });
 
+// ============================================================================
+// ADMIN: CLEANUP ORPHANED UNITS
+// ============================================================================
+
+/**
+ * @swagger
+ * /api/billing/admin/cleanup-orphaned-units:
+ *   post:
+ *     summary: Delete or repair unit entries with missing price book data
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [preview, delete, repair]
+ *                 default: preview
+ *     responses:
+ *       200:
+ *         description: Cleanup results
+ */
+router.post('/admin/cleanup-orphaned-units', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    // Only admins can run cleanup
+    if (!req.isAdmin) {
+      return res.status(403).json({ error: 'Only admins can run cleanup operations' });
+    }
+
+    const { action = 'preview' } = req.body;
+    const validActions = ['preview', 'delete', 'repair'];
+    if (!validActions.includes(action)) {
+      return res.status(400).json({ error: 'Invalid action. Use: preview, delete, or repair' });
+    }
+
+    // Find units with missing required price book data
+    const orphanedUnits = await UnitEntry.find({
+      companyId: user.companyId,
+      $or: [
+        { itemCode: { $exists: false } },
+        { itemCode: null },
+        { itemCode: '' },
+        { description: { $exists: false } },
+        { description: null },
+        { description: '' },
+        { unitPrice: { $exists: false } },
+        { unitPrice: null },
+        { unitPrice: 0 },
+        { totalAmount: { $exists: false } },
+        { totalAmount: null },
+      ]
+    });
+
+    console.log(`[Admin:Cleanup] Found ${orphanedUnits.length} orphaned units for company ${user.companyId}`);
+
+    if (orphanedUnits.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No orphaned units found',
+        found: 0,
+        action,
+        processed: 0
+      });
+    }
+
+    // Preview mode - just return what would be affected
+    if (action === 'preview') {
+      const preview = orphanedUnits.map(u => ({
+        _id: u._id,
+        status: u.status,
+        jobId: u.jobId,
+        priceBookId: u.priceBookId,
+        priceBookItemId: u.priceBookItemId,
+        itemCode: u.itemCode || '(missing)',
+        description: u.description || '(missing)',
+        unitPrice: u.unitPrice ?? '(missing)',
+        quantity: u.quantity,
+        createdAt: u.createdAt
+      }));
+
+      return res.json({
+        success: true,
+        message: `Found ${orphanedUnits.length} orphaned units. Use action: 'delete' or 'repair' to fix them.`,
+        found: orphanedUnits.length,
+        action: 'preview',
+        units: preview
+      });
+    }
+
+    let processed = 0;
+    let failed = 0;
+    const results = [];
+
+    for (const unit of orphanedUnits) {
+      if (action === 'delete') {
+        await UnitEntry.deleteOne({ _id: unit._id });
+        results.push({ _id: unit._id, action: 'deleted' });
+        processed++;
+      } else if (action === 'repair') {
+        // Try to find the price book item
+        let rateItem = null;
+        
+        if (unit.priceBookId && unit.priceBookItemId) {
+          const priceBook = await PriceBook.findById(unit.priceBookId);
+          if (priceBook) {
+            rateItem = priceBook.items.id(unit.priceBookItemId);
+          }
+        }
+
+        if (!rateItem && unit.itemCode && unit.priceBookId) {
+          const priceBook = await PriceBook.findById(unit.priceBookId);
+          if (priceBook) {
+            rateItem = priceBook.items.find(i => i.itemCode === unit.itemCode);
+          }
+        }
+
+        if (rateItem) {
+          unit.itemCode = rateItem.itemCode;
+          unit.description = rateItem.description;
+          unit.unit = rateItem.unit;
+          unit.unitPrice = rateItem.unitPrice;
+          unit.totalAmount = unit.quantity * rateItem.unitPrice;
+          unit.category = rateItem.category;
+          await unit.save();
+          results.push({ _id: unit._id, action: 'repaired', itemCode: rateItem.itemCode });
+          processed++;
+        } else {
+          results.push({ _id: unit._id, action: 'failed', reason: 'Could not find matching price book item' });
+          failed++;
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `${action === 'delete' ? 'Deleted' : 'Processed'} ${processed} units${failed > 0 ? `, ${failed} failed` : ''}`,
+      found: orphanedUnits.length,
+      action,
+      processed,
+      failed,
+      results
+    });
+  } catch (err) {
+    console.error('Error cleaning up orphaned units:', err);
+    res.status(500).json({ error: 'Failed to cleanup orphaned units' });
+  }
+});
+
 module.exports = router;
 
