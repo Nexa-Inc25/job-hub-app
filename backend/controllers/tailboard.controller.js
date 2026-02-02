@@ -10,6 +10,7 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const crypto = require('node:crypto');
 const { generateTailboardPdf } = require('../services/pdf.service');
+const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
 
 /**
  * Create a new tailboard
@@ -145,8 +146,14 @@ const createTailboard = async (req, res) => {
 const getTailboardsByJob = async (req, res) => {
   try {
     const { jobId } = req.params;
+    
+    // Sanitize jobId to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    if (!safeJobId) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
 
-    const tailboards = await Tailboard.find({ jobId })
+    const tailboards = await Tailboard.find({ jobId: safeJobId })
       .sort({ date: -1 })
       .populate('foremanId', 'name email')
       .lean();
@@ -388,8 +395,14 @@ const completeTailboard = async (req, res) => {
  */
 const getTailboardByToken = async (req, res) => {
   try {
+    // Sanitize token to prevent NoSQL injection
+    const safeToken = sanitizeString(req.params.token);
+    if (!safeToken) {
+      return res.status(400).json({ error: 'Invalid token' });
+    }
+    
     const tailboard = await Tailboard.findOne({
-      shareToken: req.params.token,
+      shareToken: safeToken,
       shareTokenExpiry: { $gt: new Date() }
     }).lean();
 
@@ -446,6 +459,12 @@ const getTodaysTailboard = async (req, res) => {
   try {
     const { jobId } = req.params;
     
+    // Sanitize jobId to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    if (!safeJobId) {
+      return res.status(400).json({ error: 'Invalid job ID' });
+    }
+    
     // Get start and end of today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -453,7 +472,7 @@ const getTodaysTailboard = async (req, res) => {
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const tailboard = await Tailboard.findOne({
-      jobId,
+      jobId: safeJobId,
       date: { $gte: today, $lt: tomorrow }
     }).lean();
 

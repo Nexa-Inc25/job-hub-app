@@ -17,6 +17,7 @@ const mongoose = require('mongoose');
 const multer = require('multer');
 const PriceBook = require('../models/PriceBook');
 const User = require('../models/User');
+const { sanitizeString, sanitizeObjectId } = require('../utils/sanitize');
 
 // Multer setup for CSV upload
 const upload = multer({ 
@@ -65,10 +66,12 @@ router.get('/', async (req, res) => {
     const { status, utilityId } = req.query;
     const query = { companyId: user.companyId };
     
-    if (status) query.status = status;
-    if (utilityId && mongoose.Types.ObjectId.isValid(utilityId)) {
-      query.utilityId = utilityId;
-    }
+    // Sanitize query parameters to prevent NoSQL injection
+    const safeStatus = sanitizeString(status);
+    const safeUtilityId = sanitizeObjectId(utilityId);
+    
+    if (safeStatus) query.status = safeStatus;
+    if (safeUtilityId) query.utilityId = safeUtilityId;
 
     const priceBooks = await PriceBook.find(query)
       .select('-items') // Exclude items for list view (can be large)

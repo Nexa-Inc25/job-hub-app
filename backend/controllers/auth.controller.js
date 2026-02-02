@@ -12,6 +12,7 @@ const User = require('../models/User');
 const { logAuth } = require('../middleware/auditLogger');
 const { performSecurityCheck } = require('../utils/securityAlerts');
 const mfa = require('../utils/mfa');
+const { sanitizeEmail } = require('../utils/sanitize');
 
 /**
  * Password validation - matches current server.js rules
@@ -41,9 +42,16 @@ const validatePassword = (password) => {
 const signup = async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
-    console.log('Signup attempt for:', email ? email.substring(0, 3) + '***' : 'none', 'role:', role || 'crew');
     
-    if (!email || !password) {
+    // Sanitize email to prevent NoSQL injection
+    const safeEmail = sanitizeEmail(email);
+    if (!safeEmail) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    
+    console.log('Signup attempt for:', safeEmail.substring(0, 3) + '***', 'role:', role || 'crew');
+    
+    if (!password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
     
@@ -53,7 +61,7 @@ const signup = async (req, res) => {
       return res.status(400).json({ error: passwordCheck.error });
     }
     
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: safeEmail });
     if (existingUser) {
       // Don't reveal that email exists - security best practice
       return res.status(400).json({ error: 'Unable to create account. Please try a different email or contact support.' });
@@ -68,9 +76,9 @@ const signup = async (req, res) => {
     const canApprove = ['gf', 'pm', 'admin'].includes(userRole);
     
     const user = new User({ 
-      email, 
+      email: safeEmail, 
       password, 
-      name: name || email.split('@')[0],
+      name: name || safeEmail.split('@')[0],
       role: userRole,
       isAdmin,
       canApprove
@@ -109,7 +117,14 @@ const signup = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
+    
+    // Sanitize email to prevent NoSQL injection
+    const safeEmail = sanitizeEmail(email);
+    if (!safeEmail) {
+      return res.status(400).json({ error: 'Valid email is required' });
+    }
+    
+    const user = await User.findOne({ email: safeEmail });
     
     // Check if account is locked
     if (user && user.isLocked()) {

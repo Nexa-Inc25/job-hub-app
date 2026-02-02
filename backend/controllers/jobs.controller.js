@@ -9,6 +9,7 @@
 
 const Job = require('../models/Job');
 const { logJob } = require('../middleware/auditLogger');
+const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizePmNumber } = require('../utils/sanitize');
 
 /**
  * List all jobs accessible to the user
@@ -18,17 +19,23 @@ const listJobs = async (req, res) => {
   try {
     const { status, assignedTo, limit = 100, skip = 0 } = req.query;
     
+    // Sanitize inputs to prevent NoSQL injection
+    const safeStatus = sanitizeString(status);
+    const safeAssignedTo = sanitizeObjectId(assignedTo);
+    const safeLimit = sanitizeInt(limit, 100, 500);
+    const safeSkip = sanitizeInt(skip, 0, 100000);
+    
     // Build query based on user role
     const query = {};
     
     // Filter by status if provided
-    if (status && status !== 'all') {
-      query.status = status;
+    if (safeStatus && safeStatus !== 'all') {
+      query.status = safeStatus;
     }
     
     // Filter by assigned user if provided
-    if (assignedTo) {
-      query.assignedTo = assignedTo;
+    if (safeAssignedTo) {
+      query.assignedTo = safeAssignedTo;
     }
     
     // Non-admins can only see jobs assigned to them or in their company
@@ -41,8 +48,8 @@ const listJobs = async (req, res) => {
     
     const jobs = await Job.find(query)
       .sort({ updatedAt: -1 })
-      .limit(parseInt(limit, 10))
-      .skip(parseInt(skip, 10))
+      .limit(safeLimit)
+      .skip(safeSkip)
       .populate('assignedTo', 'name email')
       .lean();
     
@@ -110,26 +117,32 @@ const createJob = async (req, res) => {
       scheduledDate
     } = req.body;
     
-    if (!title && !pmNumber) {
+    // Sanitize inputs
+    const safeTitle = sanitizeString(title);
+    const safePmNumber = sanitizePmNumber(pmNumber);
+    const safeWoNumber = sanitizePmNumber(woNumber);
+    const safeAssignedTo = sanitizeObjectId(assignedTo);
+    
+    if (!safeTitle && !safePmNumber) {
       return res.status(400).json({ error: 'Title or PM Number is required' });
     }
     
     // Check for duplicate PM number
-    if (pmNumber) {
-      const existing = await Job.findOne({ pmNumber });
+    if (safePmNumber) {
+      const existing = await Job.findOne({ pmNumber: safePmNumber });
       if (existing) {
         return res.status(400).json({ error: 'PM Number already exists' });
       }
     }
     
     const job = await Job.create({
-      title: title || pmNumber,
-      pmNumber,
-      woNumber,
+      title: safeTitle || safePmNumber,
+      pmNumber: safePmNumber,
+      woNumber: safeWoNumber,
       address,
       description,
       client,
-      assignedTo,
+      assignedTo: safeAssignedTo || assignedTo,
       scheduledDate,
       status: 'new',
       companyId: req.companyId

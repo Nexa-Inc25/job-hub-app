@@ -9,6 +9,7 @@
 
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
+const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 
 /**
  * Get audit logs with pagination and filtering
@@ -43,27 +44,38 @@ const getAuditLogs = async (req, res) => {
       }
     }
     
-    // Apply filters
-    if (action) query.action = action;
-    if (category) query.category = category;
-    if (severity) query.severity = severity;
-    if (filterUserId) query.userId = filterUserId;
-    if (resourceType) query.resourceType = resourceType;
+    // Sanitize and apply filters (prevent NoSQL injection)
+    const safeAction = sanitizeString(action);
+    const safeCategory = sanitizeString(category);
+    const safeSeverity = sanitizeString(severity);
+    const safeFilterUserId = sanitizeObjectId(filterUserId);
+    const safeResourceType = sanitizeString(resourceType);
     
-    // Date range
-    if (startDate || endDate) {
+    if (safeAction) query.action = safeAction;
+    if (safeCategory) query.category = safeCategory;
+    if (safeSeverity) query.severity = safeSeverity;
+    if (safeFilterUserId) query.userId = safeFilterUserId;
+    if (safeResourceType) query.resourceType = safeResourceType;
+    
+    // Date range (sanitized)
+    const safeStartDate = sanitizeDate(startDate);
+    const safeEndDate = sanitizeDate(endDate);
+    if (safeStartDate || safeEndDate) {
       query.timestamp = {};
-      if (startDate) query.timestamp.$gte = new Date(startDate);
-      if (endDate) query.timestamp.$lte = new Date(endDate);
+      if (safeStartDate) query.timestamp.$gte = safeStartDate;
+      if (safeEndDate) query.timestamp.$lte = safeEndDate;
     }
     
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    // Sanitize pagination
+    const safePage = sanitizeInt(page, 1, 10000);
+    const safeLimit = sanitizeInt(limit, 50, 100);
+    const skip = (safePage - 1) * safeLimit;
     
     const [logs, total] = await Promise.all([
       AuditLog.find(query)
         .sort({ timestamp: -1 })
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(safeLimit)
         .lean(),
       AuditLog.countDocuments(query)
     ]);
@@ -71,10 +83,10 @@ const getAuditLogs = async (req, res) => {
     res.json({
       logs,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: Math.ceil(total / safeLimit)
       }
     });
   } catch (err) {

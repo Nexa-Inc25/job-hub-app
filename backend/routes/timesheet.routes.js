@@ -9,6 +9,7 @@ const router = express.Router();
 const Timesheet = require('../models/Timesheet');
 const Job = require('../models/Job');
 const User = require('../models/User');
+const { sanitizeObjectId, sanitizeDate } = require('../utils/sanitize');
 
 // Auth middleware
 const authenticateUser = async (req, res, next) => {
@@ -35,18 +36,24 @@ router.get('/', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
+    // Sanitize all query parameters to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    const safeDate = sanitizeDate(date);
+    const safeStartDate = sanitizeDate(startDate);
+    const safeEndDate = sanitizeDate(endDate);
+
     const query = { companyId: user.companyId };
     
-    if (jobId) query.jobId = jobId;
+    if (safeJobId) query.jobId = safeJobId;
     
-    if (date) {
-      const d = new Date(date);
+    if (safeDate) {
+      const d = new Date(safeDate);
       d.setHours(0, 0, 0, 0);
       const endD = new Date(d);
       endD.setHours(23, 59, 59, 999);
       query.date = { $gte: d, $lte: endD };
-    } else if (startDate && endDate) {
-      query.date = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    } else if (safeStartDate && safeEndDate) {
+      query.date = { $gte: safeStartDate, $lte: safeEndDate };
     }
 
     const timesheets = await Timesheet.find(query)
@@ -54,7 +61,7 @@ router.get('/', authenticateUser, async (req, res) => {
       .sort({ date: -1 });
 
     // If querying for specific job+date, return single or null
-    if (jobId && date) {
+    if (safeJobId && safeDate) {
       return res.json(timesheets[0] || null);
     }
 
@@ -75,17 +82,25 @@ router.post('/', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
+    // Sanitize inputs to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    const safeDate = sanitizeDate(date);
+    
+    if (!safeJobId || !safeDate) {
+      return res.status(400).json({ error: 'Valid jobId and date are required' });
+    }
+
     // Verify job belongs to company
-    const job = await Job.findOne({ _id: jobId, companyId: user.companyId });
+    const job = await Job.findOne({ _id: safeJobId, companyId: user.companyId });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     // Normalize date to start of day
-    const timesheetDate = new Date(date);
+    const timesheetDate = new Date(safeDate);
     timesheetDate.setHours(0, 0, 0, 0);
 
     // Upsert timesheet
     const timesheet = await Timesheet.findOneAndUpdate(
-      { jobId, date: timesheetDate, companyId: user.companyId },
+      { jobId: safeJobId, date: timesheetDate, companyId: user.companyId },
       {
         $set: {
           crewMembers,

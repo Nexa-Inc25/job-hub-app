@@ -46,32 +46,79 @@ const additionalSecurityHeaders = (req, res, next) => {
 };
 
 /**
- * Sanitize request body - remove potential XSS/injection patterns
+ * Sanitize request body - remove potential XSS/injection patterns and NoSQL operators
  */
 const sanitizeInput = (req, res, next) => {
   if (req.body && typeof req.body === 'object') {
-    sanitizeObject(req.body);
+    req.body = sanitizeObject(req.body);
   }
   if (req.query && typeof req.query === 'object') {
-    sanitizeObject(req.query);
+    req.query = sanitizeObject(req.query);
+  }
+  if (req.params && typeof req.params === 'object') {
+    req.params = sanitizeObject(req.params);
   }
   next();
 };
 
+/**
+ * Recursively sanitize object to prevent NoSQL injection
+ * - Removes keys starting with $ (MongoDB operators)
+ * - Removes prototype pollution attempts
+ * - Sanitizes string values
+ */
 function sanitizeObject(obj) {
-  for (const key of Object.keys(obj)) {
-    if (typeof obj[key] === 'string') {
-      // Remove null bytes
-      obj[key] = obj[key].replace(/\0/g, '');
-      
-      // Limit string length to prevent DoS
-      if (obj[key].length > 50000) {
-        obj[key] = obj[key].substring(0, 50000);
-      }
-    } else if (typeof obj[key] === 'object' && obj[key] !== null) {
-      sanitizeObject(obj[key]);
-    }
+  if (obj === null || obj === undefined) {
+    return obj;
   }
+  
+  // Handle strings
+  if (typeof obj === 'string') {
+    // Remove null bytes
+    let cleaned = obj.replace(/\0/g, '');
+    
+    // Limit string length to prevent DoS
+    if (cleaned.length > 50000) {
+      cleaned = cleaned.substring(0, 50000);
+    }
+    
+    return cleaned;
+  }
+  
+  // Handle non-objects
+  if (typeof obj !== 'object') {
+    return obj;
+  }
+  
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeObject);
+  }
+  
+  // Handle Date objects
+  if (obj instanceof Date) {
+    return obj;
+  }
+  
+  // Handle plain objects - remove dangerous keys
+  const result = {};
+  for (const key of Object.keys(obj)) {
+    // Block MongoDB operators ($where, $gt, $ne, etc.)
+    if (key.startsWith('$')) {
+      console.warn(`[SECURITY] Blocked MongoDB operator in input: ${key}`);
+      continue;
+    }
+    
+    // Block prototype pollution attempts
+    if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
+      console.warn(`[SECURITY] Blocked prototype pollution attempt: ${key}`);
+      continue;
+    }
+    
+    result[key] = sanitizeObject(obj[key]);
+  }
+  
+  return result;
 }
 
 /**

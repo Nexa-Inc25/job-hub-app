@@ -8,6 +8,7 @@ const RoutingRule = require('../models/RoutingRule');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const AsBuiltRouter = require('../services/asbuilt/AsBuiltRouter');
+const { sanitizeString, sanitizeObjectId, sanitizePmNumber } = require('../utils/sanitize');
 
 /**
  * @swagger
@@ -25,18 +26,23 @@ router.post('/submit', async (req, res) => {
     
     const { jobId, pmNumber, fileKey, filename, pageCount, utilityId } = req.body;
     
-    if (!jobId || !pmNumber || !fileKey) {
-      return res.status(400).json({ error: 'jobId, pmNumber, and fileKey are required' });
+    // Sanitize inputs to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    const safePmNumber = sanitizePmNumber(pmNumber);
+    const safeUtilityId = sanitizeObjectId(utilityId);
+    
+    if (!safeJobId || !safePmNumber || !fileKey) {
+      return res.status(400).json({ error: 'Valid jobId, pmNumber, and fileKey are required' });
     }
     
     // Validate job exists and belongs to user's company
-    const job = await Job.findOne({ _id: jobId, companyId: user.companyId });
+    const job = await Job.findOne({ _id: safeJobId, companyId: user.companyId });
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
     // Get utilityId - from request, job, or default to PG&E
-    let effectiveUtilityId = utilityId || job.utilityId;
+    let effectiveUtilityId = safeUtilityId || job.utilityId;
     if (!effectiveUtilityId) {
       // Default to PG&E utility
       const Utility = require('../models/Utility');
@@ -53,9 +59,9 @@ router.post('/submit', async (req, res) => {
     // Create submission
     const submission = await AsBuiltSubmission.create({
       companyId: user.companyId,
-      jobId: jobId,
+      jobId: safeJobId,
       utilityId: effectiveUtilityId,
-      pmNumber: pmNumber,
+      pmNumber: safePmNumber,
       jobNumber: job.jobNumber,
       workOrderNumber: job.workOrderNumber,
       circuitId: job.circuitId,

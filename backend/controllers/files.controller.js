@@ -8,6 +8,7 @@
 const path = require('path');
 const fs = require('fs');
 const r2Storage = require('../utils/storage');
+const { sanitizePath } = require('../utils/sanitize');
 
 /**
  * Get signed URL for authenticated file download
@@ -18,17 +19,22 @@ const getSignedUrl = async (req, res) => {
   try {
     const fileKey = req.params.key;
     
+    // Sanitize file key to prevent path traversal
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    const safePath = sanitizePath(fileKey, uploadsDir);
+    
     if (r2Storage.isR2Configured()) {
-      const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
+      // For R2, sanitize but allow the original key structure
+      const safeKey = fileKey.replace(/\.\./g, '').replace(/\/\//g, '/');
+      const signedUrl = await r2Storage.getSignedDownloadUrl(safeKey);
       if (signedUrl) {
         return res.json({ url: signedUrl });
       }
     }
     
-    // Fallback to local file URL
-    const localPath = path.join(__dirname, '..', 'uploads', fileKey);
-    if (fs.existsSync(localPath)) {
-      return res.json({ url: `/uploads/${fileKey}` });
+    // Fallback to local file URL - use sanitized path
+    if (safePath && fs.existsSync(safePath)) {
+      return res.json({ url: `/uploads/${fileKey.replace(/\.\./g, '')}` });
     }
     
     res.status(404).json({ error: 'File not found' });
@@ -48,8 +54,14 @@ const streamFile = async (req, res) => {
   try {
     const fileKey = req.params.key;
     
+    // Sanitize file key to prevent path traversal
+    const uploadsDir = path.join(__dirname, '..', 'uploads');
+    const safePath = sanitizePath(fileKey, uploadsDir);
+    
     if (r2Storage.isR2Configured()) {
-      const fileData = await r2Storage.getFileStream(fileKey);
+      // For R2, sanitize but allow the original key structure
+      const safeKey = fileKey.replace(/\.\./g, '').replace(/\/\//g, '/');
+      const fileData = await r2Storage.getFileStream(safeKey);
       
       if (fileData && fileData.stream) {
         res.setHeader('Content-Type', fileData.contentType || 'application/octet-stream');
@@ -68,10 +80,9 @@ const streamFile = async (req, res) => {
       }
     }
     
-    // Fallback to local file
-    const localPath = path.join(__dirname, '..', 'uploads', fileKey);
-    if (fs.existsSync(localPath)) {
-      return res.sendFile(localPath);
+    // Fallback to local file - use sanitized path
+    if (safePath && fs.existsSync(safePath)) {
+      return res.sendFile(safePath);
     }
     
     res.status(404).json({ error: 'File not found', key: fileKey });

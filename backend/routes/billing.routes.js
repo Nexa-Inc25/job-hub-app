@@ -23,6 +23,7 @@ const Claim = require('../models/Claim');
 const PriceBook = require('../models/PriceBook');
 const Job = require('../models/Job');
 const User = require('../models/User');
+const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 
 // ============================================================================
 // UNIT ENTRIES - The "Digital Receipt"
@@ -78,22 +79,32 @@ router.get('/units', async (req, res) => {
     }
 
     const { jobId, status, workCategory, tier, startDate, endDate, limit = 100 } = req.query;
+    
+    // Sanitize all query parameters to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    const safeStatus = sanitizeString(status);
+    const safeWorkCategory = sanitizeString(workCategory);
+    const safeTier = sanitizeString(tier);
+    const safeStartDate = sanitizeDate(startDate);
+    const safeEndDate = sanitizeDate(endDate);
+    const safeLimit = sanitizeInt(limit, 100, 500);
+    
     const query = { 
       companyId: user.companyId,
       isDeleted: { $ne: true }
     };
 
-    if (jobId && mongoose.Types.ObjectId.isValid(jobId)) {
-      query.jobId = jobId;
+    if (safeJobId) {
+      query.jobId = safeJobId;
     }
-    if (status) query.status = status;
-    if (workCategory) query['performedBy.workCategory'] = workCategory;
-    if (tier) query['performedBy.tier'] = tier;
+    if (safeStatus) query.status = safeStatus;
+    if (safeWorkCategory) query['performedBy.workCategory'] = safeWorkCategory;
+    if (safeTier) query['performedBy.tier'] = safeTier;
     
-    if (startDate || endDate) {
+    if (safeStartDate || safeEndDate) {
       query.workDate = {};
-      if (startDate) query.workDate.$gte = new Date(startDate);
-      if (endDate) query.workDate.$lte = new Date(endDate);
+      if (safeStartDate) query.workDate.$gte = safeStartDate;
+      if (safeEndDate) query.workDate.$lte = safeEndDate;
     }
 
     // Role-based filtering
@@ -107,7 +118,7 @@ router.get('/units', async (req, res) => {
       .populate('enteredBy', 'name email')
       .populate('verifiedBy', 'name')
       .sort({ workDate: -1, createdAt: -1 })
-      .limit(parseInt(limit));
+      .limit(safeLimit);
 
     res.json(units);
   } catch (err) {

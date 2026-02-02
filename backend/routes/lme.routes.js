@@ -10,6 +10,7 @@ const LME = require('../models/LME');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const { sanitizeObjectId, sanitizeString, sanitizeDate } = require('../utils/sanitize');
 
 // Auth middleware
 const authenticateUser = async (req, res, next) => {
@@ -37,24 +38,33 @@ router.post('/', authenticateUser, async (req, res) => {
 
     const { jobId, lmeNumber, date, ...lmeData } = req.body;
 
+    // Sanitize inputs to prevent NoSQL injection
+    const safeJobId = sanitizeObjectId(jobId);
+    const safeLmeNumber = sanitizeString(lmeNumber);
+    const safeDate = sanitizeDate(date);
+    
+    if (!safeJobId) {
+      return res.status(400).json({ error: 'Valid jobId is required' });
+    }
+
     // Verify job belongs to company
-    const job = await Job.findOne({ _id: jobId, companyId: user.companyId });
+    const job = await Job.findOne({ _id: safeJobId, companyId: user.companyId });
     if (!job) return res.status(404).json({ error: 'Job not found' });
 
     // Upsert LME (update if same lmeNumber exists)
     const lme = await LME.findOneAndUpdate(
-      { lmeNumber, companyId: user.companyId },
+      { lmeNumber: safeLmeNumber, companyId: user.companyId },
       {
         $set: {
           ...lmeData,
-          jobId,
-          date: new Date(date),
+          jobId: safeJobId,
+          date: safeDate || new Date(),
           submittedBy: user._id,
           submittedAt: new Date(),
           status: 'submitted',
         },
         $setOnInsert: {
-          lmeNumber,
+          lmeNumber: safeLmeNumber,
           companyId: user.companyId,
         },
       },
