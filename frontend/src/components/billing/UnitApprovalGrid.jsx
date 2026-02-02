@@ -56,6 +56,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import ExportIcon from '@mui/icons-material/Download';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import CloseIcon from '@mui/icons-material/Close';
+import SendIcon from '@mui/icons-material/Send';
 import ProofPanel from './ProofPanel';
 
 // Status configurations
@@ -115,6 +116,7 @@ function getUnitWarnings(unit) {
 const UnitApprovalGrid = ({
   units = [],
   loading = false,
+  onSubmit,
   onVerify,
   onApprove,
   onDispute,
@@ -334,6 +336,19 @@ const UnitApprovalGrid = ({
         const actions = [];
         const status = params.row?.status;
 
+        // Draft units can be submitted for review
+        if (status === 'draft' && onSubmit) {
+          actions.push(
+            <GridActionsCellItem
+              key="submit"
+              icon={<SendIcon />}
+              label="Submit for Review"
+              onClick={() => onSubmit(params.row)}
+              color="primary"
+            />
+          );
+        }
+
         if (status === 'submitted' && onVerify) {
           actions.push(
             <GridActionsCellItem
@@ -385,7 +400,7 @@ const UnitApprovalGrid = ({
         return actions;
       },
     },
-  ], [expandedRows, handleToggleExpand, onVerify, onApprove, onDispute]);
+  ], [expandedRows, handleToggleExpand, onSubmit, onVerify, onApprove, onDispute]);
 
   // Get selected unit for detail panel
   const expandedUnit = useMemo(() => {
@@ -613,6 +628,7 @@ const UnitApprovalGrid = ({
 UnitApprovalGrid.propTypes = {
   units: PropTypes.arrayOf(PropTypes.object),
   loading: PropTypes.bool,
+  onSubmit: PropTypes.func,
   onVerify: PropTypes.func,
   onApprove: PropTypes.func,
   onDispute: PropTypes.func,

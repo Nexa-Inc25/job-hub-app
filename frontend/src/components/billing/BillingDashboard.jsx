@@ -164,6 +164,16 @@ const BillingDashboard = ({ jobId }) => {
   };
 
   // Unit actions
+  const handleSubmitUnit = useCallback(async (unit) => {
+    try {
+      await api.post(`/api/billing/units/${unit._id}/submit`);
+      showSnackbar('Unit submitted for review');
+      fetchUnits();
+    } catch (err) {
+      showSnackbar(err.response?.data?.message || 'Failed to submit unit', 'error');
+    }
+  }, [fetchUnits]);
+
   const handleVerifyUnit = useCallback(async (unit) => {
     try {
       await api.post(`/api/billing/units/${unit._id}/verify`);
@@ -414,6 +424,7 @@ const BillingDashboard = ({ jobId }) => {
             onSelectionChange={setSelectedUnits}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            onSubmit={handleSubmitUnit}
             onVerify={handleVerifyUnit}
             onApprove={handleApproveUnit}
             onDispute={handleDisputeUnit}
