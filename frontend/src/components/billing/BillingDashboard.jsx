@@ -275,8 +275,8 @@ const BillingDashboard = ({ jobId }) => {
     const amountStr = prompt(`Enter payment amount (Due: $${(claim.amountDue || claim.totalAmount).toFixed(2)}):`);
     if (!amountStr) return;
     
-    const amount = parseFloat(amountStr);
-    if (isNaN(amount) || amount <= 0) {
+    const amount = Number.parseFloat(amountStr);
+    if (Number.isNaN(amount) || amount <= 0) {
       showSnackbar('Invalid payment amount', 'error');
       return;
     }

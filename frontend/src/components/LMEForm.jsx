@@ -8,6 +8,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -94,7 +95,7 @@ const EQUIPMENT_TYPES = [
 const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
   const calculateAmount = (hours, rateType, baseRate) => {
     const multiplier = RATE_TYPES.find(r => r.code === rateType)?.multiplier || 1;
-    return (parseFloat(hours) || 0) * (parseFloat(baseRate) || 0) * multiplier;
+    return (Number.parseFloat(hours) || 0) * (Number.parseFloat(baseRate) || 0) * multiplier;
   };
 
   const handleChange = (field, value) => {
@@ -207,6 +208,25 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
   );
 };
 
+LaborRow.propTypes = {
+  entry: PropTypes.shape({
+    craft: PropTypes.string,
+    name: PropTypes.string,
+    stHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    otHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    dtHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    rate: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    stAmount: PropTypes.number,
+    otAmount: PropTypes.number,
+    dtAmount: PropTypes.number,
+    totalAmount: PropTypes.number,
+  }).isRequired,
+  index: PropTypes.number.isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
+  rates: PropTypes.object,
+};
+
 /**
  * Material Entry Row
  */
@@ -214,7 +234,7 @@ const MaterialRow = ({ entry, index, onUpdate, onRemove }) => {
   const handleChange = (field, value) => {
     const updated = { ...entry, [field]: value };
     if (['quantity', 'unitCost'].includes(field)) {
-      updated.amount = (parseFloat(updated.quantity) || 0) * (parseFloat(updated.unitCost) || 0);
+      updated.amount = (Number.parseFloat(updated.quantity) || 0) * (Number.parseFloat(updated.unitCost) || 0);
     }
     onUpdate(index, updated);
   };
@@ -268,6 +288,19 @@ const MaterialRow = ({ entry, index, onUpdate, onRemove }) => {
   );
 };
 
+MaterialRow.propTypes = {
+  entry: PropTypes.shape({
+    description: PropTypes.string,
+    unit: PropTypes.string,
+    quantity: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    unitCost: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    amount: PropTypes.number,
+  }).isRequired,
+  index: PropTypes.number.isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
+};
+
 /**
  * Equipment Entry Row
  */
@@ -275,7 +308,7 @@ const EquipmentRow = ({ entry, index, onUpdate, onRemove }) => {
   const handleChange = (field, value) => {
     const updated = { ...entry, [field]: value };
     if (['hours', 'rate'].includes(field)) {
-      updated.amount = (parseFloat(updated.hours) || 0) * (parseFloat(updated.rate) || 0);
+      updated.amount = (Number.parseFloat(updated.hours) || 0) * (Number.parseFloat(updated.rate) || 0);
     }
     onUpdate(index, updated);
   };
@@ -338,6 +371,19 @@ const EquipmentRow = ({ entry, index, onUpdate, onRemove }) => {
   );
 };
 
+EquipmentRow.propTypes = {
+  entry: PropTypes.shape({
+    type: PropTypes.string,
+    unitNumber: PropTypes.string,
+    hours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    rate: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    amount: PropTypes.number,
+  }).isRequired,
+  index: PropTypes.number.isRequired,
+  onUpdate: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
+};
+
 /**
  * Main LME Form Component
  */
@@ -387,7 +433,7 @@ const LMEForm = () => {
         }
         
         // Generate LME number
-        const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        const dateStr = new Date().toISOString().split('T')[0].replaceAll('-', '');
         setLmeNumber(`${res.data.pmNumber || res.data.woNumber}-${dateStr}`);
         
       } catch (err) {

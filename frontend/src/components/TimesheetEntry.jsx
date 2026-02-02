@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -172,6 +173,23 @@ const CrewMemberCard = ({ member, onEdit, onDelete }) => {
   );
 };
 
+CrewMemberCard.propTypes = {
+  member: PropTypes.shape({
+    _id: PropTypes.string,
+    id: PropTypes.string,
+    name: PropTypes.string,
+    classification: PropTypes.string,
+    entries: PropTypes.arrayOf(PropTypes.shape({
+      clockIn: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      clockOut: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+      breakMinutes: PropTypes.number,
+      workType: PropTypes.string,
+    })),
+  }).isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
+
 /**
  * Add/Edit Time Entry Dialog
  */
@@ -189,7 +207,7 @@ const TimeEntryDialog = ({ open, onClose, onSave, member, entry }) => {
       memberName: member.name,
       clockIn: clockIn ? new Date(`${today}T${clockIn}`) : null,
       clockOut: clockOut ? new Date(`${today}T${clockOut}`) : null,
-      breakMinutes: parseInt(breakMinutes) || 0,
+      breakMinutes: Number.parseInt(breakMinutes, 10) || 0,
       workType,
       notes,
     });
@@ -311,6 +329,24 @@ const TimeEntryDialog = ({ open, onClose, onSave, member, entry }) => {
   );
 };
 
+TimeEntryDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  member: PropTypes.shape({
+    _id: PropTypes.string,
+    id: PropTypes.string,
+    name: PropTypes.string,
+  }),
+  entry: PropTypes.shape({
+    clockIn: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    clockOut: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+    breakMinutes: PropTypes.number,
+    workType: PropTypes.string,
+    notes: PropTypes.string,
+  }),
+};
+
 /**
  * Add Crew Member Dialog
  */
@@ -387,6 +423,12 @@ const AddCrewMemberDialog = ({ open, onClose, onAdd }) => {
       </DialogActions>
     </Dialog>
   );
+};
+
+AddCrewMemberDialog.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
 };
 
 /**

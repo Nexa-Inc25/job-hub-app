@@ -506,7 +506,7 @@ const PriceBookDetail = ({ priceBook, onBack, onImport, onActivate, onRefresh })
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${priceBook.name.replace(/\s+/g, '_')}_rates.csv`;
+    link.download = `${priceBook.name.replaceAll(/\s+/g, '_')}_rates.csv`;
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -674,7 +674,7 @@ const PriceBookDetail = ({ priceBook, onBack, onImport, onActivate, onRefresh })
           onPageChange={(e, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
           onRowsPerPageChange={(e) => {
-            setRowsPerPage(parseInt(e.target.value, 10));
+            setRowsPerPage(Number.parseInt(e.target.value, 10));
             setPage(0);
           }}
           rowsPerPageOptions={[10, 25, 50, 100]}

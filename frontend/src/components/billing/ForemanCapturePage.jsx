@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -107,6 +108,14 @@ const RecentItems = ({ items, onSelect }) => {
   );
 };
 
+RecentItems.propTypes = {
+  items: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    itemCode: PropTypes.string,
+  })).isRequired,
+  onSelect: PropTypes.func.isRequired,
+};
+
 /**
  * Item Card for price book selection
  */
@@ -163,6 +172,18 @@ const ItemCard = ({ item, onSelect, isRecent }) => (
   </Card>
 );
 
+ItemCard.propTypes = {
+  item: PropTypes.shape({
+    _id: PropTypes.string,
+    itemCode: PropTypes.string,
+    description: PropTypes.string,
+    unitPrice: PropTypes.number,
+    unit: PropTypes.string,
+  }).isRequired,
+  onSelect: PropTypes.func.isRequired,
+  isRecent: PropTypes.bool,
+};
+
 /**
  * Pending Queue Badge
  */
@@ -182,6 +203,11 @@ const PendingBadge = ({ count, onClick }) => {
       }}
     />
   );
+};
+
+PendingBadge.propTypes = {
+  count: PropTypes.number,
+  onClick: PropTypes.func,
 };
 
 /**

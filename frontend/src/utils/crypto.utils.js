@@ -36,7 +36,7 @@ export async function sha256(data) {
  */
 export async function generatePayloadChecksum(payload) {
   // Create a deterministic JSON string (sorted keys)
-  const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort());
+  const sortedPayload = JSON.stringify(payload, Object.keys(payload).sort((a, b) => a.localeCompare(b)));
   return await sha256(sortedPayload);
 }
 

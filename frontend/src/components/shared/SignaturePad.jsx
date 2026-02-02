@@ -6,6 +6,7 @@
  */
 
 import React, { useRef, useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import SignatureCanvas from 'react-signature-canvas';
 import {
   Box,
@@ -207,6 +208,15 @@ const SignaturePad = ({
       </DialogActions>
     </Dialog>
   );
+};
+
+SignaturePad.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onClose: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  initialName: PropTypes.string,
+  initialRole: PropTypes.string,
+  title: PropTypes.string,
 };
 
 export default SignaturePad;

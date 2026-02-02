@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import {
   Box, Paper, Typography, Grid, Chip, Button, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -84,6 +85,10 @@ const StatusBadge = ({ status }) => {
   return <Chip size="small" color={config.color} label={config.label} />;
 };
 
+StatusBadge.propTypes = {
+  status: PropTypes.string.isRequired,
+};
+
 // Delivery status icon
 const DeliveryStatusIcon = ({ status }) => {
   switch (status) {
@@ -99,6 +104,10 @@ const DeliveryStatusIcon = ({ status }) => {
     default:
       return <PendingIcon sx={{ color: '#ff9800' }} />;
   }
+};
+
+DeliveryStatusIcon.propTypes = {
+  status: PropTypes.string,
 };
 
 const AsBuiltRouter = () => {
