@@ -235,70 +235,81 @@ const ForemanCapturePage = () => {
   // Hooks
   const { isOnline } = useOffline();
 
+  // Helper: Try loading price book for utility
+  const loadPriceBookForUtility = async (utilityId) => {
+    try {
+      const activePbRes = await api.get(`/api/pricebooks/active?utilityId=${utilityId}`);
+      if (activePbRes.data) {
+        return { priceBook: activePbRes.data, items: activePbRes.data.items || [] };
+      }
+    } catch {
+      // No active price book for utility
+    }
+    return null;
+  };
+
+  // Helper: Try loading any available price book
+  const loadFallbackPriceBook = async () => {
+    try {
+      console.log('[ForemanCapture] No items from job priceBookId, trying active pricebooks...');
+      let allPbRes = await api.get('/api/pricebooks?status=active');
+      console.log('[ForemanCapture] Active pricebooks:', allPbRes.data?.length || 0);
+      
+      if (!allPbRes.data?.length) {
+        console.log('[ForemanCapture] No active, trying all pricebooks...');
+        allPbRes = await api.get('/api/pricebooks');
+        console.log('[ForemanCapture] All pricebooks:', allPbRes.data?.length || 0);
+      }
+      
+      if (allPbRes.data?.length > 0) {
+        console.log('[ForemanCapture] Fetching full pricebook:', allPbRes.data[0]._id, allPbRes.data[0].name);
+        const fullPbRes = await api.get(`/api/pricebooks/${allPbRes.data[0]._id}`);
+        console.log('[ForemanCapture] Full pricebook items:', fullPbRes.data?.items?.length || 0);
+        if (fullPbRes.data) {
+          return { priceBook: fullPbRes.data, items: fullPbRes.data.items || [] };
+        }
+      }
+    } catch (error_) {
+      console.error('[ForemanCapture] Error loading pricebooks:', error_);
+    }
+    return null;
+  };
+
+  // Helper: Load job's price book with fallbacks
+  const loadJobPriceBook = async (jobData) => {
+    // Try job's direct priceBookId first
+    if (jobData.priceBookId) {
+      const pbRes = await api.get(`/api/pricebooks/${jobData.priceBookId}`);
+      return { priceBook: pbRes.data, items: pbRes.data.items || [] };
+    }
+    
+    // Try utility-specific price book
+    if (jobData.utilityId) {
+      const result = await loadPriceBookForUtility(jobData.utilityId);
+      if (result) return result;
+    }
+    
+    // Final fallback: any available price book
+    return await loadFallbackPriceBook();
+  };
+
   // Load job and price book data
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
       try {
-        // Load job details
         let loadedItems = [];
-        let jobData = null;
+        
         if (jobId) {
           const jobRes = await api.get(`/api/jobs/${jobId}`);
-          jobData = jobRes.data;
+          const jobData = jobRes.data;
           setJob(jobData);
           
-          // Load price book - try job's priceBookId first
-          if (jobData.priceBookId) {
-            const pbRes = await api.get(`/api/pricebooks/${jobData.priceBookId}`);
-            setPriceBook(pbRes.data);
-            loadedItems = pbRes.data.items || [];
+          const pbResult = await loadJobPriceBook(jobData);
+          if (pbResult) {
+            setPriceBook(pbResult.priceBook);
+            loadedItems = pbResult.items;
             setPriceBookItems(loadedItems);
-          } else {
-            // Fallback: try to get active price book for job's utility
-            if (jobData.utilityId) {
-              try {
-                const activePbRes = await api.get(`/api/pricebooks/active?utilityId=${jobData.utilityId}`);
-                if (activePbRes.data) {
-                  setPriceBook(activePbRes.data);
-                  loadedItems = activePbRes.data.items || [];
-                  setPriceBookItems(loadedItems);
-                }
-              } catch {
-                // No active price book for utility, try any active one
-              }
-            }
-            
-            // Final fallback: get company's first available price book (active or draft)
-            if (loadedItems.length === 0) {
-              try {
-                // Try active first
-                console.log('[ForemanCapture] No items from job priceBookId, trying active pricebooks...');
-                let allPbRes = await api.get('/api/pricebooks?status=active');
-                console.log('[ForemanCapture] Active pricebooks:', allPbRes.data?.length || 0);
-                
-                // If no active, try any price book
-                if (!allPbRes.data?.length) {
-                  console.log('[ForemanCapture] No active, trying all pricebooks...');
-                  allPbRes = await api.get('/api/pricebooks');
-                  console.log('[ForemanCapture] All pricebooks:', allPbRes.data?.length || 0);
-                }
-                
-                if (allPbRes.data?.length > 0) {
-                  // List endpoint excludes items, so fetch full price book
-                  console.log('[ForemanCapture] Fetching full pricebook:', allPbRes.data[0]._id, allPbRes.data[0].name);
-                  const fullPbRes = await api.get(`/api/pricebooks/${allPbRes.data[0]._id}`);
-                  console.log('[ForemanCapture] Full pricebook items:', fullPbRes.data?.items?.length || 0);
-                  if (fullPbRes.data) {
-                    setPriceBook(fullPbRes.data);
-                    loadedItems = fullPbRes.data.items || [];
-                    setPriceBookItems(loadedItems);
-                  }
-                }
-              } catch (pbErr) {
-                console.error('[ForemanCapture] Error loading pricebooks:', pbErr);
-              }
-            }
           }
         }
         
@@ -335,7 +346,7 @@ const ForemanCapturePage = () => {
             setPriceBookItems(cachedPb.items || []);
           }
         } catch {
-          // Ignore
+          // Ignore offline cache errors
         }
       } finally {
         setLoading(false);

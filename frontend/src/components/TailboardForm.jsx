@@ -208,11 +208,9 @@ const INSPECTOR_OPTIONS = [
 ];
 
 /**
- * Populate form state from existing tailboard data
- * Extracted to reduce cognitive complexity in loadData
+ * Populate basic form fields from tailboard data
  */
-function populateFormFromTailboard(tb, setters) {
-  // Basic fields
+function populateBasicFields(tb, setters) {
   if (tb.date) setters.setDate(new Date(tb.date).toISOString().split('T')[0]);
   if (tb.startTime) setters.setStartTime(tb.startTime);
   if (tb.taskDescription) setters.setTaskDescription(tb.taskDescription);
@@ -227,8 +225,12 @@ function populateFormFromTailboard(tb, setters) {
   if (tb.emergencyPhone) setters.setEmergencyPhone(tb.emergencyPhone);
   if (tb.nearestHospital) setters.setNearestHospital(tb.nearestHospital);
   if (tb.additionalNotes) setters.setAdditionalNotes(tb.additionalNotes);
-  
-  // Alvah-specific fields
+}
+
+/**
+ * Populate Alvah-specific fields from tailboard data
+ */
+function populateAlvahFields(tb, setters) {
   if (tb.pmNumber) setters.setPmNumber(tb.pmNumber);
   if (tb.circuit) setters.setCircuit(tb.circuit);
   if (tb.showUpYardLocation) setters.setShowUpYardLocation(tb.showUpYardLocation);
@@ -238,25 +240,35 @@ function populateFormFromTailboard(tb, setters) {
   if (tb.eicName) setters.setEicName(tb.eicName);
   if (tb.eicPhone) setters.setEicPhone(tb.eicPhone);
   if (tb.specialMitigations?.length) setters.setSpecialMitigations(tb.specialMitigations);
-  
-  // Grounding section
+}
+
+/**
+ * Populate electrical/grounding fields from tailboard data
+ */
+function populateElectricalFields(tb, setters) {
   if (tb.grounding) {
     setters.setGroundingNeeded(tb.grounding.needed);
     setters.setGroundingAccountedFor(tb.grounding.accountedFor);
     if (tb.grounding.locations?.length) setters.setGroundingLocations(tb.grounding.locations);
   }
-  
-  // Source side and line characteristics
   if (tb.sourceSideDevices?.length) setters.setSourceSideDevices(tb.sourceSideDevices);
   if (tb.nominalVoltages) setters.setNominalVoltages(tb.nominalVoltages);
   if (tb.copperConditionInspected !== undefined) setters.setCopperConditionInspected(tb.copperConditionInspected);
   if (tb.notTiedIntoCircuit) setters.setNotTiedIntoCircuit(tb.notTiedIntoCircuit);
-  
-  // UG checklist
   if (tb.ugChecklist?.length) {
     setters.setUgChecklist(tb.ugChecklist);
     setters.setShowUgChecklist(true);
   }
+}
+
+/**
+ * Populate form state from existing tailboard data
+ * Extracted to reduce cognitive complexity in loadData
+ */
+function populateFormFromTailboard(tb, setters) {
+  populateBasicFields(tb, setters);
+  populateAlvahFields(tb, setters);
+  populateElectricalFields(tb, setters);
 }
 
 const TailboardForm = () => {
