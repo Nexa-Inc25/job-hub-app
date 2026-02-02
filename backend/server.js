@@ -476,8 +476,22 @@ connectWithRetry()
     } catch (cleanupErr) {
       console.error('[CLEANUP] Error resetting stuck extractions:', cleanupErr.message);
     }
+    
+    // ============================================
+    // START SERVER (after MongoDB connection established)
+    // This ensures health checks pass immediately since DB is already connected
+    // ============================================
+    server.listen(PORT, '0.0.0.0', () => {
+      console.log(`✅ Server listening on port ${PORT}`);
+      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`   Health endpoint: /api/health`);
+      console.log(`   API docs: /api-docs`);
+    });
   })
-  .catch(err => console.error('MongoDB connection failed:', err));
+  .catch(err => {
+    console.error('MongoDB connection failed:', err);
+    process.exit(1);
+  });
 
 // Authentication Middleware
 const authenticateUser = (req, res, next) => {
@@ -7879,12 +7893,8 @@ app.use((req, res, next) => {
 });
 
 // ============================================
-// START SERVER (after all middleware and routes are registered)
+// START SERVER (after MongoDB connection is established)
 // ============================================
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`✅ Server listening on port ${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`   Health endpoint: /api/health`);
-  console.log(`   API docs: /api-docs`);
-});
+// Note: Server start is handled in connectWithRetry().then() block above
+// This ensures health checks pass because MongoDB is connected before we listen
 
