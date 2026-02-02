@@ -54,6 +54,87 @@ async function findRateItem(priceBookId, priceBookItemId, itemCode, companyId, u
 }
 
 /**
+ * Sanitize location object - only allow specific numeric fields
+ */
+function sanitizeLocation(location) {
+  if (!location || typeof location !== 'object') return null;
+  return {
+    latitude: typeof location.latitude === 'number' ? location.latitude : undefined,
+    longitude: typeof location.longitude === 'number' ? location.longitude : undefined,
+    accuracy: typeof location.accuracy === 'number' ? location.accuracy : undefined,
+    altitude: typeof location.altitude === 'number' ? location.altitude : undefined,
+    altitudeAccuracy: typeof location.altitudeAccuracy === 'number' ? location.altitudeAccuracy : undefined,
+    heading: typeof location.heading === 'number' ? location.heading : undefined,
+    speed: typeof location.speed === 'number' ? location.speed : undefined,
+    capturedAt: location.capturedAt ? new Date(location.capturedAt) : new Date()
+  };
+}
+
+/**
+ * Sanitize performedBy object - only allow specific fields with validation
+ */
+function sanitizePerformedBy(performedBy, user) {
+  if (!performedBy || typeof performedBy !== 'object') {
+    return {
+      tier: 'prime',
+      workCategory: 'electrical',
+      foremanId: user._id,
+      foremanName: user.name
+    };
+  }
+  
+  const validTiers = ['prime', 'sub', 'sub_of_sub'];
+  const validWorkCategories = ['electrical', 'civil', 'overhead', 'underground', 'traffic_control', 'vegetation', 'inspection', 'emergency', 'other'];
+  
+  return {
+    tier: validTiers.includes(performedBy.tier) ? performedBy.tier : 'prime',
+    workCategory: validWorkCategories.includes(performedBy.workCategory) ? performedBy.workCategory : 'electrical',
+    foremanId: sanitizeObjectId(performedBy.foremanId) || user._id,
+    foremanName: sanitizeString(performedBy.foremanName) || user.name,
+    subContractorId: sanitizeObjectId(performedBy.subContractorId),
+    subContractorName: sanitizeString(performedBy.subContractorName),
+    crewSize: typeof performedBy.crewSize === 'number' && performedBy.crewSize > 0 ? performedBy.crewSize : 1
+  };
+}
+
+/**
+ * Sanitize photos array - only allow specific fields
+ */
+function sanitizePhotos(photos) {
+  if (!Array.isArray(photos)) return [];
+  return photos.map(photo => {
+    if (!photo || typeof photo !== 'object') return null;
+    return {
+      url: sanitizeString(photo.url),
+      r2Key: sanitizeString(photo.r2Key),
+      fileName: sanitizeString(photo.fileName),
+      mimeType: sanitizeString(photo.mimeType) || 'image/jpeg',
+      fileSize: typeof photo.fileSize === 'number' ? photo.fileSize : undefined,
+      gpsCoordinates: photo.gpsCoordinates ? sanitizeLocation(photo.gpsCoordinates) : undefined,
+      capturedAt: photo.capturedAt ? new Date(photo.capturedAt) : new Date(),
+      deviceInfo: sanitizeString(photo.deviceInfo),
+      appVersion: sanitizeString(photo.appVersion),
+      photoType: ['before', 'during', 'after', 'measurement', 'issue', 'verification', 'other'].includes(photo.photoType) 
+        ? photo.photoType : 'after',
+      description: sanitizeString(photo.description)
+    };
+  }).filter(Boolean);
+}
+
+/**
+ * Sanitize fieldConditions object - only allow specific fields
+ */
+function sanitizeFieldConditions(fieldConditions) {
+  if (!fieldConditions || typeof fieldConditions !== 'object') return undefined;
+  return {
+    weather: sanitizeString(fieldConditions.weather),
+    groundCondition: sanitizeString(fieldConditions.groundCondition),
+    accessNotes: sanitizeString(fieldConditions.accessNotes),
+    safetyNotes: sanitizeString(fieldConditions.safetyNotes)
+  };
+}
+
+/**
  * Build unit entry data object from request and rate item
  */
 function buildUnitEntryData(params) {
@@ -62,6 +143,14 @@ function buildUnitEntryData(params) {
     photos, photoWaived, photoWaivedReason, performedBy, user, notes, 
     fieldConditions, offlineId 
   } = params;
+  
+  // Sanitize all nested user-controlled objects
+  const safeLocation = sanitizeLocation(location);
+  const safePerformedBy = sanitizePerformedBy(performedBy, user);
+  const safePhotos = sanitizePhotos(photos);
+  const safeFieldConditions = sanitizeFieldConditions(fieldConditions);
+  const safeOfflineId = sanitizeString(offlineId);
+  const safePhotoWaivedReason = sanitizeString(photoWaivedReason);
   
   return {
     jobId,
@@ -80,27 +169,23 @@ function buildUnitEntryData(params) {
     totalAmount: quantity * rateItem.unitPrice,
     // Digital receipt data
     workDate: new Date(workDate),
-    location,
-    photos: photos || [],
-    photoWaived: photoWaived || false,
-    photoWaivedReason,
-    photoWaivedBy: photoWaived ? user._id : undefined,
+    location: safeLocation,
+    photos: safePhotos,
+    photoWaived: photoWaived === true,
+    photoWaivedReason: safePhotoWaivedReason,
+    photoWaivedBy: photoWaived === true ? user._id : undefined,
     // Who performed the work
-    performedBy: {
-      ...performedBy,
-      foremanId: performedBy.foremanId || user._id,
-      foremanName: performedBy.foremanName || user.name
-    },
+    performedBy: safePerformedBy,
     // Entry metadata
     enteredBy: user._id,
     enteredAt: new Date(),
     status: 'draft',
     notes,
-    fieldConditions,
+    fieldConditions: safeFieldConditions,
     // Offline sync
-    offlineId,
-    syncStatus: offlineId ? 'pending' : 'synced',
-    syncedAt: offlineId ? undefined : new Date()
+    offlineId: safeOfflineId,
+    syncStatus: safeOfflineId ? 'pending' : 'synced',
+    syncedAt: safeOfflineId ? undefined : new Date()
   };
 }
 

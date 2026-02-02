@@ -45,7 +45,8 @@ router.post('/submit', async (req, res) => {
     }
     
     // Get utilityId - from request, job, or default to PG&E
-    let effectiveUtilityId = safeUtilityId || job.utilityId;
+    // Ensure all ObjectIds are properly sanitized
+    let effectiveUtilityId = safeUtilityId || sanitizeObjectId(job.utilityId);
     if (!effectiveUtilityId) {
       // Default to PG&E utility
       const Utility = require('../models/Utility');
@@ -59,15 +60,20 @@ router.post('/submit', async (req, res) => {
       .update(`${safeFileKey}-${Date.now()}`)
       .digest('hex');
     
-    // Create submission
+    // Sanitize job-derived fields (even from database, ensure they're clean strings)
+    const safeJobNumber = sanitizeString(job.jobNumber);
+    const safeWorkOrderNumber = sanitizeString(job.workOrderNumber);
+    const safeCircuitId = sanitizeString(job.circuitId);
+    
+    // Create submission with only sanitized/validated data
     const submission = await AsBuiltSubmission.create({
       companyId: user.companyId,
       jobId: safeJobId,
       utilityId: effectiveUtilityId,
       pmNumber: safePmNumber,
-      jobNumber: job.jobNumber,
-      workOrderNumber: job.workOrderNumber,
-      circuitId: job.circuitId,
+      jobNumber: safeJobNumber,
+      workOrderNumber: safeWorkOrderNumber,
+      circuitId: safeCircuitId,
       originalFile: {
         key: safeFileKey,
         filename: safeFilename || `${safePmNumber}_asbuilt.pdf`,
@@ -463,27 +469,78 @@ router.post('/rules', async (req, res) => {
       return res.status(400).json({ error: 'Invalid utilityId' });
     }
     
+    // Sanitize destination object - only allow specific fields
+    const safeDestination = destination && typeof destination === 'object' ? {
+      type: ['email', 'sftp', 'api', 'folder'].includes(destination.type) ? destination.type : 'folder',
+      config: destination.config && typeof destination.config === 'object' ? {
+        email: sanitizeString(destination.config.email),
+        host: sanitizeString(destination.config.host),
+        port: typeof destination.config.port === 'number' ? destination.config.port : undefined,
+        username: sanitizeString(destination.config.username),
+        path: sanitizeString(destination.config.path),
+        url: sanitizeString(destination.config.url),
+        folderPath: sanitizeString(destination.config.folderPath)
+      } : {}
+    } : null;
+    
+    if (!safeDestination) {
+      return res.status(400).json({ error: 'Valid destination is required' });
+    }
+    
+    // Sanitize pageDetection object - only allow specific fields
+    const safePageDetection = pageDetection && typeof pageDetection === 'object' ? {
+      startPattern: sanitizeString(pageDetection.startPattern),
+      endPattern: sanitizeString(pageDetection.endPattern),
+      keywords: Array.isArray(pageDetection.keywords) ? pageDetection.keywords.map(k => sanitizeString(k)).filter(Boolean) : [],
+      headerMatch: sanitizeString(pageDetection.headerMatch)
+    } : undefined;
+    
+    // Sanitize metadataMapping object - only allow specific fields
+    const safeMetadataMapping = metadataMapping && typeof metadataMapping === 'object' ? {
+      pmNumber: sanitizeString(metadataMapping.pmNumber),
+      woNumber: sanitizeString(metadataMapping.woNumber),
+      circuitId: sanitizeString(metadataMapping.circuitId),
+      address: sanitizeString(metadataMapping.address)
+    } : undefined;
+    
+    // Sanitize conditions array - only allow specific fields per condition
+    const safeConditions = Array.isArray(conditions) ? conditions.map(c => {
+      if (!c || typeof c !== 'object') return null;
+      return {
+        field: sanitizeString(c.field),
+        operator: ['equals', 'contains', 'startsWith', 'endsWith', 'regex', 'exists', 'notExists'].includes(c.operator) ? c.operator : 'equals',
+        value: sanitizeString(c.value)
+      };
+    }).filter(Boolean) : undefined;
+    
+    // Sanitize notifications object - only allow specific fields
+    const safeNotifications = notifications && typeof notifications === 'object' ? {
+      onSuccess: Array.isArray(notifications.onSuccess) ? notifications.onSuccess.map(e => sanitizeString(e)).filter(Boolean) : [],
+      onFailure: Array.isArray(notifications.onFailure) ? notifications.onFailure.map(e => sanitizeString(e)).filter(Boolean) : [],
+      onRetry: Array.isArray(notifications.onRetry) ? notifications.onRetry.map(e => sanitizeString(e)).filter(Boolean) : []
+    } : undefined;
+    
     // Build rule object with only allowed fields
     const ruleData = {
       name: safeName,
       utilityId: safeUtilityId,
       companyId: user.companyId,
       sectionType: safeSectionType,
-      destination,
+      destination: safeDestination,
       createdBy: user._id
     };
     
     // Add optional fields if provided
     if (safeDescription) ruleData.description = safeDescription;
-    if (pageDetection) ruleData.pageDetection = pageDetection;
-    if (metadataMapping) ruleData.metadataMapping = metadataMapping;
-    if (conditions) ruleData.conditions = conditions;
-    if (typeof priority === 'number') ruleData.priority = priority;
+    if (safePageDetection) ruleData.pageDetection = safePageDetection;
+    if (safeMetadataMapping) ruleData.metadataMapping = safeMetadataMapping;
+    if (safeConditions && safeConditions.length > 0) ruleData.conditions = safeConditions;
+    if (typeof priority === 'number' && priority >= 0 && priority <= 100) ruleData.priority = priority;
     if (typeof isActive === 'boolean') ruleData.isActive = isActive;
     if (typeof requiresApproval === 'boolean') ruleData.requiresApproval = requiresApproval;
-    if (typeof maxRetries === 'number') ruleData.maxRetries = maxRetries;
-    if (typeof retryDelayMinutes === 'number') ruleData.retryDelayMinutes = retryDelayMinutes;
-    if (notifications) ruleData.notifications = notifications;
+    if (typeof maxRetries === 'number' && maxRetries >= 0 && maxRetries <= 10) ruleData.maxRetries = maxRetries;
+    if (typeof retryDelayMinutes === 'number' && retryDelayMinutes >= 0 && retryDelayMinutes <= 1440) ruleData.retryDelayMinutes = retryDelayMinutes;
+    if (safeNotifications) ruleData.notifications = safeNotifications;
     
     const rule = await RoutingRule.create(ruleData);
     
