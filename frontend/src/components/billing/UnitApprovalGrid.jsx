@@ -233,7 +233,7 @@ const UnitApprovalGrid = ({
       field: 'itemCode',
       headerName: 'Item Code',
       width: 120,
-      valueGetter: (params) => params.row?.priceBookItemCode || params.row?.itemCode || '-',
+      valueGetter: (params) => params?.row?.priceBookItemCode || params?.row?.itemCode || '-',
     },
     // Description
     {
@@ -241,7 +241,7 @@ const UnitApprovalGrid = ({
       headerName: 'Description',
       flex: 1,
       minWidth: 200,
-      valueGetter: (params) => params.row?.itemDescription || params.row?.description || '-',
+      valueGetter: (params) => params?.row?.itemDescription || params?.row?.description || '-',
     },
     // Quantity
     {
@@ -264,7 +264,7 @@ const UnitApprovalGrid = ({
       headerName: 'Total',
       width: 110,
       type: 'number',
-      valueGetter: (params) => params.row?.totalAmount || ((params.row?.quantity || 0) * (params.row?.unitPrice || 0)),
+      valueGetter: (params) => params?.row?.totalAmount || ((params?.row?.quantity || 0) * (params?.row?.unitPrice || 0)),
       valueFormatter: (params) => params?.value ? `$${params.value.toFixed(2)}` : '-',
     },
     // Tier
@@ -272,7 +272,7 @@ const UnitApprovalGrid = ({
       field: 'tier',
       headerName: 'Tier',
       width: 100,
-      valueGetter: (params) => params.row?.performedBy?.tier || 'prime',
+      valueGetter: (params) => params?.row?.performedBy?.tier || 'prime',
       renderCell: (params) => {
         if (!params?.row) return null;
         return (
@@ -291,7 +291,7 @@ const UnitApprovalGrid = ({
       headerName: 'Work Date',
       width: 110,
       type: 'date',
-      valueGetter: (params) => params.row?.workDate ? new Date(params.row.workDate) : null,
+      valueGetter: (params) => params?.row?.workDate ? new Date(params.row.workDate) : null,
       valueFormatter: (params) => params?.value ? params.value.toLocaleDateString() : '-',
     },
     // Evidence indicators
