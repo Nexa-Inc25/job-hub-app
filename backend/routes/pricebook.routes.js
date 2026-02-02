@@ -429,7 +429,7 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
     const errors = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replaceAll(/^"|"$/g, ''));
+      const values = lines[i].split(',').map(v => v.trim().replaceAll(/(?:^")|(?:"$)/g, ''));
       
       if (values.length !== headers.length) {
         errors.push({ row: i + 1, message: 'Column count mismatch' });

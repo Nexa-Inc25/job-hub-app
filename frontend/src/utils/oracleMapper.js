@@ -213,7 +213,7 @@ export function exportToCSV(claim, units) {
     claim.claimNumber || `CLM-${claim._id}`,
     index + 1,
     unit.itemCode || unit.priceBookItemCode || '',
-    `"${(unit.itemDescription || unit.description || '').replace(/"/g, '""')}"`,
+    `"${(unit.itemDescription || unit.description || '').replaceAll(/"/g, '""')}"`,
     unit.quantity,
     unit.unitPrice?.toFixed(2) || '0.00',
     (unit.totalAmount || unit.quantity * unit.unitPrice)?.toFixed(2) || '0.00',

@@ -81,7 +81,7 @@ export async function hashPhoto(photo) {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+      bytes[i] = binaryString.codePointAt(i);
     }
     arrayBuffer = bytes.buffer;
   } else {
@@ -108,7 +108,7 @@ export function decodeJWT(token) {
     if (parts.length !== 3) return null;
     
     const payload = parts[1];
-    const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const decoded = atob(payload.replaceAll(/-/g, '+').replaceAll(/_/g, '/'));
     return JSON.parse(decoded);
   } catch {
     return null;
