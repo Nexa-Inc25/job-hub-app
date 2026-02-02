@@ -999,10 +999,14 @@ const Dashboard = () => {
   };
 
   // Transition rules by role group
+  // Simplified workflow: Foreman → PM (skip GF/QA review)
   const transitionRules = {
     pmAdmin: {
       new: { status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' },
       pending: { status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' },
+      // PM can approve from any review stage (simplified workflow)
+      pending_gf_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
+      pending_qa_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
       pending_pm_approval: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
       ready_to_submit: { status: 'submitted', label: 'Mark as Submitted', icon: 'submit' },
       submitted: { status: 'billed', label: 'Mark as Billed', icon: 'bill' },
@@ -1011,14 +1015,15 @@ const Dashboard = () => {
     gf: {
       assigned_to_gf: { status: 'pre_fielding', label: 'Start Pre-Field', icon: 'prefield' },
       pre_fielding: { status: 'scheduled', label: 'Schedule Crew', icon: 'schedule' },
-      pending_gf_review: { status: 'pending_qa_review', label: 'Approve → Send to QA', icon: 'approve' },
+      // GF can also approve directly to ready_to_submit (simplified workflow)
+      pending_gf_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
     },
     qa: {
-      pending_qa_review: { status: 'pending_pm_approval', label: 'Approve → Send to PM', icon: 'approve' },
+      pending_qa_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
     },
     field: {
       scheduled: { status: 'in_progress', label: 'Start Work', icon: 'start' },
-      in_progress: { status: 'pending_gf_review', label: 'Submit for Review', icon: 'submit' },
+      in_progress: { status: 'pending_pm_approval', label: 'Submit for Review', icon: 'submit' },
     },
   };
 
