@@ -60,6 +60,7 @@ router.get('/', async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user?.companyId) {
+      console.log('[PriceBook] User has no companyId:', req.userId);
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
@@ -73,11 +74,14 @@ router.get('/', async (req, res) => {
     if (safeStatus) query.status = safeStatus;
     if (safeUtilityId) query.utilityId = safeUtilityId;
 
+    console.log('[PriceBook] List query:', { userId: req.userId, userCompanyId: user.companyId, role: user.role, query });
+
     const priceBooks = await PriceBook.find(query)
       .select('-items') // Exclude items for list view (can be large)
       .sort({ createdAt: -1 })
       .limit(50);
 
+    console.log('[PriceBook] Found:', priceBooks.length, 'price books');
     res.json(priceBooks);
   } catch (err) {
     console.error('Error listing price books:', err);
