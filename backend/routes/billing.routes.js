@@ -969,11 +969,11 @@ router.post('/claims', async (req, res) => {
       return res.status(400).json({ error: 'No valid approved units found' });
     }
 
-    if (units.length !== unitIds.length) {
+    if (units.length !== safeUnitIds.length) {
       return res.status(400).json({ 
         error: 'Some units are not eligible for billing (not approved, already on claim, or not found)',
         found: units.length,
-        requested: unitIds.length
+        requested: safeUnitIds.length
       });
     }
 

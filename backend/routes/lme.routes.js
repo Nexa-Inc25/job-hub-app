@@ -139,7 +139,11 @@ router.get('/', authenticateUser, async (req, res) => {
     const safeJobId = sanitizeObjectId(jobId);
     if (safeJobId) query.jobId = safeJobId;
     if (startDate && endDate) {
-      query.date = { $gte: sanitizeDate(startDate), $lte: sanitizeDate(endDate) };
+      const safeStartDate = sanitizeDate(startDate);
+      const safeEndDate = sanitizeDate(endDate);
+      if (safeStartDate && safeEndDate) {
+        query.date = { $gte: safeStartDate, $lte: safeEndDate };
+      }
     }
 
     const lmes = await LME.find(query)
