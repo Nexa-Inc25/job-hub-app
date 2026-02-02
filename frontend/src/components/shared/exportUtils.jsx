@@ -1,6 +1,9 @@
 // src/components/shared/exportUtils.js
 // Shared utilities for file export functionality
 
+// Default API base URL - must point to Railway backend for file serving
+const DEFAULT_API_BASE = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
+
 /**
  * Get photo URL from photo object (R2 or local storage)
  */
@@ -8,7 +11,7 @@ export const getPhotoUrl = (photo, apiBase = '') => {
   if (!photo) return '';
   if (photo.url?.startsWith('http')) return photo.url;
   if (photo.r2Key) {
-    const base = apiBase || import.meta.env.VITE_API_URL || '';
+    const base = apiBase || DEFAULT_API_BASE;
     return `${base}/api/files/${photo.r2Key}`;
   }
   return photo.url || '';
@@ -21,11 +24,11 @@ export const getDocumentUrl = (doc, apiBase = '') => {
   if (!doc) return '';
   if (doc.url?.startsWith('http')) return doc.url;
   if (doc.r2Key) {
-    const base = apiBase || import.meta.env.VITE_API_URL || '';
+    const base = apiBase || DEFAULT_API_BASE;
     return `${base}/api/files/${doc.r2Key}`;
   }
   if (doc.path) {
-    const base = apiBase || import.meta.env.VITE_API_URL || '';
+    const base = apiBase || DEFAULT_API_BASE;
     return `${base}${doc.path.startsWith('/') ? '' : '/'}${doc.path}`;
   }
   return doc.url || '';
