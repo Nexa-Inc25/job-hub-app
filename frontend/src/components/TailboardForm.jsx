@@ -484,8 +484,8 @@ const TailboardForm = () => {
       
       setSnackbar({ open: true, message: 'Tailboard completed!', severity: 'success' });
       
-      // Navigate back after a moment
-      setTimeout(() => navigate(`/jobs/${jobId}`), 1500);
+      // Navigate back to Close Out page after a moment
+      setTimeout(() => navigate(`/jobs/${jobId}/closeout`), 1500);
     } catch (error) {
       console.error('Error completing tailboard:', error);
       const message = error.response?.data?.error || 'Failed to complete tailboard';
@@ -614,7 +614,7 @@ const TailboardForm = () => {
       {/* Header */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <IconButton onClick={() => navigate(`/jobs/${jobId}`)} aria-label="Go back to job">
+          <IconButton onClick={() => navigate(`/jobs/${jobId}/closeout`)} aria-label="Go back to close out">
             <BackIcon />
           </IconButton>
           <Box sx={{ flex: 1 }}>
