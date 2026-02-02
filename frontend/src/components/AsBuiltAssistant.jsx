@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import { useParams } from 'react-router-dom';
 import {
   Box,
@@ -46,6 +47,10 @@ const StartSessionPanel = ({ onStart }) => (
   </Paper>
 );
 
+StartSessionPanel.propTypes = {
+  onStart: PropTypes.func.isRequired,
+};
+
 // Sub-component: Generated Document Panel
 const GeneratedDocPanel = ({ content, onStartOver }) => (
   <Paper sx={{ p: 3 }}>
@@ -64,6 +69,11 @@ const GeneratedDocPanel = ({ content, onStartOver }) => (
     </Box>
   </Paper>
 );
+
+GeneratedDocPanel.propTypes = {
+  content: PropTypes.string.isRequired,
+  onStartOver: PropTypes.func.isRequired,
+};
 
 // Sub-component: Question Form
 const QuestionFormPanel = ({ session, questions, answers, submitting, generating, onAnswerChange, onSubmit, onGenerate }) => {
@@ -138,6 +148,26 @@ const QuestionFormPanel = ({ session, questions, answers, submitting, generating
   );
 };
 
+QuestionFormPanel.propTypes = {
+  session: PropTypes.shape({
+    answeredQuestions: PropTypes.number,
+    totalQuestions: PropTypes.number,
+  }),
+  questions: PropTypes.arrayOf(PropTypes.shape({
+    field: PropTypes.string,
+    question: PropTypes.string,
+    helpText: PropTypes.string,
+    inputType: PropTypes.string,
+    sourceDoc: PropTypes.string,
+  })).isRequired,
+  answers: PropTypes.object.isRequired,
+  submitting: PropTypes.bool.isRequired,
+  generating: PropTypes.bool.isRequired,
+  onAnswerChange: PropTypes.func.isRequired,
+  onSubmit: PropTypes.func.isRequired,
+  onGenerate: PropTypes.func.isRequired,
+};
+
 // Sub-component: Chat Sidebar
 const ChatSidebar = ({ chatHistory, chatMessage, chatLoading, chatEndRef, onMessageChange, onSend }) => (
   <Paper sx={{ p: 2, height: 600, display: 'flex', flexDirection: 'column' }}>
@@ -184,6 +214,19 @@ const ChatSidebar = ({ chatHistory, chatMessage, chatLoading, chatEndRef, onMess
     </Box>
   </Paper>
 );
+
+ChatSidebar.propTypes = {
+  chatHistory: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.string,
+    role: PropTypes.string,
+    content: PropTypes.string,
+  })).isRequired,
+  chatMessage: PropTypes.string.isRequired,
+  chatLoading: PropTypes.bool.isRequired,
+  chatEndRef: PropTypes.object.isRequired,
+  onMessageChange: PropTypes.func.isRequired,
+  onSend: PropTypes.func.isRequired,
+};
 
 // Main Component
 export default function AsBuiltAssistant() {

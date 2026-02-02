@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -89,6 +90,12 @@ function TabPanel({ children, value, index, ...other }) {
     </div>
   );
 }
+
+TabPanel.propTypes = {
+  children: PropTypes.node,
+  value: PropTypes.number.isRequired,
+  index: PropTypes.number.isRequired,
+};
 
 /**
  * Photo Section - Upload/capture job photos
@@ -302,6 +309,19 @@ const PhotoSection = ({ jobId, photos, onPhotoAdded, onPhotoDeleted }) => {
   );
 };
 
+PhotoSection.propTypes = {
+  jobId: PropTypes.string.isRequired,
+  photos: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    name: PropTypes.string,
+    url: PropTypes.string,
+    thumbnailUrl: PropTypes.string,
+    latitude: PropTypes.number,
+  })).isRequired,
+  onPhotoAdded: PropTypes.func.isRequired,
+  onPhotoDeleted: PropTypes.func.isRequired,
+};
+
 /**
  * Documents Section - View/edit PDFs
  */
@@ -362,6 +382,17 @@ const DocumentsSection = ({ jobId, documents, onNavigatePDF }) => {
       )}
     </Box>
   );
+};
+
+DocumentsSection.propTypes = {
+  jobId: PropTypes.string.isRequired,
+  documents: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    name: PropTypes.string,
+    type: PropTypes.string,
+    isTemplate: PropTypes.bool,
+  })).isRequired,
+  onNavigatePDF: PropTypes.func.isRequired,
 };
 
 /**
@@ -480,6 +511,18 @@ const UnitsSection = ({ jobId, units, onNavigateUnits }) => {
   );
 };
 
+UnitsSection.propTypes = {
+  jobId: PropTypes.string.isRequired,
+  units: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    itemCode: PropTypes.string,
+    quantity: PropTypes.number,
+    totalAmount: PropTypes.number,
+    status: PropTypes.string,
+  })).isRequired,
+  onNavigateUnits: PropTypes.func.isRequired,
+};
+
 /**
  * Tailboard Section - Safety briefing access
  */
@@ -548,6 +591,16 @@ const TailboardSection = ({ jobId, tailboard, onNavigateTailboard }) => {
   );
 };
 
+TailboardSection.propTypes = {
+  jobId: PropTypes.string.isRequired,
+  tailboard: PropTypes.shape({
+    status: PropTypes.string,
+    crewMembers: PropTypes.array,
+    hazardCount: PropTypes.number,
+  }),
+  onNavigateTailboard: PropTypes.func.isRequired,
+};
+
 /**
  * LME Section - Daily Statement of Labor, Material, Equipment (PG&E format)
  */
@@ -603,6 +656,17 @@ const TimesheetSection = ({ jobId, timesheet, onNavigateTimesheet }) => {
       </Card>
     </Box>
   );
+};
+
+TimesheetSection.propTypes = {
+  jobId: PropTypes.string.isRequired,
+  timesheet: PropTypes.shape({
+    entries: PropTypes.arrayOf(PropTypes.shape({
+      date: PropTypes.string,
+      hours: PropTypes.number,
+    })),
+  }),
+  onNavigateTimesheet: PropTypes.func.isRequired,
 };
 
 /**
