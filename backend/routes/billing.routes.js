@@ -443,13 +443,18 @@ router.post('/units/:id/verify', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
+      return res.status(400).json({ error: 'Invalid unit ID' });
+    }
+
     // Only GF, QA, PM, or admin can verify
     if (!['gf', 'qa', 'pm', 'admin'].includes(user.role) && !req.isAdmin) {
       return res.status(403).json({ error: 'Only GF, QA, PM, or admin can verify units' });
     }
 
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDeleted: { $ne: true }
     });
@@ -487,13 +492,18 @@ router.post('/units/:id/approve', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
+      return res.status(400).json({ error: 'Invalid unit ID' });
+    }
+
     // Only PM or admin can approve for billing
     if (!['pm', 'admin'].includes(user.role) && !req.isAdmin) {
       return res.status(403).json({ error: 'Only PM or admin can approve units for billing' });
     }
 
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDeleted: { $ne: true }
     });
@@ -531,8 +541,13 @@ router.post('/units/:id/dispute', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
+      return res.status(400).json({ error: 'Invalid unit ID' });
+    }
+
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDeleted: { $ne: true }
     });
@@ -601,13 +616,18 @@ router.post('/units/:id/resolve-dispute', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
+      return res.status(400).json({ error: 'Invalid unit ID' });
+    }
+
     // Only PM/GF/admin can resolve disputes
     if (!['pm', 'gf', 'admin'].includes(user.role) && !user.isAdmin) {
       return res.status(403).json({ error: 'Not authorized to resolve disputes' });
     }
 
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDisputed: true,
       isDeleted: { $ne: true }
@@ -707,8 +727,13 @@ router.delete('/units/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
+      return res.status(400).json({ error: 'Invalid unit ID' });
+    }
+
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDeleted: { $ne: true }
     });
@@ -849,12 +874,13 @@ router.get('/claims/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
       return res.status(400).json({ error: 'Invalid claim ID' });
     }
 
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     })
       .populate('createdBy', 'name')
@@ -1048,8 +1074,13 @@ router.put('/claims/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1108,8 +1139,13 @@ router.delete('/claims/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1152,12 +1188,17 @@ router.post('/claims/:id/approve', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     if (!req.isAdmin && user.role !== 'pm') {
       return res.status(403).json({ error: 'Only PM or admin can approve claims' });
     }
 
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1207,8 +1248,13 @@ router.post('/claims/:id/submit', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1260,8 +1306,13 @@ router.post('/claims/:id/payment', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1327,8 +1378,13 @@ router.get('/claims/:id/export-oracle', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1380,8 +1436,13 @@ router.get('/claims/:id/export-csv', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 
@@ -1438,8 +1499,13 @@ router.get('/claims/:id/export-fbdi', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const claimId = sanitizeObjectId(req.params.id);
+    if (!claimId) {
+      return res.status(400).json({ error: 'Invalid claim ID' });
+    }
+
     const claim = await Claim.findOne({
-      _id: req.params.id,
+      _id: claimId,
       companyId: user.companyId
     });
 

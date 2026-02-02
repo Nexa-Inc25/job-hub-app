@@ -161,7 +161,10 @@ router.get('/:id', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
-    const lme = await LME.findOne({ _id: req.params.id, companyId: user.companyId })
+    const lmeId = sanitizeObjectId(req.params.id);
+    if (!lmeId) return res.status(400).json({ error: 'Invalid LME ID' });
+
+    const lme = await LME.findOne({ _id: lmeId, companyId: user.companyId })
       .populate('jobId');
 
     if (!lme) return res.status(404).json({ error: 'LME not found' });
@@ -179,7 +182,10 @@ router.get('/:id', authenticateUser, async (req, res) => {
 router.get('/:id/pdf', authenticateUser, async (req, res) => {
   try {
     const user = await User.findById(req.userId);
-    const lme = await LME.findOne({ _id: req.params.id, companyId: user?.companyId });
+    const lmeId = sanitizeObjectId(req.params.id);
+    if (!lmeId) return res.status(400).json({ error: 'Invalid LME ID' });
+
+    const lme = await LME.findOne({ _id: lmeId, companyId: user?.companyId });
 
     if (!lme) return res.status(404).json({ error: 'LME not found' });
 
@@ -314,7 +320,10 @@ router.get('/:id/export', authenticateUser, async (req, res) => {
   try {
     const { format = 'oracle' } = req.query;
     const user = await User.findById(req.userId);
-    const lme = await LME.findOne({ _id: req.params.id, companyId: user?.companyId });
+    const lmeId = sanitizeObjectId(req.params.id);
+    if (!lmeId) return res.status(400).json({ error: 'Invalid LME ID' });
+
+    const lme = await LME.findOne({ _id: lmeId, companyId: user?.companyId });
 
     if (!lme) return res.status(404).json({ error: 'LME not found' });
 
@@ -346,13 +355,16 @@ router.patch('/:id/approve', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
+    const lmeId = sanitizeObjectId(req.params.id);
+    if (!lmeId) return res.status(400).json({ error: 'Invalid LME ID' });
+
     const approverRoles = ['admin', 'owner', 'pm', 'gf'];
     if (!approverRoles.includes(user.role)) {
       return res.status(403).json({ error: 'Not authorized to approve LMEs' });
     }
 
     const lme = await LME.findOneAndUpdate(
-      { _id: req.params.id, companyId: user.companyId },
+      { _id: lmeId, companyId: user.companyId },
       {
         status: 'approved',
         approvedBy: user._id,

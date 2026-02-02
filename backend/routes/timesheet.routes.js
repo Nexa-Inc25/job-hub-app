@@ -198,6 +198,9 @@ router.patch('/:id/approve', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
+    const timesheetId = sanitizeObjectId(req.params.id);
+    if (!timesheetId) return res.status(400).json({ error: 'Invalid timesheet ID' });
+
     // Check if user has approval rights (GF or PM roles)
     const approverRoles = ['admin', 'owner', 'pm', 'general_foreman', 'gf'];
     if (!approverRoles.includes(user.role)) {
@@ -205,7 +208,7 @@ router.patch('/:id/approve', authenticateUser, async (req, res) => {
     }
 
     const timesheet = await Timesheet.findOneAndUpdate(
-      { _id: req.params.id, companyId: user.companyId },
+      { _id: timesheetId, companyId: user.companyId },
       {
         status: 'approved',
         approvedBy: user._id,
@@ -232,8 +235,11 @@ router.patch('/:id/reject', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
+    const timesheetId = sanitizeObjectId(req.params.id);
+    if (!timesheetId) return res.status(400).json({ error: 'Invalid timesheet ID' });
+
     const timesheet = await Timesheet.findOneAndUpdate(
-      { _id: req.params.id, companyId: user.companyId },
+      { _id: timesheetId, companyId: user.companyId },
       {
         status: 'rejected',
         notes: reason || 'Rejected - please revise',
@@ -259,8 +265,11 @@ router.get('/:id/export', authenticateUser, async (req, res) => {
     const user = await User.findById(req.userId);
     if (!user?.companyId) return res.status(403).json({ error: 'Unauthorized' });
 
+    const timesheetId = sanitizeObjectId(req.params.id);
+    if (!timesheetId) return res.status(400).json({ error: 'Invalid timesheet ID' });
+
     const timesheet = await Timesheet.findOne({
-      _id: req.params.id,
+      _id: timesheetId,
       companyId: user.companyId,
     }).populate('jobId');
 

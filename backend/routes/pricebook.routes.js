@@ -155,12 +155,13 @@ router.get('/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
       return res.status(400).json({ error: 'Invalid price book ID' });
     }
 
     const priceBook = await PriceBook.findOne({
-      _id: req.params.id,
+      _id: priceBookId,
       companyId: user.companyId
     });
 
@@ -210,12 +211,13 @@ router.get('/:id/items', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
       return res.status(400).json({ error: 'Invalid price book ID' });
     }
 
     const priceBook = await PriceBook.findOne({
-      _id: req.params.id,
+      _id: priceBookId,
       companyId: user.companyId
     });
 
@@ -370,12 +372,13 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
       return res.status(403).json({ error: 'Only admins and PMs can import rate items' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
       return res.status(400).json({ error: 'Invalid price book ID' });
     }
 
     const priceBook = await PriceBook.findOne({
-      _id: req.params.id,
+      _id: priceBookId,
       companyId: user.companyId
     });
 
@@ -512,12 +515,13 @@ router.put('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Only admins and PMs can update price books' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
       return res.status(400).json({ error: 'Invalid price book ID' });
     }
 
     const priceBook = await PriceBook.findOne({
-      _id: req.params.id,
+      _id: priceBookId,
       companyId: user.companyId
     });
 
@@ -576,12 +580,13 @@ router.post('/:id/activate', async (req, res) => {
       return res.status(403).json({ error: 'Only admins and PMs can activate price books' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
       return res.status(400).json({ error: 'Invalid price book ID' });
     }
 
     const priceBook = await PriceBook.findOne({
-      _id: req.params.id,
+      _id: priceBookId,
       companyId: user.companyId
     });
 
@@ -652,12 +657,13 @@ router.delete('/:id', async (req, res) => {
       return res.status(403).json({ error: 'Only admins and PMs can delete price books' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
       return res.status(400).json({ error: 'Invalid price book ID' });
     }
 
     const priceBook = await PriceBook.findOne({
-      _id: req.params.id,
+      _id: priceBookId,
       companyId: user.companyId
     });
 

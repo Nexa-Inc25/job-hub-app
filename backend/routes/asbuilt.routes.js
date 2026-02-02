@@ -157,8 +157,13 @@ router.get('/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
     
+    const submissionId = sanitizeObjectId(req.params.id);
+    if (!submissionId) {
+      return res.status(400).json({ error: 'Invalid submission ID' });
+    }
+    
     const submission = await AsBuiltSubmission.findOne({
-      _id: req.params.id,
+      _id: submissionId,
       companyId: user.companyId
     })
       .populate('jobId', 'pmNumber title workOrderNumber circuitId')
@@ -218,8 +223,13 @@ router.post('/:id/retry', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
     
+    const submissionId = sanitizeObjectId(req.params.id);
+    if (!submissionId) {
+      return res.status(400).json({ error: 'Invalid submission ID' });
+    }
+    
     const submission = await AsBuiltSubmission.findOne({
-      _id: req.params.id,
+      _id: submissionId,
       companyId: user.companyId
     });
     

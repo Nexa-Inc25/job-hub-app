@@ -4,6 +4,7 @@ const multer = require('multer');
 const path = require('node:path');
 const fs = require('node:fs');
 const ProcedureDoc = require('../models/ProcedureDoc');
+const { sanitizeObjectId } = require('../utils/sanitize');
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
@@ -252,7 +253,12 @@ router.get('/', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
   try {
-    const procedure = await ProcedureDoc.findById(req.params.id)
+    const procedureId = sanitizeObjectId(req.params.id);
+    if (!procedureId) {
+      return res.status(400).json({ error: 'Invalid procedure ID' });
+    }
+
+    const procedure = await ProcedureDoc.findById(procedureId)
       .populate('uploadedBy', 'name email');
     
     if (!procedure) {
