@@ -211,12 +211,13 @@ router.get('/units/:id', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
       return res.status(400).json({ error: 'Invalid unit entry ID' });
     }
 
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDeleted: { $ne: true }
     })
@@ -270,11 +271,16 @@ router.post('/units', async (req, res) => {
     }
 
     const {
-      jobId, priceBookId, priceBookItemId, itemCode,
+      jobId: rawJobId, priceBookId: rawPriceBookId, priceBookItemId: rawPriceBookItemId, itemCode,
       quantity, workDate, location, performedBy, photos,
       notes, fieldConditions, photoWaived, photoWaivedReason,
       offlineId
     } = req.body;
+
+    // Sanitize ObjectIds from user input
+    const jobId = sanitizeObjectId(rawJobId);
+    const priceBookId = sanitizeObjectId(rawPriceBookId);
+    const priceBookItemId = sanitizeObjectId(rawPriceBookItemId);
 
     // Validate required fields
     if (!jobId || !quantity || !workDate || !location || !performedBy) {
@@ -394,8 +400,13 @@ router.post('/units/:id/submit', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    const unitId = sanitizeObjectId(req.params.id);
+    if (!unitId) {
+      return res.status(400).json({ error: 'Invalid unit ID' });
+    }
+
     const unit = await UnitEntry.findOne({
-      _id: req.params.id,
+      _id: unitId,
       companyId: user.companyId,
       isDeleted: { $ne: true }
     });

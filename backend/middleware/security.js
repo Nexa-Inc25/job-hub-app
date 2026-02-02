@@ -47,6 +47,7 @@ const additionalSecurityHeaders = (req, res, next) => {
 
 /**
  * Sanitize request body - remove potential XSS/injection patterns and NoSQL operators
+ * Also validates ObjectId parameters to prevent NoSQL injection via type confusion
  */
 const sanitizeInput = (req, res, next) => {
   if (req.body && typeof req.body === 'object') {
@@ -57,6 +58,18 @@ const sanitizeInput = (req, res, next) => {
   }
   if (req.params && typeof req.params === 'object') {
     req.params = sanitizeObject(req.params);
+    // Validate common ID parameters to ensure they're valid ObjectId strings
+    // This prevents NoSQL injection via type confusion attacks
+    for (const [key, value] of Object.entries(req.params)) {
+      if ((key === 'id' || key.endsWith('Id')) && value) {
+        // Ensure it's a string and matches ObjectId format (24 hex chars)
+        if (typeof value !== 'string' || !/^[a-fA-F0-9]{24}$/.test(value)) {
+          // For security, reject malformed IDs early
+          // But allow the route handler to provide a better error message
+          req.params[key] = null;
+        }
+      }
+    }
   }
   next();
 };
