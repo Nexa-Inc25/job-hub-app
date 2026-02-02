@@ -63,7 +63,7 @@ function formatTimesheetForOracle(timesheet, job) {
         'HOURS',
         entry.clockIn ? new Date(entry.clockIn).toISOString() : '',
         entry.clockOut ? new Date(entry.clockOut).toISOString() : '',
-        member.employeeId || member.name.replace(/\s+/g, '_').toUpperCase(),
+        member.employeeId || member.name.replaceAll(/\s+/g, '_').toUpperCase(),
         'PERSON',
         entry.notes || '',
         'SUBMITTED',
@@ -318,7 +318,7 @@ function generateJobPackageCSV(exportData) {
         ts.headerColumns.join(','),
         ...ts.rows.map(row => row.map(v => 
           typeof v === 'string' && (v.includes(',') || v.includes('"')) 
-            ? `"${v.replace(/"/g, '""')}"` 
+            ? `"${v.replaceAll('"', '""')}"` 
             : v
         ).join(','))
       ].join('\n');
@@ -500,13 +500,13 @@ function mapRiskLevelToSAP(level) {
 function formatSAPDate(date) {
   if (!date) return '';
   const d = new Date(date);
-  return d.toISOString().split('T')[0].replace(/-/g, '');
+  return d.toISOString().split('T')[0].replaceAll('-', '');
 }
 
 function formatSAPTime(date) {
   if (!date) return '';
   const d = new Date(date);
-  return d.toISOString().split('T')[1].slice(0, 8).replace(/:/g, '');
+  return d.toISOString().split('T')[1].slice(0, 8).replaceAll(':', '');
 }
 
 module.exports = {

@@ -25,7 +25,7 @@ const getSignedUrl = async (req, res) => {
     
     if (r2Storage.isR2Configured()) {
       // For R2, sanitize but allow the original key structure
-      const safeKey = fileKey.replace(/\.\./g, '').replace(/\/\//g, '/');
+      const safeKey = fileKey.replaceAll('..', '').replaceAll('//', '/');
       const signedUrl = await r2Storage.getSignedDownloadUrl(safeKey);
       if (signedUrl) {
         return res.json({ url: signedUrl });
@@ -34,7 +34,7 @@ const getSignedUrl = async (req, res) => {
     
     // Fallback to local file URL - use sanitized path
     if (safePath && fs.existsSync(safePath)) {
-      return res.json({ url: `/uploads/${fileKey.replace(/\.\./g, '')}` });
+      return res.json({ url: `/uploads/${fileKey.replaceAll('..', '')}` });
     }
     
     res.status(404).json({ error: 'File not found' });
@@ -60,7 +60,7 @@ const streamFile = async (req, res) => {
     
     if (r2Storage.isR2Configured()) {
       // For R2, sanitize but allow the original key structure
-      const safeKey = fileKey.replace(/\.\./g, '').replace(/\/\//g, '/');
+      const safeKey = fileKey.replaceAll('..', '').replaceAll('//', '/');
       const fileData = await r2Storage.getFileStream(safeKey);
       
       if (fileData && fileData.stream) {
@@ -137,7 +137,7 @@ const isAllowedFileType = (mimetype) => {
  * Sanitize filename to prevent path traversal
  */
 const sanitizeFilename = (filename) => {
-  return filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return filename.replaceAll(/[^a-zA-Z0-9._-]/g, '_');
 };
 
 module.exports = {

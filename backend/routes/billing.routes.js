@@ -795,7 +795,7 @@ router.get('/claims', async (req, res) => {
       .populate('createdBy', 'name')
       .populate('approvedBy', 'name')
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit));
+      .limit(Number.parseInt(limit, 10));
 
     res.json(claims);
   } catch (err) {
@@ -1463,7 +1463,7 @@ router.get('/claims/:id/export-csv', async (req, res) => {
     const rows = claim.lineItems.map(li => [
       li.lineNumber,
       li.itemCode,
-      `"${li.description.replace(/"/g, '""')}"`,
+      `"${li.description.replaceAll('"', '""')}"`,
       li.quantity,
       li.unit,
       li.unitPrice.toFixed(2),

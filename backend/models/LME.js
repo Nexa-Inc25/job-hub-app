@@ -122,8 +122,8 @@ lmeSchema.methods.toOracleCATS = function() {
     // Straight time entry
     if (labor.stHours > 0) {
       entries.push({
-        PERNR: labor.name.replace(/\s+/g, '_').toUpperCase(),
-        WORKDATE: this.date.toISOString().split('T')[0].replace(/-/g, ''),
+        PERNR: labor.name.replaceAll(/\s+/g, '_').toUpperCase(),
+        WORKDATE: this.date.toISOString().split('T')[0].replaceAll('-', ''),
         CATSHOURS: labor.stHours.toFixed(2),
         AWART: '1001', // Regular time
         AUFNR: this.jobInfo.woNumber || '',
@@ -138,8 +138,8 @@ lmeSchema.methods.toOracleCATS = function() {
     // Overtime entry
     if (labor.otHours > 0) {
       entries.push({
-        PERNR: labor.name.replace(/\s+/g, '_').toUpperCase(),
-        WORKDATE: this.date.toISOString().split('T')[0].replace(/-/g, ''),
+        PERNR: labor.name.replaceAll(/\s+/g, '_').toUpperCase(),
+        WORKDATE: this.date.toISOString().split('T')[0].replaceAll('-', ''),
         CATSHOURS: labor.otHours.toFixed(2),
         AWART: '1510', // Overtime
         AUFNR: this.jobInfo.woNumber || '',
@@ -154,8 +154,8 @@ lmeSchema.methods.toOracleCATS = function() {
     // Double time entry
     if (labor.dtHours > 0) {
       entries.push({
-        PERNR: labor.name.replace(/\s+/g, '_').toUpperCase(),
-        WORKDATE: this.date.toISOString().split('T')[0].replace(/-/g, ''),
+        PERNR: labor.name.replaceAll(/\s+/g, '_').toUpperCase(),
+        WORKDATE: this.date.toISOString().split('T')[0].replaceAll('-', ''),
         CATSHOURS: labor.dtHours.toFixed(2),
         AWART: '1520', // Double time
         AUFNR: this.jobInfo.woNumber || '',
@@ -185,8 +185,8 @@ lmeSchema.methods.toSAPFormat = function() {
     format: 'sap_lme',
     header: {
       LIFNR: 'ALVAH', // Vendor code
-      BLDAT: this.date.toISOString().split('T')[0].replace(/-/g, ''),
-      BUDAT: this.date.toISOString().split('T')[0].replace(/-/g, ''),
+      BLDAT: this.date.toISOString().split('T')[0].replaceAll('-', ''),
+      BUDAT: this.date.toISOString().split('T')[0].replaceAll('-', ''),
       BELNR: this.lmeNumber,
       AUFNR: this.jobInfo.woNumber || '',
       POSID: this.jobInfo.pmNumber || '',

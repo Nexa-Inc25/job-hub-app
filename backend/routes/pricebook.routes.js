@@ -425,7 +425,7 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
     const errors = [];
 
     for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+      const values = lines[i].split(',').map(v => v.trim().replaceAll(/^"|"$/g, ''));
       
       if (values.length !== headers.length) {
         errors.push({ row: i + 1, message: 'Column count mismatch' });
@@ -443,8 +443,8 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
         continue;
       }
 
-      const unitPrice = parseFloat(row.unitprice);
-      if (isNaN(unitPrice) || unitPrice < 0) {
+      const unitPrice = Number.parseFloat(row.unitprice);
+      if (Number.isNaN(unitPrice) || unitPrice < 0) {
         errors.push({ row: i + 1, field: 'unitprice', message: 'Invalid unit price' });
         continue;
       }
@@ -463,8 +463,8 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
         subcategory: row.subcategory || null,
         unit: row.unit.toUpperCase(),
         unitPrice,
-        laborRate: row.laborrate ? parseFloat(row.laborrate) : null,
-        materialRate: row.materialrate ? parseFloat(row.materialrate) : null,
+        laborRate: row.laborrate ? Number.parseFloat(row.laborrate) : null,
+        materialRate: row.materialrate ? Number.parseFloat(row.materialrate) : null,
         oracleItemId: row.oracleitemid || null,
         oracleExpenseAccount: row.oracleexpenseaccount || null,
         sapMaterialNumber: row.sapmaterialnumber || null,

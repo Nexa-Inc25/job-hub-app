@@ -192,9 +192,9 @@ function sanitizeFileName(fileName) {
   // Replace # with - (common in PM numbers like PM#12345)
   // Replace other URL-unsafe characters with underscores
   return fileName
-    .replace(/#/g, '-')  // # breaks URLs (treated as fragment)
-    .replace(/[?%&=+<>]/g, '_')  // Other URL-unsafe chars
-    .replace(/\s+/g, '_');  // Spaces to underscores
+    .replaceAll('#', '-')  // # breaks URLs (treated as fragment)
+    .replaceAll(/[?%&=+<>]/g, '_')  // Other URL-unsafe chars
+    .replaceAll(/\s+/g, '_');  // Spaces to underscores
 }
 
 // Upload job file (PDF, photo, drawing, etc.)

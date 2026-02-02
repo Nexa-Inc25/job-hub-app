@@ -123,8 +123,8 @@ router.get('/', async (req, res) => {
     
     const submissions = await AsBuiltSubmission.find(query)
       .sort({ submittedAt: -1 })
-      .limit(parseInt(limit))
-      .skip(parseInt(skip))
+      .limit(Number.parseInt(limit, 10))
+      .skip(Number.parseInt(skip, 10))
       .populate('jobId', 'pmNumber title')
       .populate('submittedBy', 'name email')
       .select('-sections -auditLog');
@@ -134,8 +134,8 @@ router.get('/', async (req, res) => {
     res.json({
       submissions,
       total,
-      limit: parseInt(limit),
-      skip: parseInt(skip)
+      limit: Number.parseInt(limit, 10),
+      skip: Number.parseInt(skip, 10)
     });
     
   } catch (err) {
@@ -283,7 +283,7 @@ router.get('/analytics/summary', async (req, res) => {
     
     const { days = 30 } = req.query;
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(days));
+    startDate.setDate(startDate.getDate() - Number.parseInt(days, 10));
     
     // Get aggregated stats
     const stats = await AsBuiltSubmission.aggregate([

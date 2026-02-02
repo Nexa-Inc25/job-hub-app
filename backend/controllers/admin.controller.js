@@ -104,7 +104,7 @@ const getAuditStats = async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(days));
+    startDate.setDate(startDate.getDate() - Number.parseInt(days, 10));
     
     // Build company filter
     const matchStage = { timestamp: { $gte: startDate } };
@@ -163,7 +163,7 @@ const getAuditStats = async (req, res) => {
     ]);
     
     res.json({
-      period: { days: parseInt(days), startDate },
+      period: { days: Number.parseInt(days, 10), startDate },
       actionCounts: actionCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
       severityCounts: severityCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
       categoryCounts: categoryCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
@@ -214,7 +214,7 @@ const exportAuditLogs = async (req, res) => {
     // Default to CSV
     const csvHeader = 'Timestamp,Action,User Email,User Role,Resource Type,Resource Name,IP Address,Severity,Success,Details\n';
     const csvRows = logs.map(log => {
-      const details = log.details ? JSON.stringify(log.details).replace(/"/g, '""') : '';
+      const details = log.details ? JSON.stringify(log.details).replaceAll('"', '""') : '';
       return [
         log.timestamp?.toISOString() || '',
         log.action || '',

@@ -94,8 +94,8 @@ const sanitizeEmail = (email) => {
  * @returns {number} Sanitized integer
  */
 const sanitizeInt = (value, defaultValue = 0, max = Number.MAX_SAFE_INTEGER) => {
-  const num = parseInt(value, 10);
-  if (isNaN(num) || num < 0) {
+  const num = Number.parseInt(value, 10);
+  if (Number.isNaN(num) || num < 0) {
     return defaultValue;
   }
   return Math.min(num, max);
@@ -128,7 +128,7 @@ const sanitizePath = (filePath, baseDir) => {
   }
   
   // Remove null bytes
-  const cleaned = filePath.replace(/\0/g, '');
+  const cleaned = filePath.replaceAll('\0', '');
   
   // Normalize the path
   const normalized = path.normalize(cleaned);
@@ -171,7 +171,7 @@ const sanitizeDate = (value) => {
   }
   
   const date = new Date(value);
-  if (isNaN(date.getTime())) {
+  if (Number.isNaN(date.getTime())) {
     return null;
   }
   

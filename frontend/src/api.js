@@ -58,7 +58,7 @@ api.isAuthenticated = function() {
     const parts = token.split('.');
     if (parts.length !== 3) return false;
     
-    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const payload = JSON.parse(atob(parts[1].replaceAll('-', '+').replaceAll('_', '/')));
     if (!payload.exp) return true; // No expiry, assume valid
     
     // Check if expired (with 60 second buffer)
