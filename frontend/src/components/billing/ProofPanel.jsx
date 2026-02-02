@@ -136,7 +136,7 @@ const ProofPanel = ({ unit }) => {
       elevation={0} 
       sx={{ 
         p: 2, 
-        bgcolor: 'grey.50',
+        bgcolor: 'background.paper',
         borderTop: '1px solid',
         borderColor: 'divider',
       }}
@@ -146,7 +146,7 @@ const ProofPanel = ({ unit }) => {
         <Grid item xs={12} md={6}>
           <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <PhotoIcon fontSize="small" color="primary" />
-            <Typography variant="subtitle2">Photo Evidence</Typography>
+            <Typography variant="subtitle2" color="text.primary">Photo Evidence</Typography>
             {isPhotoVerified ? (
               <Chip 
                 icon={<VerifiedIcon />} 
@@ -194,7 +194,7 @@ const ProofPanel = ({ unit }) => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        bgcolor: 'grey.200',
+                        bgcolor: 'action.disabledBackground',
                       }}
                     >
                       <NoPhotoIcon color="disabled" />
@@ -268,7 +268,7 @@ const ProofPanel = ({ unit }) => {
         <Grid item xs={12} md={6}>
           <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <LocationIcon fontSize="small" color="primary" />
-            <Typography variant="subtitle2">Location Verification</Typography>
+            <Typography variant="subtitle2" color="text.primary">Location Verification</Typography>
             {isGPSVerified ? (
               <Chip 
                 icon={<VerifiedIcon />} 
@@ -308,7 +308,7 @@ const ProofPanel = ({ unit }) => {
                   overflow: 'hidden',
                   border: '1px solid',
                   borderColor: 'divider',
-                  bgcolor: 'grey.200',
+                  bgcolor: 'action.hover',
                   flexShrink: 0,
                 }}
               >
@@ -354,7 +354,7 @@ const ProofPanel = ({ unit }) => {
                 <Typography variant="caption" color="text.secondary" display="block">
                   Coordinates
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
+                <Typography variant="body2" color="text.primary" sx={{ fontFamily: 'monospace', mb: 1 }}>
                   {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
                 </Typography>
 
@@ -363,7 +363,7 @@ const ProofPanel = ({ unit }) => {
                     <Typography variant="caption" color="text.secondary" display="block">
                       Altitude
                     </Typography>
-                    <Typography variant="body2" sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="text.primary" sx={{ mb: 1 }}>
                       {location.altitude.toFixed(0)}m
                     </Typography>
                   </>
@@ -374,7 +374,7 @@ const ProofPanel = ({ unit }) => {
                     <Typography variant="caption" color="text.secondary" display="block">
                       Captured
                     </Typography>
-                    <Typography variant="body2">
+                    <Typography variant="body2" color="text.primary">
                       {formatTimestamp(location.capturedAt)}
                     </Typography>
                   </>
