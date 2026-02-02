@@ -235,12 +235,12 @@ const UnitApprovalGrid = ({
         );
       },
     },
-    // Item Code
+    // Item Code - MUI X Data Grid v7 signature: valueGetter(value, row)
     {
       field: 'itemCode',
       headerName: 'Item Code',
       width: 120,
-      valueGetter: (params) => params?.row?.priceBookItemCode || params?.row?.itemCode || '-',
+      valueGetter: (value, row) => row?.priceBookItemCode || row?.itemCode || '-',
     },
     // Description
     {
@@ -248,7 +248,7 @@ const UnitApprovalGrid = ({
       headerName: 'Description',
       flex: 1,
       minWidth: 200,
-      valueGetter: (params) => params?.row?.itemDescription || params?.row?.description || '-',
+      valueGetter: (value, row) => row?.itemDescription || row?.description || '-',
     },
     // Quantity
     {
@@ -263,7 +263,7 @@ const UnitApprovalGrid = ({
       headerName: 'Unit Price',
       width: 100,
       type: 'number',
-      valueFormatter: (params) => params?.value ? `$${params.value.toFixed(2)}` : '-',
+      valueFormatter: (value) => value ? `$${value.toFixed(2)}` : '-',
     },
     // Total
     {
@@ -271,15 +271,15 @@ const UnitApprovalGrid = ({
       headerName: 'Total',
       width: 110,
       type: 'number',
-      valueGetter: (params) => params?.row?.totalAmount || ((params?.row?.quantity || 0) * (params?.row?.unitPrice || 0)),
-      valueFormatter: (params) => params?.value ? `$${params.value.toFixed(2)}` : '-',
+      valueGetter: (value, row) => row?.totalAmount || ((row?.quantity || 0) * (row?.unitPrice || 0)),
+      valueFormatter: (value) => value ? `$${value.toFixed(2)}` : '-',
     },
     // Tier
     {
       field: 'tier',
       headerName: 'Tier',
       width: 100,
-      valueGetter: (params) => params?.row?.performedBy?.tier || 'prime',
+      valueGetter: (value, row) => row?.performedBy?.tier || 'prime',
       renderCell: (params) => {
         if (!params?.row) return null;
         return (
@@ -298,8 +298,8 @@ const UnitApprovalGrid = ({
       headerName: 'Work Date',
       width: 110,
       type: 'date',
-      valueGetter: (params) => params?.row?.workDate ? new Date(params.row.workDate) : null,
-      valueFormatter: (params) => params?.value ? params.value.toLocaleDateString() : '-',
+      valueGetter: (value, row) => row?.workDate ? new Date(row.workDate) : null,
+      valueFormatter: (value) => value ? value.toLocaleDateString() : '-',
     },
     // Evidence indicators
     {
