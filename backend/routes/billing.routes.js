@@ -785,9 +785,10 @@ router.get('/claims', async (req, res) => {
     const { status, jobId, limit = 50 } = req.query;
     const query = { companyId: user.companyId };
 
-    if (status) query.status = status;
-    if (jobId && mongoose.Types.ObjectId.isValid(jobId)) {
-      query.jobId = jobId;
+    if (status) query.status = sanitizeString(status);
+    const safeJobId = sanitizeObjectId(jobId);
+    if (safeJobId) {
+      query.jobId = safeJobId;
     }
 
     const claims = await Claim.find(query)
@@ -949,9 +950,15 @@ router.post('/claims', async (req, res) => {
       return res.status(400).json({ error: 'unitIds array is required' });
     }
 
+    // Sanitize all unit IDs to prevent NoSQL injection
+    const safeUnitIds = unitIds.map(id => sanitizeObjectId(id)).filter(Boolean);
+    if (safeUnitIds.length === 0) {
+      return res.status(400).json({ error: 'No valid unit IDs provided' });
+    }
+
     // Fetch all units
     const units = await UnitEntry.find({
-      _id: { $in: unitIds },
+      _id: { $in: safeUnitIds },
       companyId: user.companyId,
       status: 'approved',
       claimId: null,
@@ -971,7 +978,8 @@ router.post('/claims', async (req, res) => {
     }
 
     // Get job and utility info
-    const job = jobId ? await Job.findById(jobId) : await Job.findById(units[0].jobId);
+    const safeJobId = sanitizeObjectId(jobId);
+    const job = safeJobId ? await Job.findById(safeJobId) : await Job.findById(units[0].jobId);
     
     // Calculate subtotal
     const subtotal = units.reduce((sum, u) => sum + u.totalAmount, 0);
@@ -1587,8 +1595,14 @@ router.post('/claims/bulk-export-fbdi', async (req, res) => {
       return res.status(400).json({ error: 'claimIds array required' });
     }
 
+    // Sanitize all claim IDs to prevent NoSQL injection
+    const safeClaimIds = claimIds.map(id => sanitizeObjectId(id)).filter(Boolean);
+    if (safeClaimIds.length === 0) {
+      return res.status(400).json({ error: 'No valid claim IDs provided' });
+    }
+
     const claims = await Claim.find({
-      _id: { $in: claimIds },
+      _id: { $in: safeClaimIds },
       companyId: user.companyId,
       status: { $in: ['approved', 'submitted'] }
     });

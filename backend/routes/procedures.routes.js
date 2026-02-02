@@ -4,7 +4,7 @@ const multer = require('multer');
 const path = require('node:path');
 const fs = require('node:fs');
 const ProcedureDoc = require('../models/ProcedureDoc');
-const { sanitizeObjectId } = require('../utils/sanitize');
+const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
 
 // Configure multer for PDF uploads
 const storage = multer.diskStorage({
@@ -222,15 +222,19 @@ router.get('/', async (req, res) => {
     
     const filter = { isActive: true };
     
-    // Validate and sanitize query parameters against allowed enum values
-    if (docType && typeof docType === 'string' && VALID_DOC_TYPES.includes(docType)) {
-      filter.docType = docType;
+    // Sanitize and validate query parameters against allowed enum values
+    const safeDocType = sanitizeString(docType);
+    const safeWorkType = sanitizeString(workType);
+    const safeStatus = sanitizeString(status);
+    
+    if (safeDocType && VALID_DOC_TYPES.includes(safeDocType)) {
+      filter.docType = safeDocType;
     }
-    if (workType && typeof workType === 'string' && VALID_WORK_TYPES.includes(workType)) {
-      filter.applicableWorkTypes = workType;
+    if (safeWorkType && VALID_WORK_TYPES.includes(safeWorkType)) {
+      filter.applicableWorkTypes = safeWorkType;
     }
-    if (status && typeof status === 'string' && VALID_PROCESSING_STATUSES.includes(status)) {
-      filter.processingStatus = status;
+    if (safeStatus && VALID_PROCESSING_STATUSES.includes(safeStatus)) {
+      filter.processingStatus = safeStatus;
     }
     if (req.user?.companyId) filter.companyId = req.user.companyId;
 

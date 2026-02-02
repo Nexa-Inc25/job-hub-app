@@ -117,8 +117,9 @@ router.get('/', async (req, res) => {
     const { status, jobId, limit = 50, skip = 0 } = req.query;
     
     const query = { companyId: user.companyId };
-    if (status) query.status = status;
-    if (jobId) query.jobId = jobId;
+    if (status) query.status = sanitizeString(status);
+    const safeJobId = sanitizeObjectId(jobId);
+    if (safeJobId) query.jobId = safeJobId;
     
     const submissions = await AsBuiltSubmission.find(query)
       .sort({ submittedAt: -1 })
@@ -395,8 +396,9 @@ router.get('/rules', async (req, res) => {
     const { utilityId, sectionType, isActive } = req.query;
     
     const query = {};
-    if (utilityId) query.utilityId = utilityId;
-    if (sectionType) query.sectionType = sectionType;
+    const safeUtilityId = sanitizeObjectId(utilityId);
+    if (safeUtilityId) query.utilityId = safeUtilityId;
+    if (sectionType) query.sectionType = sanitizeString(sectionType);
     if (isActive !== undefined) query.isActive = isActive === 'true';
     
     // Include company-specific and utility-wide rules
@@ -443,12 +445,22 @@ router.post('/rules', async (req, res) => {
       return res.status(400).json({ error: 'name, utilityId, sectionType, and destination are required' });
     }
     
+    // Sanitize inputs
+    const safeName = sanitizeString(name);
+    const safeUtilityId = sanitizeObjectId(utilityId);
+    const safeSectionType = sanitizeString(sectionType);
+    const safeDestination = sanitizeString(destination);
+    
+    if (!safeUtilityId) {
+      return res.status(400).json({ error: 'Invalid utilityId' });
+    }
+    
     const rule = await RoutingRule.create({
-      name,
-      utilityId,
+      name: safeName,
+      utilityId: safeUtilityId,
       companyId: user.companyId,
-      sectionType,
-      destination,
+      sectionType: safeSectionType,
+      destination: safeDestination,
       ...rest,
       createdBy: user._id
     });

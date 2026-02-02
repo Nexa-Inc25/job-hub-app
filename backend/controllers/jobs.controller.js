@@ -139,10 +139,10 @@ const createJob = async (req, res) => {
       title: safeTitle || safePmNumber,
       pmNumber: safePmNumber,
       woNumber: safeWoNumber,
-      address,
-      description,
-      client,
-      assignedTo: safeAssignedTo || assignedTo,
+      address: sanitizeString(address),
+      description: sanitizeString(description),
+      client: sanitizeString(client),
+      assignedTo: safeAssignedTo, // Only use sanitized ObjectId
       scheduledDate,
       status: 'new',
       companyId: req.companyId

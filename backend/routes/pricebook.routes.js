@@ -307,17 +307,22 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'name, utilityId, and effectiveDate are required' });
     }
 
-    if (!mongoose.Types.ObjectId.isValid(utilityId)) {
+    // Sanitize inputs to prevent NoSQL injection
+    const safeName = sanitizeString(name);
+    const safeUtilityId = sanitizeObjectId(utilityId);
+    const safeContractNumber = sanitizeString(contractNumber);
+
+    if (!safeUtilityId) {
       return res.status(400).json({ error: 'Invalid utilityId' });
     }
 
     const priceBook = await PriceBook.create({
-      name,
-      utilityId,
+      name: safeName,
+      utilityId: safeUtilityId,
       companyId: user.companyId,
       effectiveDate: new Date(effectiveDate),
       expirationDate: expirationDate ? new Date(expirationDate) : null,
-      contractNumber,
+      contractNumber: safeContractNumber,
       items: items || [],
       importSource: 'manual',
       importedBy: user._id,
