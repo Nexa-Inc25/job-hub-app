@@ -1477,7 +1477,7 @@ const Dashboard = () => {
                   
                   return (
                     <Grid item xs={12} md={6} lg={4} key={job._id}>
-                      <Box sx={{ height: 340, position: 'relative' }}>
+                      <Box sx={{ height: 420, position: 'relative' }}>
                         {/* FRONT SIDE */}
                         {!isFlipped && (
                           <Card sx={{
@@ -1488,7 +1488,7 @@ const Dashboard = () => {
                             border: '2px solid',
                             borderColor: 'primary.main',
                           }}>
-                            <CardContent sx={{ flexGrow: 1 }}>
+                            <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
                               <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                                 <Box flex={1}>
                                   <Typography variant="h6" component="h4" gutterBottom sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1640,7 +1640,7 @@ const Dashboard = () => {
                                 <ConstructionIcon fontSize="small" />
                                 Pre-Field Checklist
                               </Typography>
-                              <Box sx={{ maxHeight: 220, overflow: 'auto' }}>
+                              <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
                                 {preFieldItems.map((item) => {
                                   const isChecked = preFieldChecklist[job._id]?.[item.key]?.checked || false;
                                   const notes = preFieldChecklist[job._id]?.[item.key]?.notes || '';
@@ -1952,7 +1952,7 @@ const Dashboard = () => {
               return (
               <Grid item xs={12} md={6} lg={4} key={job._id}>
                 {/* Flip Card Container - No animation, just show/hide */}
-                <Box sx={{ height: 340, position: 'relative' }}>
+                <Box sx={{ height: 420, position: 'relative' }}>
                   {/* Show front or back based on flip state */}
                   {/* FRONT SIDE - only render when not flipped */}
                   {!isFlipped && (
@@ -1978,7 +1978,7 @@ const Dashboard = () => {
                         },
                       }}
                     >
-                      <CardContent sx={{ flexGrow: 1 }}>
+                      <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                           <Box flex={1}>
                             <Typography variant="h6" component="h3" gutterBottom sx={{
@@ -2279,7 +2279,7 @@ const Dashboard = () => {
                               <ConstructionIcon fontSize="small" />
                               Pre-Field Checklist
                             </Typography>
-                            <Box sx={{ maxHeight: 220, overflow: 'auto' }}>
+                            <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
                               {preFieldItems.map((item) => {
                                 const isChecked = preFieldChecklist[job._id]?.[item.key]?.checked || false;
                                 const notes = preFieldChecklist[job._id]?.[item.key]?.notes || '';
