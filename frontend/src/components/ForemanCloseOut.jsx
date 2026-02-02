@@ -779,8 +779,9 @@ const ForemanCloseOut = () => {
   const handleSubmitForReview = async () => {
     setSubmitting(true);
     try {
+      // Skip GF/QA review - go directly to PM for approval
       await api.put(`/api/jobs/${jobId}/status`, {
-        status: 'pending_gf_review',
+        status: 'pending_pm_approval',
       });
       setShowSubmitDialog(false);
       navigate('/dashboard', { state: { message: 'Job submitted for GF review!' } });
