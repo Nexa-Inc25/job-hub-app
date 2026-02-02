@@ -614,6 +614,7 @@ router.post('/units/:id/verify', async (req, res) => {
 router.post('/units/:id/approve', async (req, res) => {
   try {
     const user = await User.findById(req.userId);
+    console.log('[Units:Approve] User:', user?.email, 'Role:', user?.role, 'isAdmin:', req.isAdmin);
     if (!user?.companyId) {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
@@ -624,7 +625,9 @@ router.post('/units/:id/approve', async (req, res) => {
     }
 
     // Only PM or admin can approve for billing
-    if (!['pm', 'admin'].includes(user.role) && !req.isAdmin) {
+    const canApprove = ['pm', 'admin'].includes(user.role) || req.isAdmin;
+    console.log('[Units:Approve] Role check - role:', user.role, 'canApprove:', canApprove);
+    if (!canApprove) {
       return res.status(403).json({ error: 'Only PM or admin can approve units for billing' });
     }
 
