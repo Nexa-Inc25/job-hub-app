@@ -34,6 +34,105 @@ const upload = multer({
   }
 });
 
+// Valid categories for price book items
+const VALID_CATEGORIES = new Set(['civil', 'electrical', 'overhead', 'underground', 'traffic_control', 'vegetation', 'emergency', 'other']);
+
+/**
+ * Parse a single CSV row into a price book item
+ * Returns { item, error } - item is null if invalid
+ */
+function parseCSVRow(row, rowIndex) {
+  // Validate required fields
+  if (!row.itemcode || !row.description || !row.category || !row.unit || !row.unitprice) {
+    return { item: null, error: { row: rowIndex, message: 'Missing required field' } };
+  }
+
+  const unitPrice = Number.parseFloat(row.unitprice);
+  if (Number.isNaN(unitPrice) || unitPrice < 0) {
+    return { item: null, error: { row: rowIndex, field: 'unitprice', message: 'Invalid unit price' } };
+  }
+
+  const category = row.category.toLowerCase();
+  if (!VALID_CATEGORIES.has(category)) {
+    return { item: null, error: { row: rowIndex, field: 'category', message: `Invalid category. Must be one of: ${[...VALID_CATEGORIES].join(', ')}` } };
+  }
+
+  return {
+    item: {
+      itemCode: row.itemcode,
+      description: row.description,
+      shortDescription: row.shortdescription || null,
+      category,
+      subcategory: row.subcategory || null,
+      unit: row.unit.toUpperCase(),
+      unitPrice,
+      laborRate: row.laborrate ? Number.parseFloat(row.laborrate) : null,
+      materialRate: row.materialrate ? Number.parseFloat(row.materialrate) : null,
+      oracleItemId: row.oracleitemid || null,
+      oracleExpenseAccount: row.oracleexpenseaccount || null,
+      sapMaterialNumber: row.sapmaterialnumber || null,
+      isActive: true
+    },
+    error: null
+  };
+}
+
+/**
+ * Parse CSV content into items and errors
+ */
+/**
+ * Apply allowed field updates to a price book
+ */
+function applyPriceBookUpdates(priceBook, body) {
+  const allowedFields = ['name', 'description', 'contractNumber', 'effectiveDate', 'expirationDate', 'items', 'internalNotes'];
+  const dateFields = new Set(['effectiveDate', 'expirationDate']);
+  
+  for (const field of allowedFields) {
+    if (body[field] !== undefined) {
+      priceBook[field] = dateFields.has(field) 
+        ? (body[field] ? new Date(body[field]) : null)
+        : body[field];
+    }
+  }
+}
+
+function parseCSVContent(csvContent) {
+  const lines = csvContent.split('\n').filter(line => line.trim());
+  
+  if (lines.length < 2) {
+    return { headers: null, items: [], errors: [], validationError: 'CSV must have header row and at least one data row' };
+  }
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+  const requiredColumns = ['itemcode', 'description', 'category', 'unit', 'unitprice'];
+  const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+  
+  if (missingColumns.length > 0) {
+    return { headers, items: [], errors: [], validationError: `Missing required columns: ${missingColumns.join(', ')}`, requiredColumns };
+  }
+
+  const items = [];
+  const errors = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim().replaceAll(/(?:^")|(?:"$)/g, ''));
+    
+    if (values.length !== headers.length) {
+      errors.push({ row: i + 1, message: 'Column count mismatch' });
+      continue;
+    }
+
+    const row = {};
+    headers.forEach((header, idx) => { row[header] = values[idx]; });
+
+    const { item, error } = parseCSVRow(row, i + 1);
+    if (item) items.push(item);
+    if (error) errors.push(error);
+  }
+
+  return { headers, items, errors, validationError: null };
+}
+
 /**
  * @swagger
  * /api/pricebooks:
@@ -320,6 +419,21 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Invalid utilityId' });
     }
 
+    // Validate and sanitize items array
+    const safeItems = Array.isArray(items) ? items.map(item => ({
+      itemCode: sanitizeString(item.itemCode),
+      description: sanitizeString(item.description),
+      shortDescription: sanitizeString(item.shortDescription),
+      category: sanitizeString(item.category),
+      subcategory: sanitizeString(item.subcategory),
+      unit: sanitizeString(item.unit),
+      unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+      laborComponent: typeof item.laborComponent === 'number' ? item.laborComponent : undefined,
+      materialComponent: typeof item.materialComponent === 'number' ? item.materialComponent : undefined,
+      equipmentComponent: typeof item.equipmentComponent === 'number' ? item.equipmentComponent : undefined,
+      isActive: typeof item.isActive === 'boolean' ? item.isActive : true
+    })).filter(item => item.itemCode && item.description) : [];
+
     const priceBook = await PriceBook.create({
       name: safeName,
       utilityId: safeUtilityId,
@@ -327,7 +441,7 @@ router.post('/', async (req, res) => {
       effectiveDate: new Date(effectiveDate),
       expirationDate: expirationDate ? new Date(expirationDate) : null,
       contractNumber: safeContractNumber,
-      items: items || [],
+      items: safeItems,
       importSource: 'manual',
       importedBy: user._id,
       importedAt: new Date(),
@@ -403,76 +517,14 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'CSV file is required' });
     }
 
-    // Parse CSV
+    // Parse CSV using helper function
     const csvContent = req.file.buffer.toString('utf-8');
-    const lines = csvContent.split('\n').filter(line => line.trim());
+    const { headers, items, errors, validationError, requiredColumns } = parseCSVContent(csvContent);
     
-    if (lines.length < 2) {
-      return res.status(400).json({ error: 'CSV must have header row and at least one data row' });
-    }
-
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
-    
-    // Required columns
-    const requiredColumns = ['itemcode', 'description', 'category', 'unit', 'unitprice'];
-    const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-    
-    if (missingColumns.length > 0) {
+    if (validationError) {
       return res.status(400).json({ 
-        error: `Missing required columns: ${missingColumns.join(', ')}`,
-        requiredColumns,
-        foundColumns: headers
-      });
-    }
-
-    const items = [];
-    const errors = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const values = lines[i].split(',').map(v => v.trim().replaceAll(/(?:^")|(?:"$)/g, ''));
-      
-      if (values.length !== headers.length) {
-        errors.push({ row: i + 1, message: 'Column count mismatch' });
-        continue;
-      }
-
-      const row = {};
-      headers.forEach((header, idx) => {
-        row[header] = values[idx];
-      });
-
-      // Validate required fields
-      if (!row.itemcode || !row.description || !row.category || !row.unit || !row.unitprice) {
-        errors.push({ row: i + 1, message: 'Missing required field' });
-        continue;
-      }
-
-      const unitPrice = Number.parseFloat(row.unitprice);
-      if (Number.isNaN(unitPrice) || unitPrice < 0) {
-        errors.push({ row: i + 1, field: 'unitprice', message: 'Invalid unit price' });
-        continue;
-      }
-
-      const validCategories = ['civil', 'electrical', 'overhead', 'underground', 'traffic_control', 'vegetation', 'emergency', 'other'];
-      if (!validCategories.includes(row.category.toLowerCase())) {
-        errors.push({ row: i + 1, field: 'category', message: `Invalid category. Must be one of: ${validCategories.join(', ')}` });
-        continue;
-      }
-
-      items.push({
-        itemCode: row.itemcode,
-        description: row.description,
-        shortDescription: row.shortdescription || null,
-        category: row.category.toLowerCase(),
-        subcategory: row.subcategory || null,
-        unit: row.unit.toUpperCase(),
-        unitPrice,
-        laborRate: row.laborrate ? Number.parseFloat(row.laborrate) : null,
-        materialRate: row.materialrate ? Number.parseFloat(row.materialrate) : null,
-        oracleItemId: row.oracleitemid || null,
-        oracleExpenseAccount: row.oracleexpenseaccount || null,
-        sapMaterialNumber: row.sapmaterialnumber || null,
-        isActive: true
+        error: validationError,
+        ...(requiredColumns && { requiredColumns, foundColumns: headers })
       });
     }
 
@@ -543,17 +595,8 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Can only edit draft price books' });
     }
 
-    const allowedFields = ['name', 'description', 'contractNumber', 'effectiveDate', 'expirationDate', 'items', 'internalNotes'];
-    
-    for (const field of allowedFields) {
-      if (req.body[field] !== undefined) {
-        if (field === 'effectiveDate' || field === 'expirationDate') {
-          priceBook[field] = req.body[field] ? new Date(req.body[field]) : null;
-        } else {
-          priceBook[field] = req.body[field];
-        }
-      }
-    }
+    // Apply updates using helper function
+    applyPriceBookUpdates(priceBook, req.body);
 
     priceBook.changeLog.push({
       userId: user._id,

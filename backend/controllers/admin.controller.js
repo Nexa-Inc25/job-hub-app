@@ -12,28 +12,49 @@ const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 
 /**
+ * Build query filters for audit log search
+ * Extracts filter logic to reduce complexity in main handler
+ */
+function buildAuditLogFilters(queryParams) {
+  const { action, category, severity, userId, resourceType, startDate, endDate } = queryParams;
+  const filters = {};
+  
+  // Sanitize and apply string filters
+  const safeAction = sanitizeString(action);
+  const safeCategory = sanitizeString(category);
+  const safeSeverity = sanitizeString(severity);
+  const safeUserId = sanitizeObjectId(userId);
+  const safeResourceType = sanitizeString(resourceType);
+  
+  if (safeAction) filters.action = safeAction;
+  if (safeCategory) filters.category = safeCategory;
+  if (safeSeverity) filters.severity = safeSeverity;
+  if (safeUserId) filters.userId = safeUserId;
+  if (safeResourceType) filters.resourceType = safeResourceType;
+  
+  // Date range filter
+  const safeStartDate = sanitizeDate(startDate);
+  const safeEndDate = sanitizeDate(endDate);
+  if (safeStartDate || safeEndDate) {
+    filters.timestamp = {};
+    if (safeStartDate) filters.timestamp.$gte = safeStartDate;
+    if (safeEndDate) filters.timestamp.$lte = safeEndDate;
+  }
+  
+  return filters;
+}
+
+/**
  * Get audit logs with pagination and filtering
  * 
  * @route GET /api/admin/audit-logs
  */
 const getAuditLogs = async (req, res) => {
   try {
-    const { 
-      page = 1, 
-      limit = 50, 
-      action, 
-      category, 
-      severity, 
-      userId: filterUserId,
-      startDate,
-      endDate,
-      resourceType
-    } = req.query;
+    const { page = 1, limit = 50, userId: filterUserId, ...filterParams } = req.query;
     
-    // Build query based on permissions
+    // Build base query with permissions
     const query = {};
-    
-    // Super admins can see all, regular admins only see their company
     if (!req.isSuperAdmin) {
       const user = await User.findById(req.userId).select('companyId isAdmin');
       if (!user?.isAdmin) {
@@ -44,27 +65,9 @@ const getAuditLogs = async (req, res) => {
       }
     }
     
-    // Sanitize and apply filters (prevent NoSQL injection)
-    const safeAction = sanitizeString(action);
-    const safeCategory = sanitizeString(category);
-    const safeSeverity = sanitizeString(severity);
-    const safeFilterUserId = sanitizeObjectId(filterUserId);
-    const safeResourceType = sanitizeString(resourceType);
-    
-    if (safeAction) query.action = safeAction;
-    if (safeCategory) query.category = safeCategory;
-    if (safeSeverity) query.severity = safeSeverity;
-    if (safeFilterUserId) query.userId = safeFilterUserId;
-    if (safeResourceType) query.resourceType = safeResourceType;
-    
-    // Date range (sanitized)
-    const safeStartDate = sanitizeDate(startDate);
-    const safeEndDate = sanitizeDate(endDate);
-    if (safeStartDate || safeEndDate) {
-      query.timestamp = {};
-      if (safeStartDate) query.timestamp.$gte = safeStartDate;
-      if (safeEndDate) query.timestamp.$lte = safeEndDate;
-    }
+    // Apply filters from query params
+    const filters = buildAuditLogFilters({ ...filterParams, userId: filterUserId });
+    Object.assign(query, filters);
     
     // Sanitize pagination
     const safePage = sanitizeInt(page, 1, 10000);

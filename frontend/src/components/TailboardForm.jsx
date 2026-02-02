@@ -216,6 +216,58 @@ const INSPECTOR_OPTIONS = [
   { id: 'other', label: 'Other' }
 ];
 
+/**
+ * Populate form state from existing tailboard data
+ * Extracted to reduce cognitive complexity in loadData
+ */
+function populateFormFromTailboard(tb, setters) {
+  // Basic fields
+  if (tb.date) setters.setDate(new Date(tb.date).toISOString().split('T')[0]);
+  if (tb.startTime) setters.setStartTime(tb.startTime);
+  if (tb.taskDescription) setters.setTaskDescription(tb.taskDescription);
+  if (tb.jobSteps) setters.setJobSteps(tb.jobSteps);
+  if (tb.hazards) setters.setHazards(tb.hazards);
+  if (tb.hazardsDescription) setters.setHazardsDescription(tb.hazardsDescription);
+  if (tb.mitigationDescription) setters.setMitigationDescription(tb.mitigationDescription);
+  if (tb.ppeRequired) setters.setPpeRequired(tb.ppeRequired);
+  if (tb.crewMembers) setters.setCrewMembers(tb.crewMembers);
+  if (tb.weatherConditions) setters.setWeatherConditions(tb.weatherConditions);
+  if (tb.emergencyContact) setters.setEmergencyContact(tb.emergencyContact);
+  if (tb.emergencyPhone) setters.setEmergencyPhone(tb.emergencyPhone);
+  if (tb.nearestHospital) setters.setNearestHospital(tb.nearestHospital);
+  if (tb.additionalNotes) setters.setAdditionalNotes(tb.additionalNotes);
+  
+  // Alvah-specific fields
+  if (tb.pmNumber) setters.setPmNumber(tb.pmNumber);
+  if (tb.circuit) setters.setCircuit(tb.circuit);
+  if (tb.showUpYardLocation) setters.setShowUpYardLocation(tb.showUpYardLocation);
+  if (tb.generalForemanName) setters.setGeneralForemanName(tb.generalForemanName);
+  if (tb.inspector) setters.setInspector(tb.inspector);
+  if (tb.inspectorName) setters.setInspectorName(tb.inspectorName);
+  if (tb.eicName) setters.setEicName(tb.eicName);
+  if (tb.eicPhone) setters.setEicPhone(tb.eicPhone);
+  if (tb.specialMitigations?.length) setters.setSpecialMitigations(tb.specialMitigations);
+  
+  // Grounding section
+  if (tb.grounding) {
+    setters.setGroundingNeeded(tb.grounding.needed);
+    setters.setGroundingAccountedFor(tb.grounding.accountedFor);
+    if (tb.grounding.locations?.length) setters.setGroundingLocations(tb.grounding.locations);
+  }
+  
+  // Source side and line characteristics
+  if (tb.sourceSideDevices?.length) setters.setSourceSideDevices(tb.sourceSideDevices);
+  if (tb.nominalVoltages) setters.setNominalVoltages(tb.nominalVoltages);
+  if (tb.copperConditionInspected !== undefined) setters.setCopperConditionInspected(tb.copperConditionInspected);
+  if (tb.notTiedIntoCircuit) setters.setNotTiedIntoCircuit(tb.notTiedIntoCircuit);
+  
+  // UG checklist
+  if (tb.ugChecklist?.length) {
+    setters.setUgChecklist(tb.ugChecklist);
+    setters.setShowUgChecklist(true);
+  }
+}
+
 const TailboardForm = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
@@ -311,46 +363,17 @@ const TailboardForm = () => {
           const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
           setTailboard(tailboardRes.data);
           
-          // Populate form with existing data
-          const tb = tailboardRes.data;
-          if (tb.date) setDate(new Date(tb.date).toISOString().split('T')[0]);
-          if (tb.startTime) setStartTime(tb.startTime);
-          if (tb.taskDescription) setTaskDescription(tb.taskDescription);
-          if (tb.jobSteps) setJobSteps(tb.jobSteps);
-          if (tb.hazards) setHazards(tb.hazards);
-          if (tb.hazardsDescription) setHazardsDescription(tb.hazardsDescription);
-          if (tb.mitigationDescription) setMitigationDescription(tb.mitigationDescription);
-          if (tb.ppeRequired) setPpeRequired(tb.ppeRequired);
-          if (tb.crewMembers) setCrewMembers(tb.crewMembers);
-          if (tb.weatherConditions) setWeatherConditions(tb.weatherConditions);
-          if (tb.emergencyContact) setEmergencyContact(tb.emergencyContact);
-          if (tb.emergencyPhone) setEmergencyPhone(tb.emergencyPhone);
-          if (tb.nearestHospital) setNearestHospital(tb.nearestHospital);
-          if (tb.additionalNotes) setAdditionalNotes(tb.additionalNotes);
-          
-          // Alvah-specific fields
-          if (tb.pmNumber) setPmNumber(tb.pmNumber);
-          if (tb.circuit) setCircuit(tb.circuit);
-          if (tb.showUpYardLocation) setShowUpYardLocation(tb.showUpYardLocation);
-          if (tb.generalForemanName) setGeneralForemanName(tb.generalForemanName);
-          if (tb.inspector) setInspector(tb.inspector);
-          if (tb.inspectorName) setInspectorName(tb.inspectorName);
-          if (tb.eicName) setEicName(tb.eicName);
-          if (tb.eicPhone) setEicPhone(tb.eicPhone);
-          if (tb.specialMitigations?.length) setSpecialMitigations(tb.specialMitigations);
-          if (tb.grounding) {
-            setGroundingNeeded(tb.grounding.needed);
-            setGroundingAccountedFor(tb.grounding.accountedFor);
-            if (tb.grounding.locations?.length) setGroundingLocations(tb.grounding.locations);
-          }
-          if (tb.sourceSideDevices?.length) setSourceSideDevices(tb.sourceSideDevices);
-          if (tb.nominalVoltages) setNominalVoltages(tb.nominalVoltages);
-          if (tb.copperConditionInspected !== undefined) setCopperConditionInspected(tb.copperConditionInspected);
-          if (tb.notTiedIntoCircuit) setNotTiedIntoCircuit(tb.notTiedIntoCircuit);
-          if (tb.ugChecklist?.length) {
-            setUgChecklist(tb.ugChecklist);
-            setShowUgChecklist(true);
-          }
+          // Populate form using helper function
+          populateFormFromTailboard(tailboardRes.data, {
+            setDate, setStartTime, setTaskDescription, setJobSteps, setHazards,
+            setHazardsDescription, setMitigationDescription, setPpeRequired, setCrewMembers,
+            setWeatherConditions, setEmergencyContact, setEmergencyPhone, setNearestHospital,
+            setAdditionalNotes, setPmNumber, setCircuit, setShowUpYardLocation,
+            setGeneralForemanName, setInspector, setInspectorName, setEicName, setEicPhone,
+            setSpecialMitigations, setGroundingNeeded, setGroundingAccountedFor,
+            setGroundingLocations, setSourceSideDevices, setNominalVoltages,
+            setCopperConditionInspected, setNotTiedIntoCircuit, setUgChecklist, setShowUgChecklist
+          });
         } catch {
           // No tailboard for today - that's fine
         }

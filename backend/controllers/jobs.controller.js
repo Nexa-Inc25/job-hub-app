@@ -135,6 +135,9 @@ const createJob = async (req, res) => {
       }
     }
     
+    // Sanitize date input
+    const safeScheduledDate = scheduledDate ? new Date(scheduledDate) : undefined;
+    
     const job = await Job.create({
       title: safeTitle || safePmNumber,
       pmNumber: safePmNumber,
@@ -142,8 +145,8 @@ const createJob = async (req, res) => {
       address: sanitizeString(address),
       description: sanitizeString(description),
       client: sanitizeString(client),
-      assignedTo: safeAssignedTo, // Only use sanitized ObjectId
-      scheduledDate,
+      assignedTo: safeAssignedTo,
+      scheduledDate: safeScheduledDate,
       status: 'new',
       companyId: req.companyId
     });

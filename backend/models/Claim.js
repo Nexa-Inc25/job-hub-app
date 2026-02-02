@@ -308,30 +308,64 @@ claimSchema.index({ status: 1, submittedAt: -1 });
 claimSchema.index({ status: 1, dueDate: 1 });
 claimSchema.index({ utilityId: 1, status: 1 });
 
+/**
+ * Calculate verification metrics from line items
+ */
+function calculateVerificationMetrics(lineItems) {
+  if (!lineItems || lineItems.length === 0) return null;
+  
+  const totalUnits = lineItems.length;
+  const unitsWithPhotos = lineItems.filter(li => li.photoCount > 0).length;
+  const unitsWithGPS = lineItems.filter(li => li.hasGPS).length;
+  const highQualityGPS = lineItems.filter(li => li.gpsQuality === 'high').length;
+  
+  return {
+    totalUnits,
+    unitsWithPhotos,
+    unitsWithGPS,
+    highQualityGPS,
+    photoComplianceRate: Math.round((unitsWithPhotos / totalUnits) * 100),
+    gpsComplianceRate: Math.round((unitsWithGPS / totalUnits) * 100)
+  };
+}
+
+/**
+ * Calculate category and tier totals from line items
+ */
+function calculateCategoryAndTierTotals(lineItems) {
+  if (!lineItems || lineItems.length === 0) return null;
+  
+  const categoryTotals = { civil: 0, electrical: 0, traffic_control: 0, vegetation: 0, other: 0 };
+  const tierTotals = { prime: 0, sub: 0, sub_of_sub: 0 };
+  
+  for (const item of lineItems) {
+    const cat = item.workCategory || 'other';
+    const amount = item.totalAmount || 0;
+    categoryTotals[categoryTotals[cat] !== undefined ? cat : 'other'] += amount;
+    
+    const tier = item.performedByTier || 'prime';
+    tierTotals[tierTotals[tier] !== undefined ? tier : 'prime'] += amount;
+  }
+  
+  return { categoryTotals, tierTotals };
+}
+
 // Auto-generate claim number before save
 claimSchema.pre('save', async function(next) {
-  // Generate claim number if not set - use atomic counter to prevent race conditions
+  // Generate claim number if not set
   if (!this.claimNumber) {
     const year = new Date().getFullYear();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    
-    // Use findOneAndUpdate with upsert for atomic counter
-    // Fallback: Generate unique claim number with timestamp + random suffix
-    // This prevents duplicate key errors from concurrent saves
     const count = await this.constructor.countDocuments({
       companyId: this.companyId,
       createdAt: { $gte: new Date(year, 0, 1) }
     });
-    
-    // Include timestamp suffix to ensure uniqueness even with race conditions
     this.claimNumber = `CLM-${year}-${String(count + 1).padStart(5, '0')}-${random}`;
   }
   
-  // Calculate line item count
+  // Calculate line item count and adjustment total
   this.lineItemCount = this.lineItems?.length || 0;
-  
-  // Always recalculate adjustment total (handles empty adjustments case)
-  this.adjustmentTotal = (this.adjustments && this.adjustments.length > 0)
+  this.adjustmentTotal = (this.adjustments?.length > 0)
     ? this.adjustments.reduce((sum, adj) => sum + (adj.amount || 0), 0)
     : 0;
   
@@ -340,60 +374,22 @@ claimSchema.pre('save', async function(next) {
     this.totalAmount = this.subtotal + this.adjustmentTotal + this.taxAmount;
     this.amountDue = this.totalAmount - this.retentionAmount;
   }
-  
-  // Calculate balance due
   this.balanceDue = (this.amountDue || 0) - (this.totalPaid || 0);
   
   // Calculate days past due
   if (this.dueDate && this.balanceDue > 0) {
-    const today = new Date();
-    const due = new Date(this.dueDate);
-    const diffTime = today - due;
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    this.daysPastDue = Math.max(diffDays, 0);
+    const diffTime = new Date() - new Date(this.dueDate);
+    this.daysPastDue = Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 0);
   }
   
-  // Calculate verification metrics
-  if (this.lineItems && this.lineItems.length > 0) {
-    const totalUnits = this.lineItems.length;
-    const unitsWithPhotos = this.lineItems.filter(li => li.photoCount > 0).length;
-    const unitsWithGPS = this.lineItems.filter(li => li.hasGPS).length;
-    const highQualityGPS = this.lineItems.filter(li => li.gpsQuality === 'high').length;
-    
-    this.verificationMetrics = {
-      totalUnits,
-      unitsWithPhotos,
-      unitsWithGPS,
-      highQualityGPS,
-      photoComplianceRate: Math.round((unitsWithPhotos / totalUnits) * 100),
-      gpsComplianceRate: Math.round((unitsWithGPS / totalUnits) * 100)
-    };
-  }
+  // Calculate metrics using helper functions
+  const metrics = calculateVerificationMetrics(this.lineItems);
+  if (metrics) this.verificationMetrics = metrics;
   
-  // Calculate category totals
-  if (this.lineItems && this.lineItems.length > 0) {
-    const categoryTotals = { civil: 0, electrical: 0, traffic_control: 0, vegetation: 0, other: 0 };
-    const tierTotals = { prime: 0, sub: 0, sub_of_sub: 0 };
-    
-    for (const item of this.lineItems) {
-      const cat = item.workCategory || 'other';
-      if (categoryTotals[cat] === undefined) {
-        categoryTotals.other += item.totalAmount || 0;
-      } else {
-        categoryTotals[cat] += item.totalAmount || 0;
-      }
-      
-      const tier = item.performedByTier || 'prime';
-      if (tierTotals[tier] === undefined) {
-        // Fallback to 'prime' for invalid/unknown tier values
-        tierTotals.prime += item.totalAmount || 0;
-      } else {
-        tierTotals[tier] += item.totalAmount || 0;
-      }
-    }
-    
-    this.categoryTotals = categoryTotals;
-    this.tierTotals = tierTotals;
+  const totals = calculateCategoryAndTierTotals(this.lineItems);
+  if (totals) {
+    this.categoryTotals = totals.categoryTotals;
+    this.tierTotals = totals.tierTotals;
   }
   
   next();

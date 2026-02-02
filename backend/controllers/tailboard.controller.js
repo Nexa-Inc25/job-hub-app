@@ -13,6 +13,61 @@ const { generateTailboardPdf } = require('../services/pdf.service');
 const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
 
 /**
+ * Save completed tailboard to job's Close Out Documents folder
+ * Extracted to reduce complexity in completeTailboard
+ */
+async function saveTailboardToCloseOut(tailboard) {
+  const job = await Job.findById(tailboard.jobId);
+  if (!job) return;
+  
+  const aciFolder = job.folders?.find(f => f.name === 'ACI');
+  if (!aciFolder) return;
+  
+  // Ensure subfolders structure exists
+  if (!aciFolder.subfolders) aciFolder.subfolders = [];
+  let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
+  if (!closeOutFolder) {
+    closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
+    aciFolder.subfolders.push(closeOutFolder);
+  }
+  if (!closeOutFolder.documents) closeOutFolder.documents = [];
+  
+  // Build document entry
+  const dateStr = new Date(tailboard.date || tailboard.createdAt).toISOString().split('T')[0];
+  const tailboardFilename = `${job.pmNumber || job.woNumber}_Tailboard_${dateStr}.pdf`;
+  
+  // Remove old version if exists (same date tailboard)
+  const existingIdx = closeOutFolder.documents.findIndex(d => 
+    d.name?.includes('Tailboard') && d.name?.includes(dateStr)
+  );
+  if (existingIdx !== -1) {
+    closeOutFolder.documents.splice(existingIdx, 1);
+  }
+  
+  // Add tailboard reference
+  closeOutFolder.documents.push({
+    name: tailboardFilename,
+    type: 'tailboard',
+    tailboardId: tailboard._id,
+    date: tailboard.date || tailboard.createdAt,
+    crewSize: tailboard.crewMembers?.length || 0,
+    hazardCount: tailboard.hazards?.length || 0,
+    uploadDate: new Date(),
+    isCompleted: true,
+    completedAt: tailboard.completedAt,
+    pdfUrl: `/api/tailboards/${tailboard._id}/pdf`,
+    exportUrls: {
+      pdf: `/api/tailboards/${tailboard._id}/pdf`,
+      oracle: `/api/tailboards/${tailboard._id}/export?format=oracle`,
+      sap: `/api/tailboards/${tailboard._id}/export?format=sap`,
+    }
+  });
+  
+  await job.save();
+  console.log(`Tailboard saved to Close Out Documents: ${tailboardFilename}`);
+}
+
+/**
  * Create a new tailboard
  * POST /api/tailboards
  */
@@ -322,61 +377,9 @@ const completeTailboard = async (req, res) => {
 
     await tailboard.save();
 
-    // =========================================================================
-    // Save tailboard reference to Close Out Documents folder for job package
-    // =========================================================================
+    // Save tailboard reference to Close Out Documents folder
     try {
-      const Job = require('../models/Job');
-      const job = await Job.findById(tailboard.jobId);
-      
-      if (job) {
-        const aciFolder = job.folders?.find(f => f.name === 'ACI');
-        if (aciFolder) {
-          if (!aciFolder.subfolders) aciFolder.subfolders = [];
-          let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
-          if (!closeOutFolder) {
-            closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
-            aciFolder.subfolders.push(closeOutFolder);
-          }
-          if (!closeOutFolder.documents) closeOutFolder.documents = [];
-          
-          // Create tailboard document entry
-          const dateStr = new Date(tailboard.date || tailboard.createdAt).toISOString().split('T')[0];
-          const tailboardFilename = `${job.pmNumber || job.woNumber}_Tailboard_${dateStr}.pdf`;
-          
-          // Remove old version if exists (same date tailboard)
-          const existingIdx = closeOutFolder.documents.findIndex(d => 
-            d.name?.includes('Tailboard') && d.name?.includes(dateStr)
-          );
-          if (existingIdx !== -1) {
-            closeOutFolder.documents.splice(existingIdx, 1);
-          }
-          
-          // Add tailboard reference to close out folder
-          closeOutFolder.documents.push({
-            name: tailboardFilename,
-            type: 'tailboard',
-            tailboardId: tailboard._id,
-            date: tailboard.date || tailboard.createdAt,
-            crewSize: tailboard.crewMembers?.length || 0,
-            hazardCount: tailboard.hazards?.length || 0,
-            uploadDate: new Date(),
-            isCompleted: true,
-            completedAt: tailboard.completedAt,
-            // PDF can be generated via the tailboard PDF endpoint
-            pdfUrl: `/api/tailboards/${tailboard._id}/pdf`,
-            // Export URLs for utility systems
-            exportUrls: {
-              pdf: `/api/tailboards/${tailboard._id}/pdf`,
-              oracle: `/api/tailboards/${tailboard._id}/export?format=oracle`,
-              sap: `/api/tailboards/${tailboard._id}/export?format=sap`,
-            }
-          });
-          
-          await job.save();
-          console.log(`Tailboard saved to Close Out Documents: ${tailboardFilename}`);
-        }
-      }
+      await saveTailboardToCloseOut(tailboard);
     } catch (error_) {
       console.warn('Failed to save tailboard to Close Out folder:', error_.message);
       // Don't fail the request - tailboard was saved successfully

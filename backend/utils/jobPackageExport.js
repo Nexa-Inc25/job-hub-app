@@ -11,6 +11,48 @@
 
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 
+// Header columns for Oracle HXC_TIME_BUILDING_BLOCKS
+const ORACLE_HEADER_COLUMNS = [
+  'BATCH_ID', 'TIME_BUILDING_BLOCK_ID', 'TYPE', 'MEASURE', 'UNIT_OF_MEASURE',
+  'START_TIME', 'STOP_TIME', 'RESOURCE_ID', 'RESOURCE_TYPE', 'COMMENT_TEXT',
+  'APPROVAL_STATUS', 'DATE_FROM', 'DATE_TO', 'PROJECT_ID', 'TASK_ID',
+  'EXPENDITURE_TYPE', 'ATTRIBUTE1', 'ATTRIBUTE2', 'ATTRIBUTE3', 'ATTRIBUTE4'
+];
+
+/**
+ * Build a single timesheet row for Oracle export
+ */
+function buildTimesheetRow(batchId, blockId, member, entry, timesheet, job) {
+  const hours = entry.clockOut 
+    ? ((new Date(entry.clockOut) - new Date(entry.clockIn)) / 3600000) - ((entry.breakMinutes || 0) / 60)
+    : 0;
+  
+  const dateStr = timesheet.date ? new Date(timesheet.date).toISOString().split('T')[0] : '';
+  
+  return [
+    batchId,
+    `${batchId}_${blockId}`,
+    'RANGE',
+    hours.toFixed(2),
+    'HOURS',
+    entry.clockIn ? new Date(entry.clockIn).toISOString() : '',
+    entry.clockOut ? new Date(entry.clockOut).toISOString() : '',
+    member.employeeId || member.name.replaceAll(/\s+/g, '_').toUpperCase(),
+    'PERSON',
+    entry.notes || '',
+    'SUBMITTED',
+    dateStr,
+    dateStr,
+    job.projectId || job.pmNumber || '',
+    job.taskId || job.woNumber || '',
+    mapWorkTypeToOracle(entry.workType),
+    job.woNumber || '',
+    job.pmNumber || '',
+    entry.workType || 'regular',
+    member.classification || 'Field Worker',
+  ];
+}
+
 /**
  * Format timesheet data for Oracle EBS Time & Labor import
  * 
@@ -19,71 +61,20 @@ const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
  */
 function formatTimesheetForOracle(timesheet, job) {
   const batchId = `TS_${job.woNumber || job.pmNumber}_${Date.now()}`;
-  
-  // Header columns for HXC_TIME_BUILDING_BLOCKS
-  const headerColumns = [
-    'BATCH_ID',
-    'TIME_BUILDING_BLOCK_ID',
-    'TYPE',
-    'MEASURE',
-    'UNIT_OF_MEASURE',
-    'START_TIME',
-    'STOP_TIME',
-    'RESOURCE_ID',
-    'RESOURCE_TYPE',
-    'COMMENT_TEXT',
-    'APPROVAL_STATUS',
-    'DATE_FROM',
-    'DATE_TO',
-    'PROJECT_ID',
-    'TASK_ID',
-    'EXPENDITURE_TYPE',
-    'ATTRIBUTE1', // WO Number
-    'ATTRIBUTE2', // PM Number
-    'ATTRIBUTE3', // Work Type
-    'ATTRIBUTE4', // Classification
-  ];
-
   const rows = [];
   let blockId = 1;
 
   for (const member of timesheet.crewMembers || []) {
     for (const entry of member.entries || []) {
       if (!entry.clockIn) continue;
-
-      const hours = entry.clockOut 
-        ? ((new Date(entry.clockOut) - new Date(entry.clockIn)) / 3600000) - ((entry.breakMinutes || 0) / 60)
-        : 0;
-
-      rows.push([
-        batchId,
-        `${batchId}_${blockId++}`,
-        'RANGE',
-        hours.toFixed(2),
-        'HOURS',
-        entry.clockIn ? new Date(entry.clockIn).toISOString() : '',
-        entry.clockOut ? new Date(entry.clockOut).toISOString() : '',
-        member.employeeId || member.name.replaceAll(/\s+/g, '_').toUpperCase(),
-        'PERSON',
-        entry.notes || '',
-        'SUBMITTED',
-        timesheet.date ? new Date(timesheet.date).toISOString().split('T')[0] : '',
-        timesheet.date ? new Date(timesheet.date).toISOString().split('T')[0] : '',
-        job.projectId || job.pmNumber || '',
-        job.taskId || job.woNumber || '',
-        mapWorkTypeToOracle(entry.workType),
-        job.woNumber || '',
-        job.pmNumber || '',
-        entry.workType || 'regular',
-        member.classification || 'Field Worker',
-      ]);
+      rows.push(buildTimesheetRow(batchId, blockId++, member, entry, timesheet, job));
     }
   }
 
   return {
     format: 'oracle_hxc',
     batchId,
-    headerColumns,
+    headerColumns: ORACLE_HEADER_COLUMNS,
     rows,
     metadata: {
       jobNumber: job.woNumber || job.pmNumber,
@@ -361,14 +352,10 @@ function generateJobPackageCSV(exportData) {
 }
 
 /**
- * Generate a combined PDF for the job package
+ * Add cover page to PDF document
  */
-async function generateJobPackagePDF(exportData, options = {}) {
-  const pdfDoc = await PDFDocument.create();
-  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-  // Cover page
+function addCoverPage(pdfDoc, exportData, fonts) {
+  const { font, boldFont } = fonts;
   const coverPage = pdfDoc.addPage([612, 792]);
   let y = 720;
   
@@ -401,65 +388,90 @@ async function generateJobPackagePDF(exportData, options = {}) {
   }
   if (components.units) {
     coverPage.drawText(`✓ Unit Entries - ${components.units.count} units, $${components.units.totalAmount?.toFixed(2) || '0.00'} total`, { x: 80, y, size: 12, font });
-    y -= 20;
   }
+}
 
-  // Timesheet page
-  if (components.timesheet) {
-    const tsPage = pdfDoc.addPage([612, 792]);
-    y = 720;
-    tsPage.drawText('TIMESHEET', { x: 250, y, size: 20, font: boldFont });
-    y -= 30;
-    tsPage.drawText(`Date: ${components.timesheet.metadata?.date || 'N/A'}`, { x: 60, y, size: 12, font });
-    y -= 40;
+/**
+ * Add timesheet page to PDF document
+ */
+function addTimesheetPage(pdfDoc, timesheet, fonts) {
+  const { font, boldFont } = fonts;
+  const tsPage = pdfDoc.addPage([612, 792]);
+  let y = 720;
+  
+  tsPage.drawText('TIMESHEET', { x: 250, y, size: 20, font: boldFont });
+  y -= 30;
+  tsPage.drawText(`Date: ${timesheet.metadata?.date || 'N/A'}`, { x: 60, y, size: 12, font });
+  y -= 40;
 
-    // Table header
-    tsPage.drawText('Name', { x: 60, y, size: 10, font: boldFont });
-    tsPage.drawText('Classification', { x: 180, y, size: 10, font: boldFont });
-    tsPage.drawText('Work Type', { x: 300, y, size: 10, font: boldFont });
-    tsPage.drawText('Hours', { x: 420, y, size: 10, font: boldFont });
+  // Table header
+  tsPage.drawText('Name', { x: 60, y, size: 10, font: boldFont });
+  tsPage.drawText('Classification', { x: 180, y, size: 10, font: boldFont });
+  tsPage.drawText('Work Type', { x: 300, y, size: 10, font: boldFont });
+  tsPage.drawText('Hours', { x: 420, y, size: 10, font: boldFont });
+  y -= 15;
+  tsPage.drawLine({ start: { x: 50, y: y + 5 }, end: { x: 562, y: y + 5 }, thickness: 0.5 });
+
+  for (const row of timesheet.rows || []) {
+    if (y < 50) break;
+    y -= 18;
+    tsPage.drawText(String(row[7] || '').slice(0, 20), { x: 60, y, size: 9, font });
+    tsPage.drawText(String(row[19] || '').slice(0, 20), { x: 180, y, size: 9, font });
+    tsPage.drawText(String(row[18] || '').slice(0, 15), { x: 300, y, size: 9, font });
+    tsPage.drawText(String(row[3] || '0'), { x: 420, y, size: 9, font });
+  }
+}
+
+/**
+ * Add tailboard page to PDF document
+ */
+function addTailboardPage(pdfDoc, tailboard, fonts) {
+  const { font, boldFont } = fonts;
+  const tbPage = pdfDoc.addPage([612, 792]);
+  let y = 720;
+  
+  tbPage.drawText('TAILBOARD / JHA', { x: 220, y, size: 20, font: boldFont });
+  y -= 30;
+  tbPage.drawText(`Status: ${tailboard.header?.STATUS || 'N/A'}`, { x: 60, y, size: 12, font });
+  y -= 40;
+
+  // Crew section
+  tbPage.drawText('CREW MEMBERS:', { x: 60, y, size: 12, font: boldFont });
+  y -= 20;
+  for (const m of tailboard.crewMembers || []) {
+    if (y < 100) break;
+    tbPage.drawText(`• ${m.PERSON_NAME} (${m.CLASSIFICATION}) ${m.HAS_SIGNATURE ? '✓ Signed' : ''}`, { x: 80, y, size: 10, font });
     y -= 15;
-    tsPage.drawLine({ start: { x: 50, y: y + 5 }, end: { x: 562, y: y + 5 }, thickness: 0.5 });
-
-    for (const row of components.timesheet.rows || []) {
-      if (y < 50) break; // Page overflow protection
-      y -= 18;
-      tsPage.drawText(String(row[7] || '').slice(0, 20), { x: 60, y, size: 9, font }); // Resource ID
-      tsPage.drawText(String(row[19] || '').slice(0, 20), { x: 180, y, size: 9, font }); // Classification
-      tsPage.drawText(String(row[18] || '').slice(0, 15), { x: 300, y, size: 9, font }); // Work Type
-      tsPage.drawText(String(row[3] || '0'), { x: 420, y, size: 9, font }); // Hours
-    }
   }
 
-  // Tailboard page
-  if (components.tailboard) {
-    const tbPage = pdfDoc.addPage([612, 792]);
-    y = 720;
-    tbPage.drawText('TAILBOARD / JHA', { x: 220, y, size: 20, font: boldFont });
-    y -= 30;
-    tbPage.drawText(`Status: ${components.tailboard.header?.STATUS || 'N/A'}`, { x: 60, y, size: 12, font });
-    y -= 40;
-
-    // Crew section
-    tbPage.drawText('CREW MEMBERS:', { x: 60, y, size: 12, font: boldFont });
-    y -= 20;
-    for (const m of components.tailboard.crewMembers || []) {
-      if (y < 100) break;
-      tbPage.drawText(`• ${m.PERSON_NAME} (${m.CLASSIFICATION}) ${m.HAS_SIGNATURE ? '✓ Signed' : ''}`, { x: 80, y, size: 10, font });
-      y -= 15;
-    }
-
-    y -= 20;
-    tbPage.drawText('HAZARDS IDENTIFIED:', { x: 60, y, size: 12, font: boldFont });
-    y -= 20;
-    for (const h of components.tailboard.hazards || []) {
-      if (y < 50) break;
-      tbPage.drawText(`• [${h.CATEGORY}] ${h.DESCRIPTION}`, { x: 80, y, size: 10, font });
-      y -= 12;
-      tbPage.drawText(`  Controls: ${h.CONTROLS}`, { x: 90, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
-      y -= 15;
-    }
+  y -= 20;
+  tbPage.drawText('HAZARDS IDENTIFIED:', { x: 60, y, size: 12, font: boldFont });
+  y -= 20;
+  for (const h of tailboard.hazards || []) {
+    if (y < 50) break;
+    tbPage.drawText(`• [${h.CATEGORY}] ${h.DESCRIPTION}`, { x: 80, y, size: 10, font });
+    y -= 12;
+    tbPage.drawText(`  Controls: ${h.CONTROLS}`, { x: 90, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) });
+    y -= 15;
   }
+}
+
+/**
+ * Generate a combined PDF for the job package
+ */
+async function generateJobPackagePDF(exportData, options = {}) {
+  const pdfDoc = await PDFDocument.create();
+  const fonts = {
+    font: await pdfDoc.embedFont(StandardFonts.Helvetica),
+    boldFont: await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+  };
+
+  // Add pages using helper functions
+  addCoverPage(pdfDoc, exportData, fonts);
+  
+  const components = exportData.components;
+  if (components.timesheet) addTimesheetPage(pdfDoc, components.timesheet, fonts);
+  if (components.tailboard) addTailboardPage(pdfDoc, components.tailboard, fonts);
 
   return await pdfDoc.save();
 }

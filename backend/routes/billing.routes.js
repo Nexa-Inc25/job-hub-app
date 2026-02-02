@@ -26,6 +26,85 @@ const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 
 // ============================================================================
+// HELPER FUNCTIONS - Extracted to reduce cognitive complexity
+// ============================================================================
+
+/**
+ * Find rate item from price book by ID or item code
+ */
+async function findRateItem(priceBookId, priceBookItemId, itemCode, companyId, utilityId) {
+  let rateItem = null;
+  let priceBookRef = null;
+  
+  if (priceBookItemId && priceBookId) {
+    const priceBook = await PriceBook.findById(priceBookId);
+    if (priceBook) {
+      rateItem = priceBook.items.id(priceBookItemId);
+      priceBookRef = priceBook._id;
+    }
+  } else if (itemCode && utilityId) {
+    rateItem = await PriceBook.findItemByCode(companyId, utilityId, itemCode);
+    if (rateItem) {
+      const activePriceBook = await PriceBook.getActive(companyId, utilityId);
+      priceBookRef = activePriceBook?._id;
+    }
+  }
+  
+  return { rateItem, priceBookRef };
+}
+
+/**
+ * Build unit entry data object from request and rate item
+ */
+function buildUnitEntryData(params) {
+  const { 
+    jobId, companyId, priceBookRef, rateItem, quantity, workDate, location, 
+    photos, photoWaived, photoWaivedReason, performedBy, user, notes, 
+    fieldConditions, offlineId 
+  } = params;
+  
+  return {
+    jobId,
+    companyId,
+    priceBookId: priceBookRef,
+    priceBookItemId: rateItem._id,
+    // Snapshot from price book (locked rate)
+    itemCode: rateItem.itemCode,
+    description: rateItem.description,
+    category: rateItem.category,
+    subcategory: rateItem.subcategory,
+    // Quantity and pricing
+    quantity,
+    unit: rateItem.unit,
+    unitPrice: rateItem.unitPrice,
+    totalAmount: quantity * rateItem.unitPrice,
+    // Digital receipt data
+    workDate: new Date(workDate),
+    location,
+    photos: photos || [],
+    photoWaived: photoWaived || false,
+    photoWaivedReason,
+    photoWaivedBy: photoWaived ? user._id : undefined,
+    // Who performed the work
+    performedBy: {
+      ...performedBy,
+      foremanId: performedBy.foremanId || user._id,
+      foremanName: performedBy.foremanName || user.name
+    },
+    // Entry metadata
+    enteredBy: user._id,
+    enteredAt: new Date(),
+    status: 'draft',
+    notes,
+    fieldConditions,
+    // Offline sync
+    offlineId,
+    syncStatus: offlineId ? 'pending' : 'synced',
+    syncedAt: offlineId ? undefined : new Date()
+  };
+}
+
+// ============================================================================
 // UNIT ENTRIES - The "Digital Receipt"
 // ============================================================================
 
@@ -281,10 +360,12 @@ router.post('/units', async (req, res) => {
       offlineId
     } = req.body;
 
-    // Sanitize ObjectIds from user input
+    // Sanitize ObjectIds and strings from user input
     const jobId = sanitizeObjectId(rawJobId);
     const priceBookId = sanitizeObjectId(rawPriceBookId);
     const priceBookItemId = sanitizeObjectId(rawPriceBookItemId);
+    const safeItemCode = sanitizeString(itemCode);
+    const safeNotes = sanitizeString(notes);
 
     // Validate required fields
     if (!jobId || !quantity || !workDate || !location || !performedBy) {
@@ -307,76 +388,21 @@ router.post('/units', async (req, res) => {
     }
 
     // Get rate from price book (lock at creation time)
-    let rateItem;
-    let priceBookRef;
-    
-    if (priceBookItemId && priceBookId) {
-      const priceBook = await PriceBook.findById(priceBookId);
-      if (priceBook) {
-        rateItem = priceBook.items.id(priceBookItemId);
-        priceBookRef = priceBook._id;
-      }
-    } else if (itemCode && job.utilityId) {
-      // Lookup by item code in active price book
-      rateItem = await PriceBook.findItemByCode(user.companyId, job.utilityId, itemCode);
-      if (rateItem) {
-        const activePriceBook = await PriceBook.getActive(user.companyId, job.utilityId);
-        priceBookRef = activePriceBook?._id;
-      }
-    }
+    const { rateItem, priceBookRef } = await findRateItem(
+      priceBookId, priceBookItemId, safeItemCode, user.companyId, job.utilityId
+    );
 
     if (!rateItem) {
       return res.status(400).json({ error: 'Rate item not found in price book' });
     }
 
-    // Create unit entry with locked rate
-    const unitEntry = await UnitEntry.create({
-      jobId,
-      companyId: user.companyId,
-      priceBookId: priceBookRef,
-      priceBookItemId: rateItem._id,
-      
-      // Snapshot from price book (locked rate)
-      itemCode: rateItem.itemCode,
-      description: rateItem.description,
-      category: rateItem.category,
-      subcategory: rateItem.subcategory,
-      
-      // Quantity and pricing
-      quantity,
-      unit: rateItem.unit,
-      unitPrice: rateItem.unitPrice, // LOCKED at entry time
-      totalAmount: quantity * rateItem.unitPrice,
-      
-      // Digital receipt data
-      workDate: new Date(workDate),
-      location,
-      photos: photos || [],
-      photoWaived: photoWaived || false,
-      photoWaivedReason,
-      photoWaivedBy: photoWaived ? user._id : undefined,
-      
-      // Who performed the work
-      performedBy: {
-        ...performedBy,
-        foremanId: performedBy.foremanId || user._id,
-        foremanName: performedBy.foremanName || user.name
-      },
-      
-      // Entry metadata
-      enteredBy: user._id,
-      enteredAt: new Date(),
-      status: 'draft',
-      
-      // Notes
-      notes,
-      fieldConditions,
-      
-      // Offline sync
-      offlineId,
-      syncStatus: offlineId ? 'pending' : 'synced',  // 'pending' if from offline, 'synced' if direct
-      syncedAt: offlineId ? undefined : new Date()   // Only set syncedAt if directly created (not offline)
+    // Create unit entry with locked rate using helper
+    const unitEntryData = buildUnitEntryData({
+      jobId, companyId: user.companyId, priceBookRef, rateItem, quantity, workDate,
+      location, photos, photoWaived, photoWaivedReason, performedBy, user,
+      notes: safeNotes, fieldConditions, offlineId
     });
+    const unitEntry = await UnitEntry.create(unitEntryData);
 
     // Auto-submit the unit if it has required evidence (photo or waiver + GPS)
     const hasRequiredEvidence = (photos && photos.length > 0) || photoWaived;

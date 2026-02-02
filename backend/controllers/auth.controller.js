@@ -34,6 +34,54 @@ const validatePassword = (password) => {
 };
 
 /**
+ * Check if account is locked and return appropriate response
+ * Returns null if not locked, or a response object if locked
+ */
+function checkAccountLockout(user, email, req) {
+  if (!user?.isLocked()) return null;
+  
+  const remainingMins = Math.ceil((user.lockoutUntil - Date.now()) / 60000);
+  console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
+  logAuth.loginFailed(req, email, 'Account locked');
+  
+  return {
+    status: 423,
+    body: { error: `Account temporarily locked. Try again in ${remainingMins} minutes.` }
+  };
+}
+
+/**
+ * Handle failed login attempt and track attempts
+ */
+async function handleFailedLogin(user, email, req) {
+  if (user) {
+    await user.incLoginAttempts();
+    console.log('Failed login attempt for:', email ? email.substring(0, 3) + '***' : 'unknown', 
+      'Attempts:', user.failedLoginAttempts + 1);
+    
+    if (user.failedLoginAttempts + 1 >= 5) {
+      logAuth.accountLocked(req, email, user.failedLoginAttempts + 1);
+    }
+  }
+  logAuth.loginFailed(req, email, 'Invalid credentials');
+  performSecurityCheck(req, 'LOGIN_FAILED', { email });
+}
+
+/**
+ * Generate JWT token with user claims
+ */
+function generateAuthToken(user) {
+  return jwt.sign({ 
+    userId: user._id, 
+    isAdmin: user.isAdmin,
+    isSuperAdmin: user.isSuperAdmin || false,
+    role: user.role,
+    canApprove: user.canApprove || false,
+    name: user.name
+  }, process.env.JWT_SECRET, { expiresIn: '24h' });
+}
+
+/**
  * User Signup
  * POST /api/signup
  * 
@@ -127,30 +175,14 @@ const login = async (req, res) => {
     const user = await User.findOne({ email: safeEmail });
     
     // Check if account is locked
-    if (user?.isLocked()) {
-      const remainingMins = Math.ceil((user.lockoutUntil - Date.now()) / 60000);
-      console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
-      logAuth.loginFailed(req, email, 'Account locked');
-      return res.status(423).json({ 
-        error: `Account temporarily locked. Try again in ${remainingMins} minutes.` 
-      });
+    const lockoutResponse = checkAccountLockout(user, email, req);
+    if (lockoutResponse) {
+      return res.status(lockoutResponse.status).json(lockoutResponse.body);
     }
     
     // Validate credentials
     if (!user || !(await user.comparePassword(password))) {
-      // Track failed attempt if user exists
-      if (user) {
-        await user.incLoginAttempts();
-        console.log('Failed login attempt for:', email ? email.substring(0, 3) + '***' : 'unknown', 
-          'Attempts:', user.failedLoginAttempts + 1);
-        
-        // Log account lockout if threshold reached
-        if (user.failedLoginAttempts + 1 >= 5) {
-          logAuth.accountLocked(req, email, user.failedLoginAttempts + 1);
-        }
-      }
-      logAuth.loginFailed(req, email, 'Invalid credentials');
-      performSecurityCheck(req, 'LOGIN_FAILED', { email });
+      await handleFailedLogin(user, email, req);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
@@ -161,32 +193,18 @@ const login = async (req, res) => {
     
     // Check if MFA is required
     if (user.mfaEnabled) {
-      // Generate a temporary token for MFA verification (short expiry)
       const mfaToken = jwt.sign({ 
         userId: user._id, 
         mfaPending: true 
       }, process.env.JWT_SECRET, { expiresIn: '5m' });
       
       logAuth.loginSuccess(req, user);
-      
-      return res.json({
-        mfaRequired: true,
-        mfaToken,
-        userId: user._id
-      });
+      return res.json({ mfaRequired: true, mfaToken, userId: user._id });
     }
     
-    // Log successful login
+    // Log successful login and generate token
     logAuth.loginSuccess(req, user);
-    
-    const token = jwt.sign({ 
-      userId: user._id, 
-      isAdmin: user.isAdmin,
-      isSuperAdmin: user.isSuperAdmin || false,
-      role: user.role,
-      canApprove: user.canApprove || false,
-      name: user.name
-    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = generateAuthToken(user);
     
     res.json({ 
       token, 

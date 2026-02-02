@@ -220,34 +220,46 @@ routingRuleSchema.statics.getApplicableRules = async function(utilityId, company
   return rules;
 };
 
+/**
+ * Check if a single condition passes
+ */
+function checkCondition(conditionValue, dataValue, checkFn) {
+  if (!conditionValue || !dataValue) return true;
+  return checkFn(conditionValue, dataValue);
+}
+
+/**
+ * Transform mapping functions for metadata
+ */
+const transformFunctions = {
+  uppercase: (v) => String(v).toUpperCase(),
+  lowercase: (v) => String(v).toLowerCase(),
+  date_format: (v) => new Date(v).toISOString().split('T')[0],
+  trim: (v) => String(v).trim()
+};
+
 // Evaluate conditions
 routingRuleSchema.methods.evaluateConditions = function(submissionData) {
   const { conditions } = this;
   if (!conditions) return true;
   
-  // PM Number pattern
-  if (conditions.pmNumberPattern && submissionData.pmNumber) {
-    const regex = new RegExp(conditions.pmNumberPattern);
-    if (!regex.test(submissionData.pmNumber)) return false;
-  }
+  // PM Number pattern check
+  if (!checkCondition(conditions.pmNumberPattern, submissionData.pmNumber, 
+    (pattern, pm) => new RegExp(pattern).test(pm))) return false;
   
-  // Job type
-  if (conditions.jobTypeIn?.length > 0 && submissionData.jobType) {
-    if (!conditions.jobTypeIn.includes(submissionData.jobType)) return false;
-  }
+  // Job type check  
+  if (!checkCondition(conditions.jobTypeIn?.length, submissionData.jobType,
+    () => conditions.jobTypeIn.includes(submissionData.jobType))) return false;
   
-  // Work category
-  if (conditions.workCategoryIn?.length > 0 && submissionData.workCategory) {
-    if (!conditions.workCategoryIn.includes(submissionData.workCategory)) return false;
-  }
+  // Work category check
+  if (!checkCondition(conditions.workCategoryIn?.length, submissionData.workCategory,
+    () => conditions.workCategoryIn.includes(submissionData.workCategory))) return false;
   
-  // Date conditions
-  if (conditions.workDateAfter && submissionData.workDate) {
-    if (new Date(submissionData.workDate) < new Date(conditions.workDateAfter)) return false;
-  }
-  if (conditions.workDateBefore && submissionData.workDate) {
-    if (new Date(submissionData.workDate) > new Date(conditions.workDateBefore)) return false;
-  }
+  // Date range checks
+  if (!checkCondition(conditions.workDateAfter, submissionData.workDate,
+    (after, date) => new Date(date) >= new Date(after))) return false;
+  if (!checkCondition(conditions.workDateBefore, submissionData.workDate,
+    (before, date) => new Date(date) <= new Date(before))) return false;
   
   return true;
 };
@@ -257,30 +269,11 @@ routingRuleSchema.methods.applyMetadataMapping = function(sourceData) {
   const result = {};
   
   for (const mapping of this.metadataMapping || []) {
-    let value = sourceData[mapping.sourceField];
+    let value = sourceData[mapping.sourceField] ?? mapping.defaultValue;
     
-    // Apply default if no value
-    if (value === undefined || value === null) {
-      value = mapping.defaultValue;
-    }
-    
-    // Apply transform
-    if (value && mapping.transform) {
-      switch (mapping.transform) {
-        case 'uppercase':
-          value = String(value).toUpperCase();
-          break;
-        case 'lowercase':
-          value = String(value).toLowerCase();
-          break;
-        case 'date_format':
-          value = new Date(value).toISOString().split('T')[0];
-          break;
-        case 'trim':
-          value = String(value).trim();
-          break;
-      }
-    }
+    // Apply transform if value exists and transform is defined
+    const transformFn = value && mapping.transform ? transformFunctions[mapping.transform] : null;
+    if (transformFn) value = transformFn(value);
     
     if (value !== undefined) {
       result[mapping.destinationField] = value;

@@ -30,8 +30,11 @@ router.post('/submit', async (req, res) => {
     const safeJobId = sanitizeObjectId(jobId);
     const safePmNumber = sanitizePmNumber(pmNumber);
     const safeUtilityId = sanitizeObjectId(utilityId);
+    const safeFilename = sanitizeString(filename);
+    const safeFileKey = sanitizeString(fileKey);
+    const safePageCount = Number.isInteger(pageCount) && pageCount > 0 ? pageCount : 40;
     
-    if (!safeJobId || !safePmNumber || !fileKey) {
+    if (!safeJobId || !safePmNumber || !safeFileKey) {
       return res.status(400).json({ error: 'Valid jobId, pmNumber, and fileKey are required' });
     }
     
@@ -53,7 +56,7 @@ router.post('/submit', async (req, res) => {
     // Create hash for original file
     const fileHash = crypto
       .createHash('sha256')
-      .update(`${fileKey}-${Date.now()}`)
+      .update(`${safeFileKey}-${Date.now()}`)
       .digest('hex');
     
     // Create submission
@@ -66,10 +69,10 @@ router.post('/submit', async (req, res) => {
       workOrderNumber: job.workOrderNumber,
       circuitId: job.circuitId,
       originalFile: {
-        key: fileKey,
-        filename: filename || `${pmNumber}_asbuilt.pdf`,
+        key: safeFileKey,
+        filename: safeFilename || `${safePmNumber}_asbuilt.pdf`,
         hash: fileHash,
-        pageCount: pageCount || 40,
+        pageCount: safePageCount,
         uploadedAt: new Date()
       },
       submittedBy: user._id,
@@ -439,7 +442,12 @@ router.post('/rules', async (req, res) => {
       return res.status(403).json({ error: 'Only admins can create routing rules' });
     }
     
-    const { name, utilityId, sectionType, destination, ...rest } = req.body;
+    const { 
+      name, utilityId, sectionType, destination,
+      description, pageDetection, metadataMapping, conditions,
+      priority, isActive, requiresApproval, maxRetries, retryDelayMinutes,
+      notifications
+    } = req.body;
     
     if (!name || !utilityId || !sectionType || !destination) {
       return res.status(400).json({ error: 'name, utilityId, sectionType, and destination are required' });
@@ -449,21 +457,35 @@ router.post('/rules', async (req, res) => {
     const safeName = sanitizeString(name);
     const safeUtilityId = sanitizeObjectId(utilityId);
     const safeSectionType = sanitizeString(sectionType);
-    const safeDestination = sanitizeString(destination);
+    const safeDescription = sanitizeString(description);
     
     if (!safeUtilityId) {
       return res.status(400).json({ error: 'Invalid utilityId' });
     }
     
-    const rule = await RoutingRule.create({
+    // Build rule object with only allowed fields
+    const ruleData = {
       name: safeName,
       utilityId: safeUtilityId,
       companyId: user.companyId,
       sectionType: safeSectionType,
-      destination: safeDestination,
-      ...rest,
+      destination,
       createdBy: user._id
-    });
+    };
+    
+    // Add optional fields if provided
+    if (safeDescription) ruleData.description = safeDescription;
+    if (pageDetection) ruleData.pageDetection = pageDetection;
+    if (metadataMapping) ruleData.metadataMapping = metadataMapping;
+    if (conditions) ruleData.conditions = conditions;
+    if (typeof priority === 'number') ruleData.priority = priority;
+    if (typeof isActive === 'boolean') ruleData.isActive = isActive;
+    if (typeof requiresApproval === 'boolean') ruleData.requiresApproval = requiresApproval;
+    if (typeof maxRetries === 'number') ruleData.maxRetries = maxRetries;
+    if (typeof retryDelayMinutes === 'number') ruleData.retryDelayMinutes = retryDelayMinutes;
+    if (notifications) ruleData.notifications = notifications;
+    
+    const rule = await RoutingRule.create(ruleData);
     
     res.status(201).json(rule);
     
