@@ -779,7 +779,7 @@ const ForemanCloseOut = () => {
   const handleSubmitForReview = async () => {
     setSubmitting(true);
     try {
-      await api.patch(`/api/jobs/${jobId}`, {
+      await api.patch(`/api/jobs/${jobId}/status`, {
         status: 'crew_submitted',
         crewSubmittedDate: new Date(),
       });
