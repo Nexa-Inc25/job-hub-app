@@ -313,7 +313,6 @@ claimSchema.pre('save', async function(next) {
   // Generate claim number if not set - use atomic counter to prevent race conditions
   if (!this.claimNumber) {
     const year = new Date().getFullYear();
-    const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
     
     // Use findOneAndUpdate with upsert for atomic counter
@@ -351,7 +350,7 @@ claimSchema.pre('save', async function(next) {
     const due = new Date(this.dueDate);
     const diffTime = today - due;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    this.daysPastDue = diffDays > 0 ? diffDays : 0;
+    this.daysPastDue = Math.max(diffDays, 0);
   }
   
   // Calculate verification metrics
@@ -378,18 +377,18 @@ claimSchema.pre('save', async function(next) {
     
     for (const item of this.lineItems) {
       const cat = item.workCategory || 'other';
-      if (categoryTotals[cat] !== undefined) {
-        categoryTotals[cat] += item.totalAmount || 0;
-      } else {
+      if (categoryTotals[cat] === undefined) {
         categoryTotals.other += item.totalAmount || 0;
+      } else {
+        categoryTotals[cat] += item.totalAmount || 0;
       }
       
       const tier = item.performedByTier || 'prime';
-      if (tierTotals[tier] !== undefined) {
-        tierTotals[tier] += item.totalAmount || 0;
-      } else {
+      if (tierTotals[tier] === undefined) {
         // Fallback to 'prime' for invalid/unknown tier values
         tierTotals.prime += item.totalAmount || 0;
+      } else {
+        tierTotals[tier] += item.totalAmount || 0;
       }
     }
     

@@ -18,7 +18,7 @@ const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
  * Reference: Oracle Time and Labor Implementation Guide
  */
 function formatTimesheetForOracle(timesheet, job) {
-  const batchId = `TS_${job.woNumber || job.pmNumber}_${new Date().getTime()}`;
+  const batchId = `TS_${job.woNumber || job.pmNumber}_${Date.now()}`;
   
   // Header columns for HXC_TIME_BUILDING_BLOCKS
   const headerColumns = [

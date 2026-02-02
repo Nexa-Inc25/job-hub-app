@@ -27,7 +27,7 @@ const validatePassword = (password) => {
   if (!/[a-z]/.test(password)) {
     return { valid: false, error: 'Password must contain at least one lowercase letter' };
   }
-  if (!/[0-9]/.test(password)) {
+  if (!/\d/.test(password)) {
     return { valid: false, error: 'Password must contain at least one number' };
   }
   return { valid: true };
@@ -127,8 +127,8 @@ const login = async (req, res) => {
     const user = await User.findOne({ email: safeEmail });
     
     // Check if account is locked
-    if (user && user.isLocked()) {
-      const remainingMins = Math.ceil((user.lockoutUntil - new Date()) / 60000);
+    if (user?.isLocked()) {
+      const remainingMins = Math.ceil((user.lockoutUntil - Date.now()) / 60000);
       console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
       logAuth.loginFailed(req, email, 'Account locked');
       return res.status(423).json({ 
@@ -210,7 +210,7 @@ const login = async (req, res) => {
  */
 const verifyMfa = async (req, res) => {
   try {
-    const { mfaToken, code, trustDevice } = req.body;
+    const { mfaToken, code } = req.body;
     
     if (!mfaToken || !code) {
       return res.status(400).json({ error: 'MFA token and code are required' });
@@ -229,7 +229,7 @@ const verifyMfa = async (req, res) => {
     }
     
     const user = await User.findById(decoded.userId);
-    if (!user || !user.mfaEnabled) {
+    if (!user?.mfaEnabled) {
       return res.status(400).json({ error: 'MFA not configured for this account' });
     }
     

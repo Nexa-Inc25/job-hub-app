@@ -113,8 +113,8 @@ router.post('/', authenticateUser, async (req, res) => {
         await job.save();
         console.log(`LME saved to Close Out Documents: ${lmeFilename}`);
       }
-    } catch (closeOutErr) {
-      console.warn('Failed to save LME to Close Out folder:', closeOutErr.message);
+    } catch (error_) {
+      console.warn('Failed to save LME to Close Out folder:', error_.message);
     }
 
     res.json(lme);

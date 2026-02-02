@@ -31,7 +31,7 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('isAdmin');
       // Emit auth-required event for sync manager to catch
-      window.dispatchEvent(new CustomEvent('auth-required', { 
+      globalThis.dispatchEvent(new CustomEvent('auth-required', { 
         detail: { reason: 'token_expired' } 
       }));
       // Optionally redirect to login

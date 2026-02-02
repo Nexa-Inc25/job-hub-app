@@ -200,16 +200,16 @@ Focus on practical field data that a foreman would need to record. Include photo
 }
 
 // Valid enum values for query parameter validation (prevents NoSQL injection)
-const VALID_DOC_TYPES = [
+const VALID_DOC_TYPES = new Set([
   'as-built-procedure', 'as-built-template', 'field-checklist', 
   'safety-procedure', 'construction-standard', 'material-spec', 
   'inspection-guide', 'other'
-];
-const VALID_WORK_TYPES = [
+]);
+const VALID_WORK_TYPES = new Set([
   'overhead', 'underground', 'pole-replacement', 'transformer',
   'service-install', 'meter', 'switching', 'streetlight', 'all'
-];
-const VALID_PROCESSING_STATUSES = ['pending', 'processing', 'completed', 'failed'];
+]);
+const VALID_PROCESSING_STATUSES = new Set(['pending', 'processing', 'completed', 'failed']);
 
 /**
  * @route GET /api/procedures
@@ -227,13 +227,13 @@ router.get('/', async (req, res) => {
     const safeWorkType = sanitizeString(workType);
     const safeStatus = sanitizeString(status);
     
-    if (safeDocType && VALID_DOC_TYPES.includes(safeDocType)) {
+    if (safeDocType && VALID_DOC_TYPES.has(safeDocType)) {
       filter.docType = safeDocType;
     }
-    if (safeWorkType && VALID_WORK_TYPES.includes(safeWorkType)) {
+    if (safeWorkType && VALID_WORK_TYPES.has(safeWorkType)) {
       filter.applicableWorkTypes = safeWorkType;
     }
-    if (safeStatus && VALID_PROCESSING_STATUSES.includes(safeStatus)) {
+    if (safeStatus && VALID_PROCESSING_STATUSES.has(safeStatus)) {
       filter.processingStatus = safeStatus;
     }
     if (req.user?.companyId) filter.companyId = req.user.companyId;

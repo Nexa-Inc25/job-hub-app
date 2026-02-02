@@ -239,7 +239,7 @@ router.get('/:id/items', async (req, res) => {
       items = items.filter(i => 
         i.itemCode.toLowerCase().includes(lowerSearch) ||
         i.description.toLowerCase().includes(lowerSearch) ||
-        (i.shortDescription && i.shortDescription.toLowerCase().includes(lowerSearch))
+        i.shortDescription?.toLowerCase().includes(lowerSearch)
       );
     }
 

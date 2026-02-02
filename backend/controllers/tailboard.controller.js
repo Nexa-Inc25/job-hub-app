@@ -377,8 +377,8 @@ const completeTailboard = async (req, res) => {
           console.log(`Tailboard saved to Close Out Documents: ${tailboardFilename}`);
         }
       }
-    } catch (closeOutErr) {
-      console.warn('Failed to save tailboard to Close Out folder:', closeOutErr.message);
+    } catch (error_) {
+      console.warn('Failed to save tailboard to Close Out folder:', error_.message);
       // Don't fail the request - tailboard was saved successfully
     }
 

@@ -6,7 +6,7 @@
  */
 
 const mongoose = require('mongoose');
-const path = require('path');
+const path = require('node:path');
 
 /**
  * Sanitize a string value for use in MongoDB queries

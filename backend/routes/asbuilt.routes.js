@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 
 const AsBuiltSubmission = require('../models/AsBuiltSubmission');
 const RoutingRule = require('../models/RoutingRule');

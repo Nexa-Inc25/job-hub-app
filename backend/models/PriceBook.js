@@ -193,7 +193,7 @@ priceBookSchema.methods.searchItems = function(query) {
     item.isActive && (
       item.itemCode.toLowerCase().includes(lowerQuery) ||
       item.description.toLowerCase().includes(lowerQuery) ||
-      (item.shortDescription && item.shortDescription.toLowerCase().includes(lowerQuery))
+      item.shortDescription?.toLowerCase().includes(lowerQuery)
     )
   );
 };

@@ -5,8 +5,8 @@
  * Supports both R2 cloud storage and local filesystem fallback.
  */
 
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const r2Storage = require('../utils/storage');
 const { sanitizePath } = require('../utils/sanitize');
 
@@ -63,7 +63,7 @@ const streamFile = async (req, res) => {
       const safeKey = fileKey.replaceAll('..', '').replaceAll('//', '/');
       const fileData = await r2Storage.getFileStream(safeKey);
       
-      if (fileData && fileData.stream) {
+      if (fileData?.stream) {
         res.setHeader('Content-Type', fileData.contentType || 'application/octet-stream');
         if (fileData.contentLength) {
           res.setHeader('Content-Length', fileData.contentLength);

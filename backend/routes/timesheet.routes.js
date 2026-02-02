@@ -123,16 +123,6 @@ router.post('/', authenticateUser, async (req, res) => {
     // Save timesheet PDF to Close Out Documents folder for job package
     // =========================================================================
     try {
-      const { generateJobPackageExport, generateJobPackagePDF } = require('../utils/jobPackageExport');
-      
-      // Generate export data and PDF
-      const exportData = generateJobPackageExport(job, {
-        format: 'oracle',
-        timesheet: { crewMembers, totalHours, date: timesheetDate },
-        includeTailboard: false,
-        includeUnits: false,
-      });
-      
       // Find or create Close Out Documents folder
       const aciFolder = job.folders?.find(f => f.name === 'ACI');
       if (aciFolder) {
@@ -177,8 +167,8 @@ router.post('/', authenticateUser, async (req, res) => {
         await job.save();
         console.log(`Timesheet saved to Close Out Documents: ${timesheetFilename}`);
       }
-    } catch (closeOutErr) {
-      console.warn('Failed to save timesheet to Close Out folder:', closeOutErr.message);
+    } catch (error_) {
+      console.warn('Failed to save timesheet to Close Out folder:', error_.message);
       // Don't fail the request - timesheet was saved successfully
     }
 
