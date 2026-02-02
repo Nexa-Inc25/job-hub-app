@@ -780,8 +780,7 @@ const ForemanCloseOut = () => {
     setSubmitting(true);
     try {
       await api.put(`/api/jobs/${jobId}/status`, {
-        status: 'crew_submitted',
-        crewSubmittedDate: new Date(),
+        status: 'pending_gf_review',
       });
       setShowSubmitDialog(false);
       navigate('/dashboard', { state: { message: 'Job submitted for GF review!' } });
