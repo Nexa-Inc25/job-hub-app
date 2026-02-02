@@ -229,7 +229,7 @@ const UnitApprovalGrid = ({
       field: 'itemCode',
       headerName: 'Item Code',
       width: 120,
-      valueGetter: (value, row) => row.priceBookItemCode || row.itemCode || '-',
+      valueGetter: (params) => params.row.priceBookItemCode || params.row.itemCode || '-',
     },
     // Description
     {
@@ -237,7 +237,7 @@ const UnitApprovalGrid = ({
       headerName: 'Description',
       flex: 1,
       minWidth: 200,
-      valueGetter: (value, row) => row.itemDescription || row.description || '-',
+      valueGetter: (params) => params.row.itemDescription || params.row.description || '-',
     },
     // Quantity
     {
@@ -252,7 +252,7 @@ const UnitApprovalGrid = ({
       headerName: 'Unit Price',
       width: 100,
       type: 'number',
-      valueFormatter: (value) => value ? `$${value.toFixed(2)}` : '-',
+      valueFormatter: (params) => params.value ? `$${params.value.toFixed(2)}` : '-',
     },
     // Total
     {
@@ -260,15 +260,15 @@ const UnitApprovalGrid = ({
       headerName: 'Total',
       width: 110,
       type: 'number',
-      valueGetter: (value, row) => row.totalAmount || ((row.quantity || 0) * (row.unitPrice || 0)),
-      valueFormatter: (value) => value ? `$${value.toFixed(2)}` : '-',
+      valueGetter: (params) => params.row.totalAmount || ((params.row.quantity || 0) * (params.row.unitPrice || 0)),
+      valueFormatter: (params) => params.value ? `$${params.value.toFixed(2)}` : '-',
     },
     // Tier
     {
       field: 'tier',
       headerName: 'Tier',
       width: 100,
-      valueGetter: (value, row) => row.performedBy?.tier || 'prime',
+      valueGetter: (params) => params.row.performedBy?.tier || 'prime',
       renderCell: (params) => (
         <Chip
           label={params.value?.replace('_', ' ')}
@@ -284,8 +284,8 @@ const UnitApprovalGrid = ({
       headerName: 'Work Date',
       width: 110,
       type: 'date',
-      valueGetter: (value, row) => row.workDate ? new Date(row.workDate) : null,
-      valueFormatter: (value) => value ? value.toLocaleDateString() : '-',
+      valueGetter: (params) => params.row.workDate ? new Date(params.row.workDate) : null,
+      valueFormatter: (params) => params.value ? params.value.toLocaleDateString() : '-',
     },
     // Evidence indicators
     {
