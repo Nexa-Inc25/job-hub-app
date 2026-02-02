@@ -374,6 +374,14 @@ router.post('/units', async (req, res) => {
       syncedAt: offlineId ? undefined : new Date()   // Only set syncedAt if directly created (not offline)
     });
 
+    // Auto-submit the unit if it has required evidence (photo or waiver + GPS)
+    const hasRequiredEvidence = (photos && photos.length > 0) || photoWaived;
+    const hasValidGPS = location?.latitude && location?.longitude && location?.accuracy <= 100;
+    
+    if (hasRequiredEvidence && hasValidGPS) {
+      await unitEntry.submit(user._id);
+    }
+
     res.status(201).json(unitEntry);
   } catch (err) {
     console.error('Error creating unit entry:', err);
