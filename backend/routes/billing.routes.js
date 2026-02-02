@@ -1841,23 +1841,22 @@ router.post('/admin/cleanup-orphaned-units', async (req, res) => {
       return res.status(400).json({ error: 'Invalid action. Use: preview, delete, or repair' });
     }
 
-    // Find units with missing required price book data
-    const orphanedUnits = await UnitEntry.find({
-      companyId: user.companyId,
-      $or: [
-        { itemCode: { $exists: false } },
-        { itemCode: null },
-        { itemCode: '' },
-        { description: { $exists: false } },
-        { description: null },
-        { description: '' },
-        { unitPrice: { $exists: false } },
-        { unitPrice: null },
-        { unitPrice: 0 },
-        { totalAmount: { $exists: false } },
-        { totalAmount: null },
-      ]
+    // First, let's see ALL units and their data for debugging
+    const allUnits = await UnitEntry.find({ companyId: user.companyId, isDeleted: { $ne: true } });
+    console.log(`[Admin:Cleanup] Total units in company: ${allUnits.length}`);
+    allUnits.forEach(u => {
+      console.log(`[Admin:Cleanup] Unit ${u._id}: itemCode=${u.itemCode}, desc=${u.description?.substring(0,30)}, price=${u.unitPrice}, total=${u.totalAmount}`);
     });
+
+    // Find units with missing required price book data - expanded criteria
+    const orphanedUnits = allUnits.filter(u => 
+      !u.itemCode || 
+      !u.description || 
+      u.unitPrice === undefined || 
+      u.unitPrice === null || 
+      u.totalAmount === undefined || 
+      u.totalAmount === null
+    );
 
     console.log(`[Admin:Cleanup] Found ${orphanedUnits.length} orphaned units for company ${user.companyId}`);
 
