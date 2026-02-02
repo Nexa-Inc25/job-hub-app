@@ -187,9 +187,20 @@ async function uploadTemplate(localFilePath, templateName) {
   return uploadFile(localFilePath, r2Key, contentType);
 }
 
+// Sanitize filename for R2 key (remove/replace URL-unsafe characters)
+function sanitizeFileName(fileName) {
+  // Replace # with - (common in PM numbers like PM#12345)
+  // Replace other URL-unsafe characters with underscores
+  return fileName
+    .replace(/#/g, '-')  // # breaks URLs (treated as fragment)
+    .replace(/[?%&=+<>]/g, '_')  // Other URL-unsafe chars
+    .replace(/\s+/g, '_');  // Spaces to underscores
+}
+
 // Upload job file (PDF, photo, drawing, etc.)
 async function uploadJobFile(localFilePath, jobId, folderPath, fileName) {
-  const r2Key = `jobs/${jobId}/${folderPath}/${fileName}`;
+  const sanitizedFileName = sanitizeFileName(fileName);
+  const r2Key = `jobs/${jobId}/${folderPath}/${sanitizedFileName}`;
   
   // Determine content type
   const ext = path.extname(fileName).toLowerCase();
@@ -207,7 +218,8 @@ async function uploadJobFile(localFilePath, jobId, folderPath, fileName) {
 
 // Upload extracted image (photo, drawing, map)
 async function uploadExtractedImage(buffer, jobId, category, fileName) {
-  const r2Key = `jobs/${jobId}/extracted/${category}/${fileName}`;
+  const sanitizedFileName = sanitizeFileName(fileName);
+  const r2Key = `jobs/${jobId}/extracted/${category}/${sanitizedFileName}`;
   return uploadBuffer(buffer, r2Key, 'image/jpeg');
 }
 
