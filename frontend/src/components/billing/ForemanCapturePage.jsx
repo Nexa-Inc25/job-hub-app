@@ -250,7 +250,7 @@ const ForemanCapturePage = () => {
           
           // Load price book - try job's priceBookId first
           if (jobData.priceBookId) {
-            const pbRes = await api.get(`/api/billing/pricebooks/${jobData.priceBookId}`);
+            const pbRes = await api.get(`/api/pricebooks/${jobData.priceBookId}`);
             setPriceBook(pbRes.data);
             loadedItems = pbRes.data.items || [];
             setPriceBookItems(loadedItems);
@@ -258,7 +258,7 @@ const ForemanCapturePage = () => {
             // Fallback: try to get active price book for job's utility
             if (jobData.utilityId) {
               try {
-                const activePbRes = await api.get(`/api/billing/pricebooks/active?utilityId=${jobData.utilityId}`);
+                const activePbRes = await api.get(`/api/pricebooks/active?utilityId=${jobData.utilityId}`);
                 if (activePbRes.data) {
                   setPriceBook(activePbRes.data);
                   loadedItems = activePbRes.data.items || [];
@@ -274,20 +274,20 @@ const ForemanCapturePage = () => {
               try {
                 // Try active first
                 console.log('[ForemanCapture] No items from job priceBookId, trying active pricebooks...');
-                let allPbRes = await api.get('/api/billing/pricebooks?status=active');
+                let allPbRes = await api.get('/api/pricebooks?status=active');
                 console.log('[ForemanCapture] Active pricebooks:', allPbRes.data?.length || 0);
                 
                 // If no active, try any price book
                 if (!allPbRes.data?.length) {
                   console.log('[ForemanCapture] No active, trying all pricebooks...');
-                  allPbRes = await api.get('/api/billing/pricebooks');
+                  allPbRes = await api.get('/api/pricebooks');
                   console.log('[ForemanCapture] All pricebooks:', allPbRes.data?.length || 0);
                 }
                 
                 if (allPbRes.data?.length > 0) {
                   // List endpoint excludes items, so fetch full price book
                   console.log('[ForemanCapture] Fetching full pricebook:', allPbRes.data[0]._id, allPbRes.data[0].name);
-                  const fullPbRes = await api.get(`/api/billing/pricebooks/${allPbRes.data[0]._id}`);
+                  const fullPbRes = await api.get(`/api/pricebooks/${allPbRes.data[0]._id}`);
                   console.log('[ForemanCapture] Full pricebook items:', fullPbRes.data?.items?.length || 0);
                   if (fullPbRes.data) {
                     setPriceBook(fullPbRes.data);
