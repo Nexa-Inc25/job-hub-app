@@ -897,11 +897,11 @@ const TailboardForm = () => {
                   alignItems: 'center', 
                   justifyContent: 'space-between',
                   p: 1,
-                  bgcolor: 'grey.50',
+                  bgcolor: 'action.hover',
                   borderRadius: 1,
                   mb: 0.5
                 }}>
-                  <Typography variant="body2" sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ flex: 1, color: 'text.primary' }}>
                     {mitigation.label}
                   </Typography>
                   <ToggleButtonGroup
@@ -1191,11 +1191,11 @@ const TailboardForm = () => {
                     alignItems: 'center', 
                     justifyContent: 'space-between',
                     p: 1,
-                    bgcolor: 'grey.50',
+                    bgcolor: 'action.hover',
                     borderRadius: 1,
                     mb: 0.5
                   }}>
-                    <Typography variant="body2" sx={{ flex: 1 }}>
+                    <Typography variant="body2" sx={{ flex: 1, color: 'text.primary' }}>
                       {checkItem.label}
                     </Typography>
                     <ToggleButtonGroup
