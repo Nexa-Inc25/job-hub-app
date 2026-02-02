@@ -16,9 +16,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 
 // GPS accuracy thresholds (meters)
 export const GPS_THRESHOLDS = {
-  HIGH: 10,      // "High quality" badge threshold
-  ACCEPTABLE: 50, // Maximum allowed for submission
-  WARNING: 30,   // Shows warning but allows submission
+  HIGH: 10,       // "High quality" badge threshold
+  ACCEPTABLE: 100, // Maximum allowed for submission (relaxed for indoor/poor signal areas)
+  WARNING: 50,    // Shows warning but allows submission
 };
 
 // GPS quality labels

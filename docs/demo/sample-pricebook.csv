@@ -1,60 +1,79 @@
-itemcode,description,shortdescription,category,subcategory,unit,unitprice,laborrate,materialrate,oracleitemid
-OH-POLE-35,Install 35ft Class 5 Wood Pole,35ft Wood Pole,overhead,poles,EA,1850.00,950.00,900.00,OH001
-OH-POLE-40,Install 40ft Class 4 Wood Pole,40ft Wood Pole,overhead,poles,EA,2450.00,1200.00,1250.00,OH002
-OH-POLE-45,Install 45ft Class 3 Wood Pole,45ft Wood Pole,overhead,poles,EA,3100.00,1400.00,1700.00,OH003
-OH-POLE-50,Install 50ft Class 2 Wood Pole,50ft Wood Pole,overhead,poles,EA,3850.00,1600.00,2250.00,OH004
-OH-POLE-REM,Remove Existing Wood Pole,Pole Removal,overhead,poles,EA,650.00,650.00,0.00,OH005
-OH-XARM-8,Install 8ft Wood Crossarm,8ft Crossarm,overhead,crossarms,EA,425.00,275.00,150.00,OH010
-OH-XARM-10,Install 10ft Wood Crossarm,10ft Crossarm,overhead,crossarms,EA,525.00,325.00,200.00,OH011
-OH-XARM-FG,Install Fiberglass Crossarm,FG Crossarm,overhead,crossarms,EA,875.00,375.00,500.00,OH012
-OH-COND-1/0,Install 1/0 ACSR Conductor,1/0 ACSR,overhead,conductor,LF,8.50,4.50,4.00,OH020
-OH-COND-336,Install 336 ACSR Conductor,336 ACSR,overhead,conductor,LF,12.75,5.75,7.00,OH021
-OH-COND-477,Install 477 ACSR Conductor,477 ACSR,overhead,conductor,LF,15.25,6.25,9.00,OH022
-OH-COND-REM,Remove Existing Conductor,Conductor Removal,overhead,conductor,LF,3.25,3.25,0.00,OH023
-OH-GUY-DOWN,Install Down Guy with Anchor,Down Guy,overhead,guys,EA,485.00,285.00,200.00,OH030
-OH-GUY-SPAN,Install Span Guy,Span Guy,overhead,guys,EA,375.00,225.00,150.00,OH031
-OH-GUY-PUSH,Install Push Brace,Push Brace,overhead,guys,EA,725.00,425.00,300.00,OH032
-OH-XFMR-25,Install 25kVA Pole Mount Transformer,25kVA XFMR,overhead,transformers,EA,2850.00,1100.00,1750.00,OH040
-OH-XFMR-50,Install 50kVA Pole Mount Transformer,50kVA XFMR,overhead,transformers,EA,3650.00,1250.00,2400.00,OH041
-OH-XFMR-100,Install 100kVA Pole Mount Transformer,100kVA XFMR,overhead,transformers,EA,5200.00,1500.00,3700.00,OH042
-OH-XFMR-REM,Remove Pole Mount Transformer,XFMR Removal,overhead,transformers,EA,450.00,450.00,0.00,OH043
-OH-INS-PIN,Install Pin Type Insulator,Pin Insulator,overhead,hardware,EA,85.00,45.00,40.00,OH050
-OH-INS-SUSP,Install Suspension Insulator,Susp Insulator,overhead,hardware,EA,125.00,55.00,70.00,OH051
-OH-CUTOUT,Install Fuse Cutout,Cutout,overhead,switches,EA,425.00,225.00,200.00,OH060
-OH-RECAP,Install Recloser/Capacitor,Recloser,overhead,switches,EA,8500.00,2500.00,6000.00,OH061
-UG-TRENCH-24,Excavate 24in Trench,24in Trench,underground,trenching,LF,18.50,14.50,4.00,UG001
-UG-TRENCH-36,Excavate 36in Trench,36in Trench,underground,trenching,LF,28.75,22.75,6.00,UG002
-UG-TRENCH-48,Excavate 48in Trench,48in Trench,underground,trenching,LF,42.00,34.00,8.00,UG003
-UG-COND-2,Install 2in PVC Conduit,2in PVC,underground,conduit,LF,6.25,3.75,2.50,UG010
-UG-COND-3,Install 3in PVC Conduit,3in PVC,underground,conduit,LF,8.50,4.50,4.00,UG011
-UG-COND-4,Install 4in PVC Conduit,4in PVC,underground,conduit,LF,11.25,5.75,5.50,UG012
-UG-COND-6,Install 6in PVC Conduit,6in PVC,underground,conduit,LF,16.50,7.50,9.00,UG013
-UG-CABLE-1/0,Pull 1/0 AL URD Cable,1/0 URD,underground,cable,LF,9.75,5.25,4.50,UG020
-UG-CABLE-350,Pull 350 AL URD Cable,350 URD,underground,cable,LF,14.50,6.50,8.00,UG021
-UG-CABLE-500,Pull 500 AL URD Cable,500 URD,underground,cable,LF,18.25,7.25,11.00,UG022
-UG-VAULT-SM,Install Small Transformer Vault,Small Vault,underground,vaults,EA,4500.00,2200.00,2300.00,UG030
-UG-VAULT-LG,Install Large Transformer Vault,Large Vault,underground,vaults,EA,8750.00,3750.00,5000.00,UG031
-UG-PAD-XFMR,Install Padmount Transformer,Pad XFMR,underground,transformers,EA,6500.00,2000.00,4500.00,UG040
-UG-SWITCH-PAD,Install Padmount Switch,Pad Switch,underground,switches,EA,12500.00,3500.00,9000.00,UG041
-CV-CONC-CY,Place Concrete,Concrete,civil,concrete,CY,285.00,135.00,150.00,CV001
-CV-ASPH-TON,Install Asphalt Paving,Asphalt,civil,paving,TON,165.00,85.00,80.00,CV002
-CV-SAW-LF,Sawcut Existing Pavement,Sawcut,civil,paving,LF,4.25,3.25,1.00,CV003
-CV-PATCH-SF,Patch Asphalt Surface,Asphalt Patch,civil,paving,SF,8.75,5.75,3.00,CV004
-CV-BACKFILL,Backfill and Compact,Backfill,civil,excavation,CY,45.00,35.00,10.00,CV005
-TC-FLAG-HR,Flagging Personnel,Flagger,traffic_control,labor,HR,85.00,85.00,0.00,TC001
-TC-PILOT-HR,Pilot Car Service,Pilot Car,traffic_control,equipment,HR,125.00,75.00,50.00,TC002
-TC-SIGN-DAY,Traffic Control Signs Setup,TC Signs,traffic_control,equipment,DAY,350.00,150.00,200.00,TC003
-TC-ARROW-DAY,Arrow Board Rental,Arrow Board,traffic_control,equipment,DAY,225.00,75.00,150.00,TC004
-TC-CONE-DAY,Traffic Cones Setup,Cones,traffic_control,equipment,DAY,125.00,75.00,50.00,TC005
-EL-METER-1PH,Install Single Phase Meter,1PH Meter,electrical,meters,EA,285.00,185.00,100.00,EL001
-EL-METER-3PH,Install Three Phase Meter,3PH Meter,electrical,meters,EA,525.00,275.00,250.00,EL002
-EL-SVC-200A,Install 200A Service,200A Service,electrical,services,EA,1850.00,1050.00,800.00,EL010
-EL-SVC-400A,Install 400A Service,400A Service,electrical,services,EA,3250.00,1500.00,1750.00,EL011
-EL-DISCO,Install Service Disconnect,Disconnect,electrical,switches,EA,425.00,275.00,150.00,EL020
-VG-TRIM-HR,Tree Trimming Crew,Tree Trim,vegetation,trimming,HR,225.00,225.00,0.00,VG001
-VG-REMOVE-SM,Remove Small Tree,Small Tree,vegetation,removal,EA,450.00,350.00,100.00,VG002
-VG-REMOVE-LG,Remove Large Tree,Large Tree,vegetation,removal,EA,1250.00,950.00,300.00,VG003
-EM-CALL-OUT,Emergency Callout Fee,Callout,emergency,fees,EA,750.00,750.00,0.00,EM001
-EM-OT-MULT,Overtime Labor Multiplier,OT Mult,emergency,labor,HR,1.50,1.50,0.00,EM002
-EM-DT-MULT,Double Time Labor Multiplier,DT Mult,emergency,labor,HR,2.00,2.00,0.00,EM003
+itemcode,description,shortdescription,category,subcategory,unit,unitprice,laborrate,materialrate
+UG-TRENCH-001,Trenching - Normal Soil (0-24"),Trench Normal,underground,Trenching,LF,12.50,8.00,4.50
+UG-TRENCH-002,Trenching - Hard Soil/Rock (0-24"),Trench Hard,underground,Trenching,LF,18.75,12.00,6.75
+UG-TRENCH-003,Trenching - Normal Soil (24-48"),Trench Deep Normal,underground,Trenching,LF,22.00,14.00,8.00
+UG-TRENCH-004,Trenching - Hard Soil/Rock (24-48"),Trench Deep Hard,underground,Trenching,LF,32.50,21.00,11.50
+UG-COND-001,Install 2" PVC Conduit,2" PVC Conduit,underground,Conduit,LF,8.25,5.00,3.25
+UG-COND-002,Install 3" PVC Conduit,3" PVC Conduit,underground,Conduit,LF,11.50,6.50,5.00
+UG-COND-003,Install 4" PVC Conduit,4" PVC Conduit,underground,Conduit,LF,15.75,8.75,7.00
+UG-COND-004,Install 6" PVC Conduit,6" PVC Conduit,underground,Conduit,LF,24.00,13.00,11.00
+UG-VAULT-001,Install Underground Vault - Small,Small Vault,underground,Vaults,EA,2850.00,1800.00,1050.00
+UG-VAULT-002,Install Underground Vault - Medium,Medium Vault,underground,Vaults,EA,4500.00,2800.00,1700.00
+UG-VAULT-003,Install Underground Vault - Large,Large Vault,underground,Vaults,EA,7200.00,4500.00,2700.00
+UG-BORE-001,Horizontal Directional Bore - 2",2" HDD Bore,underground,Boring,LF,28.00,20.00,8.00
+UG-BORE-002,Horizontal Directional Bore - 4",4" HDD Bore,underground,Boring,LF,42.00,30.00,12.00
+UG-BORE-003,Horizontal Directional Bore - 6",6" HDD Bore,underground,Boring,LF,65.00,45.00,20.00
+UG-PULL-001,Cable Pull - Primary (per 100ft),Primary Pull,underground,Cable,C,185.00,145.00,40.00
+UG-PULL-002,Cable Pull - Secondary (per 100ft),Secondary Pull,underground,Cable,C,95.00,75.00,20.00
+UG-SPLICE-001,Underground Primary Splice,Primary Splice,underground,Splicing,EA,425.00,350.00,75.00
+UG-SPLICE-002,Underground Secondary Splice,Secondary Splice,underground,Splicing,EA,185.00,150.00,35.00
+UG-TERM-001,Underground Primary Termination,Primary Term,underground,Terminations,EA,375.00,300.00,75.00
+UG-TERM-002,Underground Secondary Termination,Secondary Term,underground,Terminations,EA,145.00,115.00,30.00
+OH-POLE-001,Set Wood Pole - Class 4 (35-45ft),Set Pole Cl4,overhead,Pole Work,EA,1850.00,1200.00,650.00
+OH-POLE-002,Set Wood Pole - Class 3 (45-55ft),Set Pole Cl3,overhead,Pole Work,EA,2400.00,1500.00,900.00
+OH-POLE-003,Set Wood Pole - Class 2 (55-65ft),Set Pole Cl2,overhead,Pole Work,EA,3200.00,1900.00,1300.00
+OH-POLE-004,Set Wood Pole - Class 1 (65-75ft),Set Pole Cl1,overhead,Pole Work,EA,4100.00,2400.00,1700.00
+OH-POLE-005,Remove Existing Pole,Remove Pole,overhead,Pole Work,EA,650.00,550.00,100.00
+OH-POLE-006,Transfer Equipment to New Pole,Transfer Equip,overhead,Pole Work,EA,425.00,400.00,25.00
+OH-XARM-001,Install Crossarm - 8ft Wood,8ft Crossarm,overhead,Crossarms,EA,285.00,200.00,85.00
+OH-XARM-002,Install Crossarm - 10ft Wood,10ft Crossarm,overhead,Crossarms,EA,345.00,240.00,105.00
+OH-XARM-003,Install Crossarm - Fiberglass,FG Crossarm,overhead,Crossarms,EA,485.00,280.00,205.00
+OH-COND-001,String Primary Conductor - #4 ACSR,#4 ACSR Primary,overhead,Conductor,MLF,125.00,85.00,40.00
+OH-COND-002,String Primary Conductor - 1/0 ACSR,1/0 ACSR Primary,overhead,Conductor,MLF,165.00,105.00,60.00
+OH-COND-003,String Primary Conductor - 336 ACSR,336 ACSR Primary,overhead,Conductor,MLF,245.00,145.00,100.00
+OH-COND-004,String Secondary Conductor - Triplex,Triplex Secondary,overhead,Conductor,MLF,85.00,55.00,30.00
+OH-COND-005,String Secondary Conductor - Quadplex,Quadplex Secondary,overhead,Conductor,MLF,105.00,65.00,40.00
+OH-GUY-001,Install Down Guy with Anchor,Down Guy,overhead,Guys/Anchors,EA,325.00,250.00,75.00
+OH-GUY-002,Install Sidewalk Guy,Sidewalk Guy,overhead,Guys/Anchors,EA,485.00,375.00,110.00
+OH-GUY-003,Install Span Guy,Span Guy,overhead,Guys/Anchors,EA,275.00,220.00,55.00
+OH-TRANS-001,Install Transformer - 25kVA,25kVA Xfmr,overhead,Transformers,EA,1450.00,650.00,800.00
+OH-TRANS-002,Install Transformer - 50kVA,50kVA Xfmr,overhead,Transformers,EA,1850.00,750.00,1100.00
+OH-TRANS-003,Install Transformer - 75kVA,75kVA Xfmr,overhead,Transformers,EA,2250.00,850.00,1400.00
+OH-TRANS-004,Install Transformer - 100kVA,100kVA Xfmr,overhead,Transformers,EA,2750.00,950.00,1800.00
+OH-TRANS-005,Remove Transformer,Remove Xfmr,overhead,Transformers,EA,425.00,400.00,25.00
+OH-SRVC-001,Install Service Drop - Overhead,OH Service Drop,overhead,Services,EA,285.00,225.00,60.00
+OH-SRVC-002,Install Service Mast,Service Mast,overhead,Services,EA,195.00,165.00,30.00
+CIV-SAW-001,Concrete Sawcutting (per LF),Sawcut,civil,Sawcutting,LF,4.50,3.50,1.00
+CIV-SAW-002,Asphalt Sawcutting (per LF),Asphalt Sawcut,civil,Sawcutting,LF,3.25,2.50,0.75
+CIV-EXCAV-001,Excavation - Soft Dig (per CY),Soft Dig,civil,Excavation,CY,45.00,35.00,10.00
+CIV-EXCAV-002,Excavation - Machine (per CY),Machine Dig,civil,Excavation,CY,28.00,22.00,6.00
+CIV-BKFL-001,Backfill - Native Material,Native Backfill,civil,Backfill,CY,18.00,15.00,3.00
+CIV-BKFL-002,Backfill - Import Sand,Sand Backfill,civil,Backfill,CY,32.00,18.00,14.00
+CIV-BKFL-003,Backfill - Controlled Low Strength,CLSM Backfill,civil,Backfill,CY,85.00,25.00,60.00
+CIV-CONC-001,Concrete Repair - Sidewalk (per SF),Sidewalk Repair,civil,Concrete,SF,18.50,10.00,8.50
+CIV-CONC-002,Concrete Repair - Driveway (per SF),Driveway Repair,civil,Concrete,SF,22.00,12.00,10.00
+CIV-CONC-003,Concrete Repair - Street (per SF),Street Repair,civil,Concrete,SF,28.00,15.00,13.00
+CIV-ASPH-001,Asphalt Patch - Temporary (per SF),Temp Asphalt,civil,Asphalt,SF,8.50,5.00,3.50
+CIV-ASPH-002,Asphalt Patch - Permanent (per SF),Perm Asphalt,civil,Asphalt,SF,14.00,7.00,7.00
+TC-SETUP-001,Traffic Control Setup - Residential,TC Residential,traffic_control,Setup,EA,185.00,175.00,10.00
+TC-SETUP-002,Traffic Control Setup - Arterial,TC Arterial,traffic_control,Setup,EA,425.00,400.00,25.00
+TC-SETUP-003,Traffic Control Setup - Highway,TC Highway,traffic_control,Setup,EA,750.00,700.00,50.00
+TC-FLAG-001,Flagging Operations (per hour),Flagging,traffic_control,Flagging,HR,65.00,62.00,3.00
+TC-SIGN-001,Traffic Sign Placement,Sign Placement,traffic_control,Signs,EA,25.00,22.00,3.00
+TC-CONE-001,Cone/Barrel Placement (per 100ft),Cones,traffic_control,Barriers,C,35.00,32.00,3.00
+VEG-TRIM-001,Tree Trimming - Minor,Minor Trim,vegetation,Trimming,EA,185.00,175.00,10.00
+VEG-TRIM-002,Tree Trimming - Major,Major Trim,vegetation,Trimming,EA,450.00,425.00,25.00
+VEG-REM-001,Tree Removal - Small (under 12"),Small Tree Remove,vegetation,Removal,EA,650.00,550.00,100.00
+VEG-REM-002,Tree Removal - Medium (12-24"),Medium Tree Remove,vegetation,Removal,EA,1450.00,1200.00,250.00
+VEG-REM-003,Tree Removal - Large (over 24"),Large Tree Remove,vegetation,Removal,EA,2800.00,2300.00,500.00
+VEG-STUMP-001,Stump Grinding,Stump Grind,vegetation,Removal,EA,225.00,200.00,25.00
+VEG-BRUSH-001,Brush Clearing (per 100 SF),Brush Clear,vegetation,Clearing,C,125.00,115.00,10.00
+EMER-CALL-001,Emergency Callout - Regular Hours,Emergency Reg,emergency,Callout,EA,450.00,450.00,0.00
+EMER-CALL-002,Emergency Callout - After Hours,Emergency After,emergency,Callout,EA,750.00,750.00,0.00
+EMER-CALL-003,Emergency Callout - Weekend/Holiday,Emergency Weekend,emergency,Callout,EA,950.00,950.00,0.00
+EMER-TEMP-001,Temporary Power Setup,Temp Power,emergency,Temporary,EA,285.00,250.00,35.00
+EMER-GEN-001,Generator Hookup,Gen Hookup,emergency,Temporary,EA,425.00,400.00,25.00
+INSP-POLE-001,Pole Inspection,Pole Inspect,electrical,Inspection,EA,45.00,45.00,0.00
+INSP-XFMR-001,Transformer Inspection,Xfmr Inspect,electrical,Inspection,EA,65.00,65.00,0.00
+INSP-UG-001,Underground Inspection,UG Inspect,electrical,Inspection,EA,85.00,85.00,0.00
 
