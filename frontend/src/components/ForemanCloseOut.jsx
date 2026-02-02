@@ -717,9 +717,9 @@ const ForemanCloseOut = () => {
           setUnits([]);
         }
 
-        // Load tailboard status
+        // Load tailboard status (today's tailboard for this job)
         try {
-          const tailboardRes = await api.get(`/api/jobs/${jobId}/tailboard`);
+          const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
           setTailboard(tailboardRes.data);
         } catch {
           setTailboard(null);
