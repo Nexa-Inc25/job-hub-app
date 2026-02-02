@@ -273,22 +273,30 @@ const ForemanCapturePage = () => {
             if (loadedItems.length === 0) {
               try {
                 // Try active first
+                console.log('[ForemanCapture] No items from job priceBookId, trying active pricebooks...');
                 let allPbRes = await api.get('/api/billing/pricebooks?status=active');
+                console.log('[ForemanCapture] Active pricebooks:', allPbRes.data?.length || 0);
+                
                 // If no active, try any price book
                 if (!allPbRes.data?.length) {
+                  console.log('[ForemanCapture] No active, trying all pricebooks...');
                   allPbRes = await api.get('/api/billing/pricebooks');
+                  console.log('[ForemanCapture] All pricebooks:', allPbRes.data?.length || 0);
                 }
+                
                 if (allPbRes.data?.length > 0) {
                   // List endpoint excludes items, so fetch full price book
+                  console.log('[ForemanCapture] Fetching full pricebook:', allPbRes.data[0]._id, allPbRes.data[0].name);
                   const fullPbRes = await api.get(`/api/billing/pricebooks/${allPbRes.data[0]._id}`);
+                  console.log('[ForemanCapture] Full pricebook items:', fullPbRes.data?.items?.length || 0);
                   if (fullPbRes.data) {
                     setPriceBook(fullPbRes.data);
                     loadedItems = fullPbRes.data.items || [];
                     setPriceBookItems(loadedItems);
                   }
                 }
-              } catch {
-                // No price books available
+              } catch (pbErr) {
+                console.error('[ForemanCapture] Error loading pricebooks:', pbErr);
               }
             }
           }

@@ -1957,17 +1957,28 @@ const Dashboard = () => {
                   {/* Show front or back based on flip state */}
                   {/* FRONT SIDE - only render when not flipped */}
                   {!isFlipped && (
-                    <Card sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      borderRadius: 2,
-                      boxShadow: 2,
-                      display: 'flex',
-                      flexDirection: 'column',
-                    }}>
+                    <Card 
+                      onClick={() => navigate(`/jobs/${job._id}/details`)}
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        borderRadius: 2,
+                        boxShadow: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                        transition: 'box-shadow 0.2s, transform 0.1s',
+                        '&:hover': {
+                          boxShadow: 4,
+                        },
+                        '&:active': {
+                          transform: 'scale(0.99)',
+                        },
+                      }}
+                    >
                       <CardContent sx={{ flexGrow: 1 }}>
                         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                           <Box flex={1}>
@@ -2201,14 +2212,11 @@ const Dashboard = () => {
 
                       <Divider />
 
-                      <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
+                      <CardActions sx={{ justifyContent: 'space-between', px: 2 }} onClick={(e) => e.stopPropagation()}>
                         <Tooltip title="Flip card for details">
                           <IconButton 
                             size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCardFlip(job._id);
-                            }}
+                            onClick={() => handleCardFlip(job._id)}
                             color="primary"
                           >
                             <FlipIcon />
