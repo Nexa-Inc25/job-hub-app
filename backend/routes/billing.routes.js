@@ -473,13 +473,16 @@ router.post('/units', async (req, res) => {
     }
 
     // Get rate from price book (lock at creation time)
+    console.log('[Units:Create] Looking up rate item:', { priceBookId, priceBookItemId, itemCode: safeItemCode });
     const { rateItem, priceBookRef } = await findRateItem(
       priceBookId, priceBookItemId, safeItemCode, user.companyId, job.utilityId
     );
 
     if (!rateItem) {
+      console.error('[Units:Create] Rate item not found:', { priceBookId, priceBookItemId, itemCode: safeItemCode });
       return res.status(400).json({ error: 'Rate item not found in price book' });
     }
+    console.log('[Units:Create] Found rate item:', { itemCode: rateItem.itemCode, description: rateItem.description, unitPrice: rateItem.unitPrice });
 
     // Create unit entry with locked rate using helper
     const unitEntryData = buildUnitEntryData({
