@@ -229,7 +229,7 @@ const UnitApprovalGrid = ({
       field: 'itemCode',
       headerName: 'Item Code',
       width: 120,
-      valueGetter: (params) => params.row.priceBookItemCode || params.row.itemCode || '-',
+      valueGetter: (params) => params.row?.priceBookItemCode || params.row?.itemCode || '-',
     },
     // Description
     {
@@ -237,7 +237,7 @@ const UnitApprovalGrid = ({
       headerName: 'Description',
       flex: 1,
       minWidth: 200,
-      valueGetter: (params) => params.row.itemDescription || params.row.description || '-',
+      valueGetter: (params) => params.row?.itemDescription || params.row?.description || '-',
     },
     // Quantity
     {
@@ -260,7 +260,7 @@ const UnitApprovalGrid = ({
       headerName: 'Total',
       width: 110,
       type: 'number',
-      valueGetter: (params) => params.row.totalAmount || ((params.row.quantity || 0) * (params.row.unitPrice || 0)),
+      valueGetter: (params) => params.row?.totalAmount || ((params.row?.quantity || 0) * (params.row?.unitPrice || 0)),
       valueFormatter: (params) => params.value ? `$${params.value.toFixed(2)}` : '-',
     },
     // Tier
@@ -268,7 +268,7 @@ const UnitApprovalGrid = ({
       field: 'tier',
       headerName: 'Tier',
       width: 100,
-      valueGetter: (params) => params.row.performedBy?.tier || 'prime',
+      valueGetter: (params) => params.row?.performedBy?.tier || 'prime',
       renderCell: (params) => (
         <Chip
           label={params.value?.replace('_', ' ')}
@@ -284,7 +284,7 @@ const UnitApprovalGrid = ({
       headerName: 'Work Date',
       width: 110,
       type: 'date',
-      valueGetter: (params) => params.row.workDate ? new Date(params.row.workDate) : null,
+      valueGetter: (params) => params.row?.workDate ? new Date(params.row.workDate) : null,
       valueFormatter: (params) => params.value ? params.value.toLocaleDateString() : '-',
     },
     // Evidence indicators
@@ -294,8 +294,8 @@ const UnitApprovalGrid = ({
       width: 100,
       sortable: false,
       renderCell: (params) => {
-        const hasPhoto = params.row.photos?.length > 0 || params.row.photoWaived;
-        const hasGPS = params.row.location?.latitude && params.row.location?.accuracy <= 50;
+        const hasPhoto = params.row?.photos?.length > 0 || params.row?.photoWaived;
+        const hasGPS = params.row?.location?.latitude && params.row?.location?.accuracy <= 50;
         
         return (
           <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -305,7 +305,7 @@ const UnitApprovalGrid = ({
                 color={hasPhoto ? 'success' : 'error'} 
               />
             </Tooltip>
-            <Tooltip title={hasGPS ? `GPS: ${params.row.location?.accuracy?.toFixed(0)}m` : 'GPS issue'}>
+            <Tooltip title={hasGPS ? `GPS: ${params.row?.location?.accuracy?.toFixed(0)}m` : 'GPS issue'}>
               <LocationIcon 
                 fontSize="small" 
                 color={hasGPS ? 'success' : 'error'} 
@@ -323,7 +323,7 @@ const UnitApprovalGrid = ({
       width: 120,
       getActions: (params) => {
         const actions = [];
-        const status = params.row.status;
+        const status = params.row?.status;
 
         if (status === 'submitted' && onVerify) {
           actions.push(
@@ -617,4 +617,3 @@ UnitApprovalGrid.propTypes = {
 };
 
 export default UnitApprovalGrid;
-
