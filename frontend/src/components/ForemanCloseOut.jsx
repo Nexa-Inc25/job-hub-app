@@ -682,6 +682,7 @@ const ForemanCloseOut = () => {
   const [documents, setDocuments] = useState([]);
   const [units, setUnits] = useState([]);
   const [tailboard, setTailboard] = useState(null);
+  const [timesheet, setTimesheet] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
 
@@ -722,6 +723,14 @@ const ForemanCloseOut = () => {
           setTailboard(tailboardRes.data);
         } catch {
           setTailboard(null);
+        }
+
+        // Load timesheet for this job
+        try {
+          const timesheetRes = await api.get(`/api/timesheets?jobId=${jobId}&limit=1`);
+          setTimesheet(timesheetRes.data?.timesheets?.[0] || null);
+        } catch {
+          setTimesheet(null);
         }
 
       } catch (err) {
