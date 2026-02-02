@@ -285,6 +285,7 @@ const allowedOrigins = [
   'https://www.fieldledger.io',
   'https://app.fieldledger.io',
   'https://fieldledger.vercel.app',
+  process.env.CORS_ORIGIN,
   process.env.FRONTEND_URL,
   'http://localhost:3000',
   'http://localhost:5173'
