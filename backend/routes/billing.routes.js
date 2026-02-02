@@ -74,6 +74,7 @@ const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require(
 router.get('/units', async (req, res) => {
   try {
     const user = await User.findById(req.userId);
+    console.log('[Units] User:', user?.email, 'Role:', user?.role, 'CompanyId:', user?.companyId);
     if (!user?.companyId) {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
@@ -108,18 +109,21 @@ router.get('/units', async (req, res) => {
     }
 
     // Role-based filtering
+    // Foreman only sees their own entries
+    // GF, QA, PM, Admin see all company units for review
     if (user.role === 'foreman') {
       query.enteredBy = user._id;
-    } else if (user.role === 'gf') {
-      query['performedBy.foremanId'] = user._id;
     }
+    // GF, QA, PM, and Admin can see all units in their company (no additional filter)
 
+    console.log('[Units] Query:', JSON.stringify(query));
     const units = await UnitEntry.find(query)
       .populate('enteredBy', 'name email')
       .populate('verifiedBy', 'name')
       .sort({ workDate: -1, createdAt: -1 })
       .limit(safeLimit);
 
+    console.log('[Units] Found:', units.length, 'units');
     res.json(units);
   } catch (err) {
     console.error('Error listing units:', err);
