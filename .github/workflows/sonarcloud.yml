@@ -1,27 +1,17 @@
-# SonarCloud Analysis - DISABLED until organization is set up
-# 
-# To enable:
-# 1. Go to https://sonarcloud.io and sign in with GitHub
-# 2. Import your GitHub organization (Nexa-Inc25)
-# 3. Create a new project for job-hub-app
-# 4. Generate a SONAR_TOKEN and add it to repository secrets
-# 5. Uncomment the workflow below
-
 name: SonarCloud Analysis
 
 on:
-  workflow_dispatch:  # Only run manually until org is set up
-  # push:
-  #   branches:
-  #     - main
-  # pull_request:
-  #   types: [opened, synchronize, reopened]
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:  # Allow manual trigger
 
 jobs:
   sonarcloud:
     name: SonarCloud
     runs-on: ubuntu-latest
-    if: false  # Disabled until SonarCloud organization is configured
     
     steps:
       - name: Checkout code
@@ -30,7 +20,7 @@ jobs:
           fetch-depth: 0  # Full history for better analysis
 
       - name: SonarCloud Scan
-        uses: SonarSource/sonarqube-scan-action@v6
+        uses: SonarSource/sonarqube-scan-action@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
