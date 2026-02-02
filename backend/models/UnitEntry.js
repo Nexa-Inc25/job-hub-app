@@ -67,7 +67,7 @@ const performedBySchema = new mongoose.Schema({
   // Work category (for billing separation between civil/electrical)
   workCategory: {
     type: String,
-    enum: ['electrical', 'civil', 'traffic_control', 'vegetation', 'inspection', 'other'],
+    enum: ['electrical', 'civil', 'overhead', 'underground', 'traffic_control', 'vegetation', 'inspection', 'emergency', 'other'],
     required: true
   },
   
