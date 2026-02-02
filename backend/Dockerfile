@@ -46,12 +46,15 @@ RUN rm -rf __tests__ ./scripts/*.js ./*.md .git
 # Switch to non-root user
 USER nodejs
 
-# Expose port
-EXPOSE 5000
+# Expose port (Railway sets PORT dynamically, default 5000 for local)
+EXPOSE ${PORT:-5000}
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:5000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+# Set default port for local development
+ENV PORT=5000
+
+# Health check - uses PORT env var for Railway compatibility
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD node -e "const port = process.env.PORT || 5000; require('http').get('http://localhost:' + port + '/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
 # Start server
 CMD ["node", "server.js"]
