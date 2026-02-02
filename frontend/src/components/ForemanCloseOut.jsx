@@ -13,7 +13,7 @@
  * @module components/ForemanCloseOut
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -23,22 +23,18 @@ import {
   IconButton,
   Card,
   CardContent,
-  CardActions,
   Grid,
   Chip,
   Alert,
   CircularProgress,
-  Badge,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Fab,
   Tabs,
   Tab,
   LinearProgress,
-  Divider,
   Avatar,
   List,
   ListItem,
@@ -686,7 +682,6 @@ const ForemanCloseOut = () => {
   const [documents, setDocuments] = useState([]);
   const [units, setUnits] = useState([]);
   const [tailboard, setTailboard] = useState(null);
-  const [timesheet, setTimesheet] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
 
@@ -985,8 +980,8 @@ const ForemanCloseOut = () => {
               { label: 'Tailboard completed', done: completionStatus.tailboard },
               { label: 'Units logged', done: completionStatus.units },
               { label: 'Documents signed', done: completionStatus.documents },
-            ].map((item, idx) => (
-              <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            ].map((item) => (
+              <Box key={item.label} sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <CheckCircleIcon sx={{ 
                   color: item.done ? COLORS.success : COLORS.border,
                   fontSize: 20,

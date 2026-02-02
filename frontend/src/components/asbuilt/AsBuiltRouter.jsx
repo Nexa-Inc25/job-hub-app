@@ -6,7 +6,7 @@ import {
   LinearProgress, Alert, Tabs, Tab, Card, CardContent,
   Dialog, DialogTitle, DialogContent, DialogActions,
   List, ListItem, ListItemIcon, ListItemText, Divider,
-  Tooltip, CircularProgress, Badge
+  Tooltip, CircularProgress
 } from '@mui/material';
 
 // Direct imports for tree-shaking
@@ -466,7 +466,7 @@ const AsBuiltRouter = () => {
                 const destConfig = destinationConfig[section.destination] || 
                   { icon: <DescriptionIcon />, label: section.destination, color: '#888888' };
                 return (
-                  <React.Fragment key={idx}>
+                  <React.Fragment key={section._id || section.type || `section-${idx}`}>
                     <ListItem sx={{ py: 1.5 }}>
                       <ListItemIcon>
                         <DeliveryStatusIcon status={section.status} />

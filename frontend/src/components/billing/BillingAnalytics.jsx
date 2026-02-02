@@ -12,7 +12,7 @@
  * @module components/billing/BillingAnalytics
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
   Box,
@@ -21,7 +21,6 @@ import {
   Grid,
   Card,
   CardContent,
-  Chip,
   Select,
   MenuItem,
   FormControl,
@@ -36,20 +35,15 @@ import {
   TableHead,
   TableRow,
   Tooltip,
-  IconButton,
   Alert,
 } from '@mui/material';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import MoneyIcon from '@mui/icons-material/AttachMoney';
 import TimerIcon from '@mui/icons-material/Timer';
-import PeopleIcon from '@mui/icons-material/People';
-import CategoryIcon from '@mui/icons-material/Category';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/Warning';
 import CheckIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/HourglassEmpty';
-import api from '../../api';
 
 // Period options
 const PERIOD_OPTIONS = [
@@ -524,7 +518,7 @@ ForecastCard.propTypes = {
  */
 const BillingAnalytics = ({ units = [], claims = [] }) => {
   const [period, setPeriod] = useState('30d');
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [error, setError] = useState(null);
 
   // Calculate analytics from units and claims

@@ -51,13 +51,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HistoryIcon from '@mui/icons-material/History';
-import DescriptionIcon from '@mui/icons-material/Description';
 import ElectricalServicesIcon from '@mui/icons-material/ElectricalServices';
 import LandscapeIcon from '@mui/icons-material/Landscape';
-import SecurityIcon from '@mui/icons-material/Security';
-import BuildIcon from '@mui/icons-material/Build';
 import CategoryIcon from '@mui/icons-material/Category';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors, LoadingState } from './shared';
 

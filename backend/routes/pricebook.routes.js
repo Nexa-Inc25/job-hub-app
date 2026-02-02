@@ -83,6 +83,14 @@ function parseCSVRow(row, rowIndex) {
 /**
  * Apply allowed field updates to a price book
  */
+/**
+ * Convert a date field value to a Date object or null
+ */
+function parseDateField(value) {
+  if (!value) return null;
+  return new Date(value);
+}
+
 function applyPriceBookUpdates(priceBook, body) {
   const allowedFields = ['name', 'description', 'contractNumber', 'effectiveDate', 'expirationDate', 'items', 'internalNotes'];
   const dateFields = new Set(['effectiveDate', 'expirationDate']);
@@ -90,7 +98,7 @@ function applyPriceBookUpdates(priceBook, body) {
   for (const field of allowedFields) {
     if (body[field] !== undefined) {
       priceBook[field] = dateFields.has(field) 
-        ? (body[field] ? new Date(body[field]) : null)
+        ? parseDateField(body[field])
         : body[field];
     }
   }

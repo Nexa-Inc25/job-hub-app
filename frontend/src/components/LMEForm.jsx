@@ -7,7 +7,7 @@
  * @module components/LMEForm
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -27,24 +27,15 @@ import {
   Select,
   MenuItem,
   FormControl,
-  InputLabel,
-  Divider,
   Chip,
   Alert,
   CircularProgress,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Fab,
-  Tooltip,
 } from '@mui/material';
 import BackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
-import PrintIcon from '@mui/icons-material/Print';
-import SendIcon from '@mui/icons-material/Send';
 import PersonIcon from '@mui/icons-material/Person';
 import BuildIcon from '@mui/icons-material/Build';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
@@ -67,10 +58,10 @@ const CRAFT_CODES = [
 
 // Rate types
 const RATE_TYPES = [
-  { code: 'ST', label: 'Straight Time', multiplier: 1.0 },
+  { code: 'ST', label: 'Straight Time', multiplier: 1 },
   { code: 'OT', label: 'Overtime (1.5x)', multiplier: 1.5 },
   { code: 'PT', label: 'Premium Time', multiplier: 1.5 },
-  { code: 'DT', label: 'Double Time', multiplier: 2.0 },
+  { code: 'DT', label: 'Double Time', multiplier: 2 },
 ];
 
 // Equipment types commonly used
@@ -455,6 +446,7 @@ const LMEForm = () => {
   // Handlers
   const addLaborEntry = () => {
     setLaborEntries([...laborEntries, { 
+      id: `labor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       craft: '', name: '', stHours: '', otHours: '', dtHours: '', rate: '', 
       stAmount: 0, otAmount: 0, dtAmount: 0, totalAmount: 0 
     }]);
@@ -471,7 +463,10 @@ const LMEForm = () => {
   };
 
   const addMaterialEntry = () => {
-    setMaterialEntries([...materialEntries, { description: '', unit: 'EA', quantity: '', unitCost: '', amount: 0 }]);
+    setMaterialEntries([...materialEntries, { 
+      id: `material-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      description: '', unit: 'EA', quantity: '', unitCost: '', amount: 0 
+    }]);
   };
 
   const updateMaterialEntry = (index, entry) => {
@@ -485,7 +480,10 @@ const LMEForm = () => {
   };
 
   const addEquipmentEntry = () => {
-    setEquipmentEntries([...equipmentEntries, { type: '', unitNumber: '', hours: '', rate: '', amount: 0 }]);
+    setEquipmentEntries([...equipmentEntries, { 
+      id: `equipment-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      type: '', unitNumber: '', hours: '', rate: '', amount: 0 
+    }]);
   };
 
   const updateEquipmentEntry = (index, entry) => {
@@ -774,7 +772,7 @@ const LMEForm = () => {
             <TableBody>
               {laborEntries.map((entry, idx) => (
                 <LaborRow
-                  key={idx}
+                  key={entry.id || `labor-${idx}`}
                   entry={entry}
                   index={idx}
                   onUpdate={updateLaborEntry}
@@ -823,7 +821,7 @@ const LMEForm = () => {
               <TableBody>
                 {materialEntries.map((entry, idx) => (
                   <MaterialRow
-                    key={idx}
+                    key={entry.id || `material-${idx}`}
                     entry={entry}
                     index={idx}
                     onUpdate={updateMaterialEntry}
@@ -877,7 +875,7 @@ const LMEForm = () => {
               <TableBody>
                 {equipmentEntries.map((entry, idx) => (
                   <EquipmentRow
-                    key={idx}
+                    key={entry.id || `equipment-${idx}`}
                     entry={entry}
                     index={idx}
                     onUpdate={updateEquipmentEntry}

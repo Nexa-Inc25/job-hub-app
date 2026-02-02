@@ -24,18 +24,18 @@ class ErrorBoundary extends React.Component {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
     
-    // TODO: Send to error monitoring service (Sentry, etc.)
-    // if (window.Sentry) {
-    //   window.Sentry.captureException(error, { extra: errorInfo });
+    // Error monitoring integration point - configure Sentry or similar service
+    // if (globalThis.Sentry) {
+    //   globalThis.Sentry.captureException(error, { extra: errorInfo });
     // }
   }
 
   handleReload = () => {
-    window.location.reload();
+    globalThis.location.reload();
   };
 
   handleGoHome = () => {
-    window.location.href = '/';
+    globalThis.location.href = '/';
   };
 
   render() {

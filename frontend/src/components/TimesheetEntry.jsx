@@ -11,7 +11,7 @@
  * @module components/TimesheetEntry
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -34,27 +34,15 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
-  ListItemSecondaryAction,
   Avatar,
-  Divider,
   Fab,
   Snackbar,
 } from '@mui/material';
 import BackIcon from '@mui/icons-material/ArrowBack';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import StopIcon from '@mui/icons-material/Stop';
-import PauseIcon from '@mui/icons-material/Pause';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import PersonIcon from '@mui/icons-material/Person';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import LocationOnIcon from '@mui/icons-material/LocationOn';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SaveIcon from '@mui/icons-material/Save';
 import api from '../api';
 
@@ -76,11 +64,11 @@ const COLORS = {
 
 // Work type options
 const WORK_TYPES = [
-  { value: 'regular', label: 'Regular Time', multiplier: 1.0 },
+  { value: 'regular', label: 'Regular Time', multiplier: 1 },
   { value: 'overtime', label: 'Overtime (1.5x)', multiplier: 1.5 },
-  { value: 'double', label: 'Double Time (2x)', multiplier: 2.0 },
-  { value: 'travel', label: 'Travel Time', multiplier: 1.0 },
-  { value: 'standby', label: 'Standby', multiplier: 1.0 },
+  { value: 'double', label: 'Double Time (2x)', multiplier: 2 },
+  { value: 'travel', label: 'Travel Time', multiplier: 1 },
+  { value: 'standby', label: 'Standby', multiplier: 1 },
 ];
 
 /**
@@ -140,7 +128,7 @@ const CrewMemberCard = ({ member, onEdit, onDelete }) => {
         {member.entries?.length > 0 && (
           <Box sx={{ mt: 2, pl: 6 }}>
             {member.entries.map((entry, idx) => (
-              <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+              <Box key={entry._id || entry.clockIn || `entry-${idx}`} sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                 <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.8rem' }}>
                   {formatTime(entry.clockIn)} - {entry.clockOut ? formatTime(entry.clockOut) : 'Active'}
                 </Typography>

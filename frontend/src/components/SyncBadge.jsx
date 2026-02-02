@@ -47,7 +47,6 @@ import CloudDoneIcon from '@mui/icons-material/CloudDone';
 import CloudOffIcon from '@mui/icons-material/CloudOff';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import ErrorIcon from '@mui/icons-material/Error';
-import WarningIcon from '@mui/icons-material/Warning';
 import SyncIcon from '@mui/icons-material/Sync';
 import LockIcon from '@mui/icons-material/Lock';
 import UnlockIcon from '@mui/icons-material/LockOpen';
@@ -58,7 +57,6 @@ import PhotoIcon from '@mui/icons-material/Photo';
 import UnitIcon from '@mui/icons-material/Assignment';
 import DocIcon from '@mui/icons-material/Description';
 import CheckIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
 import SecurityIcon from '@mui/icons-material/Security';
 import useSyncQueue, { QUEUE_TYPES, LOCK_REASONS } from '../hooks/useSyncQueue';
 

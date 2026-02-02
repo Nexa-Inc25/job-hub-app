@@ -5,7 +5,7 @@
  * Daily tailboard/JHA form for crew safety briefings.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -17,11 +17,6 @@ import {
   Grid,
   Divider,
   IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
-  ListItemSecondaryAction,
   Checkbox,
   FormControlLabel,
   Alert,
@@ -38,17 +33,13 @@ import {
   AccordionSummary,
   AccordionDetails,
   Avatar,
-  Tooltip,
   CircularProgress,
   ToggleButtonGroup,
   ToggleButton,
-  Tabs,
-  Tab
 } from '@mui/material';
 import BackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 import ExpandIcon from '@mui/icons-material/ExpandMore';
 import WarningIcon from '@mui/icons-material/Warning';
 import ShieldIcon from '@mui/icons-material/Shield';
@@ -277,7 +268,6 @@ const TailboardForm = () => {
   const [saving, setSaving] = useState(false);
   const [job, setJob] = useState(null);
   const [tailboard, setTailboard] = useState(null);
-  const [activeTab, setActiveTab] = useState(0);
   
   // Basic form fields
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -498,6 +488,7 @@ const TailboardForm = () => {
     if (!selectedCategory || !customHazard.trim()) return;
     
     const newHazard = {
+      id: `hazard-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       category: selectedCategory,
       description: customHazard.trim(),
       controls: selectedControls,
@@ -535,7 +526,11 @@ const TailboardForm = () => {
         setCrewMembers(res.data.crewMembers);
       } else {
         // Just add locally for now
-        setCrewMembers([...crewMembers, { ...signatureData, signedAt: new Date() }]);
+        setCrewMembers([...crewMembers, { 
+          id: `crew-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          ...signatureData, 
+          signedAt: new Date() 
+        }]);
       }
       setSnackbar({ open: true, message: `${signatureData.name} signed`, severity: 'success' });
     } catch (error) {
@@ -570,26 +565,12 @@ const TailboardForm = () => {
     );
   };
 
-  // Add source side device row
-  const handleAddSourceDevice = () => {
-    setSourceSideDevices([...sourceSideDevices, { device: '', physicalLocation: '' }]);
-  };
-
-  // Update source side device
-  const handleSourceDeviceChange = (index, field, value) => {
-    const updated = [...sourceSideDevices];
-    updated[index][field] = value;
-    setSourceSideDevices(updated);
-  };
-
-  // Remove source side device
-  const handleRemoveSourceDevice = (index) => {
-    setSourceSideDevices(sourceSideDevices.filter((_, i) => i !== index));
-  };
-
   // Add grounding location
   const handleAddGroundingLocation = () => {
-    setGroundingLocations([...groundingLocations, { location: '', installed: false, removed: false }]);
+    setGroundingLocations([...groundingLocations, { 
+      id: `grounding-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      location: '', installed: false, removed: false 
+    }]);
   };
 
   // Update grounding location
@@ -856,7 +837,7 @@ const TailboardForm = () => {
             {hazards.map((hazard, index) => {
               const category = HAZARD_CATEGORIES[hazard.category] || HAZARD_CATEGORIES.other;
               return (
-                <Accordion key={index} defaultExpanded>
+                <Accordion key={hazard.id || `hazard-${index}`} defaultExpanded>
                   <AccordionSummary expandIcon={<ExpandIcon />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
                       <Typography>{category.icon}</Typography>
@@ -996,7 +977,7 @@ const TailboardForm = () => {
               List ALL Locations Requiring Grounding:
             </Typography>
             {groundingLocations.map((loc, index) => (
-              <Box key={index} sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Box key={loc.id || `grounding-${index}`} sx={{ display: 'flex', gap: 1, mb: 1 }}>
                 <TextField
                   size="small"
                   value={loc.location}
@@ -1144,7 +1125,7 @@ const TailboardForm = () => {
         ) : (
           <Grid container spacing={1}>
             {crewMembers.map((member, index) => (
-              <Grid item xs={6} sm={4} md={3} key={index}>
+              <Grid item xs={6} sm={4} md={3} key={member.id || member._id || `crew-${index}`}>
                 <Paper 
                   variant="outlined" 
                   sx={{ p: 1, textAlign: 'center' }}

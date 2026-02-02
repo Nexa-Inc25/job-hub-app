@@ -341,10 +341,12 @@ function calculateCategoryAndTierTotals(lineItems) {
   for (const item of lineItems) {
     const cat = item.workCategory || 'other';
     const amount = item.totalAmount || 0;
-    categoryTotals[categoryTotals[cat] !== undefined ? cat : 'other'] += amount;
+    const categoryKey = cat in categoryTotals ? cat : 'other';
+    categoryTotals[categoryKey] += amount;
     
     const tier = item.performedByTier || 'prime';
-    tierTotals[tierTotals[tier] !== undefined ? tier : 'prime'] += amount;
+    const tierKey = tier in tierTotals ? tier : 'prime';
+    tierTotals[tierKey] += amount;
   }
   
   return { categoryTotals, tierTotals };
@@ -378,7 +380,7 @@ claimSchema.pre('save', async function(next) {
   
   // Calculate days past due
   if (this.dueDate && this.balanceDue > 0) {
-    const diffTime = new Date() - new Date(this.dueDate);
+    const diffTime = Date.now() - new Date(this.dueDate).getTime();
     this.daysPastDue = Math.max(Math.ceil(diffTime / (1000 * 60 * 60 * 24)), 0);
   }
   
