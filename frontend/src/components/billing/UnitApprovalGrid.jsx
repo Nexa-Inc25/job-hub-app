@@ -342,26 +342,15 @@ const UnitApprovalGrid = ({
             <GridActionsCellItem
               key="submit"
               icon={<SendIcon />}
-              label="Submit for Review"
+              label="Submit for Approval"
               onClick={() => onSubmit(params.row)}
               color="primary"
             />
           );
         }
 
-        if (status === 'submitted' && onVerify) {
-          actions.push(
-            <GridActionsCellItem
-              key="verify"
-              icon={<VerifiedIcon />}
-              label="Verify"
-              onClick={() => onVerify(params.row)}
-              color="primary"
-            />
-          );
-        }
-
-        if (status === 'verified' && onApprove) {
+        // PM/Admin can approve submitted units directly (simplified workflow)
+        if (status === 'submitted' && onApprove) {
           actions.push(
             <GridActionsCellItem
               key="approve"
@@ -373,7 +362,7 @@ const UnitApprovalGrid = ({
           );
         }
 
-        if ((status === 'submitted' || status === 'verified') && onDispute) {
+        if (status === 'submitted' && onDispute) {
           actions.push(
             <GridActionsCellItem
               key="dispute"

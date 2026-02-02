@@ -310,10 +310,10 @@ const BillingDashboard = ({ jobId }) => {
     selectedUnits.includes(u._id) && u.status === 'approved'
   );
 
-  // Stats
+  // Stats - simplified workflow (submitted -> approved)
   const stats = {
+    draft: units.filter(u => u.status === 'draft').length,
     pending: units.filter(u => u.status === 'submitted').length,
-    verified: units.filter(u => u.status === 'verified').length,
     approved: units.filter(u => u.status === 'approved').length,
     totalValue: units.reduce((sum, u) => sum + (u.totalAmount || 0), 0),
     claimsTotal: claims.reduce((sum, c) => sum + (c.totalAmount || 0), 0),

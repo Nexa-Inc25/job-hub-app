@@ -524,8 +524,9 @@ router.post('/units/:id/approve', async (req, res) => {
       return res.status(404).json({ error: 'Unit entry not found' });
     }
 
-    if (unit.status !== 'verified') {
-      return res.status(400).json({ error: 'Only verified units can be approved' });
+    // Simplified workflow: PM can approve directly from submitted (no verify step needed)
+    if (unit.status !== 'submitted' && unit.status !== 'verified') {
+      return res.status(400).json({ error: 'Only submitted or verified units can be approved' });
     }
 
     const { notes } = req.body;
