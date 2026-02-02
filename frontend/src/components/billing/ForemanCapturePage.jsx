@@ -242,16 +242,55 @@ const ForemanCapturePage = () => {
       try {
         // Load job details
         let loadedItems = [];
+        let jobData = null;
         if (jobId) {
           const jobRes = await api.get(`/api/jobs/${jobId}`);
-          setJob(jobRes.data);
+          jobData = jobRes.data;
+          setJob(jobData);
           
-          // Load price book
-          if (jobRes.data.priceBookId) {
-            const pbRes = await api.get(`/api/billing/pricebooks/${jobRes.data.priceBookId}`);
+          // Load price book - try job's priceBookId first
+          if (jobData.priceBookId) {
+            const pbRes = await api.get(`/api/billing/pricebooks/${jobData.priceBookId}`);
             setPriceBook(pbRes.data);
             loadedItems = pbRes.data.items || [];
             setPriceBookItems(loadedItems);
+          } else {
+            // Fallback: try to get active price book for job's utility
+            if (jobData.utilityId) {
+              try {
+                const activePbRes = await api.get(`/api/billing/pricebooks/active?utilityId=${jobData.utilityId}`);
+                if (activePbRes.data) {
+                  setPriceBook(activePbRes.data);
+                  loadedItems = activePbRes.data.items || [];
+                  setPriceBookItems(loadedItems);
+                }
+              } catch {
+                // No active price book for utility, try any active one
+              }
+            }
+            
+            // Final fallback: get company's first available price book (active or draft)
+            if (loadedItems.length === 0) {
+              try {
+                // Try active first
+                let allPbRes = await api.get('/api/billing/pricebooks?status=active');
+                // If no active, try any price book
+                if (!allPbRes.data?.length) {
+                  allPbRes = await api.get('/api/billing/pricebooks');
+                }
+                if (allPbRes.data?.length > 0) {
+                  // List endpoint excludes items, so fetch full price book
+                  const fullPbRes = await api.get(`/api/billing/pricebooks/${allPbRes.data[0]._id}`);
+                  if (fullPbRes.data) {
+                    setPriceBook(fullPbRes.data);
+                    loadedItems = fullPbRes.data.items || [];
+                    setPriceBookItems(loadedItems);
+                  }
+                }
+              } catch {
+                // No price books available
+              }
+            }
           }
         }
         
