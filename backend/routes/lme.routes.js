@@ -243,7 +243,16 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
 
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    const pages = pdfDoc.getPages();
+    let pages = pdfDoc.getPages();
+    
+    // Handle empty or malformed PDFs - add a page if none exist
+    if (pages.length === 0) {
+      console.warn('Template PDF has no pages, adding a blank page');
+      pdfDoc.addPage([612, 792]); // Letter size
+      pages = pdfDoc.getPages();
+      usedTemplate = false; // Treat as fallback since template was invalid
+    }
+    
     const page = pages[0];
     const { height } = page.getSize();
 
