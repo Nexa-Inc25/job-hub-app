@@ -81,6 +81,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // PDF page dimensions (actual PDF units, not screen pixels)
+  const [pdfPageDimensions, setPdfPageDimensions] = useState({ width: 612, height: 792 });
 
   // Tool state
   const [currentTool, setCurrentTool] = useState('check');
@@ -169,6 +172,21 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         }
         const arrayBuffer = await response.arrayBuffer();
         setPdfBytes(arrayBuffer);
+        
+        // Extract actual PDF page dimensions for coordinate conversion
+        try {
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const pages = pdfDoc.getPages();
+          if (pages.length > 0) {
+            const firstPage = pages[0];
+            const { width, height } = firstPage.getSize();
+            setPdfPageDimensions({ width, height });
+            console.log(`PDF page dimensions: ${width}x${height}`);
+          }
+        } catch (dimErr) {
+          console.warn('Could not read PDF dimensions:', dimErr);
+        }
+        
         setError('');
       } catch (err) {
         console.error('Error loading PDF:', err);
@@ -240,12 +258,24 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     // are positioned with position:absolute relative to this Box
     const rect = e.currentTarget.getBoundingClientRect();
     
-    // The annotation Box has 4px padding, so offset coordinates so the
-    // content (checkmark/text) appears exactly where user clicked
-    const PADDING_OFFSET = 4;
-    const x = (e.clientX - rect.left - PADDING_OFFSET) / zoom;
-    const y = (e.clientY - rect.top - PADDING_OFFSET) / zoom;
+    // Calculate the scale factor between rendered size and actual PDF size
+    // The rendered width is rect.width, the actual PDF width is pdfPageDimensions.width
+    const renderedWidth = rect.width;
+    const scaleToActualPdf = pdfPageDimensions.width / renderedWidth;
     
+    // The annotation Box has 4px padding, so offset coordinates
+    const PADDING_OFFSET = 4;
+    
+    // Get screen position relative to the page element
+    const screenX = e.clientX - rect.left - PADDING_OFFSET;
+    const screenY = e.clientY - rect.top - PADDING_OFFSET;
+    
+    // Convert screen coordinates to PDF coordinates
+    // This accounts for both zoom AND width-based scaling
+    const x = screenX * scaleToActualPdf;
+    const y = screenY * scaleToActualPdf;
+    
+    // Store both screen coords (for display) and PDF coords (for saving)
     // Check if we need to open a dialog first
     if (handleToolDialogIfNeeded(currentTool, userInitials, savedSignature)) {
       return;
@@ -253,8 +283,11 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
 
     const baseAnnotation = {
       id: generateId(),
-      x,
-      y,
+      x,           // PDF coordinates for saving
+      y,           // PDF coordinates for saving
+      screenX,     // Screen coordinates for display positioning
+      screenY,     // Screen coordinates for display positioning
+      scaleToActualPdf, // Store scale for re-rendering
       color: inkColor,
       page: currentPage,
     };
@@ -272,7 +305,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
       setAnnotations(prev => [...prev, annotation]);
       if (currentTool === 'text') setCurrentText('');
     }
-  }, [currentTool, currentText, fontSize, zoom, currentPage, savedSignature, inkColor, userInitials, jobInfo, isDragging]);
+  }, [currentTool, currentText, fontSize, currentPage, savedSignature, inkColor, userInitials, jobInfo, isDragging, pdfPageDimensions]);
 
   // Signature canvas functions
   const initSignatureCanvas = useCallback(() => {
@@ -377,12 +410,20 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
-    const clickX = (clientX - rect.left) / zoom;
-    const clickY = (clientY - rect.top) / zoom;
+    // Use screen coordinates for drag offset
+    const displayX = annotation.screenX !== undefined 
+      ? annotation.screenX 
+      : annotation.x / (annotation.scaleToActualPdf || 1);
+    const displayY = annotation.screenY !== undefined 
+      ? annotation.screenY 
+      : annotation.y / (annotation.scaleToActualPdf || 1);
+    
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
     
     setDragOffset({
-      x: clickX - annotation.x,
-      y: clickY - annotation.y
+      x: clickX - displayX,
+      y: clickY - displayY
     });
     
     setIsDragging(true);
@@ -401,15 +442,31 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
-    const newX = (clientX - rect.left) / zoom - dragOffset.x;
-    const newY = (clientY - rect.top) / zoom - dragOffset.y;
+    // Calculate new screen coordinates
+    const newScreenX = clientX - rect.left - dragOffset.x;
+    const newScreenY = clientY - rect.top - dragOffset.y;
+    
+    // Get the annotation to find its scale factor
+    const annotation = annotations.find(a => a.id === dragAnnotationId);
+    const scaleToActualPdf = annotation?.scaleToActualPdf || (pdfPageDimensions.width / rect.width);
+    
+    // Convert screen coords to PDF coords for saving
+    const newX = newScreenX * scaleToActualPdf;
+    const newY = newScreenY * scaleToActualPdf;
     
     setAnnotations(prev => prev.map(a => 
       a.id === dragAnnotationId 
-        ? { ...a, x: Math.max(0, newX), y: Math.max(0, newY) }
+        ? { 
+            ...a, 
+            x: Math.max(0, newX), 
+            y: Math.max(0, newY),
+            screenX: Math.max(0, newScreenX),
+            screenY: Math.max(0, newScreenY),
+            scaleToActualPdf
+          }
         : a
     ));
-  }, [isDragging, dragAnnotationId, zoom, dragOffset, currentPage]);
+  }, [isDragging, dragAnnotationId, dragOffset, currentPage, annotations, pdfPageDimensions]);
 
   const handleDragEnd = useCallback(() => {
     setIsDragging(false);
@@ -806,13 +863,23 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                     />
 
                     {/* Annotations */}
-                    {pageAnnotations.map((annotation) => (
+                    {pageAnnotations.map((annotation) => {
+                      // Convert PDF coordinates back to screen coordinates for display
+                      // Use screenX/screenY if available (new annotations), otherwise calculate from PDF coords
+                      const displayX = annotation.screenX !== undefined 
+                        ? annotation.screenX 
+                        : annotation.x / (annotation.scaleToActualPdf || 1);
+                      const displayY = annotation.screenY !== undefined 
+                        ? annotation.screenY 
+                        : annotation.y / (annotation.scaleToActualPdf || 1);
+                      
+                      return (
                       <Box
                         key={annotation.id}
                         sx={{
                           position: 'absolute',
-                          left: annotation.x * zoom,
-                          top: annotation.y * zoom,
+                          left: displayX,
+                          top: displayY,
                           cursor: isDragging && dragAnnotationId === annotation.id ? 'grabbing' : 'grab',
                           padding: '4px',
                           borderRadius: 1,
@@ -894,7 +961,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                           </IconButton>
                         )}
                       </Box>
-                    ))}
+                    );
+                    })}
                   </Box>
                 );
               })}
