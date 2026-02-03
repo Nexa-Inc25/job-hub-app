@@ -99,11 +99,13 @@ router.post('/', authenticateUser, async (req, res) => {
           closeOutFolder.documents.splice(existingIdx, 1);
         }
 
-        // Add LME reference
+        // Add LME reference with proper url field for frontend compatibility
         closeOutFolder.documents.push({
           name: lmeFilename,
           type: 'lme',
           lmeId: lme._id,
+          url: `/api/lme/${lme._id}/pdf`,  // Primary URL for viewing
+          path: `/api/lme/${lme._id}/pdf`, // Fallback path
           date: new Date(date),
           totals: lmeData.totals,
           uploadDate: new Date(),
