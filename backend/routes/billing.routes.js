@@ -1127,7 +1127,7 @@ router.post('/claims', async (req, res) => {
       return res.status(403).json({ error: 'Only PM or admin can create claims' });
     }
 
-    const { unitIds, jobId, periodStart, periodEnd, retentionRate, taxRate, internalNotes } = req.body;
+    const { unitIds, jobId, periodStart, periodEnd, retentionRate, taxRate, internalNotes, description, notes } = req.body;
 
     if (!unitIds || !Array.isArray(unitIds) || unitIds.length === 0) {
       return res.status(400).json({ error: 'unitIds array is required' });
@@ -1195,7 +1195,8 @@ router.post('/claims', async (req, res) => {
       totalAmount,      // Matches pre-save: subtotal + adjustmentTotal + taxAmount
       amountDue,        // Matches pre-save: totalAmount - retentionAmount
       createdBy: user._id,
-      internalNotes,
+      description: description || notes || undefined,  // Support both field names
+      internalNotes: internalNotes || notes || undefined,
       changeLog: [{
         userId: user._id,
         action: 'created',
@@ -1279,16 +1280,17 @@ router.put('/claims/:id', async (req, res) => {
       return res.status(404).json({ error: 'Claim not found' });
     }
 
-    // Only allow updates on draft/pending claims
-    if (!['draft', 'pending_review'].includes(claim.status)) {
+    // Only allow updates on draft/pending claims (or if explicitly setting status)
+    const { notes, dueDate, status, description } = req.body;
+    
+    if (!['draft', 'pending_review'].includes(claim.status) && !status) {
       return res.status(400).json({ error: 'Cannot update claim in current status' });
     }
-
-    const { notes, dueDate, status } = req.body;
     
     if (notes !== undefined) claim.notes = notes;
+    if (description !== undefined) claim.description = description;
     if (dueDate) claim.dueDate = new Date(dueDate);
-    if (status && ['draft', 'pending_review', 'approved'].includes(status)) {
+    if (status && ['draft', 'pending_review', 'submitted', 'approved'].includes(status)) {
       const previousStatus = claim.status;
       claim.status = status;
       claim.changeLog.push({
@@ -1299,6 +1301,10 @@ router.put('/claims/:id', async (req, res) => {
         newStatus: status
       });
       
+      if (status === 'submitted') {
+        claim.submittedBy = user._id;
+        claim.submittedAt = new Date();
+      }
       if (status === 'approved') {
         claim.approvedBy = user._id;
         claim.approvedAt = new Date();

@@ -82,6 +82,7 @@ const claimSchema = new mongoose.Schema({
   
   // === IDENTIFICATION ===
   claimNumber: { type: String, unique: true },  // "CLM-2026-00001" - auto-generated in pre-save
+  description: String,                              // User-friendly claim description
   invoiceNumber: String,                            // External invoice # if different
   poNumber: String,                                 // Utility PO reference
   contractNumber: String,                           // MSA reference
