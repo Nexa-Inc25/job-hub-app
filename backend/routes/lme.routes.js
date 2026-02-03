@@ -303,54 +303,83 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
       if (fields.length > 0) {
         console.log(`Found ${fields.length} form fields in LME template`);
         
-        // Map our data to PG&E LME template field names
-        // Based on actual template: L, D, S, E, CRA, NAM, R, D$, etc.
+        // Map our data to actual PG&E LME template field names
+        // Field names discovered from template: LME No, Job Location, DATE, CRAFTRow2, NAMERow2, etc.
+        const jobInfo = lme.jobInfo || {};
         const fieldMappings = {
-          // Header fields - PG&E naming convention
-          'L': lme.lmeNumber,                    // LME No.
-          'D': lme.date?.toLocaleDateString() || '',  // DATE
-          'S': lme.startTime || '',              // START TIME
-          'E': lme.endTime || '',                // END time
-          'T': lme.sheetNumber || '1',           // Sheet number (T1)
-          'F': lme.totalSheets || '1',           // OF sheets
+          // Header fields - actual PG&E field names (with spaces)
+          'LME No': lme.lmeNumber,
+          'DATE': lme.date?.toLocaleDateString() || '',
+          'Start Time': lme.startTime || '',
+          'End Time': lme.endTime || '',
+          'SHEET': lme.sheetNumber || '1',
+          'OF': lme.totalSheets || '1',
           
           // Job info fields
-          'J': lme.jobInfo?.address || '',       // JOB LOCATION
-          'P': lme.jobInfo?.pmNumber || '',      // PM/NOTIF NO.
-          'U': lme.jobInfo?.woNumber || '',      // JOB NO. (under P)
-          'O': lme.jobInfo?.poNumber || '',      // PO/CWA NO.
-          'C': lme.jobInfo?.corNumber || '',     // COR NO.
+          'Job Location': jobInfo.address || '',
+          'PMNOTIF NO': jobInfo.pmNumber || jobInfo.notificationNumber || '',
+          'JOB NO': jobInfo.woNumber || '',
+          'PO  CWA NO': jobInfo.poNumber || '',
+          'FIELD AUTH FORM NO': jobInfo.fieldAuthNumber || '',
+          'COR NO': jobInfo.corNumber || '',
           
-          // Description of work
-          'W': lme.workDescription || '',        // DESCRIPTION OF WORK
+          // Description of work (the main DESCRIPTION field)
+          'DESCRIPTION': lme.workDescription || `${jobInfo.address || ''} | ${jobInfo.city || ''} | PG&E`,
           
           // Subcontractor
-          'I': lme.subcontractorName || '',      // IF SUBCONTRACTOR...
+          'IF SUBCONTRACTOR USED ENTER NAMES HERE': lme.subcontractorName || '',
           
           // Missed meals and subsistence
-          'M': String(lme.missedMeals || 0),     // Missed Meals in HOURS
-          'B': String(lme.subsistanceCount || 0), // SUBSISTANCE Count
+          'Missed Meals in HOURS 05 Hrs Each Missed Meal': String(lme.missedMeals || ''),
+          'SUBSISTANCE Count': String(lme.subsistanceCount || ''),
           
-          // Totals section
-          'T1': (lme.totals?.labor || 0).toFixed(2),      // TOTAL LABOR
-          'T2': (lme.totals?.material || 0).toFixed(2),   // TOTAL INVOICES
-          'T3': (lme.totals?.equipment || 0).toFixed(2),  // TOTAL EQUIPMENT
-          'GR': (lme.totals?.grand || 0).toFixed(2),      // GRAND TOTAL
-          
-          // Also try common alternative names
-          'lme_number': lme.lmeNumber,
-          'LME_NO': lme.lmeNumber,
-          'DATE': lme.date?.toLocaleDateString() || '',
-          'START_TIME': lme.startTime || '',
-          'END_TIME': lme.endTime || '',
-          'JOB_LOCATION': lme.jobInfo?.address || '',
-          'PM_NO': lme.jobInfo?.pmNumber || '',
-          'JOB_NO': lme.jobInfo?.woNumber || '',
-          'PO_NO': lme.jobInfo?.poNumber || '',
-          'COR_NO': lme.jobInfo?.corNumber || '',
-          'DESCRIPTION': lme.workDescription || '',
-          'GRAND_TOTAL': (lme.totals?.grand || 0).toFixed(2),
+          // Totals - try various naming patterns
+          'TOTAL STRAIGHT TIME': (lme.totals?.straightTime || 0).toFixed(2),
+          'TOTAL OVERTIME PREMIUM TIME': (lme.totals?.overtime || 0).toFixed(2),
+          'TOTAL DOUBLE TIME': (lme.totals?.doubleTime || 0).toFixed(2),
+          'TOTAL LABOR': (lme.totals?.labor || 0).toFixed(2),
+          'TOTAL INVOICES  RENTAL EQUIPMENT': (lme.totals?.material || 0).toFixed(2),
+          'TOTAL OWNED EQUIPMENT': (lme.totals?.equipment || 0).toFixed(2),
+          'GRAND TOTAL': (lme.totals?.grand || 0).toFixed(2),
         };
+        
+        // Add labor row fields dynamically
+        // PG&E uses: CRAFTRow2, NAMERow2, HRSDYSRow2, RATEST, RATEOTPT, RATEDT, etc.
+        // Row numbering starts at 2 (Row1 is the header)
+        for (let i = 0; i < (lme.labor || []).length && i < 10; i++) {
+          const labor = lme.labor[i];
+          const rowNum = i + 2; // Rows start at 2
+          const suffix = i === 0 ? '' : `_${i}`; // First row has no suffix, then _2, _3, etc.
+          
+          // CRAFT and NAME columns
+          fieldMappings[`CRAFTRow${rowNum}`] = labor.craft || '';
+          fieldMappings[`NAMERow${rowNum}`] = labor.name || '';
+          fieldMappings[`HRSDYSRow${rowNum}`] = labor.hrsDays || '';
+          
+          // Hours - numbered fields like 21, 31, 41 for ST hours
+          fieldMappings[`${rowNum}1`] = String(labor.stHours || '');
+          
+          // Rate fields - RATEST, RATEST_2, etc.
+          if (i === 0) {
+            fieldMappings['RATEST'] = labor.rate ? labor.rate.toFixed(2) : '';
+            fieldMappings['RATEOTPT'] = labor.otRate ? labor.otRate.toFixed(2) : '';
+            fieldMappings['RATEDT'] = labor.dtRate ? labor.dtRate.toFixed(2) : '';
+          } else {
+            fieldMappings[`RATEST_${i + 1}`] = labor.rate ? labor.rate.toFixed(2) : '';
+            fieldMappings[`RATEOTPT_${i + 1}`] = labor.otRate ? labor.otRate.toFixed(2) : '';
+            fieldMappings[`RATEDT_${i + 1}`] = labor.dtRate ? labor.dtRate.toFixed(2) : '';
+          }
+        }
+        
+        // Add material/invoice entries (DESCRIPTION_2, QTY_2, RATE_2, AMOUNT_2, etc.)
+        for (let i = 0; i < (lme.materials || []).length && i < 8; i++) {
+          const mat = lme.materials[i];
+          const suffix = i === 0 ? '' : `_${i + 1}`;
+          fieldMappings[`DESCRIPTION${suffix}`] = mat.description || '';
+          fieldMappings[`QTY${suffix}`] = String(mat.quantity || '');
+          fieldMappings[`RATE${suffix}`] = mat.rate ? mat.rate.toFixed(2) : '';
+          fieldMappings[`AMOUNT${suffix}`] = mat.amount ? mat.amount.toFixed(2) : '';
+        }
         
         // Fill each field that matches our mappings
         const filledFields = [];
