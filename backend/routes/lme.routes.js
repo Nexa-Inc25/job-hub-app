@@ -446,45 +446,152 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
 
     // If we couldn't fill form fields, overlay text directly
     if (!filledFormFields) {
-      // Text overlay coordinates for standard PG&E LME layout
-      // These are calibrated for the typical LME form layout
+      // Text overlay coordinates calibrated for PG&E LME template (612x792 letter size)
+      // Coordinates measured from bottom-left origin
       const jobInfo = lme.jobInfo || {};
+      const { width } = page.getSize();
       
       // Only add text overlay if using template (not from scratch)
       if (usedTemplate) {
-        // Header area - typically top right
-        page.drawText(lme.lmeNumber || '', { x: 500, y: height - 60, size: 9, font });
-        page.drawText(lme.date?.toLocaleDateString() || '', { x: 500, y: height - 75, size: 9, font });
-        page.drawText(`${lme.startTime || ''} - ${lme.endTime || ''}`, { x: 500, y: height - 90, size: 9, font });
+        // === RIGHT SIDE HEADER ===
+        // LME No. - top right after "LME No." label (around x=710, y=738)
+        page.drawText(lme.lmeNumber || '', { x: 710, y: height - 54, size: 9, font });
         
-        // Job info area - typically left side
-        page.drawText(jobInfo.pmNumber || '', { x: 120, y: height - 120, size: 9, font });
-        page.drawText(jobInfo.woNumber || '', { x: 120, y: height - 135, size: 9, font });
-        page.drawText(jobInfo.poNumber || '', { x: 120, y: height - 150, size: 9, font });
-        page.drawText(jobInfo.address || '', { x: 120, y: height - 165, size: 9, font });
+        // DATE field - right side (after "DATE" label around x=640)
+        page.drawText(lme.date?.toLocaleDateString() || '', { x: 640, y: height - 82, size: 9, font });
         
-        // Work description
-        const workDesc = (lme.workDescription || '').substring(0, 80);
-        page.drawText(workDesc, { x: 60, y: height - 200, size: 8, font });
+        // START TIME and END TIME - same row as DATE
+        page.drawText(lme.startTime || '', { x: 640, y: height - 94, size: 8, font });
+        page.drawText(lme.endTime || '', { x: 710, y: height - 94, size: 8, font });
         
-        // Labor entries - starting around y = height - 280
-        let laborY = height - 280;
-        for (const labor of (lme.labor || []).slice(0, 8)) {
-          page.drawText(labor.craft || '', { x: 45, y: laborY, size: 8, font });
-          page.drawText((labor.name || '').substring(0, 18), { x: 85, y: laborY, size: 8, font });
-          page.drawText(String(labor.stHours || ''), { x: 220, y: laborY, size: 8, font });
-          page.drawText(String(labor.otHours || ''), { x: 270, y: laborY, size: 8, font });
-          page.drawText(String(labor.dtHours || ''), { x: 320, y: laborY, size: 8, font });
-          page.drawText(`${(labor.rate || 0).toFixed(2)}`, { x: 370, y: laborY, size: 8, font });
-          page.drawText(`${(labor.totalAmount || 0).toFixed(2)}`, { x: 450, y: laborY, size: 8, font });
-          laborY -= 24; // 3 rows per labor entry in standard LME
+        // === LEFT SIDE JOB INFO ===
+        // JOB LOCATION - after the label (x around 75)
+        page.drawText(jobInfo.address || '', { x: 75, y: height - 82, size: 8, font });
+        
+        // PM/NOTIF NO.
+        page.drawText(jobInfo.pmNumber || jobInfo.notificationNumber || '', { x: 75, y: height - 94, size: 8, font });
+        
+        // JOB NO.
+        page.drawText(jobInfo.woNumber || '', { x: 75, y: height - 106, size: 8, font });
+        
+        // PO/CWA NO.
+        page.drawText(jobInfo.poNumber || '', { x: 75, y: height - 118, size: 8, font });
+        
+        // FIELD AUTH. FORM NO. and COR NO.
+        page.drawText(jobInfo.fieldAuthNumber || '', { x: 95, y: height - 130, size: 8, font });
+        page.drawText(jobInfo.corNumber || '', { x: 220, y: height - 130, size: 8, font });
+        
+        // SHEET ___ OF ___
+        page.drawText(String(lme.sheetNumber || '1'), { x: 45, y: height - 142, size: 8, font });
+        page.drawText(String(lme.totalSheets || '1'), { x: 75, y: height - 142, size: 8, font });
+        
+        // === CONTRACTOR'S LABOR TABLE ===
+        // Each labor entry has 3 sub-rows: ST, OT/PT, DT
+        // Starting Y position for first labor row (ST line)
+        const laborStartY = height - 178; // First ST row
+        const rowHeight = 11; // Height per sub-row (ST, OT, DT)
+        const laborBlockHeight = rowHeight * 3; // 3 rows per person
+        
+        for (let i = 0; i < (lme.labor || []).length && i < 10; i++) {
+          const labor = lme.labor[i];
+          const blockY = laborStartY - (i * laborBlockHeight);
+          
+          // CRAFT column (x ~ 22)
+          page.drawText((labor.craft || '').substring(0, 6), { x: 22, y: blockY, size: 7, font });
+          
+          // NAME column (x ~ 65)
+          page.drawText((labor.name || '').substring(0, 20), { x: 65, y: blockY, size: 7, font });
+          
+          // HRS/DYS column (x ~ 195) - typically blank or day count
+          
+          // ST row - Straight Time hours (x ~ 250 for ST/PT column)
+          page.drawText(String(labor.stHours || ''), { x: 250, y: blockY, size: 7, font });
+          
+          // RATE column (x ~ 285)
+          if (labor.rate) {
+            page.drawText(labor.rate.toFixed(2), { x: 285, y: blockY, size: 7, font });
+          }
+          
+          // AMOUNT column (x ~ 330)
+          if (labor.stAmount || labor.totalAmount) {
+            page.drawText((labor.stAmount || labor.totalAmount || 0).toFixed(2), { x: 330, y: blockY, size: 7, font });
+          }
+          
+          // OT/PT row (overtime/premium time) - one row down
+          if (labor.otHours) {
+            page.drawText(String(labor.otHours), { x: 250, y: blockY - rowHeight, size: 7, font });
+          }
+          
+          // DT row (double time) - two rows down  
+          if (labor.dtHours) {
+            page.drawText(String(labor.dtHours), { x: 250, y: blockY - (rowHeight * 2), size: 7, font });
+          }
         }
         
-        // Totals - typically bottom of form
-        page.drawText(`${(lme.totals?.labor || 0).toFixed(2)}`, { x: 480, y: 180, size: 9, font: boldFont });
-        page.drawText(`${(lme.totals?.material || 0).toFixed(2)}`, { x: 480, y: 140, size: 9, font: boldFont });
-        page.drawText(`${(lme.totals?.equipment || 0).toFixed(2)}`, { x: 480, y: 100, size: 9, font: boldFont });
-        page.drawText(`${(lme.totals?.grand || 0).toFixed(2)}`, { x: 480, y: 60, size: 10, font: boldFont });
+        // === TOTALS SECTION (bottom left) ===
+        // TOTAL STRAIGHT TIME, OVERTIME, DOUBLE TIME rows
+        // TOTAL LABOR row
+        const totalsX = 330; // Amount column for totals
+        page.drawText((lme.totals?.straightTime || 0).toFixed(2), { x: totalsX, y: 145, size: 8, font });
+        page.drawText((lme.totals?.overtime || 0).toFixed(2), { x: totalsX, y: 133, size: 8, font });
+        page.drawText((lme.totals?.doubleTime || 0).toFixed(2), { x: totalsX, y: 121, size: 8, font });
+        page.drawText((lme.totals?.labor || 0).toFixed(2), { x: totalsX, y: 97, size: 8, font: boldFont });
+        
+        // === RIGHT SIDE TOTALS ===
+        const rightTotalsX = 740;
+        // TOTAL INVOICES & RENTAL EQUIPMENT
+        page.drawText((lme.totals?.invoices || 0).toFixed(2), { x: rightTotalsX, y: 360, size: 8, font });
+        // TOTAL OWNED EQUIPMENT  
+        page.drawText((lme.totals?.ownedEquipment || 0).toFixed(2), { x: rightTotalsX, y: 248, size: 8, font });
+        // TOTAL INVOICES
+        page.drawText((lme.totals?.material || 0).toFixed(2), { x: rightTotalsX, y: 224, size: 8, font });
+        // TOTAL LABOR (right side)
+        page.drawText((lme.totals?.labor || 0).toFixed(2), { x: rightTotalsX, y: 200, size: 8, font });
+        // TOTAL EQUIPMENT
+        page.drawText((lme.totals?.equipment || 0).toFixed(2), { x: rightTotalsX, y: 176, size: 8, font });
+        // GRAND TOTAL
+        page.drawText((lme.totals?.grand || 0).toFixed(2), { x: rightTotalsX, y: 115, size: 9, font: boldFont });
+        
+        // === MISCELLANEOUS INVOICES (right side table) ===
+        const miscStartY = height - 182;
+        const miscRowHeight = 12;
+        for (let i = 0; i < (lme.materials || []).length && i < 8; i++) {
+          const mat = lme.materials[i];
+          const y = miscStartY - (i * miscRowHeight);
+          page.drawText((mat.description || '').substring(0, 25), { x: 535, y, size: 6, font });
+          page.drawText(String(mat.quantity || ''), { x: 680, y, size: 6, font });
+          page.drawText((mat.rate || 0).toFixed(2), { x: 705, y, size: 6, font });
+          page.drawText((mat.amount || 0).toFixed(2), { x: 740, y, size: 6, font });
+        }
+        
+        // === CONTRACTOR OWNED EQUIPMENT (right side) ===
+        const eqStartY = height - 328;
+        const eqRowHeight = 12;
+        for (let i = 0; i < (lme.equipment || []).length && i < 5; i++) {
+          const eq = lme.equipment[i];
+          const y = eqStartY - (i * eqRowHeight);
+          page.drawText((eq.type || eq.description || '').substring(0, 20), { x: 535, y, size: 6, font });
+          page.drawText(String(eq.hours || ''), { x: 680, y, size: 6, font });
+          page.drawText((eq.rate || 0).toFixed(2), { x: 705, y, size: 6, font });
+          page.drawText((eq.amount || 0).toFixed(2), { x: 740, y, size: 6, font });
+        }
+        
+        // === SUBCONTRACTOR NAME (right side if applicable) ===
+        if (lme.subcontractorName) {
+          page.drawText(lme.subcontractorName, { x: 600, y: height - 130, size: 7, font });
+        }
+        
+        // === SUBSISTENCE Count (right side) ===
+        if (lme.subsistanceCount) {
+          page.drawText(String(lme.subsistanceCount), { x: 540, y: height - 118, size: 8, font });
+        }
+        
+        // === MISSED MEALS in HOURS ===
+        if (lme.missedMeals) {
+          page.drawText(String(lme.missedMeals), { x: 490, y: height - 118, size: 8, font });
+        }
+        
+        console.log('Applied text overlay to PG&E LME template');
       } else {
         // Generate from scratch (original fallback code)
         let y = 760;
