@@ -81,7 +81,8 @@ export async function hashPhoto(photo) {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.codePointAt(i);
+      // Use charCodeAt for byte values (0-255), not codePointAt which can exceed byte range
+      bytes[i] = binaryString.charCodeAt(i);
     }
     arrayBuffer = bytes.buffer;
   } else {

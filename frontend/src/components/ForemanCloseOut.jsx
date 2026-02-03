@@ -712,7 +712,8 @@ const ForemanCloseOut = () => {
         // Load units for this job
         try {
           const unitsRes = await api.get(`/api/billing/units?jobId=${jobId}`);
-          setUnits(unitsRes.data?.units || []);
+          // API returns array directly, not wrapped in { units: [] }
+          setUnits(Array.isArray(unitsRes.data) ? unitsRes.data : []);
         } catch {
           setUnits([]);
         }
@@ -728,7 +729,9 @@ const ForemanCloseOut = () => {
         // Load timesheet for this job
         try {
           const timesheetRes = await api.get(`/api/timesheets?jobId=${jobId}&limit=1`);
-          setTimesheet(timesheetRes.data?.timesheets?.[0] || null);
+          // API returns first timesheet directly when limit=1, or array otherwise
+          const data = timesheetRes.data;
+          setTimesheet(Array.isArray(data) ? data[0] || null : data || null);
         } catch {
           setTimesheet(null);
         }

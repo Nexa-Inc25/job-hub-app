@@ -311,7 +311,8 @@ const ForemanCapturePage = () => {
         // Load today's units
         const today = new Date().toISOString().split('T')[0];
         const todayRes = await api.get(`/api/billing/units?jobId=${jobId}&startDate=${today}`).catch(() => ({ data: [] }));
-        setTodayUnits(todayRes.data?.units || []);
+        // API returns array directly, not wrapped in { units: [] }
+        setTodayUnits(Array.isArray(todayRes.data) ? todayRes.data : []);
         
         // Auto-select if item code provided
         if (preselectedItemCode && loadedItems.length > 0) {
