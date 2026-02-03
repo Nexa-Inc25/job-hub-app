@@ -98,10 +98,11 @@ class RegulatoryAdapter {
     // Most regulatory portals use SOAP or REST APIs with specific authentication
     
     // Simulate
-    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400));
+    // NOSONAR: Math.random() used for simulation timing/success rates, not security-sensitive
+    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 400)); // NOSONAR
     
     // 85% success rate simulation (regulatory systems can be slow)
-    if (Math.random() > 0.85) {
+    if (Math.random() > 0.85) { // NOSONAR
       throw new Error('Regulatory portal submission failed: System maintenance');
     }
     

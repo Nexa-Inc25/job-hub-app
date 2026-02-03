@@ -229,6 +229,35 @@ function checkCondition(conditionValue, dataValue, checkFn) {
 }
 
 /**
+ * Safely test a regex pattern with ReDoS protection
+ * Limits input length and uses simple pattern validation
+ * @param {string} pattern - The regex pattern to test
+ * @param {string} input - The input string to test against
+ * @returns {boolean} - Whether the pattern matches
+ */
+function safeRegexTest(pattern, input) {
+  // Limit input length to prevent DoS
+  const MAX_INPUT_LENGTH = 1000;
+  const safeInput = String(input).slice(0, MAX_INPUT_LENGTH);
+  
+  // Reject obviously dangerous patterns (nested quantifiers)
+  // Patterns like (a+)+, (a*)+, (a+)*, etc.
+  const dangerousPatterns = /\([^)]*[+*][^)]*\)[+*]|\([^)]*\|[^)]*\)[+*]/;
+  if (dangerousPatterns.test(pattern)) {
+    console.warn('Rejected potentially dangerous regex pattern:', pattern);
+    return false;
+  }
+  
+  try {
+    const regex = new RegExp(pattern);
+    return regex.test(safeInput);
+  } catch (err) {
+    console.warn('Invalid regex pattern:', pattern, err.message);
+    return false;
+  }
+}
+
+/**
  * Transform mapping functions for metadata
  */
 const transformFunctions = {
@@ -243,9 +272,9 @@ routingRuleSchema.methods.evaluateConditions = function(submissionData) {
   const { conditions } = this;
   if (!conditions) return true;
   
-  // PM Number pattern check
+  // PM Number pattern check (using safe regex to prevent ReDoS)
   if (!checkCondition(conditions.pmNumberPattern, submissionData.pmNumber, 
-    (pattern, pm) => new RegExp(pattern).test(pm))) return false;
+    (pattern, pm) => safeRegexTest(pattern, pm))) return false;
   
   // Job type check  
   if (!checkCondition(conditions.jobTypeIn?.length, submissionData.jobType,

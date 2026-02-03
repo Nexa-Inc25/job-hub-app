@@ -324,8 +324,10 @@ function hasMapKeywords(text) {
 }
 
 // Check if page has TCP map keywords
+// Note: Using [^]{0,100} instead of .* to prevent catastrophic backtracking (ReDoS)
+// This limits the match to 100 characters between keywords which is sufficient for document matching
 function hasTcpMapKeywords(text, textLength) {
-  const hasTcp = /traffic control plan.*map|tcp.*diagram|lane closure.*map|detour.*route|cone.*placement|sign.*placement/i.test(text);
+  const hasTcp = /traffic control plan[^]{0,100}map|tcp[^]{0,100}diagram|lane closure[^]{0,100}map|detour[^]{0,100}route|cone[^]{0,100}placement|sign[^]{0,100}placement/i.test(text);
   return hasTcp && textLength < 500;
 }
 

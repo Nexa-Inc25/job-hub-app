@@ -107,14 +107,16 @@ class SharePointAdapter {
     // PUT /sites/{site-id}/drive/items/{folder-id}:/{filename}:/content
     
     // Simulate for now
-    await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300));
+    // NOSONAR: Math.random() used for simulation timing/success rates, not security-sensitive
+    await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 300)); // NOSONAR
     
     // 90% success rate simulation
-    if (Math.random() > 0.90) {
+    if (Math.random() > 0.90) { // NOSONAR
       throw new Error('SharePoint upload failed: Service unavailable');
     }
     
-    const itemId = `SP-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+    // NOSONAR: Simulated item ID for dev/test, not security-sensitive
+    const itemId = `SP-${Date.now()}-${Math.random().toString(36).substring(7)}`; // NOSONAR
     
     console.log(`[SharePointAdapter] Uploaded to: ${payload.siteUrl}/${payload.libraryName}/${payload.folderPath}/${payload.filename}`);
     

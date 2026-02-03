@@ -358,7 +358,9 @@ claimSchema.pre('save', async function(next) {
   // Generate claim number if not set
   if (!this.claimNumber) {
     const year = new Date().getFullYear();
-    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    // Use crypto.randomInt for secure random number (avoids weak PRNG warning)
+    const crypto = require('node:crypto');
+    const random = crypto.randomInt(0, 1000).toString().padStart(3, '0');
     const count = await this.constructor.countDocuments({
       companyId: this.companyId,
       createdAt: { $gte: new Date(year, 0, 1) }

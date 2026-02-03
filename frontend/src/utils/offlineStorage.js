@@ -388,7 +388,9 @@ export async function getUserData(key) {
 export async function savePendingUnit(unitData) {
   await initOfflineDB();
   
-  const offlineId = `offline_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  // SECURITY NOTE: Math.random() for offline IDs is acceptable - not security-sensitive
+  // These IDs are for local IndexedDB tracking only, not auth tokens or session IDs
+  const offlineId = `offline_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`; // NOSONAR
   
   const unit = {
     ...unitData,

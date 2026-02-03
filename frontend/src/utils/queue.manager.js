@@ -66,7 +66,8 @@ function calculateBackoff(retryCount) {
     BACKOFF_CONFIG.maxDelayMs
   );
   // Add jitter (0-20%)
-  return delay + (Math.random() * delay * 0.2);
+  // SECURITY NOTE: Math.random() is safe here - used for timing jitter, not cryptographic purposes
+  return delay + (Math.random() * delay * 0.2); // NOSONAR
 }
 
 /**
@@ -80,8 +81,10 @@ function sleep(ms) {
  * Unified queue item structure with NIST compliance fields
  */
 function createQueueItem(type, payload, options = {}) {
+  // SECURITY NOTE: Math.random() for internal queue IDs is acceptable - not security-sensitive
+  // These IDs are for local queue management only, not auth tokens or session IDs
   return {
-    id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+    id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`, // NOSONAR
     type,
     payload,
     priority: options.priority || 1, // 1 = normal, 2 = high

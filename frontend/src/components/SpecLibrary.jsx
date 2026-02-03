@@ -413,11 +413,14 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
           
           <Grid item xs={12}>
             <input
+              id="spec-library-file-input"
+              name="spec-library-file-input"
               type="file"
               ref={fileInputRef}
               style={{ display: 'none' }}
               accept=".pdf,.doc,.docx,.xls,.xlsx"
               onChange={handleFileChange}
+              aria-label="Upload spec document"
             />
             <Button
               fullWidth

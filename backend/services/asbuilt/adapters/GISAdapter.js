@@ -113,10 +113,11 @@ class GISAdapter {
    */
   async simulateDelivery(payload) {
     // Simulate network latency
-    await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 250));
+    // NOSONAR: Math.random() used for simulation timing/success rates, not security-sensitive
+    await new Promise(resolve => setTimeout(resolve, 150 + Math.random() * 250)); // NOSONAR
     
     // 90% success rate simulation (GIS can be flaky)
-    if (Math.random() > 0.90) {
+    if (Math.random() > 0.90) { // NOSONAR
       throw new Error('GIS feature service temporarily unavailable');
     }
     

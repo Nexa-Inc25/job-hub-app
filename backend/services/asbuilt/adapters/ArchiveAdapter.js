@@ -124,7 +124,8 @@ class ArchiveAdapter {
     // 3. Apply lifecycle policies
     
     // Simulate
-    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+    // NOSONAR: Math.random() used for simulation timing jitter, not security-sensitive
+    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100)); // NOSONAR
     
     console.log(`[ArchiveAdapter] Archived: ${archiveRecord.archiveId}`);
     console.log(`[ArchiveAdapter] Retention: ${archiveRecord.retention.class} - ${archiveRecord.retention.years} years`);

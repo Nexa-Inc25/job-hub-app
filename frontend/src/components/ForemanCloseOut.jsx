@@ -184,20 +184,26 @@ const PhotoSection = ({ jobId, photos, onPhotoAdded, onPhotoDeleted }) => {
 
       {/* Hidden file inputs */}
       <input
+        id="foreman-camera-input"
+        name="foreman-camera-input"
         ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
         hidden
         onChange={(e) => handleFileSelect(e, 'camera')}
+        aria-label="Take photo with camera"
       />
       <input
+        id="foreman-gallery-input"
+        name="foreman-gallery-input"
         ref={fileInputRef}
         type="file"
         accept="image/*"
         multiple
         hidden
         onChange={(e) => handleFileSelect(e, 'gallery')}
+        aria-label="Select photos from gallery"
       />
 
       {uploading && <LinearProgress sx={{ mb: 2 }} />}

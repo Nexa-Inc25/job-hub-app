@@ -400,11 +400,14 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
             </Box>
 
             <input
+              id="qa-dashboard-file-input"
+              name="qa-dashboard-file-input"
               type="file"
               ref={fileInputRef}
               style={{ display: 'none' }}
               accept=".pdf"
               onChange={handleFileSelect}
+              aria-label="Upload QA go-back PDF"
             />
             <Button
               fullWidth

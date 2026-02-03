@@ -42,7 +42,9 @@ export default defineConfig({
   build: {
     outDir: 'build',
     sourcemap: false,
-    chunkSizeWarningLimit: 600,
+    // Increase limit since large chunks (PDF, charts) are lazy-loaded
+    // and don't affect initial page load performance
+    chunkSizeWarningLimit: 800,
     // Use esbuild for minification (faster than terser)
     minify: 'esbuild',
     rollupOptions: {
@@ -70,7 +72,7 @@ export default defineConfig({
               id.includes('node_modules/@mui/utils')) {
             return 'vendor-mui-core';
           }
-          // MUI X Data Grid - only for billing grids
+          // MUI X Data Grid - only for billing grids (lazy loaded)
           if (id.includes('node_modules/@mui/x-data-grid')) {
             return 'vendor-mui-grid';
           }
@@ -87,6 +89,10 @@ export default defineConfig({
               id.includes('node_modules/d3-')) {
             return 'vendor-charts';
           }
+          // PDF.js worker - separate chunk for web worker
+          if (id.includes('pdfjs-dist/build/pdf.worker')) {
+            return 'vendor-pdf-worker';
+          }
           // PDF libraries - DEFERRED, only loaded for PDF editing
           if (id.includes('node_modules/react-pdf') ||
               id.includes('node_modules/pdf-lib') ||
@@ -98,7 +104,7 @@ export default defineConfig({
               id.includes('node_modules/dayjs')) {
             return 'vendor-date';
           }
-          // Form handling
+          // HTTP client
           if (id.includes('node_modules/axios')) {
             return 'vendor-http';
           }

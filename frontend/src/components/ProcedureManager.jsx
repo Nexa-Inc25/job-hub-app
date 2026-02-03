@@ -199,10 +199,13 @@ export default function ProcedureManager() {
               >
                 {file ? file.name : 'Select PDF Document'}
                 <input
+                  id="procedure-manager-file-input"
+                  name="procedure-manager-file-input"
                   type="file"
                   hidden
                   accept=".pdf"
                   onChange={(e) => setFile(e.target.files[0])}
+                  aria-label="Select PDF procedure document"
                 />
               </Button>
             </Grid>

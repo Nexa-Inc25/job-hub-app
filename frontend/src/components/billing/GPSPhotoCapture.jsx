@@ -632,11 +632,14 @@ const GPSPhotoCapture = ({
                 <GalleryIcon />
               </IconButton>
               <input
+                id="gps-photo-gallery-input"
+                name="gps-photo-gallery-input"
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 onChange={handleGallerySelect}
                 style={{ display: 'none' }}
+                aria-label="Select photo from gallery"
               />
 
               {/* Main capture button */}

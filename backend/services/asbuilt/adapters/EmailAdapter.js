@@ -250,13 +250,15 @@ class EmailAdapter {
     // return await resend.emails.send(email);
     
     // Simulate for now
-    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+    // NOSONAR: Math.random() used for simulation timing jitter, not security-sensitive
+    await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100)); // NOSONAR
     
     console.log(`[EmailAdapter] Would send email to: ${email.to.join(', ')}`);
     console.log(`[EmailAdapter] Subject: ${email.subject}`);
     
     return {
-      messageId: `MSG-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      // NOSONAR: Simulated message ID for dev/test, not security-sensitive
+      messageId: `MSG-${Date.now()}-${Math.random().toString(36).substring(7)}`, // NOSONAR
       status: 'sent'
     };
   }

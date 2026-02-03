@@ -347,12 +347,15 @@ const OfflinePhotoCapture = ({
             </Box>
 
             <input
+              id="offline-photo-capture-input"
+              name="offline-photo-capture-input"
               ref={fileInputRef}
               type="file"
               accept="image/*"
               capture="environment"
               onChange={handleFileSelect}
               style={{ display: 'none' }}
+              aria-label="Capture photo for offline storage"
             />
           </Box>
         ) : (

@@ -137,15 +137,17 @@ class OracleAdapter {
    */
   async simulateDelivery(payload) {
     // Simulate network latency
-    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200));
+    // NOSONAR: Math.random() used for simulation timing/success rates, not security-sensitive
+    await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200)); // NOSONAR
     
     // 95% success rate simulation
-    if (Math.random() > 0.95) {
+    if (Math.random() > 0.95) { // NOSONAR
       throw new Error('Oracle API temporarily unavailable');
     }
     
     return {
-      documentId: `ORA-${Date.now()}-${Math.random().toString(36).substring(7)}`,
+      // NOSONAR: Simulated document ID for dev/test, not security-sensitive
+      documentId: `ORA-${Date.now()}-${Math.random().toString(36).substring(7)}`, // NOSONAR
       status: 'RECEIVED',
       timestamp: new Date().toISOString()
     };

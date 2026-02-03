@@ -171,12 +171,15 @@ const TemplateManager = () => {
             Supported: PDF files (FUCA, Tailboard, Safety Forms, etc.)
           </Typography>
           <input
+            id="template-manager-file-input"
+            name="template-manager-file-input"
             ref={fileInputRef}
             type="file"
             accept=".pdf"
             multiple
             onChange={handleUpload}
             style={{ display: 'none' }}
+            aria-label="Upload PDF templates"
           />
           {uploading && <CircularProgress sx={{ mt: 2 }} />}
         </Box>
