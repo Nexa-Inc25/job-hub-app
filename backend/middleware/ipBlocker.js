@@ -289,7 +289,8 @@ const loginAttemptTracker = (req, res, next) => {
       const result = recordFailedAttempt(ip);
       
       if (result.blocked) {
-        // Override response to indicate blocking
+        // Override response to indicate blocking with correct 429 status
+        res.status(429);
         return originalJson({
           error: 'Too many failed login attempts',
           message: 'Your IP has been temporarily blocked due to excessive failed login attempts. Please try again in 1 hour.',
