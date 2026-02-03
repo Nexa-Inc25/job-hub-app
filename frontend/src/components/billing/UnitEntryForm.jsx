@@ -32,11 +32,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Divider,
   CircularProgress,
   Fade,
   Collapse,
-  InputAdornment,
   FormControl,
   InputLabel,
   Select,
@@ -51,7 +49,6 @@ import GPSIcon from '@mui/icons-material/MyLocation';
 import WarningIcon from '@mui/icons-material/Warning';
 import OfflineIcon from '@mui/icons-material/CloudOff';
 import OnlineIcon from '@mui/icons-material/CloudQueue';
-import DeleteIcon from '@mui/icons-material/Delete';
 import ExpandIcon from '@mui/icons-material/ExpandMore';
 import CollapseIcon from '@mui/icons-material/ExpandLess';
 import { useGeolocation, GPS_THRESHOLDS } from '../../hooks/useGeolocation';
@@ -59,6 +56,13 @@ import { useOffline } from '../../hooks/useOffline';
 import GPSPhotoCapture from './GPSPhotoCapture';
 import offlineStorage from '../../utils/offlineStorage';
 import api from '../../api';
+
+// Helper to get submit button text (avoids nested ternary)
+const getSubmitButtonText = (submitting, isOnline) => {
+  if (submitting) return 'Saving...';
+  if (isOnline) return 'Submit';
+  return 'Save Offline';
+};
 
 // High-contrast colors for field visibility
 const COLORS = {
@@ -97,7 +101,6 @@ const WORK_CATEGORIES = [
  */
 const PhotoThumbnail = ({ photo, onRemove }) => {
   const hasGPS = photo.gpsCoordinates?.latitude;
-  const gpsQuality = photo.gpsQuality || 'unknown';
   
   return (
     <Box sx={{ position: 'relative', width: 80, height: 80 }}>
@@ -397,7 +400,7 @@ const UnitEntryForm = ({
         performedBy: {
           tier,
           workCategory,
-          subContractorName: tier !== 'prime' ? subContractorName : undefined,
+          subContractorName: tier === 'prime' ? undefined : subContractorName,
           crewSize: 1, // Could add crew size input
         },
         photos: photos.map(p => ({
@@ -534,9 +537,9 @@ const UnitEntryForm = ({
             {/* Photo thumbnails */}
             {photos.length > 0 && (
               <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-                {photos.map((photo, idx) => (
+                {photos.map((photo) => (
                   <PhotoThumbnail 
-                    key={idx} 
+                    key={photo.capturedAt || photo.dataUrl?.slice(-20)} 
                     photo={photo} 
                     onRemove={handleRemovePhoto}
                   />
@@ -798,7 +801,7 @@ const UnitEntryForm = ({
             },
           }}
         >
-          {submitting ? 'Saving...' : isOnline ? 'Submit' : 'Save Offline'}
+          {getSubmitButtonText(submitting, isOnline)}
         </Button>
       </Box>
 

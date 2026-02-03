@@ -552,7 +552,7 @@ const TailboardSection = ({ jobId, tailboard, onNavigateTailboard }) => {
             <Box sx={{ mb: 2 }}>
               <Chip
                 icon={<GroupsIcon />}
-                label={`${crewCount} crew member${crewCount !== 1 ? 's' : ''}`}
+                label={`${crewCount} crew member${crewCount === 1 ? '' : 's'}`}
                 sx={{ mr: 1, bgcolor: COLORS.surfaceLight, color: COLORS.text }}
               />
               {tailboard.hazardCount > 0 && (

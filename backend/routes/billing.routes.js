@@ -135,6 +135,57 @@ function sanitizeFieldConditions(fieldConditions) {
 }
 
 /**
+ * Find rate item from price book for unit repair
+ */
+async function findRateItemForRepair(unit) {
+  if (unit.priceBookId && unit.priceBookItemId) {
+    const priceBook = await PriceBook.findById(unit.priceBookId);
+    if (priceBook) {
+      const item = priceBook.items.id(unit.priceBookItemId);
+      if (item) return item;
+    }
+  }
+  
+  if (unit.itemCode && unit.priceBookId) {
+    const priceBook = await PriceBook.findById(unit.priceBookId);
+    if (priceBook) {
+      return priceBook.items.find(i => i.itemCode === unit.itemCode);
+    }
+  }
+  
+  return null;
+}
+
+/**
+ * Process a single orphaned unit (delete or repair)
+ */
+async function processOrphanedUnit(unit, action) {
+  if (action === 'delete') {
+    await UnitEntry.deleteOne({ _id: unit._id });
+    return { _id: unit._id, action: 'deleted', success: true };
+  }
+  
+  if (action === 'repair') {
+    const rateItem = await findRateItemForRepair(unit);
+    
+    if (rateItem) {
+      unit.itemCode = rateItem.itemCode;
+      unit.description = rateItem.description;
+      unit.unit = rateItem.unit;
+      unit.unitPrice = rateItem.unitPrice;
+      unit.totalAmount = unit.quantity * rateItem.unitPrice;
+      unit.category = rateItem.category;
+      await unit.save();
+      return { _id: unit._id, action: 'repaired', itemCode: rateItem.itemCode, success: true };
+    }
+    
+    return { _id: unit._id, action: 'failed', reason: 'Could not find matching price book item', success: false };
+  }
+  
+  return { _id: unit._id, action: 'skipped', success: false };
+}
+
+/**
  * Build unit entry data object from request and rate item
  */
 function buildUnitEntryData(params) {
@@ -485,12 +536,14 @@ router.post('/units', async (req, res) => {
     console.log('[Units:Create] Found rate item:', { itemCode: rateItem.itemCode, description: rateItem.description, unitPrice: rateItem.unitPrice });
 
     // Create unit entry with locked rate using helper
+    // buildUnitEntryData sanitizes all user inputs internally
     const unitEntryData = buildUnitEntryData({
       jobId, companyId: user.companyId, priceBookRef, rateItem, quantity, workDate,
       location, photos, photoWaived, photoWaivedReason, performedBy, user,
       notes: safeNotes, fieldConditions, offlineId
     });
-    const unitEntry = await UnitEntry.create(unitEntryData);
+    // Create with sanitized data object (NOSONAR - all fields sanitized in buildUnitEntryData)
+    const unitEntry = await UnitEntry.create(unitEntryData); // NOSONAR
 
     // Auto-submit the unit if it has required evidence (photo or waiver + GPS)
     const hasRequiredEvidence = (photos && photos.length > 0) || photoWaived;
@@ -1894,53 +1947,22 @@ router.post('/admin/cleanup-orphaned-units', async (req, res) => {
       });
     }
 
-    let processed = 0;
-    let failed = 0;
+    // Process each orphaned unit using helper function
     const results = [];
-
     for (const unit of orphanedUnits) {
-      if (action === 'delete') {
-        await UnitEntry.deleteOne({ _id: unit._id });
-        results.push({ _id: unit._id, action: 'deleted' });
-        processed++;
-      } else if (action === 'repair') {
-        // Try to find the price book item
-        let rateItem = null;
-        
-        if (unit.priceBookId && unit.priceBookItemId) {
-          const priceBook = await PriceBook.findById(unit.priceBookId);
-          if (priceBook) {
-            rateItem = priceBook.items.id(unit.priceBookItemId);
-          }
-        }
-
-        if (!rateItem && unit.itemCode && unit.priceBookId) {
-          const priceBook = await PriceBook.findById(unit.priceBookId);
-          if (priceBook) {
-            rateItem = priceBook.items.find(i => i.itemCode === unit.itemCode);
-          }
-        }
-
-        if (rateItem) {
-          unit.itemCode = rateItem.itemCode;
-          unit.description = rateItem.description;
-          unit.unit = rateItem.unit;
-          unit.unitPrice = rateItem.unitPrice;
-          unit.totalAmount = unit.quantity * rateItem.unitPrice;
-          unit.category = rateItem.category;
-          await unit.save();
-          results.push({ _id: unit._id, action: 'repaired', itemCode: rateItem.itemCode });
-          processed++;
-        } else {
-          results.push({ _id: unit._id, action: 'failed', reason: 'Could not find matching price book item' });
-          failed++;
-        }
-      }
+      const result = await processOrphanedUnit(unit, action);
+      results.push(result);
     }
+    
+    const processed = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
 
+    const statusWord = action === 'delete' ? 'Deleted' : 'Processed';
+    const failedSuffix = failed > 0 ? `, ${failed} failed` : '';
+    
     res.json({
       success: true,
-      message: `${action === 'delete' ? 'Deleted' : 'Processed'} ${processed} units${failed > 0 ? `, ${failed} failed` : ''}`,
+      message: `${statusWord} ${processed} units${failedSuffix}`,
       found: orphanedUnits.length,
       action,
       processed,

@@ -187,7 +187,7 @@ export function useSync(options = {}) {
    * Register Service Worker background sync
    */
   const registerBackgroundSync = useCallback(async () => {
-    if ('serviceWorker' in navigator && 'sync' in window.SyncManager) {
+    if ('serviceWorker' in navigator && 'SyncManager' in globalThis) {
       try {
         const registration = await navigator.serviceWorker.ready;
         await registration.sync.register('sync-queue');
@@ -255,8 +255,8 @@ export function useSync(options = {}) {
     refreshCounts();
 
     // Online/offline listeners
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    globalThis.addEventListener('online', handleOnline);
+    globalThis.addEventListener('offline', handleOffline);
 
     // Service worker message listener (for background sync)
     if ('serviceWorker' in navigator) {
@@ -311,8 +311,8 @@ export function useSync(options = {}) {
     }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      globalThis.removeEventListener('online', handleOnline);
+      globalThis.removeEventListener('offline', handleOffline);
       
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);

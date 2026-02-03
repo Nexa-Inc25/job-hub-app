@@ -13,17 +13,12 @@ import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import {
   Box,
-  Paper,
   Tabs,
   Tab,
   Typography,
   Button,
-  Divider,
   Alert,
-  AlertTitle,
   Snackbar,
-  Drawer,
-  IconButton,
   AppBar,
   Toolbar,
   Badge,
@@ -33,10 +28,7 @@ import {
 } from '@mui/material';
 import UnitsIcon from '@mui/icons-material/Assignment';
 import ClaimsIcon from '@mui/icons-material/Receipt';
-import ExportIcon from '@mui/icons-material/CloudUpload';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import MenuIcon from '@mui/icons-material/Menu';
-import CloseIcon from '@mui/icons-material/Close';
 import SuccessIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import AnalyticsIcon from '@mui/icons-material/TrendingUp';
@@ -95,7 +87,6 @@ const BillingDashboard = ({ jobId }) => {
   
   // UI state
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [claimDrawerOpen, setClaimDrawerOpen] = useState(false);
   const [syncPanelOpen, setSyncPanelOpen] = useState(false);
   const [exportProgress, setExportProgress] = useState(null);
   
@@ -216,9 +207,8 @@ const BillingDashboard = ({ jobId }) => {
       return;
     }
 
-    // Store selected units and open claim drawer
+    // Store selected units and switch to claims tab
     setSelectedUnits(approvedUnits.map(u => u._id));
-    setClaimDrawerOpen(true);
     setActiveTab(1); // Switch to claims tab
   }, []);
 

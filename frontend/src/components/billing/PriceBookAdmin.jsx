@@ -37,7 +37,6 @@ import {
   Alert,
   AlertTitle,
   CircularProgress,
-  Divider,
   FormControl,
   InputLabel,
   Select,
@@ -53,21 +52,17 @@ import {
   LinearProgress,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadIcon from '@mui/icons-material/Upload';
 import DownloadIcon from '@mui/icons-material/Download';
 import ActivateIcon from '@mui/icons-material/CheckCircle';
-import ArchiveIcon from '@mui/icons-material/Archive';
 import SearchIcon from '@mui/icons-material/Search';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import CloseIcon from '@mui/icons-material/Close';
 import PriceIcon from '@mui/icons-material/AttachMoney';
 import CategoryIcon from '@mui/icons-material/Category';
-import DescriptionIcon from '@mui/icons-material/Description';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import CheckIcon from '@mui/icons-material/Check';
-import WarningIcon from '@mui/icons-material/Warning';
 import api from '../../api';
 
 // Category colors
@@ -360,7 +355,30 @@ const CSVImportDialog = ({ open, onClose, priceBookId, onSuccess }) => {
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>Import Rate Items from CSV</DialogTitle>
       <DialogContent>
-        {!result ? (
+        {result ? (
+          <Box sx={{ mt: 1 }}>
+            <Alert severity={result.errors > 0 ? 'warning' : 'success'}>
+              <AlertTitle>Import Complete</AlertTitle>
+              <strong>{result.imported}</strong> items imported successfully.
+              {result.errors > 0 && (
+                <> <strong>{result.errors}</strong> rows had errors.</>
+              )}
+            </Alert>
+
+            {result.errorDetails?.length > 0 && (
+              <Box sx={{ mt: 2, maxHeight: 200, overflow: 'auto' }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Errors:
+                </Typography>
+                {result.errorDetails.map((err) => (
+                  <Typography key={`row-${err.row}`} variant="body2" color="error.main">
+                    Row {err.row}: {err.message}
+                  </Typography>
+                ))}
+              </Box>
+            )}
+          </Box>
+        ) : (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Alert severity="info">
               <AlertTitle>CSV Format</AlertTitle>
@@ -406,29 +424,6 @@ const CSVImportDialog = ({ open, onClose, priceBookId, onSuccess }) => {
 
             {error && (
               <Alert severity="error">{error}</Alert>
-            )}
-          </Box>
-        ) : (
-          <Box sx={{ mt: 1 }}>
-            <Alert severity={result.errors > 0 ? 'warning' : 'success'}>
-              <AlertTitle>Import Complete</AlertTitle>
-              <strong>{result.imported}</strong> items imported successfully.
-              {result.errors > 0 && (
-                <> <strong>{result.errors}</strong> rows had errors.</>
-              )}
-            </Alert>
-
-            {result.errorDetails?.length > 0 && (
-              <Box sx={{ mt: 2, maxHeight: 200, overflow: 'auto' }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Errors:
-                </Typography>
-                {result.errorDetails.map((err, idx) => (
-                  <Typography key={idx} variant="body2" color="error.main">
-                    Row {err.row}: {err.message}
-                  </Typography>
-                ))}
-              </Box>
             )}
           </Box>
         )}
@@ -716,7 +711,7 @@ const PriceBookAdmin = () => {
   const fetchPriceBooks = useCallback(async () => {
     try {
       setLoading(true);
-      const params = statusFilter !== 'all' ? { status: statusFilter } : {};
+      const params = statusFilter === 'all' ? {} : { status: statusFilter };
       const response = await api.get('/api/pricebooks', { params });
       setPriceBooks(response.data);
     } catch (err) {

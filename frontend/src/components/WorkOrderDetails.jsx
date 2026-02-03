@@ -62,8 +62,8 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EmailIcon from '@mui/icons-material/Email';
 import PdfIcon from '@mui/icons-material/PictureAsPdf';
 import SketchIcon from '@mui/icons-material/Architecture';
-import InstructionsIcon from '@mui/icons-material/Assignment';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+// Note: InstructionsIcon was duplicate of AssignmentIcon - use AssignmentIcon directly
 
 // Helper to determine status color (avoids nested ternary) - uses high-contrast colors
 const getTimelineStatusColor = (status, defaultColor) => {
@@ -1298,7 +1298,7 @@ const WorkOrderDetails = () => {
                     <Card sx={{ borderRadius: 2, height: '100%' }}>
                       <CardContent>
                         <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
-                          <InstructionsIcon color="primary" />
+                          <AssignmentIcon color="primary" />
                           Crew Instructions ({crewInstructions.length})
                         </Typography>
                         <Divider sx={{ mb: 2 }} />

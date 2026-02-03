@@ -55,6 +55,13 @@ import ChecklistIcon from '@mui/icons-material/Checklist';
 import api from '../api';
 import SignaturePad from './shared/SignaturePad';
 
+// Helper function to get risk level color (avoids nested ternary)
+const getRiskLevelColor = (riskLevel) => {
+  if (riskLevel === 'high') return 'error';
+  if (riskLevel === 'medium') return 'warning';
+  return 'success';
+};
+
 // Hazard category definitions
 const HAZARD_CATEGORIES = {
   electrical: {
@@ -862,7 +869,7 @@ const TailboardForm = () => {
                       <Chip 
                         label={hazard.riskLevel} 
                         size="small"
-                        color={hazard.riskLevel === 'high' ? 'error' : hazard.riskLevel === 'medium' ? 'warning' : 'success'}
+                        color={getRiskLevelColor(hazard.riskLevel)}
                       />
                     </Box>
                   </AccordionSummary>
@@ -871,8 +878,8 @@ const TailboardForm = () => {
                       Controls / Mitigations:
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {hazard.controls.map((control, ci) => (
-                        <Chip key={ci} label={control} size="small" variant="outlined" />
+                      {hazard.controls.map((control) => (
+                        <Chip key={`${hazard.id}-${control}`} label={control} size="small" variant="outlined" />
                       ))}
                     </Box>
                     {!isCompleted && (

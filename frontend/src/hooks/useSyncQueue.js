@@ -13,7 +13,8 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import queueManager, { 
+import queueManager from '../utils/queue.manager';
+import { 
   QUEUE_STATUS, 
   QUEUE_TYPES,
   LOCK_REASONS,
@@ -282,9 +283,9 @@ export function useSyncQueue(options = {}) {
     refreshCounts();
 
     // Online/offline listeners
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    window.addEventListener('auth-required', handleAuthRequired);
+    globalThis.addEventListener('online', handleOnline);
+    globalThis.addEventListener('offline', handleOffline);
+    globalThis.addEventListener('auth-required', handleAuthRequired);
 
     // Queue manager event listener
     const unsubscribe = queueManager.subscribe((event, data) => {
@@ -352,9 +353,9 @@ export function useSyncQueue(options = {}) {
     }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      window.removeEventListener('auth-required', handleAuthRequired);
+      globalThis.removeEventListener('online', handleOnline);
+      globalThis.removeEventListener('offline', handleOffline);
+      globalThis.removeEventListener('auth-required', handleAuthRequired);
       unsubscribe();
       
       if (pollIntervalRef.current) {
@@ -422,5 +423,5 @@ export function useSyncQueue(options = {}) {
 export default useSyncQueue;
 
 // Re-export constants for convenience
-export { QUEUE_TYPES, QUEUE_STATUS, LOCK_REASONS };
+export { QUEUE_TYPES, QUEUE_STATUS, LOCK_REASONS } from '../utils/queue.manager';
 

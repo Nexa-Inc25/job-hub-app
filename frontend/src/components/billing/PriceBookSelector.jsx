@@ -24,16 +24,11 @@ import {
   CircularProgress,
   InputAdornment,
   Divider,
-  List,
-  ListItem,
-  ListItemButton,
-  Badge,
   Alert,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import HistoryIcon from '@mui/icons-material/History';
-import FilterIcon from '@mui/icons-material/FilterList';
 import SelectIcon from '@mui/icons-material/ArrowForward';
 import OfflineIcon from '@mui/icons-material/CloudOff';
 import { useOffline } from '../../hooks/useOffline';

@@ -40,7 +40,7 @@ import {
   GridToolbar,
   GridActionsCellItem,
 } from '@mui/x-data-grid';
-import ApproveIcon from '@mui/icons-material/CheckCircle';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import RejectIcon from '@mui/icons-material/Cancel';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -51,7 +51,6 @@ import ExpandIcon from '@mui/icons-material/ExpandMore';
 import CollapseIcon from '@mui/icons-material/ExpandLess';
 import AddToClaimIcon from '@mui/icons-material/AddShoppingCart';
 import SearchIcon from '@mui/icons-material/Search';
-import FilterIcon from '@mui/icons-material/FilterList';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import ExportIcon from '@mui/icons-material/Download';
 import MoreIcon from '@mui/icons-material/MoreVert';
@@ -59,12 +58,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
 import ProofPanel from './ProofPanel';
 
-// Status configurations
+// Status configurations - use CheckCircleIcon for both approve and paid states
 const STATUS_CONFIG = {
   draft: { label: 'Draft', color: 'default', icon: null },
   submitted: { label: 'Submitted', color: 'info', icon: null },
   verified: { label: 'Verified', color: 'primary', icon: VerifiedIcon },
-  approved: { label: 'Approved', color: 'success', icon: ApproveIcon },
+  approved: { label: 'Approved', color: 'success', icon: CheckCircleIcon },
   disputed: { label: 'Disputed', color: 'error', icon: RejectIcon },
   invoiced: { label: 'Invoiced', color: 'secondary', icon: null },
   paid: { label: 'Paid', color: 'success', icon: CheckCircleIcon },
@@ -76,9 +75,6 @@ const TIER_COLORS = {
   sub: 'info',
   sub_of_sub: 'secondary',
 };
-
-// Import missing icon
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
 /**
  * Check if unit has validation warnings

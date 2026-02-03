@@ -519,7 +519,7 @@ ForecastCard.propTypes = {
 const BillingAnalytics = ({ units = [], claims = [] }) => {
   const [period, setPeriod] = useState('30d');
   const [loading] = useState(false);
-  const [error, setError] = useState(null);
+  const [error] = useState(null);
 
   // Calculate analytics from units and claims
   const analytics = useMemo(() => {

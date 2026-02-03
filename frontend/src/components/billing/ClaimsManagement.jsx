@@ -14,7 +14,6 @@ import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import {
   Box,
-  Paper,
   Typography,
   Button,
   IconButton,
@@ -46,22 +45,19 @@ import {
   Collapse,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
-import DownloadIcon from '@mui/icons-material/Download';
 import SubmitIcon from '@mui/icons-material/Send';
-import ApproveIcon from '@mui/icons-material/Check';
 import ClaimIcon from '@mui/icons-material/Receipt';
 import ExpandIcon from '@mui/icons-material/ExpandMore';
 import CollapseIcon from '@mui/icons-material/ExpandLess';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
 import ViewIcon from '@mui/icons-material/Visibility';
 import PaymentIcon from '@mui/icons-material/AttachMoney';
 import WarningIcon from '@mui/icons-material/Warning';
 import ExportIcon from '@mui/icons-material/CloudUpload';
 import CSVIcon from '@mui/icons-material/Description';
 import JSONIcon from '@mui/icons-material/Code';
-import { formatForOracle, exportToCSV, validateForExport, generateAuditTrail } from '../../utils/oracleMapper';
+import { formatForOracle, exportToCSV, validateForExport } from '../../utils/oracleMapper';
 
 // Claim status configurations
 const CLAIM_STATUS = {
@@ -149,8 +145,8 @@ const CreateClaimDialog = ({
           <Alert severity="warning" sx={{ mb: 2 }}>
             <AlertTitle>Review Required</AlertTitle>
             <ul style={{ margin: 0, paddingLeft: 20 }}>
-              {validation.warnings.slice(0, 5).map((w, i) => (
-                <li key={i}>{w}</li>
+              {validation.warnings.slice(0, 5).map((w) => (
+                <li key={w}>{w}</li>
               ))}
               {validation.warnings.length > 5 && (
                 <li>...and {validation.warnings.length - 5} more</li>
@@ -537,6 +533,7 @@ const ClaimsManagement = ({
   onUpdateClaim,
   onDeleteClaim,
   onExportOracle,
+  onExportFBDI,
   onExportCSV,
   onRecordPayment,
   onViewClaim,

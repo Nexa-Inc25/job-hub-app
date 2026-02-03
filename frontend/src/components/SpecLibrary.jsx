@@ -802,7 +802,7 @@ const SpecLibrary = () => {
                           {divConfig.label}
                         </Typography>
                         <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.95)', fontWeight: 500 }}>
-                          {totalSpecs} spec{totalSpecs !== 1 ? 's' : ''} • {Object.keys(divSections).length} section{Object.keys(divSections).length !== 1 ? 's' : ''}
+                          {totalSpecs} spec{totalSpecs === 1 ? '' : 's'} • {Object.keys(divSections).length} section{Object.keys(divSections).length === 1 ? '' : 's'}
                         </Typography>
                       </Box>
                     </Box>
@@ -832,7 +832,7 @@ const SpecLibrary = () => {
                                 {section}
                               </Typography>
                               <Chip 
-                                label={`${sectionSpecs.length} spec${sectionSpecs.length !== 1 ? 's' : ''}`}
+                                label={`${sectionSpecs.length} spec${sectionSpecs.length === 1 ? '' : 's'}`}
                                 size="small"
                                 sx={{ bgcolor: `${divConfig.color}30`, color: divConfig.color, fontSize: '0.75rem', fontWeight: 700 }}
                               />

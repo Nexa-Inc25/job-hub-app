@@ -174,17 +174,11 @@ describe('GPSPhotoCapture Component', () => {
   });
 
   describe('Photo Capture Flow', () => {
-    it('should show preview mode after capture', async () => {
-      // This test simulates the capture flow
-      const { rerender } = render(<GPSPhotoCapture {...defaultProps} />);
-      
-      // After capture, component should show "Review Photo"
-      // This would require more complex setup with actual video/canvas mocking
-    });
+    it.todo('should show preview mode after capture');
+    // Requires complex setup with actual video/canvas mocking
 
-    it('should have retake button in preview mode', () => {
-      // Would need to simulate captured image state
-    });
+    it.todo('should have retake button in preview mode');
+    // Would need to simulate captured image state
   });
 
   describe('Accessibility', () => {

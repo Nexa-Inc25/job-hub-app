@@ -21,23 +21,14 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
-  Button,
   IconButton,
   TextField,
   Card,
   CardContent,
   Chip,
   Alert,
-  CircularProgress,
   InputAdornment,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Divider,
-  Badge,
   Fab,
-  SwipeableDrawer,
   Skeleton,
 } from '@mui/material';
 import BackIcon from '@mui/icons-material/ArrowBack';
@@ -47,12 +38,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import OfflineIcon from '@mui/icons-material/CloudOff';
 import OnlineIcon from '@mui/icons-material/CloudQueue';
 import HistoryIcon from '@mui/icons-material/History';
-import FilterIcon from '@mui/icons-material/FilterList';
-import StarIcon from '@mui/icons-material/Star';
-import GPSIcon from '@mui/icons-material/MyLocation';
 import { useOffline } from '../../hooks/useOffline';
 import UnitEntryForm from './UnitEntryForm';
-import PriceBookSelector from './PriceBookSelector';
 import api from '../../api';
 import offlineStorage from '../../utils/offlineStorage';
 

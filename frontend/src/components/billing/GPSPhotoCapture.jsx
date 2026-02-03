@@ -23,7 +23,6 @@ import {
   IconButton,
   Button,
   CircularProgress,
-  Chip,
   Alert,
   Fade,
   LinearProgress,
@@ -38,7 +37,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import RetryIcon from '@mui/icons-material/Refresh';
 import GalleryIcon from '@mui/icons-material/PhotoLibrary';
 import WarningIcon from '@mui/icons-material/Warning';
-import { useGeolocation, GPS_THRESHOLDS, getGPSQuality } from '../../hooks/useGeolocation';
+import { useGeolocation, GPS_THRESHOLDS } from '../../hooks/useGeolocation';
 
 // High-contrast colors for sunlight visibility
 const COLORS = {
