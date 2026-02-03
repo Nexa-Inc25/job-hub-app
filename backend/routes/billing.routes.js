@@ -546,8 +546,10 @@ router.post('/units', async (req, res) => {
     const unitEntry = await UnitEntry.create(unitEntryData); // NOSONAR
 
     // Auto-submit the unit if it has required evidence (photo or waiver + GPS)
-    const hasRequiredEvidence = (photos && photos.length > 0) || photoWaived;
-    const hasValidGPS = location?.latitude && location?.longitude && location?.accuracy <= 100;
+    // Use sanitized photos from unitEntryData to ensure consistency with saved data
+    const hasRequiredEvidence = (unitEntryData.photos && unitEntryData.photos.length > 0) || unitEntryData.photoWaived;
+    // Use < 50m threshold to match UnitEntry model's hasValidGPS virtual
+    const hasValidGPS = unitEntryData.location?.latitude && unitEntryData.location?.longitude && unitEntryData.location?.accuracy < 50;
     
     if (hasRequiredEvidence && hasValidGPS) {
       await unitEntry.submit(user._id);

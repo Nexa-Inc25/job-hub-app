@@ -787,7 +787,7 @@ const ForemanCloseOut = () => {
         status: 'pending_pm_approval',
       });
       setShowSubmitDialog(false);
-      navigate('/dashboard', { state: { message: 'Job submitted for GF review!' } });
+      navigate('/dashboard', { state: { message: 'Job submitted for PM approval!' } });
     } catch (err) {
       setError(err.message);
     } finally {
