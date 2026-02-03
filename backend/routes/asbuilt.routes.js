@@ -80,14 +80,14 @@ function sanitizeMetadataMapping(metadataMapping) {
 function sanitizeConditions(conditions) {
   if (!Array.isArray(conditions)) return undefined;
   
-  const validOperators = ['equals', 'contains', 'startsWith', 'endsWith', 'regex', 'exists', 'notExists'];
+  const validOperators = new Set(['equals', 'contains', 'startsWith', 'endsWith', 'regex', 'exists', 'notExists']);
   
   return conditions
     .map(c => {
       if (!c || typeof c !== 'object') return null;
       return {
         field: sanitizeString(c.field),
-        operator: validOperators.includes(c.operator) ? c.operator : 'equals',
+        operator: validOperators.has(c.operator) ? c.operator : 'equals',
         value: sanitizeString(c.value)
       };
     })

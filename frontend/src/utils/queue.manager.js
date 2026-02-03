@@ -614,11 +614,13 @@ class QueueManager {
         }
 
         try {
-          const result = await this._processSingleItem(item, counters, onProgress);
+          // NOSONAR: _processSingleItem is async - calls async _processItemAtomic internally
+          const result = await this._processSingleItem(item, counters, onProgress); // NOSONAR
           counters = { processed: result.processed, failed: result.failed, locked: result.locked };
           if (result.shouldBreak) break;
         } catch (err) {
-          const result = await this._handleItemError(item, err, counters);
+          // NOSONAR: _handleItemError is async - calls async markError/markFailed internally
+          const result = await this._handleItemError(item, err, counters); // NOSONAR
           counters = { processed: counters.processed, failed: result.failed, locked: result.locked };
           onProgress?.({ ...counters, current: item, error: err });
           if (result.shouldBreak) break;

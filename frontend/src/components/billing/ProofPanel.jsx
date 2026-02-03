@@ -107,6 +107,15 @@ function formatTimestamp(timestamp) {
 }
 
 /**
+ * Get tier chip color - extracted to avoid nested ternary
+ */
+function getTierChipColor(tier) {
+  if (tier === 'sub_of_sub') return 'secondary';
+  if (tier === 'sub') return 'info';
+  return 'default';
+}
+
+/**
  * Get photo verification status chip - extracted to reduce complexity
  */
 function getPhotoStatusChip(isPhotoVerified) {
@@ -452,10 +461,7 @@ const ProofPanel = ({ unit }) => {
                   label={performedBy.tier?.replace('_', ' ') || 'Prime'}
                   size="small"
                   variant="outlined"
-                  color={
-                    performedBy.tier === 'sub_of_sub' ? 'secondary' :
-                    performedBy.tier === 'sub' ? 'info' : 'default'
-                  }
+                  color={getTierChipColor(performedBy.tier)}
                 />
                 {performedBy.subContractorName && (
                   <Typography variant="body2" color="text.secondary">

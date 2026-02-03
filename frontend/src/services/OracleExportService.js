@@ -385,7 +385,8 @@ class OracleExportService {
 
       // Transform
       this._emit('transforming', { claimId: claim._id });
-      const payload = await this.transformClaim(claim, units, config);
+      // NOSONAR: transformClaim is async - uses await internally for hash verification
+      const payload = await this.transformClaim(claim, units, config); // NOSONAR
 
       if (dryRun) {
         // Dry run - just return the payload
