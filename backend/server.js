@@ -65,6 +65,13 @@ const {
   blockSuspiciousAgents,
   secureErrorHandler
 } = require('./middleware/security');
+const {
+  ipBlockerMiddleware,
+  loginAttemptTracker,
+  blockIP,
+  unblockIP,
+  getBlockedIPs
+} = require('./middleware/ipBlocker');
 const Utility = require('./models/Utility');
 const Company = require('./models/Company');
 const SpecDocument = require('./models/SpecDocument');
@@ -216,6 +223,7 @@ app.use(helmet({
 // ============================================
 app.use(requestId);                    // Unique request ID for audit correlation
 app.use(additionalSecurityHeaders);    // Extra security headers
+app.use(ipBlockerMiddleware);          // Block IPs after excessive failed logins
 app.use(blockSuspiciousAgents);        // Block known attack tools
 app.use(preventParamPollution);        // Prevent parameter pollution attacks
 app.use(sanitizeInput);                // Sanitize all input
@@ -271,7 +279,7 @@ const heavyLimiter = rateLimit({
 });
 
 // Apply rate limiters (order matters - more specific first)
-app.use('/api/login', authLimiter);
+app.use('/api/login', authLimiter, loginAttemptTracker);   // Auth with auto-blocking
 app.use('/api/signup', authLimiter);
 app.use('/api/billing/claims/*/export', heavyLimiter);  // Export endpoints
 app.use('/api/billing/export', heavyLimiter);           // Bulk exports
@@ -3581,6 +3589,108 @@ app.get('/api/admin/audit-logs/export', authenticateUser, requireAdmin, async (r
   } catch (err) {
     console.error('Error exporting audit logs:', err);
     res.status(500).json({ error: 'Failed to export audit logs' });
+  }
+});
+
+// ========================================
+// SECURITY - IP BLOCKLIST MANAGEMENT (Super Admin only)
+// ========================================
+
+// Get all blocked IPs
+app.get('/api/admin/security/blocked-ips', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const blockedIPs = getBlockedIPs();
+    res.json({
+      count: blockedIPs.length,
+      blockedIPs
+    });
+  } catch (err) {
+    console.error('Error getting blocked IPs:', err);
+    res.status(500).json({ error: 'Failed to get blocked IPs' });
+  }
+});
+
+// Block an IP manually
+app.post('/api/admin/security/block-ip', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { ip, reason, permanent = false, durationMinutes = 60 } = req.body;
+    
+    if (!ip) {
+      return res.status(400).json({ error: 'IP address is required' });
+    }
+    
+    // Validate IP format (basic check)
+    const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    const ipv6Regex = /^([a-fA-F0-9:]+)$/;
+    if (!ipv4Regex.test(ip) && !ipv6Regex.test(ip)) {
+      return res.status(400).json({ error: 'Invalid IP address format' });
+    }
+    
+    const durationMs = permanent ? null : durationMinutes * 60 * 1000;
+    const result = blockIP(ip, durationMs, reason || 'Manually blocked by admin', permanent);
+    
+    // Log the action
+    await AuditLog.log({
+      timestamp: new Date(),
+      userId: req.userId,
+      userEmail: req.userEmail,
+      action: 'IP_BLOCKED',
+      category: 'security',
+      severity: 'warning',
+      details: {
+        blockedIP: ip,
+        reason: reason || 'Manually blocked by admin',
+        permanent,
+        durationMinutes: permanent ? null : durationMinutes
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true
+    });
+    
+    res.json({
+      message: `IP ${ip} has been blocked`,
+      ...result
+    });
+  } catch (err) {
+    console.error('Error blocking IP:', err);
+    res.status(500).json({ error: 'Failed to block IP' });
+  }
+});
+
+// Unblock an IP
+app.delete('/api/admin/security/unblock-ip/:ip', authenticateUser, requireSuperAdmin, async (req, res) => {
+  try {
+    const { ip } = req.params;
+    
+    if (!ip) {
+      return res.status(400).json({ error: 'IP address is required' });
+    }
+    
+    const wasBlocked = unblockIP(ip);
+    
+    if (!wasBlocked) {
+      return res.status(404).json({ error: 'IP was not blocked' });
+    }
+    
+    // Log the action
+    await AuditLog.log({
+      timestamp: new Date(),
+      userId: req.userId,
+      userEmail: req.userEmail,
+      action: 'IP_UNBLOCKED',
+      category: 'security',
+      severity: 'info',
+      details: { unblockedIP: ip },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      success: true
+    });
+    
+    res.json({ message: `IP ${ip} has been unblocked` });
+  } catch (err) {
+    console.error('Error unblocking IP:', err);
+    res.status(500).json({ error: 'Failed to unblock IP' });
   }
 });
 
