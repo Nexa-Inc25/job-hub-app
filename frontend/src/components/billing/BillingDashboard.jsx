@@ -266,7 +266,8 @@ const BillingDashboard = ({ jobId }) => {
         await handleUpdateClaim(claim._id, { status: 'exported' });
       }
     } catch (err) {
-      showSnackbar('Oracle export failed', 'error');
+      console.error('Oracle export failed:', err);
+      showSnackbar(err.message || 'Oracle export failed', 'error');
     }
   }, [units, handleUpdateClaim]);
 

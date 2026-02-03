@@ -32,14 +32,14 @@ const mockGeolocation = {
   clearWatch: vi.fn()
 };
 
-Object.defineProperty(global.navigator, 'geolocation', {
+Object.defineProperty(globalThis.navigator, 'geolocation', {
   value: mockGeolocation,
   writable: true
 });
 
 // Mock URL.createObjectURL and revokeObjectURL
-global.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
-global.URL.revokeObjectURL = vi.fn();
+globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+globalThis.URL.revokeObjectURL = vi.fn();
 
 // Mock canvas for image processing
 HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
@@ -68,18 +68,18 @@ const mockMediaDevices = {
   ])
 };
 
-Object.defineProperty(global.navigator, 'mediaDevices', {
+Object.defineProperty(globalThis.navigator, 'mediaDevices', {
   value: mockMediaDevices,
   writable: true
 });
 
 // Mock crypto.randomUUID
-Object.defineProperty(global.crypto, 'randomUUID', {
-  value: vi.fn(() => 'mock-uuid-' + Math.random().toString(36).substr(2, 9))
+Object.defineProperty(globalThis.crypto, 'randomUUID', {
+  value: vi.fn(() => 'mock-uuid-' + Math.random().toString(36).slice(2, 11))
 });
 
 // Mock window.matchMedia (used by MUI)
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(globalThis, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({
     matches: false,
@@ -94,16 +94,14 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock IntersectionObserver
-global.IntersectionObserver = class IntersectionObserver {
-  constructor() {}
+globalThis.IntersectionObserver = class IntersectionObserver {
   observe() { return null; }
   unobserve() { return null; }
   disconnect() { return null; }
 };
 
 // Mock ResizeObserver
-global.ResizeObserver = class ResizeObserver {
-  constructor() {}
+globalThis.ResizeObserver = class ResizeObserver {
   observe() { return null; }
   unobserve() { return null; }
   disconnect() { return null; }

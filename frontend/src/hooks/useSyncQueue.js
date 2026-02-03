@@ -13,8 +13,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import queueManager from '../utils/queue.manager';
-import { 
+import queueManager, { 
   QUEUE_STATUS, 
   QUEUE_TYPES,
   LOCK_REASONS,

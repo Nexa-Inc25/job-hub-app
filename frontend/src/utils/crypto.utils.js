@@ -81,8 +81,9 @@ export async function hashPhoto(photo) {
     const binaryString = atob(base64);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
-      // Use charCodeAt for byte values (0-255), not codePointAt which can exceed byte range
-      bytes[i] = binaryString.charCodeAt(i);
+      // NOSONAR: Use charCodeAt for byte values (0-255), not codePointAt which can exceed byte range
+      // Binary strings from atob() are guaranteed to have values 0-255, codePointAt would be incorrect
+      bytes[i] = binaryString.charCodeAt(i); // NOSONAR
     }
     arrayBuffer = bytes.buffer;
   } else {
@@ -159,10 +160,19 @@ export function getTokenTTL(token) {
  * @returns {Promise<string>} Device signature hash
  */
 export async function generateDeviceSignature() {
+  // Get platform info, preferring modern userAgentData API with fallback
+  const getPlatform = () => {
+    if (navigator.userAgentData?.platform) {
+      return navigator.userAgentData.platform;
+    }
+    // Fallback for browsers without userAgentData
+    return navigator.userAgent || 'unknown';
+  };
+
   const fingerprint = {
     userAgent: navigator.userAgent,
     language: navigator.language,
-    platform: navigator.platform,
+    platform: getPlatform(),
     screenWidth: screen.width,
     screenHeight: screen.height,
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,

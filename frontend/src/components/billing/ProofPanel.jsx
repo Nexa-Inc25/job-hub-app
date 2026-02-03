@@ -107,6 +107,180 @@ function formatTimestamp(timestamp) {
 }
 
 /**
+ * Get photo verification status chip - extracted to reduce complexity
+ */
+function getPhotoStatusChip(isPhotoVerified) {
+  if (isPhotoVerified) {
+    return (
+      <Chip 
+        icon={<VerifiedIcon />} 
+        label="Verified" 
+        size="small" 
+        color="success" 
+        variant="outlined"
+      />
+    );
+  }
+  return (
+    <Chip 
+      icon={<WarningIcon />} 
+      label="Missing" 
+      size="small" 
+      color="error" 
+      variant="outlined"
+    />
+  );
+}
+
+/**
+ * Get GPS verification status chip - extracted to reduce complexity
+ */
+function getGPSStatusChip(isGPSVerified, hasLocation, location, gpsQuality) {
+  if (isGPSVerified) {
+    return (
+      <Chip 
+        icon={<VerifiedIcon />} 
+        label={`${location.accuracy?.toFixed(0)}m`}
+        size="small" 
+        sx={{ 
+          bgcolor: gpsQuality?.color,
+          color: 'white',
+        }}
+      />
+    );
+  }
+  if (hasLocation) {
+    return (
+      <Chip 
+        icon={<WarningIcon />} 
+        label={`${location.accuracy?.toFixed(0)}m - Poor`}
+        size="small" 
+        color="error"
+      />
+    );
+  }
+  return (
+    <Chip 
+      icon={<WarningIcon />} 
+      label="Missing" 
+      size="small" 
+      color="error" 
+      variant="outlined"
+    />
+  );
+}
+
+/**
+ * Render photo evidence section content - extracted to reduce complexity
+ */
+function renderPhotoContent(hasPhotos, photos, photoWaived, photoWaivedReason, photoError, setPhotoError, handlePhotoClick) {
+  if (hasPhotos) {
+    return (
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        {photos.map((photo, index) => (
+          <Box
+            key={photo._id || `photo-${index}`}
+            sx={{
+              position: 'relative',
+              width: 120,
+              height: 90,
+              borderRadius: 1,
+              overflow: 'hidden',
+              cursor: 'pointer',
+              border: '2px solid',
+              borderColor: 'divider',
+              '&:hover': {
+                borderColor: 'primary.main',
+              },
+            }}
+            onClick={() => handlePhotoClick(photo)}
+          >
+            {photoError[index] ? (
+              <Box
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: 'action.disabledBackground',
+                }}
+              >
+                <NoPhotoIcon color="disabled" />
+              </Box>
+            ) : (
+              <Box
+                component="img"
+                src={photo.url || photo.thumbnailUrl}
+                alt={`Evidence ${index + 1}`}
+                onError={() => setPhotoError(prev => ({ ...prev, [index]: true }))}
+                sx={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+            )}
+            <Box
+              sx={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                bgcolor: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                px: 0.5,
+                py: 0.25,
+              }}
+            >
+              <Typography variant="caption">
+                {photo.photoType || 'Photo'}
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              sx={{
+                position: 'absolute',
+                top: 2,
+                right: 2,
+                bgcolor: 'rgba(0,0,0,0.5)',
+                color: 'white',
+                p: 0.25,
+                '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePhotoClick(photo);
+              }}
+            >
+              <ZoomIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
+  
+  if (photoWaived) {
+    return (
+      <Alert severity="warning" sx={{ py: 0.5 }}>
+        <Typography variant="body2">
+          Photo waived: {photoWaivedReason || 'No reason provided'}
+        </Typography>
+      </Alert>
+    );
+  }
+  
+  return (
+    <Alert severity="error" sx={{ py: 0.5 }}>
+      <Typography variant="body2">
+        No photo evidence provided
+      </Typography>
+    </Alert>
+  );
+}
+
+/**
  * ProofPanel Component
  */
 const ProofPanel = ({ unit }) => {
@@ -147,121 +321,10 @@ const ProofPanel = ({ unit }) => {
           <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <PhotoIcon fontSize="small" color="primary" />
             <Typography variant="subtitle2" color="text.primary">Photo Evidence</Typography>
-            {isPhotoVerified ? (
-              <Chip 
-                icon={<VerifiedIcon />} 
-                label="Verified" 
-                size="small" 
-                color="success" 
-                variant="outlined"
-              />
-            ) : (
-              <Chip 
-                icon={<WarningIcon />} 
-                label="Missing" 
-                size="small" 
-                color="error" 
-                variant="outlined"
-              />
-            )}
+            {getPhotoStatusChip(isPhotoVerified)}
           </Box>
 
-          {hasPhotos ? (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {photos.map((photo, index) => (
-                <Box
-                  key={photo._id || index}
-                  sx={{
-                    position: 'relative',
-                    width: 120,
-                    height: 90,
-                    borderRadius: 1,
-                    overflow: 'hidden',
-                    cursor: 'pointer',
-                    border: '2px solid',
-                    borderColor: 'divider',
-                    '&:hover': {
-                      borderColor: 'primary.main',
-                    },
-                  }}
-                  onClick={() => handlePhotoClick(photo)}
-                >
-                  {photoError[index] ? (
-                    <Box
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        bgcolor: 'action.disabledBackground',
-                      }}
-                    >
-                      <NoPhotoIcon color="disabled" />
-                    </Box>
-                  ) : (
-                    <Box
-                      component="img"
-                      src={photo.url || photo.thumbnailUrl}
-                      alt={`Evidence ${index + 1}`}
-                      onError={() => setPhotoError(prev => ({ ...prev, [index]: true }))}
-                      sx={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                      }}
-                    />
-                  )}
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      bgcolor: 'rgba(0,0,0,0.6)',
-                      color: 'white',
-                      px: 0.5,
-                      py: 0.25,
-                    }}
-                  >
-                    <Typography variant="caption">
-                      {photo.photoType || 'Photo'}
-                    </Typography>
-                  </Box>
-                  <IconButton
-                    size="small"
-                    sx={{
-                      position: 'absolute',
-                      top: 2,
-                      right: 2,
-                      bgcolor: 'rgba(0,0,0,0.5)',
-                      color: 'white',
-                      p: 0.25,
-                      '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' },
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePhotoClick(photo);
-                    }}
-                  >
-                    <ZoomIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              ))}
-            </Box>
-          ) : photoWaived ? (
-            <Alert severity="warning" sx={{ py: 0.5 }}>
-              <Typography variant="body2">
-                Photo waived: {photoWaivedReason || 'No reason provided'}
-              </Typography>
-            </Alert>
-          ) : (
-            <Alert severity="error" sx={{ py: 0.5 }}>
-              <Typography variant="body2">
-                No photo evidence provided
-              </Typography>
-            </Alert>
-          )}
+          {renderPhotoContent(hasPhotos, photos, photoWaived, photoWaivedReason, photoError, setPhotoError, handlePhotoClick)}
         </Grid>
 
         {/* Right Column: Location & Metadata */}
@@ -269,35 +332,10 @@ const ProofPanel = ({ unit }) => {
           <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <LocationIcon fontSize="small" color="primary" />
             <Typography variant="subtitle2" color="text.primary">Location Verification</Typography>
-            {isGPSVerified ? (
-              <Chip 
-                icon={<VerifiedIcon />} 
-                label={`${location.accuracy?.toFixed(0)}m`}
-                size="small" 
-                sx={{ 
-                  bgcolor: gpsQuality?.color,
-                  color: 'white',
-                }}
-              />
-            ) : hasLocation ? (
-              <Chip 
-                icon={<WarningIcon />} 
-                label={`${location.accuracy?.toFixed(0)}m - Poor`}
-                size="small" 
-                color="error"
-              />
-            ) : (
-              <Chip 
-                icon={<WarningIcon />} 
-                label="Missing" 
-                size="small" 
-                color="error" 
-                variant="outlined"
-              />
-            )}
+            {getGPSStatusChip(isGPSVerified, hasLocation, location, gpsQuality)}
           </Box>
 
-          {hasLocation ? (
+          {hasLocation && (
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
               {/* Static Map */}
               <Box
@@ -312,7 +350,8 @@ const ProofPanel = ({ unit }) => {
                   flexShrink: 0,
                 }}
               >
-                {staticMapUrl ? (
+                {/* With API key - show map */}
+                {staticMapUrl && (
                   <>
                     {!mapLoaded && (
                       <Skeleton variant="rectangular" width="100%" height="100%" />
@@ -330,7 +369,9 @@ const ProofPanel = ({ unit }) => {
                       }}
                     />
                   </>
-                ) : (
+                )}
+                {/* Without API key - show coordinates */}
+                {!staticMapUrl && (
                   <Box
                     sx={{
                       width: '100%',
@@ -381,7 +422,8 @@ const ProofPanel = ({ unit }) => {
                 )}
               </Box>
             </Box>
-          ) : (
+          )}
+          {!hasLocation && (
             <Alert severity="error" sx={{ py: 0.5 }}>
               <Typography variant="body2">
                 No GPS coordinates captured

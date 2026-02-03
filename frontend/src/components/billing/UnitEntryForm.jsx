@@ -610,7 +610,8 @@ const UnitEntryForm = ({
               {gpsLoading && <CircularProgress size={20} sx={{ color: COLORS.primary }} />}
             </Box>
             
-            {gpsPosition ? (
+            {/* GPS Position Display */}
+            {gpsPosition && (
               <Box sx={{ mt: 1 }}>
                 <Typography sx={{ color: COLORS.text, fontSize: '0.875rem' }}>
                   {gpsPosition.latitude.toFixed(6)}, {gpsPosition.longitude.toFixed(6)}
@@ -623,11 +624,15 @@ const UnitEntryForm = ({
                   {hasValidGPS ? ' ✓' : ` (need < ${GPS_THRESHOLDS.ACCEPTABLE}m)`}
                 </Typography>
               </Box>
-            ) : gpsError ? (
+            )}
+            {/* GPS Error */}
+            {!gpsPosition && gpsError && (
               <Typography sx={{ color: COLORS.error, fontSize: '0.875rem', mt: 1 }}>
                 {gpsError.message}
               </Typography>
-            ) : (
+            )}
+            {/* GPS Loading */}
+            {!gpsPosition && !gpsError && (
               <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.875rem', mt: 1 }}>
                 Acquiring GPS signal...
               </Typography>

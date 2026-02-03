@@ -553,7 +553,8 @@ const ClaimsManagement = ({
   const handleExportOracle = useCallback(async (claim) => {
     const units = unitsMap[claim._id] || claim.lineItems || [];
     try {
-      const oraclePayload = await formatForOracle(claim, units);
+      // formatForOracle is async - see utils/oracleMapper.js
+      const oraclePayload = await formatForOracle(claim, units); // NOSONAR - formatForOracle is async
       
       // Download as JSON
       const blob = new Blob([JSON.stringify(oraclePayload, null, 2)], { type: 'application/json' });
@@ -695,15 +696,17 @@ const ClaimsManagement = ({
       </Grid>
 
       {/* Claims List */}
-      {loading ? (
+      {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
         </Box>
-      ) : claims.length === 0 ? (
+      )}
+      {!loading && claims.length === 0 && (
         <Alert severity="info">
           No claims yet. Select approved units and click "Create Claim" to get started.
         </Alert>
-      ) : (
+      )}
+      {!loading && claims.length > 0 && (
         claims.map(claim => (
           <ClaimCard
             key={claim._id}

@@ -16,7 +16,6 @@ import api from '../api';
 import { 
   generatePayloadChecksum, 
   sha256,
-  verifyPayloadChecksum,
 } from '../utils/crypto.utils';
 
 // Oracle API configuration

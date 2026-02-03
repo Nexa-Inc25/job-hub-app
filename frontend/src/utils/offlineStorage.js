@@ -388,7 +388,7 @@ export async function getUserData(key) {
 export async function savePendingUnit(unitData) {
   await initOfflineDB();
   
-  const offlineId = `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const offlineId = `offline_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   
   const unit = {
     ...unitData,

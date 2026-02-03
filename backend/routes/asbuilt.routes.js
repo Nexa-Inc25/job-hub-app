@@ -10,6 +10,143 @@ const Job = require('../models/Job');
 const AsBuiltRouter = require('../services/asbuilt/AsBuiltRouter');
 const { sanitizeString, sanitizeObjectId, sanitizePmNumber } = require('../utils/sanitize');
 
+// ============================================================================
+// HELPER FUNCTIONS - Extracted to reduce cognitive complexity
+// ============================================================================
+
+/**
+ * Sanitize destination object for routing rules
+ * @param {Object} destination - Raw destination from request body
+ * @returns {Object|null} Sanitized destination or null if invalid
+ */
+function sanitizeDestination(destination) {
+  if (!destination || typeof destination !== 'object') return null;
+  
+  const validTypes = ['email', 'sftp', 'api', 'folder'];
+  const type = validTypes.includes(destination.type) ? destination.type : 'folder';
+  
+  const config = destination.config && typeof destination.config === 'object' ? {
+    email: sanitizeString(destination.config.email),
+    host: sanitizeString(destination.config.host),
+    port: typeof destination.config.port === 'number' ? destination.config.port : undefined,
+    username: sanitizeString(destination.config.username),
+    path: sanitizeString(destination.config.path),
+    url: sanitizeString(destination.config.url),
+    folderPath: sanitizeString(destination.config.folderPath)
+  } : {};
+  
+  return { type, config };
+}
+
+/**
+ * Sanitize pageDetection object for routing rules
+ * @param {Object} pageDetection - Raw pageDetection from request body
+ * @returns {Object|undefined} Sanitized pageDetection or undefined if not provided
+ */
+function sanitizePageDetection(pageDetection) {
+  if (!pageDetection || typeof pageDetection !== 'object') return undefined;
+  
+  return {
+    startPattern: sanitizeString(pageDetection.startPattern),
+    endPattern: sanitizeString(pageDetection.endPattern),
+    keywords: Array.isArray(pageDetection.keywords) 
+      ? pageDetection.keywords.map(k => sanitizeString(k)).filter(Boolean) 
+      : [],
+    headerMatch: sanitizeString(pageDetection.headerMatch)
+  };
+}
+
+/**
+ * Sanitize metadataMapping object for routing rules
+ * @param {Object} metadataMapping - Raw metadataMapping from request body
+ * @returns {Object|undefined} Sanitized metadataMapping or undefined if not provided
+ */
+function sanitizeMetadataMapping(metadataMapping) {
+  if (!metadataMapping || typeof metadataMapping !== 'object') return undefined;
+  
+  return {
+    pmNumber: sanitizeString(metadataMapping.pmNumber),
+    woNumber: sanitizeString(metadataMapping.woNumber),
+    circuitId: sanitizeString(metadataMapping.circuitId),
+    address: sanitizeString(metadataMapping.address)
+  };
+}
+
+/**
+ * Sanitize conditions array for routing rules
+ * @param {Array} conditions - Raw conditions array from request body
+ * @returns {Array|undefined} Sanitized conditions or undefined if not provided
+ */
+function sanitizeConditions(conditions) {
+  if (!Array.isArray(conditions)) return undefined;
+  
+  const validOperators = ['equals', 'contains', 'startsWith', 'endsWith', 'regex', 'exists', 'notExists'];
+  
+  return conditions
+    .map(c => {
+      if (!c || typeof c !== 'object') return null;
+      return {
+        field: sanitizeString(c.field),
+        operator: validOperators.includes(c.operator) ? c.operator : 'equals',
+        value: sanitizeString(c.value)
+      };
+    })
+    .filter(Boolean);
+}
+
+/**
+ * Sanitize notifications object for routing rules
+ * @param {Object} notifications - Raw notifications from request body
+ * @returns {Object|undefined} Sanitized notifications or undefined if not provided
+ */
+function sanitizeNotifications(notifications) {
+  if (!notifications || typeof notifications !== 'object') return undefined;
+  
+  const sanitizeEmailList = (list) => 
+    Array.isArray(list) ? list.map(e => sanitizeString(e)).filter(Boolean) : [];
+  
+  return {
+    onSuccess: sanitizeEmailList(notifications.onSuccess),
+    onFailure: sanitizeEmailList(notifications.onFailure),
+    onRetry: sanitizeEmailList(notifications.onRetry)
+  };
+}
+
+/**
+ * Build rule data object with optional fields
+ * @param {Object} params - Parameters for building rule data
+ * @returns {Object} Complete rule data object
+ */
+function buildRuleData(params) {
+  const {
+    safeName, safeUtilityId, companyId, safeSectionType, safeDestination, createdBy,
+    safeDescription, safePageDetection, safeMetadataMapping, safeConditions,
+    priority, isActive, requiresApproval, maxRetries, retryDelayMinutes, safeNotifications
+  } = params;
+  
+  const ruleData = {
+    name: safeName,
+    utilityId: safeUtilityId,
+    companyId,
+    sectionType: safeSectionType,
+    destination: safeDestination,
+    createdBy
+  };
+  
+  if (safeDescription) ruleData.description = safeDescription;
+  if (safePageDetection) ruleData.pageDetection = safePageDetection;
+  if (safeMetadataMapping) ruleData.metadataMapping = safeMetadataMapping;
+  if (safeConditions && safeConditions.length > 0) ruleData.conditions = safeConditions;
+  if (typeof priority === 'number' && priority >= 0 && priority <= 100) ruleData.priority = priority;
+  if (typeof isActive === 'boolean') ruleData.isActive = isActive;
+  if (typeof requiresApproval === 'boolean') ruleData.requiresApproval = requiresApproval;
+  if (typeof maxRetries === 'number' && maxRetries >= 0 && maxRetries <= 10) ruleData.maxRetries = maxRetries;
+  if (typeof retryDelayMinutes === 'number' && retryDelayMinutes >= 0 && retryDelayMinutes <= 1440) ruleData.retryDelayMinutes = retryDelayMinutes;
+  if (safeNotifications) ruleData.notifications = safeNotifications;
+  
+  return ruleData;
+}
+
 /**
  * @swagger
  * /api/asbuilt/submit:
@@ -463,7 +600,7 @@ router.post('/rules', async (req, res) => {
       return res.status(400).json({ error: 'name, utilityId, sectionType, and destination are required' });
     }
     
-    // Sanitize inputs
+    // Sanitize basic inputs
     const safeName = sanitizeString(name);
     const safeUtilityId = sanitizeObjectId(utilityId);
     const safeSectionType = sanitizeString(sectionType);
@@ -473,78 +610,24 @@ router.post('/rules', async (req, res) => {
       return res.status(400).json({ error: 'Invalid utilityId' });
     }
     
-    // Sanitize destination object - only allow specific fields
-    const safeDestination = destination && typeof destination === 'object' ? {
-      type: ['email', 'sftp', 'api', 'folder'].includes(destination.type) ? destination.type : 'folder',
-      config: destination.config && typeof destination.config === 'object' ? {
-        email: sanitizeString(destination.config.email),
-        host: sanitizeString(destination.config.host),
-        port: typeof destination.config.port === 'number' ? destination.config.port : undefined,
-        username: sanitizeString(destination.config.username),
-        path: sanitizeString(destination.config.path),
-        url: sanitizeString(destination.config.url),
-        folderPath: sanitizeString(destination.config.folderPath)
-      } : {}
-    } : null;
-    
+    // Sanitize complex objects using helper functions
+    const safeDestination = sanitizeDestination(destination);
     if (!safeDestination) {
       return res.status(400).json({ error: 'Valid destination is required' });
     }
     
-    // Sanitize pageDetection object - only allow specific fields
-    const safePageDetection = pageDetection && typeof pageDetection === 'object' ? {
-      startPattern: sanitizeString(pageDetection.startPattern),
-      endPattern: sanitizeString(pageDetection.endPattern),
-      keywords: Array.isArray(pageDetection.keywords) ? pageDetection.keywords.map(k => sanitizeString(k)).filter(Boolean) : [],
-      headerMatch: sanitizeString(pageDetection.headerMatch)
-    } : undefined;
+    const safePageDetection = sanitizePageDetection(pageDetection);
+    const safeMetadataMapping = sanitizeMetadataMapping(metadataMapping);
+    const safeConditions = sanitizeConditions(conditions);
+    const safeNotifications = sanitizeNotifications(notifications);
     
-    // Sanitize metadataMapping object - only allow specific fields
-    const safeMetadataMapping = metadataMapping && typeof metadataMapping === 'object' ? {
-      pmNumber: sanitizeString(metadataMapping.pmNumber),
-      woNumber: sanitizeString(metadataMapping.woNumber),
-      circuitId: sanitizeString(metadataMapping.circuitId),
-      address: sanitizeString(metadataMapping.address)
-    } : undefined;
-    
-    // Sanitize conditions array - only allow specific fields per condition
-    const safeConditions = Array.isArray(conditions) ? conditions.map(c => {
-      if (!c || typeof c !== 'object') return null;
-      return {
-        field: sanitizeString(c.field),
-        operator: ['equals', 'contains', 'startsWith', 'endsWith', 'regex', 'exists', 'notExists'].includes(c.operator) ? c.operator : 'equals',
-        value: sanitizeString(c.value)
-      };
-    }).filter(Boolean) : undefined;
-    
-    // Sanitize notifications object - only allow specific fields
-    const safeNotifications = notifications && typeof notifications === 'object' ? {
-      onSuccess: Array.isArray(notifications.onSuccess) ? notifications.onSuccess.map(e => sanitizeString(e)).filter(Boolean) : [],
-      onFailure: Array.isArray(notifications.onFailure) ? notifications.onFailure.map(e => sanitizeString(e)).filter(Boolean) : [],
-      onRetry: Array.isArray(notifications.onRetry) ? notifications.onRetry.map(e => sanitizeString(e)).filter(Boolean) : []
-    } : undefined;
-    
-    // Build rule object with only allowed fields
-    const ruleData = {
-      name: safeName,
-      utilityId: safeUtilityId,
-      companyId: user.companyId,
-      sectionType: safeSectionType,
-      destination: safeDestination,
-      createdBy: user._id
-    };
-    
-    // Add optional fields if provided
-    if (safeDescription) ruleData.description = safeDescription;
-    if (safePageDetection) ruleData.pageDetection = safePageDetection;
-    if (safeMetadataMapping) ruleData.metadataMapping = safeMetadataMapping;
-    if (safeConditions && safeConditions.length > 0) ruleData.conditions = safeConditions;
-    if (typeof priority === 'number' && priority >= 0 && priority <= 100) ruleData.priority = priority;
-    if (typeof isActive === 'boolean') ruleData.isActive = isActive;
-    if (typeof requiresApproval === 'boolean') ruleData.requiresApproval = requiresApproval;
-    if (typeof maxRetries === 'number' && maxRetries >= 0 && maxRetries <= 10) ruleData.maxRetries = maxRetries;
-    if (typeof retryDelayMinutes === 'number' && retryDelayMinutes >= 0 && retryDelayMinutes <= 1440) ruleData.retryDelayMinutes = retryDelayMinutes;
-    if (safeNotifications) ruleData.notifications = safeNotifications;
+    // Build rule data using helper function
+    const ruleData = buildRuleData({
+      safeName, safeUtilityId, companyId: user.companyId, safeSectionType, 
+      safeDestination, createdBy: user._id, safeDescription, safePageDetection, 
+      safeMetadataMapping, safeConditions, priority, isActive, requiresApproval, 
+      maxRetries, retryDelayMinutes, safeNotifications
+    });
     
     // Create with sanitized data object (NOSONAR - all fields sanitized above)
     const rule = await RoutingRule.create(ruleData); // NOSONAR

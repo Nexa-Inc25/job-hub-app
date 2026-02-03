@@ -438,6 +438,125 @@ const renderEmptySection = (message) => (
   </Typography>
 );
 
+/**
+ * Helper to render EC Tag chips - extracted to reduce cognitive complexity
+ */
+const renderECTagChips = (job) => {
+  const chips = [];
+  
+  if (job.ecTag?.tagType) {
+    chips.push(
+      <Chip 
+        key="ec-tag-type"
+        size="small" 
+        label={`${job.ecTag.tagType}-TAG`}
+        color={['A', 'E', 'emergency'].includes(job.ecTag.tagType) ? 'error' : 'default'}
+        sx={{ 
+          height: 22, 
+          fontWeight: 700,
+          bgcolor: getTagBackgroundColor(job.ecTag.tagType),
+          color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
+        }}
+      />
+    );
+  }
+  
+  if (job.ecTag?.tagDueDate) {
+    chips.push(
+      <Chip 
+        key="ec-due-date"
+        size="small" 
+        label={`Due: ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
+        color={getTagDueDateColor(job.ecTag.tagDueDate)}
+        variant="outlined"
+        sx={{ height: 22, fontWeight: 600 }}
+      />
+    );
+  }
+  
+  if (job.ecTag?.programType) {
+    chips.push(
+      <Chip 
+        key="ec-program"
+        size="small" 
+        label={job.ecTag.programCode || job.ecTag.programType.replace('-', ' ')}
+        variant="outlined"
+        sx={{ height: 22, fontSize: '0.65rem' }}
+      />
+    );
+  }
+  
+  return chips;
+};
+
+/**
+ * Helper to render pre-field label chips - extracted to reduce cognitive complexity
+ */
+const renderPreFieldChips = (job) => {
+  const chips = [];
+  const labels = job.preFieldLabels;
+  if (!labels) return chips;
+  
+  if (labels.constructionType) {
+    chips.push(
+      <Chip 
+        key="construction-type"
+        size="small" 
+        label={labels.constructionType.toUpperCase()}
+        sx={{ 
+          height: 22,
+          bgcolor: labels.constructionType === 'underground' ? '#795548' : '#4caf50',
+          color: 'white'
+        }}
+      />
+    );
+  }
+  
+  if (labels.roadAccess) {
+    chips.push(
+      <Chip 
+        key="road-access"
+        size="small" 
+        label={getRoadAccessLabel(labels.roadAccess)}
+        color={getRoadAccessColor(labels.roadAccess)}
+        variant="outlined"
+        sx={{ height: 22 }}
+      />
+    );
+  }
+  
+  if (labels.craneRequired) {
+    chips.push(
+      <Chip 
+        key="crane-required"
+        size="small" 
+        label={labels.craneType || 'CRANE'}
+        sx={{ height: 22, bgcolor: '#ff5722', color: 'white', fontWeight: 700 }}
+      />
+    );
+  }
+  
+  if (labels.poleWork) {
+    chips.push(
+      <Chip 
+        key="pole-work"
+        size="small" 
+        label={`Pole ${labels.poleWork}`}
+        variant="outlined"
+        sx={{ height: 22 }}
+      />
+    );
+  }
+  
+  return chips;
+};
+
+/**
+ * Check if job has any EC tag or pre-field labels to display
+ */
+const hasTagsOrLabels = (job) => 
+  job.ecTag?.tagType || job.ecTag?.tagDueDate || job.preFieldLabels;
+
 // Check if should show GF view - extracted from inline conditional
 const shouldRenderGFView = (loading, error, userRole, isAdmin, filter, search) => {
   if (loading || error) return false;
@@ -2022,80 +2141,10 @@ const Dashboard = () => {
                         )}
 
                         {/* EC Tag & Pre-field Labels - Critical info for crews */}
-                        {(job.ecTag?.tagType || job.ecTag?.tagDueDate || job.preFieldLabels) && (
+                        {hasTagsOrLabels(job) && (
                           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                            {/* EC Tag Type with urgency coloring */}
-                            {job.ecTag?.tagType && (
-                              <Chip 
-                                size="small" 
-                                label={`${job.ecTag.tagType}-TAG`}
-                                color={['A', 'E', 'emergency'].includes(job.ecTag.tagType) ? 'error' : 'default'}
-                                sx={{ 
-                                  height: 22, 
-                                  fontWeight: 700,
-                                    bgcolor: getTagBackgroundColor(job.ecTag.tagType),
-                                  color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
-                                }}
-                              />
-                            )}
-                            {/* Tag Due Date */}
-                            {job.ecTag?.tagDueDate && (
-                              <Chip 
-                                size="small" 
-                                label={`Due: ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
-                                color={getTagDueDateColor(job.ecTag.tagDueDate)}
-                                variant="outlined"
-                                sx={{ height: 22, fontWeight: 600 }}
-                              />
-                            )}
-                            {/* Construction Type */}
-                            {job.preFieldLabels?.constructionType && (
-                              <Chip 
-                                size="small" 
-                                label={job.preFieldLabels.constructionType.toUpperCase()}
-                                sx={{ 
-                                  height: 22,
-                                  bgcolor: job.preFieldLabels.constructionType === 'underground' ? '#795548' : '#4caf50',
-                                  color: 'white'
-                                }}
-                              />
-                            )}
-                            {/* Road Access */}
-                            {job.preFieldLabels?.roadAccess && (
-                              <Chip 
-                                size="small" 
-                                label={getRoadAccessLabel(job.preFieldLabels.roadAccess)}
-                                color={getRoadAccessColor(job.preFieldLabels.roadAccess)}
-                                variant="outlined"
-                                sx={{ height: 22 }}
-                              />
-                            )}
-                            {/* Crane Required */}
-                            {job.preFieldLabels?.craneRequired && (
-                              <Chip 
-                                size="small" 
-                                label={job.preFieldLabels.craneType || 'CRANE'}
-                                sx={{ height: 22, bgcolor: '#ff5722', color: 'white', fontWeight: 700 }}
-                              />
-                            )}
-                            {/* Pole Work Type */}
-                            {job.preFieldLabels?.poleWork && (
-                              <Chip 
-                                size="small" 
-                                label={`Pole ${job.preFieldLabels.poleWork}`}
-                                variant="outlined"
-                                sx={{ height: 22 }}
-                              />
-                            )}
-                            {/* Program Type */}
-                            {job.ecTag?.programType && (
-                              <Chip 
-                                size="small" 
-                                label={job.ecTag.programCode || job.ecTag.programType.replace('-', ' ')}
-                                variant="outlined"
-                                sx={{ height: 22, fontSize: '0.65rem' }}
-                              />
-                            )}
+                            {renderECTagChips(job)}
+                            {renderPreFieldChips(job)}
                           </Box>
                         )}
 

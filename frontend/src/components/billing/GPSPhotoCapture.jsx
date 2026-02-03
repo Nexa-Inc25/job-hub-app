@@ -454,7 +454,8 @@ const GPSPhotoCapture = ({
           position: 'relative',
           overflow: 'hidden',
         }}>
-          {cameraError ? (
+          {/* Camera Error State */}
+          {cameraError && (
             <Box sx={{ textAlign: 'center', p: 4 }}>
               <WarningIcon sx={{ fontSize: 64, color: COLORS.error, mb: 2 }} />
               <Typography sx={{ color: COLORS.text, mb: 3 }}>{cameraError}</Typography>
@@ -472,8 +473,9 @@ const GPSPhotoCapture = ({
                 Retry Camera
               </Button>
             </Box>
-          ) : capturedImage ? (
-            // Preview captured image
+          )}
+          {/* Preview captured image */}
+          {!cameraError && capturedImage && (
             <Box sx={{ width: '100%', height: '100%', position: 'relative' }}>
               <img 
                 src={capturedImage.dataUrl} 
@@ -504,8 +506,9 @@ const GPSPhotoCapture = ({
                 </Box>
               )}
             </Box>
-          ) : (
-            // Live camera feed
+          )}
+          {/* Live camera feed */}
+          {!cameraError && !capturedImage && (
             <>
               <video 
                 ref={videoRef}

@@ -422,11 +422,12 @@ const PriceBookSelector = ({
 
       {/* Content */}
       <Box sx={{ flex: 1, overflow: 'auto', p: 2 }}>
-        {loading ? (
+        {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress sx={{ color: COLORS.primary }} />
           </Box>
-        ) : error ? (
+        )}
+        {!loading && error && (
           <Alert 
             severity="error" 
             sx={{ 
@@ -436,7 +437,8 @@ const PriceBookSelector = ({
           >
             {error}
           </Alert>
-        ) : (
+        )}
+        {!loading && !error && (
           <>
             {/* Recent items section (when no search) */}
             {!searchQuery && recentItems.length > 0 && (

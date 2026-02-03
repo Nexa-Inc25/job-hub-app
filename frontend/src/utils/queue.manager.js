@@ -21,7 +21,6 @@ import {
   generatePayloadChecksum, 
   generateDigitalReceiptHash,
   hashPhoto,
-  isTokenExpired,
   generateDeviceSignature,
 } from './crypto.utils';
 
@@ -82,7 +81,7 @@ function sleep(ms) {
  */
 function createQueueItem(type, payload, options = {}) {
   return {
-    id: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: `${type}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
     type,
     payload,
     priority: options.priority || 1, // 1 = normal, 2 = high
@@ -106,19 +105,20 @@ function createQueueItem(type, payload, options = {}) {
  * Queue Manager Singleton - Chain of Custody Enforcer
  */
 class QueueManager {
+  // Class fields - NIST AC-3 compliant session state
+  isProcessing = false;
+  isLocked = false;
+  lockReason = null;
+  listeners = [];
+  queue = [];
+  initialized = false;
+  backoffDelay = BACKOFF_CONFIG.baseDelayMs;
+  deviceSignature = null;
+
   constructor() {
-    this.isProcessing = false;
-    this.isLocked = false;         // NIST AC-3: Session lock state
-    this.lockReason = null;
-    this.listeners = [];
-    this.queue = [];               // In-memory queue for fast access
-    this.initialized = false;
-    this.backoffDelay = BACKOFF_CONFIG.baseDelayMs;
-    this.deviceSignature = null;
-    
     // Listen for auth events
-    if (typeof window !== 'undefined') {
-      window.addEventListener('auth-required', () => {
+    if (typeof globalThis !== 'undefined' && globalThis.addEventListener) {
+      globalThis.addEventListener('auth-required', () => {
         this._lockQueue(LOCK_REASONS.AUTH_EXPIRED);
       });
     }
@@ -506,12 +506,10 @@ class QueueManager {
   }
 
   /**
-   * NIST-Compliant Queue Processing
-   * Implements atomic transactions and session containment
+   * Check if processing can start - extracted to reduce complexity
+   * @returns {Object|null} Early return result if processing should not start, null otherwise
    */
-  async process(options = {}) {
-    const { signal, onProgress } = options;
-    
+  _checkProcessingPreconditions() {
     if (this.isProcessing) {
       console.log('[QueueManager] Already processing');
       return { processed: 0, failed: 0, locked: 0 };
@@ -523,35 +521,87 @@ class QueueManager {
     }
 
     // NIST AC-3: Session Containment
-    // Do not attempt sync if auth context is lost
     if (!api.isAuthenticated()) {
       console.warn('[QueueManager] Auth expired - locking queue');
       this._lockQueue(LOCK_REASONS.AUTH_EXPIRED);
-      window.dispatchEvent(new CustomEvent('auth-required', { 
+      globalThis.dispatchEvent(new CustomEvent('auth-required', { 
         detail: { source: 'queue_manager' } 
       }));
       return { processed: 0, failed: 0, authRequired: true };
     }
 
-    // Check if queue is locked
     if (this.isLocked) {
       console.warn(`[QueueManager] Queue is locked: ${this.lockReason}`);
       return { processed: 0, failed: 0, locked: true, lockReason: this.lockReason };
     }
+
+    return null; // Preconditions passed
+  }
+
+  /**
+   * Handle processing error for an item - extracted to reduce complexity
+   * @returns {Object} Result with shouldBreak flag and updated counters
+   */
+  async _handleItemError(item, err, counters) {
+    console.error(`[QueueManager] Failed to process ${item.id}:`, err);
+    
+    const isClientError = err.response?.status >= 400 && err.response?.status < 500;
+    
+    if (isClientError) {
+      // NIST SI-7: Do not retry validation failures - lock item
+      await this.markError(item.id, err.response?.data?.message || err.message);
+      return { shouldBreak: false, locked: counters.locked + 1, failed: counters.failed };
+    }
+    
+    // Network/server error - exponential backoff
+    await this.markFailed(item.id, err, false);
+    console.log('[QueueManager] Stopping queue to preserve order');
+    await sleep(this.backoffDelay);
+    return { shouldBreak: true, locked: counters.locked, failed: counters.failed + 1 };
+  }
+
+  /**
+   * Process a single queue item - extracted to reduce complexity
+   * @returns {Object} Result with updated counters and shouldBreak flag
+   */
+  async _processSingleItem(item, counters, onProgress) {
+    await this.markSyncing(item.id);
+    
+    const result = await this._processItemAtomic(item);
+    
+    // Only dequeue after server confirmation (HTTP 200 + transaction ID)
+    if (result.success) {
+      const transactionId = result.transactionId || 'implicit_200';
+      await this.dequeue(item.id, transactionId);
+      const processed = counters.processed + 1;
+      onProgress?.({ ...counters, processed, current: item });
+      return { shouldBreak: false, processed, failed: counters.failed, locked: counters.locked };
+    }
+    
+    return { shouldBreak: false, ...counters };
+  }
+
+  /**
+   * NIST-Compliant Queue Processing
+   * Implements atomic transactions and session containment
+   */
+  async process(options = {}) {
+    const { signal, onProgress } = options;
+    
+    // Check preconditions before starting
+    const preconditionResult = this._checkProcessingPreconditions();
+    if (preconditionResult) return preconditionResult;
 
     await this.init();
     
     this.isProcessing = true;
     this._emit('processing_start', {});
     
-    let processed = 0;
-    let failed = 0;
-    let locked = 0;
+    let counters = { processed: 0, failed: 0, locked: 0 };
     
     try {
       let item;
       while ((item = await this.peek()) !== null) {
-        // Check for abort signal
         if (signal?.aborted) {
           console.log('[QueueManager] Processing aborted');
           break;
@@ -564,54 +614,23 @@ class QueueManager {
         }
 
         try {
-          await this.markSyncing(item.id);
-          
-          // NIST SI-7: Atomic Transaction
-          const result = await this._processItemAtomic(item);
-          
-          // Only dequeue after server confirmation (HTTP 200 + transaction ID)
-          if (result.success && result.transactionId) {
-            await this.dequeue(item.id, result.transactionId);
-            processed++;
-          } else if (result.success) {
-            // Fallback: Server returned 200 but no transaction ID
-            await this.dequeue(item.id, 'implicit_200');
-            processed++;
-          }
-          
-          onProgress?.({ processed, failed, locked, current: item });
-          
+          const result = await this._processSingleItem(item, counters, onProgress);
+          counters = { processed: result.processed, failed: result.failed, locked: result.locked };
+          if (result.shouldBreak) break;
         } catch (err) {
-          console.error(`[QueueManager] Failed to process ${item.id}:`, err);
-          
-          // Determine if client error (4xx) or server/network error (5xx/network)
-          const isClientError = err.response?.status >= 400 && err.response?.status < 500;
-          
-          if (isClientError) {
-            // NIST SI-7: Do not retry validation failures - lock item
-            await this.markError(item.id, err.response?.data?.message || err.message);
-            locked++;
-          } else {
-            // Network/server error - exponential backoff
-            await this.markFailed(item.id, err, false);
-            failed++;
-            
-            // Stop queue processing to preserve order (FIFO integrity)
-            console.log('[QueueManager] Stopping queue to preserve order');
-            await sleep(this.backoffDelay);
-            break;
-          }
-          
-          onProgress?.({ processed, failed, locked, current: item, error: err });
+          const result = await this._handleItemError(item, err, counters);
+          counters = { processed: counters.processed, failed: result.failed, locked: result.locked };
+          onProgress?.({ ...counters, current: item, error: err });
+          if (result.shouldBreak) break;
         }
       }
     } finally {
       this.isProcessing = false;
-      this._emit('processing_complete', { processed, failed, locked });
+      this._emit('processing_complete', counters);
     }
 
-    console.log(`[QueueManager] Processing complete: ${processed} synced, ${failed} failed, ${locked} locked`);
-    return { processed, failed, locked };
+    console.log(`[QueueManager] Processing complete: ${counters.processed} synced, ${counters.failed} failed, ${counters.locked} locked`);
+    return counters;
   }
 
   /**

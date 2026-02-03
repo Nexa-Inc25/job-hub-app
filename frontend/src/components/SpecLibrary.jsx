@@ -641,6 +641,19 @@ const SpecLibrary = () => {
     }
   };
 
+  // Extracted handlers to reduce nesting depth in SpecCard callbacks
+  const handleEditSpec = useCallback((spec) => {
+    setSpecDialog({ open: true, spec });
+  }, []);
+
+  const handleDeleteSpec = useCallback((spec) => {
+    setDeleteConfirm({ open: true, spec });
+  }, []);
+
+  const handleViewVersions = useCallback((spec) => {
+    setVersionDialog({ open: true, spec });
+  }, []);
+
   // Group specs by division -> section -> document
   const groupedSpecs = specs.reduce((acc, spec) => {
     const div = spec.division || 'overhead';
@@ -847,9 +860,9 @@ const SpecLibrary = () => {
                                     <SpecCard
                                       spec={spec}
                                       onDownload={handleDownload}
-                                      onEdit={(s) => setSpecDialog({ open: true, spec: s })}
-                                      onDelete={(s) => setDeleteConfirm({ open: true, spec: s })}
-                                      onViewVersions={(s) => setVersionDialog({ open: true, spec: s })}
+                                      onEdit={handleEditSpec}
+                                      onDelete={handleDeleteSpec}
+                                      onViewVersions={handleViewVersions}
                                       themeProps={themeProps}
                                     />
                                   </Grid>
