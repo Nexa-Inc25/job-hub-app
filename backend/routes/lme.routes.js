@@ -505,18 +505,21 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         // === CONTRACTOR'S LABOR TABLE ===
         // The table takes up the left ~55% of the page
         // Each worker has 3 sub-rows: ST, OT/PT, DT
+        const laborTableWidth = width * 0.48; // Labor table section width
         const laborStartY = height - 130; // First ST row 
         const subRowHeight = 11; // Pixels between ST/OT/DT rows
         const workerBlockHeight = subRowHeight * 3; // 33px per worker
         
-        // Column X positions - scaled to left section
+        // Column X positions as percentages of labor table width
         // CRAFT | NAME | HRS/DYS | ST/PT | RATE | AMOUNT
-        const craftX = 8;
-        const nameX = 50;
-        const hrsDysX = 170;
-        const stptX = 210; // ST/PT hours column  
-        const rateX = 255;
-        const amountX = 300;
+        const craftX = laborTableWidth * 0.02;      // ~2% from left
+        const nameX = laborTableWidth * 0.10;       // ~10% from left  
+        const hrsDysX = laborTableWidth * 0.42;     // ~42% from left
+        const stptX = laborTableWidth * 0.52;       // ~52% - ST/PT column
+        const rateX = laborTableWidth * 0.62;       // ~62% - RATE column
+        const amountX = laborTableWidth * 0.75;     // ~75% - AMOUNT column
+        
+        console.log(`Labor table: width=${laborTableWidth.toFixed(0)}, craftX=${craftX.toFixed(0)}, nameX=${nameX.toFixed(0)}, stptX=${stptX.toFixed(0)}`);
         
         for (let i = 0; i < (lme.labor || []).length && i < 10; i++) {
           const labor = lme.labor[i];
@@ -581,18 +584,21 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         // First row starts around height - 116
         const miscStartY = height - 116;
         const miscRowH = 10;
-        console.log('LME materials:', JSON.stringify(lme.materials || []));
-        for (let i = 0; i < (lme.materials || []).length && i < 8; i++) {
-          const mat = lme.materials[i];
+        const materialsToShow = (lme.materials || []).filter(mat => {
+          const desc = (mat.description || '').toLowerCase();
+          // Filter out entries that look like job addresses or work descriptions
+          return desc && !desc.includes('rochelle') && !desc.includes('san jose') && 
+                 !desc.includes('pge') && !desc.includes('pg&e') && mat.quantity;
+        });
+        console.log('LME materials (filtered):', JSON.stringify(materialsToShow));
+        
+        for (let i = 0; i < materialsToShow.length && i < 8; i++) {
+          const mat = materialsToShow[i];
           const y = miscStartY - (i * miscRowH);
-          // Only show if it's actually a material entry (has description and isn't job info)
-          const desc = (mat.description || '').substring(0, 22);
-          if (desc && !desc.toLowerCase().includes('rochelle')) {
-            page.drawText(desc, { x: rightDescX, y, size: 5, font });
-            if (mat.quantity) page.drawText(String(mat.quantity), { x: rightQtyX, y, size: 5, font });
-            if (mat.rate) page.drawText(mat.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
-            if (mat.amount) page.drawText(mat.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
-          }
+          page.drawText((mat.description || '').substring(0, 22), { x: rightDescX, y, size: 5, font });
+          page.drawText(String(mat.quantity || ''), { x: rightQtyX, y, size: 5, font });
+          if (mat.rate) page.drawText(mat.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
+          if (mat.amount) page.drawText(mat.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
         }
         
         // TOTAL INVOICES & RENTAL EQUIPMENT
