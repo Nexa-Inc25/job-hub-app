@@ -355,7 +355,7 @@ const UnitApprovalGrid = ({
           actions.push(
             <GridActionsCellItem
               key="approve"
-              icon={<ApproveIcon />}
+              icon={<CheckCircleIcon />}
               label="Approve"
               onClick={() => onApprove(params.row)}
               color="success"
@@ -482,7 +482,7 @@ const UnitApprovalGrid = ({
               <Button
                 variant="outlined"
                 size="small"
-                startIcon={<ApproveIcon />}
+                startIcon={<CheckCircleIcon />}
                 onClick={handleBulkApprove}
                 disabled={!selectionModel.some(id => 
                   units.find(u => u._id === id)?.status === 'verified'
