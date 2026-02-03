@@ -238,12 +238,26 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
     
     // If R2 failed, try local templates folder
     if (!templateBytes) {
-      try {
-        const localTemplatePath = path.join(__dirname, '../templates/master/blank LME.pdf');
-        templateBytes = await fs.readFile(localTemplatePath);
-        console.log('Loaded LME template from local file:', localTemplatePath);
-      } catch (localError) {
-        console.warn('Could not load local LME template:', localError.message);
+      // Try multiple possible paths (handles both local dev and Railway deployment)
+      const possiblePaths = [
+        path.join(__dirname, '../templates/master/blank LME.pdf'),           // Standard relative
+        path.join(process.cwd(), 'templates/master/blank LME.pdf'),          // From cwd
+        path.join(process.cwd(), 'backend/templates/master/blank LME.pdf'),  // From repo root
+        '/app/backend/templates/master/blank LME.pdf',                        // Railway absolute
+      ];
+      
+      for (const templatePath of possiblePaths) {
+        try {
+          templateBytes = await fs.readFile(templatePath);
+          console.log('Loaded LME template from:', templatePath);
+          break;
+        } catch {
+          // Try next path
+        }
+      }
+      
+      if (!templateBytes) {
+        console.warn('Could not load local LME template from any path:', possiblePaths);
       }
     }
     
@@ -697,14 +711,27 @@ router.get('/template/fields', authenticateUser, async (req, res) => {
     
     // Try local file if R2 failed
     if (!templateBytes) {
-      try {
-        const localTemplatePath = path.join(__dirname, '../templates/master/blank LME.pdf');
-        templateBytes = await fs.readFile(localTemplatePath);
-        templateSource = `Local: ${localTemplatePath}`;
-      } catch (localError) {
+      const possiblePaths = [
+        path.join(__dirname, '../templates/master/blank LME.pdf'),
+        path.join(process.cwd(), 'templates/master/blank LME.pdf'),
+        path.join(process.cwd(), 'backend/templates/master/blank LME.pdf'),
+        '/app/backend/templates/master/blank LME.pdf',
+      ];
+      
+      for (const templatePath of possiblePaths) {
+        try {
+          templateBytes = await fs.readFile(templatePath);
+          templateSource = `Local: ${templatePath}`;
+          break;
+        } catch {
+          // Try next path
+        }
+      }
+      
+      if (!templateBytes) {
         return res.json({ 
           error: 'No LME template found',
-          searchedLocations: ['R2: templates/master/', 'Local: backend/templates/master/blank LME.pdf']
+          searchedLocations: possiblePaths
         });
       }
     }
