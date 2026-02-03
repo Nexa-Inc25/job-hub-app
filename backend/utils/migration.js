@@ -129,19 +129,30 @@ async function runMigration() {
  */
 async function migrateLmeUrls(Job) {
   try {
-    // Find jobs with LME documents missing url field
-    const jobs = await Job.find({
-      $or: [
-        { 'folders.subfolders.documents': { $elemMatch: { type: 'lme', url: { $exists: false } } } },
-        { 'folders.subfolders.subfolders.documents': { $elemMatch: { type: 'lme', url: { $exists: false } } } }
-      ]
-    });
+    // Find ALL jobs and check for LME documents manually
+    // The nested query wasn't matching correctly
+    const jobs = await Job.find({});
     
-    if (jobs.length === 0) {
+    // Count how many have LME docs that need fixing
+    let jobsNeedingFix = 0;
+    for (const job of jobs) {
+      for (const folder of job.folders || []) {
+        for (const subfolder of folder.subfolders || []) {
+          for (const doc of subfolder.documents || []) {
+            if (doc.type === 'lme' && doc.lmeId && !doc.url) {
+              jobsNeedingFix++;
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    if (jobsNeedingFix === 0) {
       return; // No LME documents need fixing
     }
     
-    console.log(`Found ${jobs.length} jobs with LME documents needing URL fix`);
+    console.log(`Found ${jobsNeedingFix} jobs with LME documents needing URL fix`);
     
     let documentsFixed = 0;
     

@@ -149,8 +149,24 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     const loadPdfBytes = async () => {
       try {
         setLoading(true);
-        const response = await fetch(pdfUrl);
-        if (!response.ok) throw new Error('Failed to load PDF');
+        
+        // Check if this is an API endpoint that needs authentication
+        const isApiEndpoint = pdfUrl.includes('/api/');
+        const token = localStorage.getItem('token');
+        
+        const fetchOptions = isApiEndpoint && token ? {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        } : {};
+        
+        const response = await fetch(pdfUrl, fetchOptions);
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new Error('Authentication required - please log in again');
+          }
+          throw new Error(`Failed to load PDF (${response.status})`);
+        }
         const arrayBuffer = await response.arrayBuffer();
         setPdfBytes(arrayBuffer);
         setError('');

@@ -720,6 +720,7 @@ const JobFileSystem = () => {
   const [contextDoc, setContextDoc] = useState(null);
   const [pdfViewerOpen, setPdfViewerOpen] = useState(false);
   const [viewingDoc, setViewingDoc] = useState(null);
+  const [viewingDocBlobUrl, setViewingDocBlobUrl] = useState(null); // For authenticated PDFs
   const [editorMode, setEditorMode] = useState(false); // Toggle between view and edit mode
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState(null);
@@ -996,7 +997,7 @@ const JobFileSystem = () => {
   };
 
   // Handle double-click to open PDF viewer
-  const handleDocDoubleClick = (doc) => {
+  const handleDocDoubleClick = async (doc) => {
     // Check if it's an image file
     const isImage = doc.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.type === 'image' || doc.type === 'photo' || doc.type === 'drawing' || doc.type === 'map';
     
@@ -1008,6 +1009,27 @@ const JobFileSystem = () => {
       // Open PDF editor for PDFs
       setViewingDoc(doc);
       setEditorMode(true);
+      
+      // For API endpoints (like LME PDFs), fetch with auth and create blob URL
+      const docUrl = getDocUrl(doc);
+      if (docUrl.includes('/api/')) {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(docUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            setViewingDocBlobUrl(blobUrl);
+          }
+        } catch (err) {
+          console.error('Error fetching PDF:', err);
+        }
+      } else {
+        setViewingDocBlobUrl(null);
+      }
+      
       setPdfViewerOpen(true);
     }
   };
@@ -1479,6 +1501,10 @@ const JobFileSystem = () => {
           onClose={() => {
             setPdfViewerOpen(false);
             setEditorMode(false);
+            if (viewingDocBlobUrl) {
+              URL.revokeObjectURL(viewingDocBlobUrl);
+              setViewingDocBlobUrl(null);
+            }
           }}
           maxWidth="xl"
           fullWidth
@@ -1527,6 +1553,10 @@ const JobFileSystem = () => {
                 <IconButton onClick={() => {
                   setPdfViewerOpen(false);
                   setEditorMode(false);
+                  if (viewingDocBlobUrl) {
+                    URL.revokeObjectURL(viewingDocBlobUrl);
+                    setViewingDocBlobUrl(null);
+                  }
                 }} aria-label="Close">
                   <CloseIcon />
                 </IconButton>
@@ -1545,7 +1575,7 @@ const JobFileSystem = () => {
                 minHeight: 0, // Important for flex children
               }}>
                 <PDFFormEditor
-                  pdfUrl={getDocUrl(viewingDoc)}
+                  pdfUrl={viewingDocBlobUrl || getDocUrl(viewingDoc)}
                   jobInfo={{
                     pmNumber: job?.pmNumber,
                     woNumber: job?.woNumber,
@@ -1578,7 +1608,7 @@ const JobFileSystem = () => {
                 <Box sx={{ flex: 1, p: 2 }}>
                   {viewingDoc && (
                     <iframe
-                      src={getDocUrl(viewingDoc)}
+                      src={viewingDocBlobUrl || getDocUrl(viewingDoc)}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -1601,6 +1631,10 @@ const JobFileSystem = () => {
               <Button onClick={() => {
                 setPdfViewerOpen(false);
                 setEditorMode(false);
+                if (viewingDocBlobUrl) {
+                  URL.revokeObjectURL(viewingDocBlobUrl);
+                  setViewingDocBlobUrl(null);
+                }
               }}>Close</Button>
               <Button 
                 variant="contained" 
