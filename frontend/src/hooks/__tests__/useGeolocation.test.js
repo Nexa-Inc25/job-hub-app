@@ -26,8 +26,8 @@ describe('useGeolocation Hook', () => {
   describe('GPS_THRESHOLDS', () => {
     it('should have correct threshold values', () => {
       expect(GPS_THRESHOLDS.HIGH).toBe(10);
-      expect(GPS_THRESHOLDS.WARNING).toBe(30);
-      expect(GPS_THRESHOLDS.ACCEPTABLE).toBe(50);
+      expect(GPS_THRESHOLDS.WARNING).toBe(50);     // Relaxed for indoor/poor signal areas
+      expect(GPS_THRESHOLDS.ACCEPTABLE).toBe(100); // Maximum allowed for submission
     });
   });
 
@@ -37,19 +37,21 @@ describe('useGeolocation Hook', () => {
       expect(getGPSQuality(10)).toBe('high');
     });
 
-    it('should return "good" for accuracy <= 30m', () => {
+    it('should return "good" for accuracy <= 50m (WARNING threshold)', () => {
       expect(getGPSQuality(15)).toBe('good');
       expect(getGPSQuality(30)).toBe('good');
+      expect(getGPSQuality(50)).toBe('good');
     });
 
-    it('should return "acceptable" for accuracy <= 50m', () => {
-      expect(getGPSQuality(40)).toBe('acceptable');
-      expect(getGPSQuality(50)).toBe('acceptable');
+    it('should return "acceptable" for accuracy <= 100m (ACCEPTABLE threshold)', () => {
+      expect(getGPSQuality(51)).toBe('acceptable');
+      expect(getGPSQuality(75)).toBe('acceptable');
+      expect(getGPSQuality(100)).toBe('acceptable');
     });
 
-    it('should return "poor" for accuracy > 50m', () => {
-      expect(getGPSQuality(51)).toBe('poor');
-      expect(getGPSQuality(100)).toBe('poor');
+    it('should return "poor" for accuracy > 100m', () => {
+      expect(getGPSQuality(101)).toBe('poor');
+      expect(getGPSQuality(200)).toBe('poor');
     });
 
     it('should return "unknown" for invalid values', () => {
@@ -131,7 +133,7 @@ describe('useGeolocation Hook', () => {
         coords: {
           latitude: 37.7749,
           longitude: -122.4194,
-          accuracy: 100, // Over threshold
+          accuracy: 150, // Over ACCEPTABLE threshold of 100m
           altitude: null,
           altitudeAccuracy: null,
           heading: null,
@@ -144,7 +146,7 @@ describe('useGeolocation Hook', () => {
         success(mockPosition);
       });
 
-      const { result } = renderHook(() => useGeolocation({ minAccuracy: 50 }));
+      const { result } = renderHook(() => useGeolocation({ minAccuracy: 100 }));
 
       act(() => {
         result.current.getCurrentPosition();

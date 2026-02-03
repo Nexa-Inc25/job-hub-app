@@ -31,8 +31,19 @@ function cleanupCache() {
   }
 }
 
-// Clean up every 10 minutes
-setInterval(cleanupCache, 10 * 60 * 1000);
+// Clean up every 10 minutes (only in production, not during tests)
+let cleanupInterval = null;
+if (process.env.NODE_ENV !== 'test') {
+  cleanupInterval = setInterval(cleanupCache, 10 * 60 * 1000);
+}
+
+// Export for testing cleanup
+const stopCleanupInterval = () => {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+};
 
 /**
  * Increment counter for an activity type
@@ -284,6 +295,7 @@ module.exports = {
   checkDataAccessPattern,
   checkUnauthorizedAccess,
   getSecurityStats,
+  stopCleanupInterval,
   THRESHOLDS
 };
 

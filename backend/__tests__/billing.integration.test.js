@@ -507,7 +507,8 @@ describe('Billing Integration Tests', () => {
       expect(res.body.quantity).toBe(2);
       expect(res.body.unitPrice).toBe(2500);
       expect(res.body.totalAmount).toBe(5000); // 2 * 2500
-      expect(res.body.status).toBe('draft');
+      // Units with valid GPS and photos are auto-submitted
+      expect(res.body.status).toBe('submitted');
       expect(res.body.location.latitude).toBe(37.7749);
       expect(res.body.performedBy.tier).toBe('prime');
     });

@@ -140,7 +140,7 @@ describe('Authentication Endpoints', () => {
           });
         
         expect(res.status).toBe(400);
-        expect(res.body.error).toContain('Email and password are required');
+        expect(res.body.error).toContain('Valid email is required');
       });
       
       it('should reject signup without password', async () => {
