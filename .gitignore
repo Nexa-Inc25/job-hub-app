@@ -44,4 +44,6 @@ frontend/cypress/downloads/
 .pnp
 .pnp.js
 *.pdf
+# But allow PDF templates for LME, CWC, etc.
+!backend/templates/**/*.pdf
 *.jdk/
