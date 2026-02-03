@@ -304,81 +304,120 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         console.log(`Found ${fields.length} form fields in LME template`);
         
         // Map our data to actual PG&E LME template field names
-        // Field names discovered from template: LME No, Job Location, DATE, CRAFTRow2, NAMERow2, etc.
+        // Field names discovered from GET /api/lme/template/fields endpoint
         const jobInfo = lme.jobInfo || {};
         const fieldMappings = {
-          // Header fields - actual PG&E field names (with spaces)
-          'LME No': lme.lmeNumber,
+          // === HEADER FIELDS ===
+          'LME No': lme.lmeNumber || '',
           'DATE': lme.date?.toLocaleDateString() || '',
-          'Start Time': lme.startTime || '',
-          'End Time': lme.endTime || '',
-          'SHEET': lme.sheetNumber || '1',
-          'OF': lme.totalSheets || '1',
+          'START TIME': lme.startTime || '',
+          'END': lme.endTime || '',
+          'FIRST': lme.sheetNumber || '1',    // Sheet number
+          'LAST': lme.totalSheets || '1',     // Total sheets
           
-          // Job info fields
-          'Job Location': jobInfo.address || '',
-          'PMNOTIF NO': jobInfo.pmNumber || jobInfo.notificationNumber || '',
-          'JOB NO': jobInfo.woNumber || '',
-          'PO  CWA NO': jobInfo.poNumber || '',
-          'FIELD AUTH FORM NO': jobInfo.fieldAuthNumber || '',
+          // === JOB INFO FIELDS ===
+          'Job Location': `${jobInfo.address || ''} ${jobInfo.city || ''}`.trim(),
+          'PM#': jobInfo.pmNumber || jobInfo.notificationNumber || '',
+          'Job#': jobInfo.woNumber || '',
+          'POCWA': jobInfo.poNumber || '',
+          'FIELD AUTH FORM NO 1': jobInfo.fieldAuthNumber || '',
           'COR NO': jobInfo.corNumber || '',
           
-          // Description of work (the main DESCRIPTION field)
-          'DESCRIPTION': lme.workDescription || `${jobInfo.address || ''} | ${jobInfo.city || ''} | PG&E`,
+          // === SUBCONTRACTOR ===
+          'IF SUBCONTRACTOR USED ENTER NAMES HERE 1': lme.subcontractorName || '',
+          'IF SUBCONTRACTOR USED ENTER NAMES HERE 2': lme.subcontractorName2 || '',
           
-          // Subcontractor
-          'IF SUBCONTRACTOR USED ENTER NAMES HERE': lme.subcontractorName || '',
+          // === WELFARE & SUBSISTENCE ===
+          'WELFARE AND MISSED MEALS': String(lme.missedMeals || ''),
+          'SUBSISTENCE': String(lme.subsistanceCount || ''),
           
-          // Missed meals and subsistence
-          'Missed Meals in HOURS 05 Hrs Each Missed Meal': String(lme.missedMeals || ''),
-          'SUBSISTANCE Count': String(lme.subsistanceCount || ''),
-          
-          // Totals - try various naming patterns
+          // === LABOR TOTALS ===
+          'HRSDYSTOTAL STRAIGHT TIME': String(lme.totals?.stHours || ''),
           'TOTAL STRAIGHT TIME': (lme.totals?.straightTime || 0).toFixed(2),
+          'HRSDYSTOTAL OVERTIME PREMIUM TIME': String(lme.totals?.otHours || ''),
           'TOTAL OVERTIME PREMIUM TIME': (lme.totals?.overtime || 0).toFixed(2),
+          'HRSDYSTOTAL DOUBLE TIME': String(lme.totals?.dtHours || ''),
           'TOTAL DOUBLE TIME': (lme.totals?.doubleTime || 0).toFixed(2),
           'TOTAL LABOR': (lme.totals?.labor || 0).toFixed(2),
-          'TOTAL INVOICES  RENTAL EQUIPMENT': (lme.totals?.material || 0).toFixed(2),
-          'TOTAL OWNED EQUIPMENT': (lme.totals?.equipment || 0).toFixed(2),
+          
+          // === PAYROLL/INSURANCE (percentages applied to labor) ===
+          'PAYROLL TAXES ON TOTAL LABOR OF': (lme.totals?.payrollTaxes || 0).toFixed(2),
+          'COMP INS ON TOTAL LABOR OF': (lme.totals?.compIns || 0).toFixed(2),
+          'PL AND PD ON TOTAL LABOR': (lme.totals?.plPd || 0).toFixed(2),
+          
+          // === GRAND TOTALS (bottom right) ===
+          'AMOUNTTOTAL INVOICES  RENTAL EQUIPMENT': (lme.totals?.rentalEquipment || 0).toFixed(2),
+          'AMOUNTTOTAL OWNED EQUIPMENT': (lme.totals?.ownedEquipment || 0).toFixed(2),
+          'TOTAL INVOICES': (lme.totals?.material || 0).toFixed(2),
+          'TOTAL LABOR_2': (lme.totals?.labor || 0).toFixed(2),
+          'TOTAL EQUIPMENT': (lme.totals?.equipment || 0).toFixed(2),
+          'FEE ON Materials': (lme.totals?.materialFee || 0).toFixed(2),
+          'SUB FEE ON': (lme.totals?.subFee || 0).toFixed(2),
+          'TOTAL LABOR PR TAXES ETC': (lme.totals?.laborWithTaxes || 0).toFixed(2),
           'GRAND TOTAL': (lme.totals?.grand || 0).toFixed(2),
         };
         
-        // Add labor row fields dynamically
-        // PG&E uses: CRAFTRow2, NAMERow2, HRSDYSRow2, RATEST, RATEOTPT, RATEDT, etc.
-        // Row numbering starts at 2 (Row1 is the header)
-        for (let i = 0; i < (lme.labor || []).length && i < 10; i++) {
+        // === LABOR ROWS (9 workers max) ===
+        // Each worker has: CRAFTRowN, NAMERowN, and 3 sub-rows for ST/OT/DT
+        // Hours rows: HRSDYSRow1-27 (3 rows per worker × 9 workers)
+        // Rates: RATEST, RATEOTPT, RATEDT (first worker), then RATEST_2, etc.
+        // Amounts: ST1-ST9, OT1-OT9, DT1-DT9
+        for (let i = 0; i < (lme.labor || []).length && i < 9; i++) {
           const labor = lme.labor[i];
-          const rowNum = i + 2; // Rows start at 2
-          const suffix = i === 0 ? '' : `_${i}`; // First row has no suffix, then _2, _3, etc.
+          const workerNum = i + 1;
           
-          // CRAFT and NAME columns
-          fieldMappings[`CRAFTRow${rowNum}`] = labor.craft || '';
-          fieldMappings[`NAMERow${rowNum}`] = labor.name || '';
-          fieldMappings[`HRSDYSRow${rowNum}`] = labor.hrsDays || '';
+          // CRAFT and NAME columns (Row1 through Row9)
+          fieldMappings[`CRAFTRow${workerNum}`] = labor.craft || '';
+          fieldMappings[`NAMERow${workerNum}`] = labor.name || '';
           
-          // Hours - numbered fields like 21, 31, 41 for ST hours
-          fieldMappings[`${rowNum}1`] = String(labor.stHours || '');
+          // Each worker has 3 HRSDYSRow entries (for ST, OT, DT lines)
+          const stRow = (i * 3) + 1;  // 1, 4, 7, 10, 13, 16, 19, 22, 25
+          const otRow = (i * 3) + 2;  // 2, 5, 8, 11, 14, 17, 20, 23, 26
+          const dtRow = (i * 3) + 3;  // 3, 6, 9, 12, 15, 18, 21, 24, 27
           
-          // Rate fields - RATEST, RATEST_2, etc.
-          if (i === 0) {
-            fieldMappings['RATEST'] = labor.rate ? labor.rate.toFixed(2) : '';
-            fieldMappings['RATEOTPT'] = labor.otRate ? labor.otRate.toFixed(2) : '';
-            fieldMappings['RATEDT'] = labor.dtRate ? labor.dtRate.toFixed(2) : '';
-          } else {
-            fieldMappings[`RATEST_${i + 1}`] = labor.rate ? labor.rate.toFixed(2) : '';
-            fieldMappings[`RATEOTPT_${i + 1}`] = labor.otRate ? labor.otRate.toFixed(2) : '';
-            fieldMappings[`RATEDT_${i + 1}`] = labor.dtRate ? labor.dtRate.toFixed(2) : '';
-          }
+          fieldMappings[`HRSDYSRow${stRow}`] = labor.stHours ? String(labor.stHours) : '';
+          fieldMappings[`HRSDYSRow${otRow}`] = labor.otHours ? String(labor.otHours) : '';
+          fieldMappings[`HRSDYSRow${dtRow}`] = labor.dtHours ? String(labor.dtHours) : '';
+          
+          // Rate fields - first worker has no suffix, then _2, _3, etc.
+          const rateSuffix = i === 0 ? '' : `_${i + 1}`;
+          fieldMappings[`RATEST${rateSuffix}`] = labor.rate ? labor.rate.toFixed(2) : '';
+          fieldMappings[`RATEOTPT${rateSuffix}`] = labor.otRate ? labor.otRate.toFixed(2) : (labor.rate ? (labor.rate * 1.5).toFixed(2) : '');
+          fieldMappings[`RATEDT${rateSuffix}`] = labor.dtRate ? labor.dtRate.toFixed(2) : (labor.rate ? (labor.rate * 2).toFixed(2) : '');
+          
+          // Amount fields: ST1-ST9, OT1-OT9, DT1-DT9
+          fieldMappings[`ST${workerNum}`] = labor.stAmount ? labor.stAmount.toFixed(2) : '';
+          fieldMappings[`OT${workerNum}`] = labor.otAmount ? labor.otAmount.toFixed(2) : '';
+          fieldMappings[`DT${workerNum}`] = labor.dtAmount ? labor.dtAmount.toFixed(2) : '';
         }
         
-        // Add material/invoice entries (DESCRIPTION_2, QTY_2, RATE_2, AMOUNT_2, etc.)
-        for (let i = 0; i < (lme.materials || []).length && i < 8; i++) {
+        // === MATERIAL/INVOICE ROWS (11 rows max) ===
+        // Fields: DESCRIPTION, QTY, RATE, AMOUNT (first row)
+        // Then: DESCRIPTION_2, QTY_2, RATE_2, AMOUNT_2 ... through _11
+        for (let i = 0; i < (lme.materials || []).length && i < 11; i++) {
           const mat = lme.materials[i];
           const suffix = i === 0 ? '' : `_${i + 1}`;
+          
           fieldMappings[`DESCRIPTION${suffix}`] = mat.description || '';
-          fieldMappings[`QTY${suffix}`] = String(mat.quantity || '');
-          fieldMappings[`RATE${suffix}`] = mat.rate ? mat.rate.toFixed(2) : '';
+          fieldMappings[`QTY${suffix}`] = mat.quantity ? String(mat.quantity) : '';
+          fieldMappings[`RATE${suffix}`] = mat.rate ? mat.rate.toFixed(2) : (mat.unitCost ? mat.unitCost.toFixed(2) : '');
           fieldMappings[`AMOUNT${suffix}`] = mat.amount ? mat.amount.toFixed(2) : '';
+        }
+        
+        // === EQUIPMENT ROWS (11 rows max) ===
+        // Fields: EQUIPMENT DESCRIPTION, HRS, RATE_12, AMOUNT_12 (first row)
+        // Then: EQUIPMENT DESCRIPTION_2, HRS_2, RATE_13, AMOUNT_13 ... etc
+        for (let i = 0; i < (lme.equipment || []).length && i < 11; i++) {
+          const eq = lme.equipment[i];
+          const descSuffix = i === 0 ? '' : `_${i + 1}`;
+          const hrsSuffix = i === 0 ? '' : `_${i + 1}`;
+          // Rate and Amount for equipment start at _12 and increment
+          const rateIdx = 12 + i;
+          
+          fieldMappings[`EQUIPMENT DESCRIPTION${descSuffix}`] = eq.type || eq.description || '';
+          fieldMappings[`HRS${hrsSuffix}`] = eq.hours ? String(eq.hours) : '';
+          fieldMappings[`RATE_${rateIdx}`] = eq.rate ? eq.rate.toFixed(2) : '';
+          fieldMappings[`AMOUNT_${rateIdx}`] = eq.amount ? eq.amount.toFixed(2) : '';
         }
         
         // Fill each field that matches our mappings
@@ -387,7 +426,7 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         
         for (const field of fields) {
           const fieldName = field.getName();
-          const value = fieldMappings[fieldName] || fieldMappings[fieldName.toLowerCase()];
+          const value = fieldMappings[fieldName];
           
           if (value !== undefined && value !== '') {
             try {
@@ -403,77 +442,9 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
           }
         }
         
-        // Log first 50 unmatched fields to help with debugging
+        // Log filled and unmatched fields for debugging
         console.log('Filled fields:', filledFields.join(', '));
-        console.log('Sample unmatched fields (first 50):', unmatchedFields.slice(0, 50).join(', '));
-        
-        // Fill labor rows - PG&E uses CRA, NAM, R, D$ pattern
-        // 8 labor rows in the template, each with ST, OT/PT, DT sub-rows
-        for (let i = 0; i < (lme.labor || []).length && i < 8; i++) {
-          const labor = lme.labor[i];
-          const row = i + 1;
-          
-          // Try multiple naming patterns for each field
-          const laborMappings = {
-            // PG&E short codes (CRA1, NAM1, etc.)
-            [`CRA${row}`]: labor.craft,
-            [`CRA${row}`]: labor.craft,
-            [`NAM${row}`]: labor.name,
-            [`R${row}`]: labor.rate,
-            [`D$${row}`]: labor.totalAmount?.toFixed(2),
-            // Hours - ST, OT, DT for each row
-            [`${row}ST`]: labor.stHours,
-            [`${row}OT`]: labor.otHours,
-            [`${row}DT`]: labor.dtHours,
-            [`ST${row}`]: labor.stHours,
-            [`OT${row}`]: labor.otHours,
-            [`DT${row}`]: labor.dtHours,
-            // Alternative naming patterns
-            [`CRAFT_${row}`]: labor.craft,
-            [`NAME_${row}`]: labor.name,
-            [`CRAFT${row}`]: labor.craft,
-            [`NAME${row}`]: labor.name,
-            [`RATE${row}`]: labor.rate,
-            [`AMOUNT${row}`]: labor.totalAmount?.toFixed(2),
-          };
-          
-          for (const [fieldName, value] of Object.entries(laborMappings)) {
-            if (value !== undefined && value !== null && value !== '') {
-              try {
-                const textField = form.getTextField(fieldName);
-                textField.setText(String(value));
-                filledFormFields = true;
-              } catch {
-                // Field doesn't exist - try next pattern
-              }
-            }
-          }
-        }
-        
-        // Fill equipment rows (right side of form)
-        for (let i = 0; i < (lme.equipment || []).length && i < 5; i++) {
-          const eq = lme.equipment[i];
-          const row = i + 1;
-          
-          const eqMappings = {
-            [`RE${row}`]: eq.type,              // Rental Equipment description
-            [`D${row}`]: eq.type,               // Description
-            [`R${row}E`]: eq.rate,              // Rate
-            [`A${row}`]: eq.amount?.toFixed(2), // Amount
-          };
-          
-          for (const [fieldName, value] of Object.entries(eqMappings)) {
-            if (value !== undefined && value !== null && value !== '') {
-              try {
-                const textField = form.getTextField(fieldName);
-                textField.setText(String(value));
-                filledFormFields = true;
-              } catch {
-                // Field doesn't exist
-              }
-            }
-          }
-        }
+        console.log('Sample unmatched fields (first 30):', unmatchedFields.slice(0, 30).join(', '));
         
         // Flatten form fields so they appear as regular text
         form.flatten();
