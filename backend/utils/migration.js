@@ -111,12 +111,79 @@ async function runMigration() {
       }
     }
     
+    // Step 5: Fix LME documents missing url field
+    await migrateLmeUrls(Job);
+    
     console.log('=== Migration complete ===');
     return { success: true };
     
   } catch (err) {
     console.error('Migration error:', err);
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Fix LME documents in Close Out folders that are missing the url field
+ * This is needed for the frontend to display them correctly
+ */
+async function migrateLmeUrls(Job) {
+  try {
+    // Find jobs with LME documents missing url field
+    const jobs = await Job.find({
+      $or: [
+        { 'folders.subfolders.documents': { $elemMatch: { type: 'lme', url: { $exists: false } } } },
+        { 'folders.subfolders.subfolders.documents': { $elemMatch: { type: 'lme', url: { $exists: false } } } }
+      ]
+    });
+    
+    if (jobs.length === 0) {
+      return; // No LME documents need fixing
+    }
+    
+    console.log(`Found ${jobs.length} jobs with LME documents needing URL fix`);
+    
+    let documentsFixed = 0;
+    
+    for (const job of jobs) {
+      let jobModified = false;
+      
+      // Traverse folder structure to find LME documents
+      for (const folder of job.folders || []) {
+        for (const subfolder of folder.subfolders || []) {
+          for (const doc of subfolder.documents || []) {
+            if (doc.type === 'lme' && doc.lmeId && !doc.url) {
+              doc.url = `/api/lme/${doc.lmeId}/pdf`;
+              doc.path = `/api/lme/${doc.lmeId}/pdf`;
+              jobModified = true;
+              documentsFixed++;
+            }
+          }
+          
+          // Check nested subfolders
+          for (const nestedFolder of subfolder.subfolders || []) {
+            for (const doc of nestedFolder.documents || []) {
+              if (doc.type === 'lme' && doc.lmeId && !doc.url) {
+                doc.url = `/api/lme/${doc.lmeId}/pdf`;
+                doc.path = `/api/lme/${doc.lmeId}/pdf`;
+                jobModified = true;
+                documentsFixed++;
+              }
+            }
+          }
+        }
+      }
+      
+      if (jobModified) {
+        await job.save();
+      }
+    }
+    
+    if (documentsFixed > 0) {
+      console.log(`Fixed ${documentsFixed} LME documents with missing URLs`);
+    }
+  } catch (err) {
+    console.warn('LME URL migration warning:', err.message);
   }
 }
 
