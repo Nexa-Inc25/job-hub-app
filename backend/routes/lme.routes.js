@@ -10,6 +10,8 @@
 
 const express = require('express');
 const router = express.Router();
+const path = require('path');
+const fs = require('fs').promises;
 const LME = require('../models/LME');
 const Job = require('../models/Job');
 const User = require('../models/User');
@@ -203,37 +205,57 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
     const lme = await LME.findOne({ _id: lmeId, companyId: user?.companyId });
     if (!lme) return res.status(404).json({ error: 'LME not found' });
 
-    // Try to load the official LME template from R2
+    // Try to load the official LME template from R2 or local templates folder
     let pdfDoc;
     let usedTemplate = false;
+    let templateBytes = null;
     
+    // First, try R2 storage
     try {
-      // Look for LME template in R2 (templates/master/LME*.pdf)
-      const templates = await r2Storage.listFiles('templates/master/');
-      const lmeTemplate = templates.find(t => 
-        t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
-      );
-      
-      if (lmeTemplate && r2Storage.isR2Configured()) {
-        console.log(`Loading LME template from R2: ${lmeTemplate.Key}`);
-        const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
+      if (r2Storage.isR2Configured()) {
+        const templates = await r2Storage.listFiles('templates/master/');
+        const lmeTemplate = templates.find(t => 
+          t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
+        );
         
-        if (templateStream?.stream) {
-          // Convert stream to buffer
-          const chunks = [];
-          for await (const chunk of templateStream.stream) {
-            chunks.push(chunk);
-          }
-          const templateBytes = Buffer.concat(chunks);
+        if (lmeTemplate) {
+          console.log(`Loading LME template from R2: ${lmeTemplate.Key}`);
+          const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
           
-          // Load the template PDF
-          pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
-          usedTemplate = true;
-          console.log('Successfully loaded LME template from R2');
+          if (templateStream?.stream) {
+            const chunks = [];
+            for await (const chunk of templateStream.stream) {
+              chunks.push(chunk);
+            }
+            templateBytes = Buffer.concat(chunks);
+            console.log('Successfully loaded LME template from R2');
+          }
         }
       }
-    } catch (templateError) {
-      console.warn('Could not load LME template from R2:', templateError.message);
+    } catch (r2Error) {
+      console.warn('Could not load LME template from R2:', r2Error.message);
+    }
+    
+    // If R2 failed, try local templates folder
+    if (!templateBytes) {
+      try {
+        const localTemplatePath = path.join(__dirname, '../templates/master/blank LME.pdf');
+        templateBytes = await fs.readFile(localTemplatePath);
+        console.log('Loaded LME template from local file:', localTemplatePath);
+      } catch (localError) {
+        console.warn('Could not load local LME template:', localError.message);
+      }
+    }
+    
+    // Load the template PDF
+    if (templateBytes) {
+      try {
+        pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
+        usedTemplate = true;
+        console.log('Successfully loaded LME template');
+      } catch (loadError) {
+        console.warn('Failed to parse LME template PDF:', loadError.message);
+      }
     }
 
     // If no template found, create from scratch (fallback)
@@ -646,36 +668,60 @@ router.patch('/:id/approve', authenticateUser, async (req, res) => {
  */
 router.get('/template/fields', authenticateUser, async (req, res) => {
   try {
-    // Look for LME template in R2
-    const templates = await r2Storage.listFiles('templates/master/');
-    const lmeTemplate = templates.find(t => 
-      t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
-    );
+    let templateBytes = null;
+    let templateSource = null;
     
-    if (!lmeTemplate) {
-      return res.json({ 
-        error: 'No LME template found in R2',
-        searchPath: 'templates/master/',
-        availableTemplates: templates.map(t => t.Key)
-      });
+    // Try R2 first
+    try {
+      if (r2Storage.isR2Configured()) {
+        const templates = await r2Storage.listFiles('templates/master/');
+        const lmeTemplate = templates.find(t => 
+          t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
+        );
+        
+        if (lmeTemplate) {
+          const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
+          if (templateStream?.stream) {
+            const chunks = [];
+            for await (const chunk of templateStream.stream) {
+              chunks.push(chunk);
+            }
+            templateBytes = Buffer.concat(chunks);
+            templateSource = `R2: ${lmeTemplate.Key}`;
+          }
+        }
+      }
+    } catch (r2Error) {
+      console.warn('R2 template lookup failed:', r2Error.message);
     }
     
-    // Load template
-    const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
-    if (!templateStream?.stream) {
-      return res.status(404).json({ error: 'Could not load template' });
+    // Try local file if R2 failed
+    if (!templateBytes) {
+      try {
+        const localTemplatePath = path.join(__dirname, '../templates/master/blank LME.pdf');
+        templateBytes = await fs.readFile(localTemplatePath);
+        templateSource = `Local: ${localTemplatePath}`;
+      } catch (localError) {
+        return res.json({ 
+          error: 'No LME template found',
+          searchedLocations: ['R2: templates/master/', 'Local: backend/templates/master/blank LME.pdf']
+        });
+      }
     }
     
-    const chunks = [];
-    for await (const chunk of templateStream.stream) {
-      chunks.push(chunk);
-    }
-    const templateBytes = Buffer.concat(chunks);
     const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
     
     // Get form fields
     const form = pdfDoc.getForm();
     const fields = form.getFields();
+    
+    // Get page info
+    const pages = pdfDoc.getPages();
+    const pageInfo = pages.map((p, i) => ({
+      page: i + 1,
+      width: p.getSize().width,
+      height: p.getSize().height
+    }));
     
     const fieldInfo = fields.map(field => ({
       name: field.getName(),
@@ -684,12 +730,15 @@ router.get('/template/fields', authenticateUser, async (req, res) => {
     }));
     
     res.json({
-      templateName: lmeTemplate.Key,
+      templateSource,
+      totalPages: pages.length,
+      pageInfo,
       totalFields: fields.length,
       fields: fieldInfo,
+      isFillable: fields.length > 0,
       message: fields.length > 0 
         ? 'Use these field names in the fieldMappings object to auto-fill the template'
-        : 'This PDF has no fillable form fields. You may need to add them in Adobe Acrobat.'
+        : 'This template is NOT fillable. You need to use Adobe Pro "Prepare Form" to add form fields, or text overlay will be used.'
     });
   } catch (err) {
     console.error('Get template fields error:', err);
