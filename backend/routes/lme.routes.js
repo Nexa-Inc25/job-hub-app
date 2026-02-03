@@ -353,20 +353,30 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         };
         
         // Fill each field that matches our mappings
+        const filledFields = [];
+        const unmatchedFields = [];
+        
         for (const field of fields) {
           const fieldName = field.getName();
           const value = fieldMappings[fieldName] || fieldMappings[fieldName.toLowerCase()];
           
-          if (value !== undefined) {
+          if (value !== undefined && value !== '') {
             try {
               const textField = form.getTextField(fieldName);
               textField.setText(String(value));
               filledFormFields = true;
+              filledFields.push(fieldName);
             } catch {
               // Not a text field or couldn't fill
             }
+          } else {
+            unmatchedFields.push(fieldName);
           }
         }
+        
+        // Log first 50 unmatched fields to help with debugging
+        console.log('Filled fields:', filledFields.join(', '));
+        console.log('Sample unmatched fields (first 50):', unmatchedFields.slice(0, 50).join(', '));
         
         // Fill labor rows - PG&E uses CRA, NAM, R, D$ pattern
         // 8 labor rows in the template, each with ST, OT/PT, DT sub-rows
