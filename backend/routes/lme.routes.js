@@ -468,45 +468,55 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         page.drawText(lme.endTime || '', { x: width - 85, y: height - 70, size: 8, font });
         
         // === LEFT SIDE JOB INFO ===
-        // Based on landscape template approximately 792x612 or similar
-        // Left column labels end around x=70, data starts around x=72
-        const leftDataX = 72;
-        const leftLabelEndX = 270; // End of left section before DESCRIPTION column
+        // Template is landscape, scale positions relative to width
+        // Left section is roughly 55% of width
+        const leftSectionWidth = width * 0.55;
+        const leftDataX = 70; // After "JOB LOCATION" label
         
-        // JOB LOCATION - row after "Furnished by Contractor"
-        page.drawText((jobInfo.address || '').substring(0, 40), { x: leftDataX, y: height - 56, size: 7, font });
+        // Debug: Log what data we have
+        console.log('LME jobInfo:', JSON.stringify(jobInfo));
+        console.log('LME labor[0]:', JSON.stringify((lme.labor || [])[0]));
+        
+        // JOB LOCATION - first data row (after header rows)
+        // Use address only, not work description (that goes elsewhere)
+        page.drawText((jobInfo.address || '').substring(0, 45), { x: leftDataX, y: height - 52, size: 7, font });
+        
+        // DESCRIPTION OF WORK - this is in the vertical box in the middle
+        // For now, we'll skip rotating text and just note it needs the fillable PDF
+        // The work description would be: lme.workDescription
         
         // PM/NOTIF NO.
-        page.drawText(jobInfo.pmNumber || jobInfo.notificationNumber || '', { x: leftDataX, y: height - 66, size: 7, font });
+        page.drawText(jobInfo.pmNumber || jobInfo.notificationNumber || '', { x: leftDataX, y: height - 62, size: 7, font });
         
         // JOB NO.
-        page.drawText(jobInfo.woNumber || '', { x: leftDataX, y: height - 76, size: 7, font });
+        page.drawText(jobInfo.woNumber || '', { x: leftDataX, y: height - 72, size: 7, font });
         
         // PO/CWA NO.
-        page.drawText(jobInfo.poNumber || '', { x: leftDataX, y: height - 86, size: 7, font });
+        page.drawText(jobInfo.poNumber || '', { x: leftDataX, y: height - 82, size: 7, font });
         
-        // FIELD AUTH. FORM NO. (left part) and COR NO. (right part of that row)
-        page.drawText(jobInfo.fieldAuthNumber || '', { x: leftDataX + 30, y: height - 96, size: 7, font });
-        page.drawText(jobInfo.corNumber || '', { x: 180, y: height - 96, size: 7, font });
+        // FIELD AUTH. FORM NO. and COR NO.
+        page.drawText(jobInfo.fieldAuthNumber || '', { x: leftDataX + 40, y: height - 92, size: 7, font });
+        page.drawText(jobInfo.corNumber || '', { x: leftDataX + 140, y: height - 92, size: 7, font });
         
         // SHEET ___ OF ___
-        page.drawText(String(lme.sheetNumber || '1'), { x: 40, y: height - 106, size: 7, font });
-        page.drawText(String(lme.totalSheets || '1'), { x: 62, y: height - 106, size: 7, font });
+        page.drawText(String(lme.sheetNumber || '1'), { x: 38, y: height - 102, size: 7, font });
+        page.drawText(String(lme.totalSheets || '1'), { x: 58, y: height - 102, size: 7, font });
         
         // === CONTRACTOR'S LABOR TABLE ===
-        // Table starts around y = height - 130
-        // Each worker has 3 sub-rows: ST, OT/PT, DT (each ~10px apart)
-        const laborStartY = height - 142; // First ST row for first worker
-        const subRowHeight = 10; // Height between ST/OT/DT rows
-        const workerBlockHeight = subRowHeight * 3; // Total height per worker block
+        // The table takes up the left ~55% of the page
+        // Each worker has 3 sub-rows: ST, OT/PT, DT
+        const laborStartY = height - 130; // First ST row 
+        const subRowHeight = 11; // Pixels between ST/OT/DT rows
+        const workerBlockHeight = subRowHeight * 3; // 33px per worker
         
-        // Column X positions based on template
-        const craftX = 10;
-        const nameX = 42;
-        const hrsDysX = 155;
-        const stptX = 195; // ST/PT column
-        const rateX = 232;
-        const amountX = 267;
+        // Column X positions - scaled to left section
+        // CRAFT | NAME | HRS/DYS | ST/PT | RATE | AMOUNT
+        const craftX = 8;
+        const nameX = 50;
+        const hrsDysX = 170;
+        const stptX = 210; // ST/PT hours column  
+        const rateX = 255;
+        const amountX = 300;
         
         for (let i = 0; i < (lme.labor || []).length && i < 10; i++) {
           const labor = lme.labor[i];
@@ -571,13 +581,18 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
         // First row starts around height - 116
         const miscStartY = height - 116;
         const miscRowH = 10;
+        console.log('LME materials:', JSON.stringify(lme.materials || []));
         for (let i = 0; i < (lme.materials || []).length && i < 8; i++) {
           const mat = lme.materials[i];
           const y = miscStartY - (i * miscRowH);
-          page.drawText((mat.description || '').substring(0, 22), { x: rightDescX, y, size: 5, font });
-          if (mat.quantity) page.drawText(String(mat.quantity), { x: rightQtyX, y, size: 5, font });
-          if (mat.rate) page.drawText(mat.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
-          if (mat.amount) page.drawText(mat.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
+          // Only show if it's actually a material entry (has description and isn't job info)
+          const desc = (mat.description || '').substring(0, 22);
+          if (desc && !desc.toLowerCase().includes('rochelle')) {
+            page.drawText(desc, { x: rightDescX, y, size: 5, font });
+            if (mat.quantity) page.drawText(String(mat.quantity), { x: rightQtyX, y, size: 5, font });
+            if (mat.rate) page.drawText(mat.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
+            if (mat.amount) page.drawText(mat.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
+          }
         }
         
         // TOTAL INVOICES & RENTAL EQUIPMENT
