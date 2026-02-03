@@ -256,54 +256,53 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
       if (fields.length > 0) {
         console.log(`Found ${fields.length} form fields in LME template`);
         
-        // Map our data to common field names
+        // Map our data to PG&E LME template field names
+        // Based on actual template: L, D, S, E, CRA, NAM, R, D$, etc.
         const fieldMappings = {
-          // Header fields (try multiple common naming patterns)
+          // Header fields - PG&E naming convention
+          'L': lme.lmeNumber,                    // LME No.
+          'D': lme.date?.toLocaleDateString() || '',  // DATE
+          'S': lme.startTime || '',              // START TIME
+          'E': lme.endTime || '',                // END time
+          'T': lme.sheetNumber || '1',           // Sheet number (T1)
+          'F': lme.totalSheets || '1',           // OF sheets
+          
+          // Job info fields
+          'J': lme.jobInfo?.address || '',       // JOB LOCATION
+          'P': lme.jobInfo?.pmNumber || '',      // PM/NOTIF NO.
+          'U': lme.jobInfo?.woNumber || '',      // JOB NO. (under P)
+          'O': lme.jobInfo?.poNumber || '',      // PO/CWA NO.
+          'C': lme.jobInfo?.corNumber || '',     // COR NO.
+          
+          // Description of work
+          'W': lme.workDescription || '',        // DESCRIPTION OF WORK
+          
+          // Subcontractor
+          'I': lme.subcontractorName || '',      // IF SUBCONTRACTOR...
+          
+          // Missed meals and subsistence
+          'M': String(lme.missedMeals || 0),     // Missed Meals in HOURS
+          'B': String(lme.subsistanceCount || 0), // SUBSISTANCE Count
+          
+          // Totals section
+          'T1': (lme.totals?.labor || 0).toFixed(2),      // TOTAL LABOR
+          'T2': (lme.totals?.material || 0).toFixed(2),   // TOTAL INVOICES
+          'T3': (lme.totals?.equipment || 0).toFixed(2),  // TOTAL EQUIPMENT
+          'GR': (lme.totals?.grand || 0).toFixed(2),      // GRAND TOTAL
+          
+          // Also try common alternative names
           'lme_number': lme.lmeNumber,
-          'lmeNumber': lme.lmeNumber,
           'LME_NO': lme.lmeNumber,
-          'date': lme.date?.toLocaleDateString() || '',
           'DATE': lme.date?.toLocaleDateString() || '',
-          'start_time': lme.startTime || '',
           'START_TIME': lme.startTime || '',
-          'end_time': lme.endTime || '',
           'END_TIME': lme.endTime || '',
-          'sheet': lme.sheetNumber || '1',
-          'SHEET': lme.sheetNumber || '1',
-          'of_sheets': lme.totalSheets || '1',
-          'OF_SHEETS': lme.totalSheets || '1',
-          
-          // Job info
-          'pm_number': lme.jobInfo?.pmNumber || '',
-          'PM_NO': lme.jobInfo?.pmNumber || '',
-          'wo_number': lme.jobInfo?.woNumber || '',
-          'JOB_NO': lme.jobInfo?.woNumber || '',
-          'po_number': lme.jobInfo?.poNumber || '',
-          'PO_NO': lme.jobInfo?.poNumber || '',
-          'address': lme.jobInfo?.address || '',
           'JOB_LOCATION': lme.jobInfo?.address || '',
-          'field_auth': lme.jobInfo?.fieldAuthNumber || '',
-          'cor_number': lme.jobInfo?.corNumber || '',
-          
-          // Work description
-          'work_description': lme.workDescription || '',
+          'PM_NO': lme.jobInfo?.pmNumber || '',
+          'JOB_NO': lme.jobInfo?.woNumber || '',
+          'PO_NO': lme.jobInfo?.poNumber || '',
+          'COR_NO': lme.jobInfo?.corNumber || '',
           'DESCRIPTION': lme.workDescription || '',
-          'subcontractor': lme.subcontractorName || '',
-          'SUBCONTRACTOR': lme.subcontractorName || '',
-          
-          // Totals
-          'labor_total': `$${(lme.totals?.labor || 0).toFixed(2)}`,
-          'LABOR_TOTAL': `$${(lme.totals?.labor || 0).toFixed(2)}`,
-          'material_total': `$${(lme.totals?.material || 0).toFixed(2)}`,
-          'MATERIAL_TOTAL': `$${(lme.totals?.material || 0).toFixed(2)}`,
-          'equipment_total': `$${(lme.totals?.equipment || 0).toFixed(2)}`,
-          'EQUIPMENT_TOTAL': `$${(lme.totals?.equipment || 0).toFixed(2)}`,
-          'grand_total': `$${(lme.totals?.grand || 0).toFixed(2)}`,
-          'GRAND_TOTAL': `$${(lme.totals?.grand || 0).toFixed(2)}`,
-          
-          // Contractor info
-          'contractor_name': 'ALVAH CONTRACTORS',
-          'CONTRACTOR': 'ALVAH CONTRACTORS',
+          'GRAND_TOTAL': (lme.totals?.grand || 0).toFixed(2),
         };
         
         // Fill each field that matches our mappings
@@ -322,23 +321,63 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
           }
         }
         
-        // Fill labor rows (try common patterns like CRAFT_1, NAME_1, etc.)
-        for (let i = 0; i < (lme.labor || []).length && i < 10; i++) {
+        // Fill labor rows - PG&E uses CRA, NAM, R, D$ pattern
+        // 8 labor rows in the template, each with ST, OT/PT, DT sub-rows
+        for (let i = 0; i < (lme.labor || []).length && i < 8; i++) {
           const labor = lme.labor[i];
           const row = i + 1;
           
+          // Try multiple naming patterns for each field
           const laborMappings = {
+            // PG&E short codes (CRA1, NAM1, etc.)
+            [`CRA${row}`]: labor.craft,
+            [`CRA${row}`]: labor.craft,
+            [`NAM${row}`]: labor.name,
+            [`R${row}`]: labor.rate,
+            [`D$${row}`]: labor.totalAmount?.toFixed(2),
+            // Hours - ST, OT, DT for each row
+            [`${row}ST`]: labor.stHours,
+            [`${row}OT`]: labor.otHours,
+            [`${row}DT`]: labor.dtHours,
+            [`ST${row}`]: labor.stHours,
+            [`OT${row}`]: labor.otHours,
+            [`DT${row}`]: labor.dtHours,
+            // Alternative naming patterns
             [`CRAFT_${row}`]: labor.craft,
             [`NAME_${row}`]: labor.name,
-            [`ST_${row}`]: labor.stHours,
-            [`OT_${row}`]: labor.otHours,
-            [`DT_${row}`]: labor.dtHours,
-            [`RATE_${row}`]: labor.rate,
-            [`AMOUNT_${row}`]: labor.totalAmount?.toFixed(2),
+            [`CRAFT${row}`]: labor.craft,
+            [`NAME${row}`]: labor.name,
+            [`RATE${row}`]: labor.rate,
+            [`AMOUNT${row}`]: labor.totalAmount?.toFixed(2),
           };
           
           for (const [fieldName, value] of Object.entries(laborMappings)) {
-            if (value !== undefined && value !== null) {
+            if (value !== undefined && value !== null && value !== '') {
+              try {
+                const textField = form.getTextField(fieldName);
+                textField.setText(String(value));
+                filledFormFields = true;
+              } catch {
+                // Field doesn't exist - try next pattern
+              }
+            }
+          }
+        }
+        
+        // Fill equipment rows (right side of form)
+        for (let i = 0; i < (lme.equipment || []).length && i < 5; i++) {
+          const eq = lme.equipment[i];
+          const row = i + 1;
+          
+          const eqMappings = {
+            [`RE${row}`]: eq.type,              // Rental Equipment description
+            [`D${row}`]: eq.type,               // Description
+            [`R${row}E`]: eq.rate,              // Rate
+            [`A${row}`]: eq.amount?.toFixed(2), // Amount
+          };
+          
+          for (const [fieldName, value] of Object.entries(eqMappings)) {
+            if (value !== undefined && value !== null && value !== '') {
               try {
                 const textField = form.getTextField(fieldName);
                 textField.setText(String(value));
@@ -585,6 +624,64 @@ router.patch('/:id/approve', authenticateUser, async (req, res) => {
     res.json(lme);
   } catch (err) {
     console.error('Approve LME error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/lme/template/fields
+ * Utility endpoint to list all form fields in the LME template
+ * Helps with mapping field names for auto-fill
+ */
+router.get('/template/fields', authenticateUser, async (req, res) => {
+  try {
+    // Look for LME template in R2
+    const templates = await r2Storage.listFiles('templates/master/');
+    const lmeTemplate = templates.find(t => 
+      t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
+    );
+    
+    if (!lmeTemplate) {
+      return res.json({ 
+        error: 'No LME template found in R2',
+        searchPath: 'templates/master/',
+        availableTemplates: templates.map(t => t.Key)
+      });
+    }
+    
+    // Load template
+    const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
+    if (!templateStream?.stream) {
+      return res.status(404).json({ error: 'Could not load template' });
+    }
+    
+    const chunks = [];
+    for await (const chunk of templateStream.stream) {
+      chunks.push(chunk);
+    }
+    const templateBytes = Buffer.concat(chunks);
+    const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
+    
+    // Get form fields
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+    
+    const fieldInfo = fields.map(field => ({
+      name: field.getName(),
+      type: field.constructor.name,
+      isReadOnly: field.isReadOnly?.() || false,
+    }));
+    
+    res.json({
+      templateName: lmeTemplate.Key,
+      totalFields: fields.length,
+      fields: fieldInfo,
+      message: fields.length > 0 
+        ? 'Use these field names in the fieldMappings object to auto-fill the template'
+        : 'This PDF has no fillable form fields. You may need to add them in Adobe Acrobat.'
+    });
+  } catch (err) {
+    console.error('Get template fields error:', err);
     res.status(500).json({ error: err.message });
   }
 });
