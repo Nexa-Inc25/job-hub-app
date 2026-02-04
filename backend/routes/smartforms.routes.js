@@ -201,7 +201,7 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
     
     // Upload to R2
     const timestamp = Date.now();
-    const safeName = name.replaceAll(/[^a-zA-Z0-9]/g, '_');
+    const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
     const r2Key = `smartforms/templates/${companyId}/${safeName}_${timestamp}.pdf`;
     
     await r2Storage.uploadFile(r2Key, req.file.buffer, 'application/pdf');
