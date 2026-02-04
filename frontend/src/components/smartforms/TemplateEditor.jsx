@@ -382,9 +382,13 @@ export default function TemplateEditor() {
 
   // Render field overlays
   const renderFieldOverlays = (pageElement) => {
+    if (!pageElement) return null;
+    
     const pageFields = fields.filter((f) => f.page === currentPage);
 
     return pageFields.map((field) => {
+      if (!field?.bounds) return null;
+      
       const screenPos = pdfToScreenCoords(
         field.bounds.x,
         field.bounds.y,
@@ -392,6 +396,9 @@ export default function TemplateEditor() {
         field.bounds.height,
         pageElement
       );
+      
+      // Skip fields with invalid positions
+      if (screenPos.width <= 0 || screenPos.height <= 0) return null;
 
       const isSelected = selectedField === field.id;
       const hasMapping = mappings[field.name];
@@ -581,9 +588,18 @@ export default function TemplateEditor() {
             <Document
               file={pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
+              onLoadError={(err) => {
+                console.error('PDF load error:', err);
+                setError('Failed to load PDF: ' + err.message);
+              }}
               loading={
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
                   <CircularProgress />
+                </Box>
+              }
+              error={
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                  <Alert severity="error">Failed to load PDF. Please try again.</Alert>
                 </Box>
               }
               options={{
@@ -617,8 +633,16 @@ export default function TemplateEditor() {
                   renderAnnotationLayer={false}
                   width={containerWidth ? Math.min(containerWidth - 64, 800) : undefined}
                   onRenderSuccess={() => {
-                    // Force re-render of overlays
+                    // Force re-render of overlays when page renders
                   }}
+                  onRenderError={(err) => {
+                    console.error('Page render error:', err);
+                  }}
+                  error={
+                    <Box sx={{ p: 4, textAlign: 'center', bgcolor: 'white' }}>
+                      <Alert severity="error">Failed to render page {currentPage}</Alert>
+                    </Box>
+                  }
                 />
 
                 {/* Field overlays */}
