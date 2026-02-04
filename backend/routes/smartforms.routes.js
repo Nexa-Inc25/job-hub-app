@@ -211,7 +211,7 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
     
     // Upload to R2
     const timestamp = Date.now();
-    const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
+    const safeName = name.replaceAll(/[^a-zA-Z0-9]/g, '_');
     const r2Key = `smartforms/templates/${companyId}/${safeName}_${timestamp}.pdf`;
     console.log('[SmartForms] Uploading to R2:', r2Key);
     
@@ -528,8 +528,8 @@ router.post('/templates/:id/fill', async (req, res) => {
       
       // Handle checkboxes - check for truthy values
       if (field.type === 'checkbox') {
-        const isTruthy = value === true || String(value).toLowerCase() === 'true' || 
-                         String(value) === '1' || String(value).toLowerCase() === 'yes';
+        const strValue = String(value).toLowerCase();
+        const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
         value = isTruthy ? '✓' : '';
       }
       
@@ -652,8 +652,8 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           }
           
           if (field.type === 'checkbox') {
-            const isTruthy = value === true || String(value).toLowerCase() === 'true' || 
-                             String(value) === '1' || String(value).toLowerCase() === 'yes';
+            const strValue = String(value).toLowerCase();
+            const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
             value = isTruthy ? '✓' : '';
           }
           
