@@ -526,13 +526,11 @@ router.post('/templates/:id/fill', async (req, res) => {
         value = formatDate(value, field.dateFormat);
       }
       
-      // Handle checkboxes
+      // Handle checkboxes - check for truthy values
       if (field.type === 'checkbox') {
-        if (value === true || value === 'true' || value === '1' || value === 'yes') {
-          value = '✓';
-        } else {
-          value = '';
-        }
+        const isTruthy = value === true || String(value).toLowerCase() === 'true' || 
+                         String(value) === '1' || String(value).toLowerCase() === 'yes';
+        value = isTruthy ? '✓' : '';
       }
       
       if (!value) continue;
@@ -654,7 +652,9 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           }
           
           if (field.type === 'checkbox') {
-            value = (value === true || value === 'true' || value === '1' || value === 'yes') ? '✓' : '';
+            const isTruthy = value === true || String(value).toLowerCase() === 'true' || 
+                             String(value) === '1' || String(value).toLowerCase() === 'yes';
+            value = isTruthy ? '✓' : '';
           }
           
           if (!value) continue;

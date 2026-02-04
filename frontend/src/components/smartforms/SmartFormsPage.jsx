@@ -58,6 +58,19 @@ const STATUS_CONFIG = {
   archived: { label: 'Archived', color: 'default', icon: ArchiveIcon },
 };
 
+// Helper functions for upload box styling
+const getUploadBorderColor = (hasFile, isDark) => {
+  if (hasFile) return 'success.main';
+  return isDark ? 'grey.600' : 'grey.400';
+};
+
+const getUploadBgColor = (hasFile, isDark) => {
+  if (hasFile) {
+    return isDark ? 'rgba(46, 125, 50, 0.2)' : 'success.light';
+  }
+  return isDark ? 'grey.900' : 'grey.50';
+};
+
 export default function SmartFormsPage() {
   const navigate = useNavigate();
   const { mode } = useThemeMode();
@@ -398,13 +411,11 @@ export default function SmartFormsPage() {
             <Box
               sx={{
                 border: '2px dashed',
-                borderColor: uploadFile ? 'success.main' : (isDark ? 'grey.600' : 'grey.400'),
+                borderColor: getUploadBorderColor(uploadFile, isDark),
                 borderRadius: 2,
                 p: 3,
                 textAlign: 'center',
-                bgcolor: uploadFile 
-                  ? (isDark ? 'rgba(46, 125, 50, 0.2)' : 'success.light') 
-                  : (isDark ? 'grey.900' : 'grey.50'),
+                bgcolor: getUploadBgColor(uploadFile, isDark),
                 cursor: 'pointer',
                 '&:hover': { 
                   borderColor: 'primary.main', 
