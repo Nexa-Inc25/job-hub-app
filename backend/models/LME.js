@@ -113,7 +113,8 @@ const lmeSchema = new mongoose.Schema({
 // Indexes
 lmeSchema.index({ jobId: 1, date: 1 });
 lmeSchema.index({ companyId: 1, date: -1 });
-lmeSchema.index({ lmeNumber: 1 }, { unique: true });
+// Compound unique index: lmeNumber must be unique per company (multi-tenant support)
+lmeSchema.index({ lmeNumber: 1, companyId: 1 }, { unique: true });
 
 /**
  * Format for Oracle CATS time import

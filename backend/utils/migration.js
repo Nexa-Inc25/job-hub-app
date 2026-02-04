@@ -195,7 +195,39 @@ function fixLmeDocsInDocList(documents) {
 }
 
 /**
- * Step 5: Fix LME documents in Close Out folders that are missing the url field
+ * Step 5: Fix LME unique index to be compound (lmeNumber + companyId) for multi-tenancy
+ * The old index was unique on lmeNumber alone, causing conflicts across companies
+ */
+async function fixLmeIndex() {
+  try {
+    const LME = require('../models/LME');
+    const collection = LME.collection;
+    
+    // Check if old index exists
+    const indexes = await collection.indexes();
+    const oldIndex = indexes.find(idx => 
+      idx.key && idx.key.lmeNumber === 1 && !idx.key.companyId && idx.unique === true
+    );
+    
+    if (oldIndex) {
+      console.log('Dropping old lmeNumber_1 unique index...');
+      try {
+        await collection.dropIndex('lmeNumber_1');
+        console.log('Old lmeNumber index dropped, new compound index will be created by Mongoose');
+      } catch (dropErr) {
+        // Index might already be dropped
+        if (!dropErr.message.includes('index not found')) {
+          console.warn('Could not drop old lmeNumber index:', dropErr.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('LME index migration warning:', err.message);
+  }
+}
+
+/**
+ * Step 6: Fix LME documents in Close Out folders that are missing the url field
  * This is needed for the frontend to display them correctly
  */
 async function migrateLmeUrls(Job) {
@@ -258,7 +290,10 @@ async function runMigration() {
     // Step 4: Link existing jobs to default company and PG&E utility
     await linkJobsToCompanyAndUtility(Job, defaultCompany, pgeUtility);
     
-    // Step 5: Fix LME documents missing url field
+    // Step 5: Fix LME unique index for multi-tenancy
+    await fixLmeIndex();
+    
+    // Step 6: Fix LME documents missing url field
     await migrateLmeUrls(Job);
     
     console.log('=== Migration complete ===');

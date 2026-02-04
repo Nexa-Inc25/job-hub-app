@@ -824,6 +824,13 @@ router.post('/', authenticateUser, async (req, res) => {
     res.json(lme);
   } catch (err) {
     console.error('Save LME error:', err);
+    // Handle duplicate key error with user-friendly message
+    if (err.code === 11000) {
+      return res.status(409).json({ 
+        error: 'An LME with this number already exists. Please use a different date or job reference.',
+        code: 'DUPLICATE_LME'
+      });
+    }
     res.status(500).json({ error: err.message });
   }
 });
