@@ -190,6 +190,21 @@ const BillingDashboard = ({ jobId }) => {
     setDisputeUnit(unit);
     setDisputeDialogOpen(true);
   }, []);
+
+  // Delete unit (draft only)
+  const handleDeleteUnit = useCallback(async (unit) => {
+    if (!confirm(`Are you sure you want to delete this unit entry?\n\nItem: ${unit.itemCode || unit.priceBookItemCode}\nQuantity: ${unit.quantity}`)) {
+      return;
+    }
+    
+    try {
+      await api.delete(`/api/billing/units/${unit._id}`);
+      showSnackbar('Unit deleted successfully');
+      fetchUnits();
+    } catch (err) {
+      showSnackbar(err.response?.data?.error || 'Failed to delete unit', 'error');
+    }
+  }, [fetchUnits]);
   
   // Handle dispute success (both create and resolve)
   const handleDisputeSuccess = useCallback(() => {
@@ -419,6 +434,7 @@ const BillingDashboard = ({ jobId }) => {
             onVerify={handleVerifyUnit}
             onApprove={handleApproveUnit}
             onDispute={handleDisputeUnit}
+            onDelete={handleDeleteUnit}
             onAddToClaim={handleAddToClaim}
             onRefresh={fetchUnits}
             onExport={() => {

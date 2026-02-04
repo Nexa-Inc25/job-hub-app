@@ -15,6 +15,7 @@ const router = express.Router();
 const FormTemplate = require('../models/FormTemplate');
 const Job = require('../models/Job');
 const Company = require('../models/Company');
+const User = require('../models/User');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const r2Storage = require('../utils/storage');
 const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
@@ -114,10 +115,11 @@ async function loadPdfFromR2(r2Key) {
  */
 router.get('/templates', async (req, res) => {
   try {
-    const companyId = req.user?.companyId;
-    if (!companyId) {
-      return res.status(400).json({ error: 'Company ID required' });
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
     }
+    const companyId = user.companyId;
     
     const { status, category } = req.query;
     const query = { companyId };
@@ -142,8 +144,12 @@ router.get('/templates', async (req, res) => {
  */
 router.get('/templates/:id', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
+    const companyId = user.companyId;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -167,12 +173,12 @@ router.get('/templates/:id', async (req, res) => {
  */
 router.post('/templates', upload.single('pdf'), async (req, res) => {
   try {
-    const companyId = req.user?.companyId;
-    const userId = req.user?.id;
-    
-    if (!companyId) {
-      return res.status(400).json({ error: 'Company ID required' });
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
     }
+    const companyId = user.companyId;
+    const userId = user._id;
     
     if (!req.file) {
       return res.status(400).json({ error: 'PDF file required' });
@@ -233,9 +239,13 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
  */
 router.put('/templates/:id', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
-    const userId = req.user?.id;
+    const companyId = user.companyId;
+    const userId = user._id;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -269,8 +279,12 @@ router.put('/templates/:id', async (req, res) => {
  */
 router.delete('/templates/:id', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
+    const companyId = user.companyId;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -309,9 +323,13 @@ router.delete('/templates/:id', async (req, res) => {
  */
 router.put('/templates/:id/fields', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
-    const userId = req.user?.id;
+    const companyId = user.companyId;
+    const userId = user._id;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -345,9 +363,13 @@ router.put('/templates/:id/fields', async (req, res) => {
  */
 router.put('/templates/:id/mappings', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
-    const userId = req.user?.id;
+    const companyId = user.companyId;
+    const userId = user._id;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -385,8 +407,12 @@ router.put('/templates/:id/mappings', async (req, res) => {
  */
 router.get('/templates/:id/pdf', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
+    const companyId = user.companyId;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -416,8 +442,12 @@ router.get('/templates/:id/pdf', async (req, res) => {
  */
 router.post('/templates/:id/fill', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
+    const companyId = user.companyId;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -453,7 +483,7 @@ router.post('/templates/:id/fill', async (req, res) => {
     
     // Add current date/time
     dataContext.today = new Date();
-    dataContext.user = req.user;
+    dataContext.user = { name: user.name, email: user.email };
     
     // Load and fill the PDF
     const pdfBytes = await loadPdfFromR2(template.sourceFile.r2Key);
@@ -528,8 +558,12 @@ router.post('/templates/:id/fill', async (req, res) => {
  */
 router.post('/templates/:id/batch-fill', async (req, res) => {
   try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
     const templateId = sanitizeObjectId(req.params.id);
-    const companyId = req.user?.companyId;
+    const companyId = user.companyId;
     
     const template = await FormTemplate.findOne({ 
       _id: templateId, 
@@ -577,7 +611,7 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           job: job.toObject(),
           company: company?.toObject(),
           today: new Date(),
-          user: req.user,
+          user: { name: user.name, email: user.email },
         };
         
         // Load fresh PDF for each job

@@ -56,6 +56,7 @@ import ExportIcon from '@mui/icons-material/Download';
 import MoreIcon from '@mui/icons-material/MoreVert';
 import CloseIcon from '@mui/icons-material/Close';
 import SendIcon from '@mui/icons-material/Send';
+import DeleteIcon from '@mui/icons-material/Delete';
 import ProofPanel from './ProofPanel';
 
 // Status configurations - use CheckCircleIcon for both approve and paid states
@@ -121,6 +122,7 @@ const UnitApprovalGrid = ({
   onVerify,
   onApprove,
   onDispute,
+  onDelete,
   onAddToClaim,
   onRefresh,
   onExport,
@@ -590,6 +592,20 @@ const UnitApprovalGrid = ({
             <ListItemText>Add to Claim</ListItemText>
           </MenuItem>
         )}
+        {selectedUnit?.status === 'draft' && onDelete && (
+          <>
+            <Divider />
+            <MenuItem 
+              onClick={() => {
+                onDelete(selectedUnit);
+                setMenuAnchor(null);
+              }}
+            >
+              <ListItemIcon><DeleteIcon color="error" /></ListItemIcon>
+              <ListItemText>Delete</ListItemText>
+            </MenuItem>
+          </>
+        )}
       </Menu>
 
       {/* Evidence Detail Dialog */}
@@ -622,6 +638,7 @@ UnitApprovalGrid.propTypes = {
   onVerify: PropTypes.func,
   onApprove: PropTypes.func,
   onDispute: PropTypes.func,
+  onDelete: PropTypes.func,
   onAddToClaim: PropTypes.func,
   onRefresh: PropTypes.func,
   onExport: PropTypes.func,
