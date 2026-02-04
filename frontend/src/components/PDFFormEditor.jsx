@@ -183,8 +183,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             setPdfPageDimensions({ width, height });
             console.log(`PDF page dimensions: ${width}x${height}`);
           }
-        } catch (dimErr) {
-          console.warn('Could not read PDF dimensions:', dimErr);
+        } catch (error_) {
+          console.warn('Could not read PDF dimensions:', error_);
         }
         
         setError('');
@@ -411,12 +411,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     
     // Use screen coordinates for drag offset
-    const displayX = annotation.screenX !== undefined 
-      ? annotation.screenX 
-      : annotation.x / (annotation.scaleToActualPdf || 1);
-    const displayY = annotation.screenY !== undefined 
-      ? annotation.screenY 
-      : annotation.y / (annotation.scaleToActualPdf || 1);
+    const displayX = annotation.screenX === undefined 
+      ? annotation.x / (annotation.scaleToActualPdf || 1)
+      : annotation.screenX;
+    const displayY = annotation.screenY === undefined 
+      ? annotation.y / (annotation.scaleToActualPdf || 1)
+      : annotation.screenY;
     
     const clickX = clientX - rect.left;
     const clickY = clientY - rect.top;
@@ -866,12 +866,12 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                     {pageAnnotations.map((annotation) => {
                       // Convert PDF coordinates back to screen coordinates for display
                       // Use screenX/screenY if available (new annotations), otherwise calculate from PDF coords
-                      const displayX = annotation.screenX !== undefined 
-                        ? annotation.screenX 
-                        : annotation.x / (annotation.scaleToActualPdf || 1);
-                      const displayY = annotation.screenY !== undefined 
-                        ? annotation.screenY 
-                        : annotation.y / (annotation.scaleToActualPdf || 1);
+                      const displayX = annotation.screenX === undefined 
+                        ? annotation.x / (annotation.scaleToActualPdf || 1)
+                        : annotation.screenX;
+                      const displayY = annotation.screenY === undefined 
+                        ? annotation.y / (annotation.scaleToActualPdf || 1)
+                        : annotation.screenY;
                       
                       return (
                       <Box
