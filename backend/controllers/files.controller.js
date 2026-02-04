@@ -85,6 +85,15 @@ const streamFile = async (req, res) => {
       return res.sendFile(safePath);
     }
     
+    // Try direct path in uploads folder for legacy files
+    if (fileKey.startsWith('uploads/')) {
+      const filename = fileKey.replace('uploads/', '');
+      const legacyPath = path.join(uploadsDir, filename);
+      if (fs.existsSync(legacyPath)) {
+        return res.sendFile(legacyPath);
+      }
+    }
+    
     res.status(404).json({ error: 'File not found', key: fileKey });
   } catch (err) {
     console.error('Error streaming file:', err);

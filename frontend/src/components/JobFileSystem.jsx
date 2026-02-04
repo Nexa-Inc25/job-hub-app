@@ -925,6 +925,11 @@ const JobFileSystem = () => {
     else if (doc.r2Key) {
       resultUrl = `${apiBase}/api/files/${doc.r2Key}`;
     }
+    // Handle legacy local file paths (e.g., /Users/mike/job-hub-app/backend/uploads/...)
+    else if (doc.url?.includes('/uploads/') && doc.url?.includes('/Users/')) {
+      const filename = doc.url.split('/').pop();
+      resultUrl = `${apiBase}/api/files/uploads/${filename}`;
+    }
     else {
       resultUrl = doc.url || '';
     }
