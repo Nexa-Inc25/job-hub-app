@@ -5,6 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useThemeMode } from '../../ThemeContext';
 import {
   Box,
   Typography,
@@ -59,6 +60,9 @@ const STATUS_CONFIG = {
 
 export default function SmartFormsPage() {
   const navigate = useNavigate();
+  const { mode } = useThemeMode();
+  const isDark = mode === 'dark';
+  
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -392,13 +396,18 @@ export default function SmartFormsPage() {
             <Box
               sx={{
                 border: '2px dashed',
-                borderColor: uploadFile ? 'success.main' : 'grey.400',
+                borderColor: uploadFile ? 'success.main' : (isDark ? 'grey.600' : 'grey.400'),
                 borderRadius: 2,
                 p: 3,
                 textAlign: 'center',
-                bgcolor: uploadFile ? 'success.light' : 'grey.50',
+                bgcolor: uploadFile 
+                  ? (isDark ? 'rgba(46, 125, 50, 0.2)' : 'success.light') 
+                  : (isDark ? 'grey.900' : 'grey.50'),
                 cursor: 'pointer',
-                '&:hover': { borderColor: 'primary.main', bgcolor: 'primary.light' },
+                '&:hover': { 
+                  borderColor: 'primary.main', 
+                  bgcolor: isDark ? 'rgba(25, 118, 210, 0.2)' : 'primary.light' 
+                },
               }}
               onClick={() => document.getElementById('pdf-upload-input').click()}
             >

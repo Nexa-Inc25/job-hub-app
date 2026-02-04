@@ -11,8 +11,6 @@ import {
   Box,
   Paper,
   IconButton,
-  AppBar,
-  Toolbar,
   Chip,
   CircularProgress,
   Alert,
@@ -38,7 +36,6 @@ import {
   Tooltip,
   Badge,
 } from '@mui/material';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import WarningIcon from '@mui/icons-material/Warning';
 import ScheduleIcon from '@mui/icons-material/Schedule';
@@ -615,20 +612,30 @@ const QADashboard = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: pageBg }}>
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: cardBg, borderBottom: `1px solid ${borderColor}` }}>
-        <Toolbar>
-          <IconButton onClick={() => navigate('/dashboard')} sx={{ mr: 2, color: textPrimary }}>
-            <ArrowBackIcon />
-          </IconButton>
-          <FactCheckIcon sx={{ mr: 1.5, color: '#6366f1' }} />
-          <Typography variant="h6" sx={{ flexGrow: 1, color: textPrimary, fontWeight: 700 }}>
+      {/* Page Header with Actions */}
+      <Box sx={{ 
+        bgcolor: cardBg, 
+        borderBottom: `1px solid ${borderColor}`,
+        px: 3,
+        py: 2,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <FactCheckIcon sx={{ color: '#6366f1', fontSize: 28 }} />
+          <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
             QA Dashboard
           </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Button
             variant="contained"
             startIcon={<CloudUploadIcon />}
             onClick={() => setUploadDialogOpen(true)}
-            sx={{ mr: 2, bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }}
+            sx={{ bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }}
           >
             Upload Failed Audit
           </Button>
@@ -636,7 +643,7 @@ const QADashboard = () => {
             variant="outlined"
             startIcon={<MenuBookIcon />}
             onClick={() => navigate('/qa/spec-library')}
-            sx={{ mr: 2, borderColor: '#6366f1', color: '#6366f1' }}
+            sx={{ borderColor: '#6366f1', color: '#6366f1' }}
           >
             Spec Library
           </Button>
@@ -646,8 +653,8 @@ const QADashboard = () => {
               sx={{ bgcolor: '#f59e0b20', color: '#f59e0b', fontWeight: 600 }}
             />
           </Badge>
-        </Toolbar>
-      </AppBar>
+        </Box>
+      </Box>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Stats Cards */}

@@ -151,7 +151,11 @@
   }
 }
 
-/* MUI overrides to ensure compatibility */
+/* ============================================
+   MUI Dark Mode Overrides for Enterprise Theme
+   ============================================ */
+
+/* AppBar */
 .MuiAppBar-root {
   background-color: hsl(var(--card)) !important;
   color: hsl(var(--card-foreground)) !important;
@@ -159,17 +163,231 @@
 
 .dark .MuiAppBar-root {
   background-color: hsl(var(--card)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
 }
 
-/* Ensure MUI components respect dark mode */
+/* Paper & Card */
 .dark .MuiPaper-root {
-  background-color: hsl(var(--card));
-  color: hsl(var(--card-foreground));
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
 }
 
 .dark .MuiCard-root {
-  background-color: hsl(var(--card));
-  color: hsl(var(--card-foreground));
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+/* Table */
+.dark .MuiTableContainer-root {
+  background-color: hsl(var(--card)) !important;
+}
+
+.dark .MuiTableCell-root {
+  color: hsl(var(--card-foreground)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+.dark .MuiTableCell-head {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600 !important;
+}
+
+.dark .MuiTableRow-root:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Input & TextField */
+.dark .MuiInputBase-root {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiOutlinedInput-root {
+  background-color: hsl(var(--input)) !important;
+}
+
+.dark .MuiOutlinedInput-notchedOutline {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: hsl(var(--ring)) !important;
+}
+
+.dark .MuiInputLabel-root {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .MuiInputLabel-root.Mui-focused {
+  color: hsl(var(--primary)) !important;
+}
+
+/* Select */
+.dark .MuiSelect-icon {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .MuiMenu-paper {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+.dark .MuiMenuItem-root {
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+.dark .MuiMenuItem-root:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+.dark .MuiMenuItem-root.Mui-selected {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Dialog */
+.dark .MuiDialog-paper {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .MuiDialogTitle-root {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiDialogContent-root {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiDialogContentText-root {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Tabs */
+.dark .MuiTabs-root {
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+.dark .MuiTab-root {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .MuiTab-root.Mui-selected {
+  color: hsl(var(--primary)) !important;
+}
+
+.dark .MuiTabs-indicator {
+  background-color: hsl(var(--primary)) !important;
+}
+
+/* Chip */
+.dark .MuiChip-root {
+  border-color: hsl(var(--border)) !important;
+}
+
+.dark .MuiChip-outlined {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Button (outlined) */
+.dark .MuiButton-outlined {
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiButton-outlined:hover {
+  background-color: hsl(var(--accent)) !important;
+  border-color: hsl(var(--ring)) !important;
+}
+
+/* IconButton */
+.dark .MuiIconButton-root {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.dark .MuiIconButton-root:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+/* Divider */
+.dark .MuiDivider-root {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Tooltip */
+.dark .MuiTooltip-tooltip {
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+/* DataGrid */
+.dark .MuiDataGrid-root {
+  border-color: hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiDataGrid-cell {
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+.dark .MuiDataGrid-columnHeaders {
+  background-color: hsl(var(--muted)) !important;
+  border-bottom-color: hsl(var(--border)) !important;
+}
+
+.dark .MuiDataGrid-columnHeader {
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiDataGrid-row:hover {
+  background-color: hsl(var(--accent)) !important;
+}
+
+.dark .MuiDataGrid-footerContainer {
+  border-top-color: hsl(var(--border)) !important;
+}
+
+/* Alert */
+.dark .MuiAlert-standardInfo {
+  background-color: hsl(215 28% 18%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiAlert-standardWarning {
+  background-color: hsl(38 92% 15%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiAlert-standardError {
+  background-color: hsl(0 72% 15%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.dark .MuiAlert-standardSuccess {
+  background-color: hsl(142 72% 15%) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Snackbar */
+.dark .MuiSnackbarContent-root {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+/* Typography color overrides */
+.dark .MuiTypography-root {
+  color: inherit;
+}
+
+/* Ensure text.secondary maps correctly */
+.dark .MuiTypography-colorTextSecondary {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* Box with bgcolor should use theme colors */
+.dark [style*="background"] {
+  /* This is a catch-all - specific overrides above take precedence */
 }
 
 /* Command palette overlay */

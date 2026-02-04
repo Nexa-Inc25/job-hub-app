@@ -49,6 +49,7 @@ import TextFieldsIcon from '@mui/icons-material/TextFields';
 import DateRangeIcon from '@mui/icons-material/DateRange';
 import CheckBoxIcon from '@mui/icons-material/CheckBox';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import { useThemeMode } from '../../ThemeContext';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -62,6 +63,8 @@ const FIELD_TYPES = [
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
+  const { mode } = useThemeMode();
+  const isDark = mode === 'dark';
 
   // Template state
   const [template, setTemplate] = useState(null);
@@ -590,7 +593,7 @@ export default function TemplateEditor() {
             justifyContent: 'center',
             alignItems: 'flex-start',
             p: 2,
-            bgcolor: '#e0e0e0',
+            bgcolor: isDark ? 'grey.900' : 'grey.300',
           }}
         >
           {pdfUrl && (
