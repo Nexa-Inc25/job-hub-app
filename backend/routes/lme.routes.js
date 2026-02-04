@@ -514,8 +514,18 @@ function drawEquipmentOverlay(page, equipment, coords, font) {
 
 /**
  * Draw right side totals
+ * @param {Object} options - Drawing options
+ * @param {Object} options.page - PDF page
+ * @param {Object} options.lme - LME data
+ * @param {Object} options.coords - Coordinate positions { amountX, qtyX, height }
+ * @param {Object} options.fonts - Fonts { regular, bold }
+ * @param {number} options.totalEqHours - Total equipment hours
  */
-function drawRightSideTotals(page, lme, amountX, qtyX, totalEqHours, height, font, boldFont) {
+function drawRightSideTotals(options) {
+  const { page, lme, coords, fonts, totalEqHours } = options;
+  const { amountX, qtyX, height } = coords;
+  const { regular: font, bold: boldFont } = fonts;
+  
   if (totalEqHours > 0) {
     page.drawText(String(totalEqHours), { x: qtyX, y: height - 300, size: 6, font });
   }
@@ -551,7 +561,13 @@ function drawRightSideOverlay(page, lme, font, boldFont, width, height) {
   const totalEqHours = drawEquipmentOverlay(page, lme.equipment, eqCoords, font);
   
   // Draw totals
-  drawRightSideTotals(page, lme, rightAmountX, rightQtyX, totalEqHours, height, font, boldFont);
+  drawRightSideTotals({
+    page,
+    lme,
+    coords: { amountX: rightAmountX, qtyX: rightQtyX, height },
+    fonts: { regular: font, bold: boldFont },
+    totalEqHours
+  });
   
   // Subcontractor and counts
   if (lme.subcontractorName) {

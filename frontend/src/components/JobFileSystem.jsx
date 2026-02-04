@@ -1100,7 +1100,7 @@ const JobFileSystem = () => {
         link.download = doc.name || 'document.pdf';
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         URL.revokeObjectURL(blobUrl);
       } catch (err) {
         console.error('Download error:', err);
