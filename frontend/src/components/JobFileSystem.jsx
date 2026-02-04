@@ -1022,15 +1022,24 @@ const JobFileSystem = () => {
             const blob = await response.blob();
             const blobUrl = URL.createObjectURL(blob);
             setViewingDocBlobUrl(blobUrl);
+            setPdfViewerOpen(true);
+          } else {
+            console.error('Failed to fetch PDF:', response.status, response.statusText);
+            setError(`Failed to load document: ${response.statusText || 'Unauthorized'}`);
+            setViewingDoc(null);
+            setEditorMode(false);
           }
         } catch (err) {
           console.error('Error fetching PDF:', err);
+          setError('Failed to load document. Please try again.');
+          setViewingDoc(null);
+          setEditorMode(false);
         }
       } else {
+        // For direct URLs (R2/CDN), we can use them directly
         setViewingDocBlobUrl(null);
+        setPdfViewerOpen(true);
       }
-      
-      setPdfViewerOpen(true);
     }
   };
 
