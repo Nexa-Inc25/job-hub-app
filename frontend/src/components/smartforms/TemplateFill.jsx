@@ -3,7 +3,7 @@
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -11,12 +11,10 @@ import {
   Button,
   Paper,
   TextField,
-  Autocomplete,
   Checkbox,
   CircularProgress,
   Alert,
   Chip,
-  Divider,
   Table,
   TableBody,
   TableCell,
@@ -139,14 +137,14 @@ export default function TemplateFill() {
 
       // Download the PDF
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = globalThis.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${template.name}_filled.pdf`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      globalThis.URL.revokeObjectURL(url);
+      a.remove();
 
       setSnackbar({ open: true, message: 'PDF downloaded!', severity: 'success' });
     } catch (err) {
@@ -252,7 +250,9 @@ export default function TemplateFill() {
           disabled={filling || selectedJobs.length === 0}
           size="large"
         >
-          Fill {selectedJobs.length > 0 ? `${selectedJobs.length} Job${selectedJobs.length > 1 ? 's' : ''}` : 'Selected'}
+          {selectedJobs.length > 0
+            ? `Fill ${selectedJobs.length} Job${selectedJobs.length > 1 ? 's' : ''}`
+            : 'Fill Selected'}
         </Button>
       </Box>
 

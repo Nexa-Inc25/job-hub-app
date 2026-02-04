@@ -302,13 +302,18 @@ describe('SmartFormsPage Component', () => {
       
       renderWithRouter(<SmartFormsPage />);
       
-      await waitFor(() => {
-        const alert = screen.getByRole('alert');
-        const closeButton = alert.querySelector('button');
-        if (closeButton) {
-          fireEvent.click(closeButton);
-        }
-      });
+      // Wait for alert to appear
+      const alert = await screen.findByRole('alert');
+      expect(alert).toBeInTheDocument();
+      
+      const closeButton = alert.querySelector('button');
+      if (closeButton) {
+        fireEvent.click(closeButton);
+        // After clicking, alert should be dismissed
+        await waitFor(() => {
+          expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+        });
+      }
     });
   });
 

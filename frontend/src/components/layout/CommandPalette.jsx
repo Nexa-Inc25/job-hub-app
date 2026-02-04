@@ -153,7 +153,7 @@ const CommandPalette = ({ open, onOpenChange }) => {
                         job.status === 'new' && 'bg-info/10 text-info',
                         job.status === 'pending' && 'bg-warning/10 text-warning'
                       )}>
-                        {job.status?.replace(/_/g, ' ')}
+                        {job.status?.replaceAll('_', ' ')}
                       </span>
                       <ArrowRight className="h-4 w-4 text-muted-foreground" />
                     </Command.Item>

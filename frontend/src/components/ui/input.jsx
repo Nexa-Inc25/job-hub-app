@@ -60,9 +60,10 @@ Textarea.propTypes = {
 };
 
 // Label component
-const Label = React.forwardRef(({ className, ...props }, ref) => (
+const Label = React.forwardRef(({ className, htmlFor, ...props }, ref) => (
   <label
     ref={ref}
+    htmlFor={htmlFor}
     className={cn(
       'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
       className
@@ -75,6 +76,7 @@ Label.displayName = 'Label';
 
 Label.propTypes = {
   className: PropTypes.string,
+  htmlFor: PropTypes.string,
 };
 
 export { Input, Textarea, Label };

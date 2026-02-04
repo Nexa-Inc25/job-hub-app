@@ -580,7 +580,8 @@ const Dashboard = () => {
     assignmentNotes: ''
   });
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // FieldLedger platform owners only
+  // eslint-disable-next-line no-unused-vars
+  const [_isSuperAdmin, setIsSuperAdmin] = useState(false); // Reserved for FieldLedger platform owners
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
   const [userName, setUserName] = useState('');
   const [canApprove, setCanApprove] = useState(false);

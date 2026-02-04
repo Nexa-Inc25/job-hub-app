@@ -86,7 +86,7 @@ const getStatusVariant = (status) => {
 
 const StatusBadge = ({ status, className, ...props }) => {
   const variant = getStatusVariant(status);
-  const label = status?.replace(/_/g, ' ') || 'Unknown';
+  const label = status?.replaceAll('_', ' ') || 'Unknown';
   
   return (
     <Badge variant={variant} className={cn('capitalize', className)} {...props}>

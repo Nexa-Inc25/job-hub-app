@@ -42,7 +42,6 @@ import AddBoxIcon from '@mui/icons-material/AddBox';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
 import LinkIcon from '@mui/icons-material/Link';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
@@ -177,25 +176,7 @@ export default function TemplateEditor() {
     : null;
 
   // Generate unique field ID
-  const generateFieldId = () => `field_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-  // Convert screen coords to PDF coords
-  const screenToPdfCoords = useCallback((screenX, screenY, pageElement) => {
-    if (!pageElement || !template?.sourceFile?.pageDimensions) return { x: 0, y: 0 };
-
-    const rect = pageElement.getBoundingClientRect();
-    const pageDim = template.sourceFile.pageDimensions[currentPage - 1];
-    if (!pageDim) return { x: 0, y: 0 };
-
-    const scaleX = pageDim.width / rect.width;
-    const scaleY = pageDim.height / rect.height;
-
-    const pdfX = (screenX - rect.left) * scaleX;
-    // PDF Y is from bottom, screen Y is from top
-    const pdfY = pageDim.height - (screenY - rect.top) * scaleY;
-
-    return { x: pdfX, y: pdfY };
-  }, [template, currentPage]);
+  const generateFieldId = () => `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
 
   // Convert PDF coords to screen coords for display
   const pdfToScreenCoords = useCallback((pdfX, pdfY, pdfWidth, pdfHeight, pageElement) => {
@@ -788,7 +769,7 @@ export default function TemplateEditor() {
                 label="Font Size"
                 type="number"
                 value={editingField.fontSize}
-                onChange={(e) => setEditingField({ ...editingField, fontSize: parseInt(e.target.value) || 10 })}
+                onChange={(e) => setEditingField({ ...editingField, fontSize: Number.parseInt(e.target.value, 10) || 10 })}
                 fullWidth
                 inputProps={{ min: 6, max: 48 }}
               />

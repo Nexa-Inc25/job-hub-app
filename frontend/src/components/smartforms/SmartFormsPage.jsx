@@ -118,7 +118,7 @@ export default function SmartFormsPage() {
       setUploadFile(file);
       if (!uploadName) {
         // Auto-fill name from filename
-        setUploadName(file.name.replace('.pdf', '').replace(/_/g, ' '));
+        setUploadName(file.name.replace('.pdf', '').replaceAll('_', ' '));
       }
     }
   };
@@ -278,11 +278,12 @@ export default function SmartFormsPage() {
 
       {/* Templates Table */}
       <TableContainer component={Paper}>
-        {loading ? (
+        {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
           </Box>
-        ) : filteredTemplates.length === 0 ? (
+        )}
+        {!loading && filteredTemplates.length === 0 && (
           <Box sx={{ textAlign: 'center', py: 6 }}>
             <DescriptionIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
             <Typography variant="h6" color="text.secondary" gutterBottom>
@@ -299,7 +300,8 @@ export default function SmartFormsPage() {
               Upload Template
             </Button>
           </Box>
-        ) : (
+        )}
+        {!loading && filteredTemplates.length > 0 && (
           <Table>
             <TableHead>
               <TableRow>
