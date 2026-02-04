@@ -20,6 +20,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
+import OfflineIndicator from '../OfflineIndicator';
 
 const Header = ({ onMenuClick, onSearchClick, user }) => {
   const navigate = useNavigate();
@@ -87,6 +88,9 @@ const Header = ({ onMenuClick, onSearchClick, user }) => {
             </DropdownMenu.Content>
           </DropdownMenu.Portal>
         </DropdownMenu.Root>
+
+        {/* Offline Sync Indicator */}
+        <OfflineIndicator />
 
         {/* Theme toggle */}
         <button
