@@ -1109,9 +1109,9 @@ const JobFileSystem = () => {
   if (error) return <Alert severity="error">{error}</Alert>;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, bgcolor: 'background.default' }}>
       {/* Action Toolbar */}
-      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', flexShrink: 0 }}>
         <Autocomplete
           options={jobs}
           getOptionLabel={(option) => option?.title || ''}
@@ -1187,7 +1187,7 @@ const JobFileSystem = () => {
         <OfflineIndicator />
       </Paper>
 
-      <Box sx={{ display: 'flex', height: 'calc(100vh - 140px)' }}>
+      <Box sx={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
           {/* Left: Tree View */}
           <Paper sx={{ width: 300, p: 2, overflowY: 'auto' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
