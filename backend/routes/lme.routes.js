@@ -154,8 +154,12 @@ function buildFieldMappings(lme) {
 
 /**
  * Add labor row field mappings
+ * Includes per-worker missed meals and subsistence
  */
 function addLaborFieldMappings(fieldMappings, labor) {
+  let totalMissedMeals = 0;
+  let totalSubsistence = 0;
+  
   for (let i = 0; i < (labor || []).length && i < 9; i++) {
     const entry = labor[i];
     const workerNum = i + 1;
@@ -179,6 +183,32 @@ function addLaborFieldMappings(fieldMappings, labor) {
     fieldMappings[`ST${workerNum}`] = entry.stAmount ? entry.stAmount.toFixed(2) : '';
     fieldMappings[`OT${workerNum}`] = entry.otAmount ? entry.otAmount.toFixed(2) : '';
     fieldMappings[`DT${workerNum}`] = entry.dtAmount ? entry.dtAmount.toFixed(2) : '';
+    
+    // Per-worker missed meals (in hours - 0.5 per meal) and subsistence (count)
+    // Try various field name patterns the template might use
+    if (entry.missedMeals) {
+      const missedMealsHrs = entry.missedMeals * 0.5; // Convert count to hours
+      fieldMappings[`Missed MealsRow${workerNum}`] = String(missedMealsHrs);
+      fieldMappings[`MISSED MEALSRow${workerNum}`] = String(missedMealsHrs);
+      fieldMappings[`Missed Meals${workerNum}`] = String(missedMealsHrs);
+      totalMissedMeals += missedMealsHrs;
+    }
+    if (entry.subsistence) {
+      fieldMappings[`SUBSISTENCERow${workerNum}`] = String(entry.subsistence);
+      fieldMappings[`SubsistenceRow${workerNum}`] = String(entry.subsistence);
+      fieldMappings[`SUBS${workerNum}`] = String(entry.subsistence);
+      totalSubsistence += entry.subsistence;
+    }
+  }
+  
+  // Add totals for missed meals and subsistence
+  if (totalMissedMeals > 0) {
+    fieldMappings['TOTAL MISSED MEALS'] = String(totalMissedMeals);
+    fieldMappings['WELFARE AND MISSED MEALS'] = String(totalMissedMeals);
+  }
+  if (totalSubsistence > 0) {
+    fieldMappings['TOTAL SUBSISTENCE'] = String(totalSubsistence);
+    fieldMappings['SUBSISTENCE'] = String(totalSubsistence);
   }
 }
 
@@ -199,19 +229,33 @@ function addMaterialFieldMappings(fieldMappings, materials) {
 
 /**
  * Add equipment row field mappings
+ * Equipment description should show unit/truck number (e.g., "RPT214"), not type
  */
 function addEquipmentFieldMappings(fieldMappings, equipment) {
+  let totalEquipmentHours = 0;
+  let totalEquipmentAmount = 0;
+  
   for (let i = 0; i < (equipment || []).length && i < 11; i++) {
     const eq = equipment[i];
     const descSuffix = i === 0 ? '' : `_${i + 1}`;
     const hrsSuffix = i === 0 ? '' : `_${i + 1}`;
     const rateIdx = 12 + i;
     
-    fieldMappings[`EQUIPMENT DESCRIPTION${descSuffix}`] = eq.type || eq.description || '';
+    // Prioritize unitNumber (truck number like "RPT214") over type ("Bucket Truck")
+    const equipmentDesc = eq.unitNumber || eq.type || eq.description || '';
+    fieldMappings[`EQUIPMENT DESCRIPTION${descSuffix}`] = equipmentDesc;
     fieldMappings[`HRS${hrsSuffix}`] = eq.hours ? String(eq.hours) : '';
     fieldMappings[`RATE_${rateIdx}`] = eq.rate ? eq.rate.toFixed(2) : '';
     fieldMappings[`AMOUNT_${rateIdx}`] = eq.amount ? eq.amount.toFixed(2) : '';
+    
+    // Track totals
+    totalEquipmentHours += eq.hours || 0;
+    totalEquipmentAmount += eq.amount || 0;
   }
+  
+  // Add equipment totals
+  fieldMappings['TOTAL EQUIPMENT HRS'] = totalEquipmentHours > 0 ? String(totalEquipmentHours) : '';
+  fieldMappings['HRSTOTAL OWNED EQUIPMENT'] = totalEquipmentHours > 0 ? String(totalEquipmentHours) : '';
 }
 
 /**
@@ -379,13 +423,23 @@ function drawRightSideOverlay(page, lme, font, boldFont, width, height) {
   // CONTRACTOR OWNED EQUIPMENT
   const eqStartY = height - 238;
   const eqRowH = 10;
+  let totalEqHours = 0;
   for (let i = 0; i < (lme.equipment || []).length && i < 5; i++) {
     const eq = lme.equipment[i];
     const y = eqStartY - (i * eqRowH);
-    page.drawText((eq.type || eq.description || '').substring(0, 18), { x: rightDescX, y, size: 5, font });
-    if (eq.hours) page.drawText(String(eq.hours), { x: rightQtyX, y, size: 5, font });
+    // Use unit number (truck number) instead of type
+    const equipDesc = eq.unitNumber || eq.type || eq.description || '';
+    page.drawText(equipDesc.substring(0, 18), { x: rightDescX, y, size: 5, font });
+    if (eq.hours) {
+      page.drawText(String(eq.hours), { x: rightQtyX, y, size: 5, font });
+      totalEqHours += eq.hours;
+    }
     if (eq.rate) page.drawText(eq.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
     if (eq.amount) page.drawText(eq.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
+  }
+  // Equipment hours total
+  if (totalEqHours > 0) {
+    page.drawText(String(totalEqHours), { x: rightQtyX, y: height - 300, size: 6, font });
   }
   
   // Right side totals
@@ -526,11 +580,15 @@ function drawScratchEquipmentSection(page, lme, font, boldFont, leftMargin, y) {
   
   page.drawText('EQUIPMENT', { x: leftMargin, y, size: 10, font: boldFont });
   y -= 15;
+  let totalEqHrs = 0;
   for (const eq of lme.equipment) {
-    page.drawText(`${eq.type} #${eq.unitNumber || 'N/A'} - ${eq.hours} hrs @ $${eq.rate}/hr = $${(eq.amount || 0).toFixed(2)}`, { x: leftMargin, y, size: 8, font });
+    // Prioritize unit number over type
+    const eqName = eq.unitNumber || eq.type || 'Equipment';
+    page.drawText(`${eqName} - ${eq.hours} hrs @ $${eq.rate}/hr = $${(eq.amount || 0).toFixed(2)}`, { x: leftMargin, y, size: 8, font });
+    totalEqHrs += eq.hours || 0;
     y -= 12;
   }
-  page.drawText(`EQUIPMENT TOTAL: $${(lme.totals?.equipment || 0).toFixed(2)}`, { x: 350, y, size: 9, font: boldFont });
+  page.drawText(`EQUIPMENT TOTAL: ${totalEqHrs} hrs = $${(lme.totals?.equipment || 0).toFixed(2)}`, { x: 350, y, size: 9, font: boldFont });
   y -= 20;
   
   return y;

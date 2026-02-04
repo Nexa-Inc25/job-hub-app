@@ -17,6 +17,9 @@ const laborEntrySchema = new mongoose.Schema({
   otAmount: { type: Number, default: 0 },
   dtAmount: { type: Number, default: 0 },
   totalAmount: { type: Number, default: 0 },
+  // Per-worker missed meals and subsistence
+  missedMeals: { type: Number, default: 0 }, // 0.5 hrs each missed meal
+  subsistence: { type: Number, default: 0 }, // Count of subsistence days
 });
 
 const materialEntrySchema = new mongoose.Schema({
