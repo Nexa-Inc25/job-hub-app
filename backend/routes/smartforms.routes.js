@@ -483,7 +483,9 @@ router.post('/templates/:id/fill', async (req, res) => {
       const job = await Job.findOne({ 
         _id: sanitizeObjectId(jobId), 
         companyId 
-      }).populate('createdBy', 'name email');
+      }).populate('userId', 'name email')
+        .populate('assignedTo', 'name email')
+        .populate('assignedToGF', 'name email');
       
       if (job) {
         dataContext.job = job.toObject();
@@ -612,7 +614,9 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
         const job = await Job.findOne({ 
           _id: sanitizeObjectId(jobId), 
           companyId 
-        }).populate('createdBy', 'name email');
+        }).populate('userId', 'name email')
+          .populate('assignedTo', 'name email')
+          .populate('assignedToGF', 'name email');
         
         if (!job) {
           results.push({ jobId, success: false, error: 'Job not found' });
