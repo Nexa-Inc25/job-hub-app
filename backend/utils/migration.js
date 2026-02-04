@@ -203,22 +203,33 @@ async function fixLmeIndex() {
     const LME = require('../models/LME');
     const collection = LME.collection;
     
-    // Check if old index exists
-    const indexes = await collection.indexes();
-    const oldIndex = indexes.find(idx => 
-      idx.key && idx.key.lmeNumber === 1 && !idx.key.companyId && idx.unique === true
-    );
+    // Always try to drop the old index by name - it's idempotent
+    console.log('Checking for old lmeNumber_1 index to drop...');
+    try {
+      await collection.dropIndex('lmeNumber_1');
+      console.log('Old lmeNumber_1 index dropped successfully');
+    } catch (dropErr) {
+      // Index might already be dropped or not exist
+      if (dropErr.message.includes('index not found') || dropErr.codeName === 'IndexNotFound') {
+        console.log('lmeNumber_1 index already dropped or does not exist');
+      } else {
+        console.warn('Could not drop lmeNumber_1 index:', dropErr.message);
+      }
+    }
     
-    if (oldIndex) {
-      console.log('Dropping old lmeNumber_1 unique index...');
-      try {
-        await collection.dropIndex('lmeNumber_1');
-        console.log('Old lmeNumber index dropped, new compound index will be created by Mongoose');
-      } catch (dropErr) {
-        // Index might already be dropped
-        if (!dropErr.message.includes('index not found')) {
-          console.warn('Could not drop old lmeNumber index:', dropErr.message);
-        }
+    // Ensure the new compound index exists
+    try {
+      await collection.createIndex(
+        { lmeNumber: 1, companyId: 1 }, 
+        { unique: true, background: true }
+      );
+      console.log('Created compound unique index on (lmeNumber, companyId)');
+    } catch (createErr) {
+      // Index might already exist
+      if (createErr.message.includes('already exists') || createErr.code === 85) {
+        console.log('Compound index (lmeNumber, companyId) already exists');
+      } else {
+        console.warn('Could not create compound index:', createErr.message);
       }
     }
   } catch (err) {
