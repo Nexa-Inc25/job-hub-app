@@ -173,24 +173,33 @@ router.get('/templates/:id', async (req, res) => {
  */
 router.post('/templates', upload.single('pdf'), async (req, res) => {
   try {
+    console.log('[SmartForms] POST /templates - Starting upload...');
+    
     const user = await User.findById(req.userId);
     if (!user?.companyId) {
+      console.log('[SmartForms] User has no companyId:', req.userId);
       return res.status(400).json({ error: 'User not associated with a company' });
     }
     const companyId = user.companyId;
     const userId = user._id;
+    console.log('[SmartForms] User found:', { userId: userId.toString(), companyId: companyId.toString() });
     
     if (!req.file) {
+      console.log('[SmartForms] No file uploaded');
       return res.status(400).json({ error: 'PDF file required' });
     }
+    console.log('[SmartForms] File received:', { name: req.file.originalname, size: req.file.size });
     
     const { name, description, category } = req.body;
     
     if (!name) {
+      console.log('[SmartForms] No template name provided');
       return res.status(400).json({ error: 'Template name required' });
     }
+    console.log('[SmartForms] Template metadata:', { name, description, category });
     
     // Load the PDF to get page dimensions
+    console.log('[SmartForms] Loading PDF...');
     const pdfDoc = await PDFDocument.load(req.file.buffer);
     const pages = pdfDoc.getPages();
     const pageDimensions = pages.map((page, index) => ({
@@ -198,15 +207,19 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
       width: page.getWidth(),
       height: page.getHeight(),
     }));
+    console.log('[SmartForms] PDF loaded:', { pageCount: pages.length, pageDimensions });
     
     // Upload to R2
     const timestamp = Date.now();
     const safeName = name.replace(/[^a-zA-Z0-9]/g, '_');
     const r2Key = `smartforms/templates/${companyId}/${safeName}_${timestamp}.pdf`;
+    console.log('[SmartForms] Uploading to R2:', r2Key);
     
     await r2Storage.uploadFile(r2Key, req.file.buffer, 'application/pdf');
+    console.log('[SmartForms] R2 upload complete');
     
     // Create the template record
+    console.log('[SmartForms] Creating template record...');
     const template = new FormTemplate({
       companyId,
       name: sanitizeString(name),
@@ -225,11 +238,13 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
     });
     
     await template.save();
+    console.log('[SmartForms] Template saved:', template._id.toString());
     
     res.status(201).json(template);
   } catch (error) {
-    console.error('Error creating template:', error);
-    res.status(500).json({ error: 'Failed to create template' });
+    console.error('[SmartForms] Error creating template:', error.message);
+    console.error('[SmartForms] Stack:', error.stack);
+    res.status(500).json({ error: 'Failed to create template', details: error.message });
   }
 });
 
