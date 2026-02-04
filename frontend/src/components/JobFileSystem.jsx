@@ -1076,10 +1076,38 @@ const JobFileSystem = () => {
     }
   };
 
-  // Handle download
-  const handleDownload = (doc) => {
+  // Handle download - fetch with auth for API endpoints
+  const handleDownload = async (doc) => {
     const url = getDocUrl(doc);
-    if (url) {
+    if (!url) return;
+    
+    // For API endpoints, fetch with authentication and trigger download
+    if (url.includes('/api/')) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(url, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Download failed: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = doc.name || 'document.pdf';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      } catch (err) {
+        console.error('Download error:', err);
+        setError('Failed to download file');
+      }
+    } else {
+      // For direct URLs (R2/CDN), open in new tab
       globalThis.open(url, '_blank');
     }
   };
