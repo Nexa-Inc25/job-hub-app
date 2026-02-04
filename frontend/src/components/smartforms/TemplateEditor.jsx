@@ -95,6 +95,9 @@ export default function TemplateEditor() {
   // Field edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
+  
+  // PDF blob URL for rendering
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
 
   // Load template
   useEffect(() => {
@@ -132,6 +135,42 @@ export default function TemplateEditor() {
     fetchTemplate();
   }, [templateId]);
 
+  // Fetch PDF as blob for react-pdf (more reliable than URL with auth headers)
+  useEffect(() => {
+    const fetchPdfBlob = async () => {
+      if (!template) return;
+      
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE}/api/smartforms/templates/${templateId}/pdf`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch PDF');
+        }
+        
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        setPdfBlobUrl(url);
+        
+        console.log('[TemplateEditor] PDF blob URL created:', url);
+      } catch (err) {
+        console.error('[TemplateEditor] Error fetching PDF blob:', err);
+        setError('Failed to load PDF: ' + err.message);
+      }
+    };
+    
+    fetchPdfBlob();
+    
+    // Cleanup blob URL on unmount
+    return () => {
+      if (pdfBlobUrl) {
+        URL.revokeObjectURL(pdfBlobUrl);
+      }
+    };
+  }, [template, templateId]);
+
   // Load data paths
   useEffect(() => {
     const fetchDataPaths = async () => {
@@ -168,12 +207,8 @@ export default function TemplateEditor() {
 
   const onDocumentLoadSuccess = ({ numPages: pages }) => {
     setNumPages(pages);
+    console.log('[TemplateEditor] PDF loaded, pages:', pages);
   };
-
-  // Get PDF URL
-  const pdfUrl = template
-    ? `${API_BASE}/api/smartforms/templates/${templateId}/pdf`
-    : null;
 
   // Generate unique field ID
   const generateFieldId = () => `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
@@ -584,12 +619,12 @@ export default function TemplateEditor() {
             bgcolor: isDark ? 'grey.900' : 'grey.300',
           }}
         >
-          {pdfUrl && (
+          {pdfBlobUrl ? (
             <Document
-              file={pdfUrl}
+              file={pdfBlobUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               onLoadError={(err) => {
-                console.error('PDF load error:', err);
+                console.error('[TemplateEditor] PDF load error:', err);
                 setError('Failed to load PDF: ' + err.message);
               }}
               loading={
@@ -602,11 +637,6 @@ export default function TemplateEditor() {
                   <Alert severity="error">Failed to load PDF. Please try again.</Alert>
                 </Box>
               }
-              options={{
-                httpHeaders: {
-                  Authorization: `Bearer ${localStorage.getItem('token')}`,
-                },
-              }}
             >
               <Box
                 sx={{
@@ -665,6 +695,11 @@ export default function TemplateEditor() {
                 )}
               </Box>
             </Document>
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4, minHeight: 400 }}>
+              <CircularProgress />
+              <Typography sx={{ ml: 2 }}>Loading PDF...</Typography>
+            </Box>
           )}
         </Box>
 
