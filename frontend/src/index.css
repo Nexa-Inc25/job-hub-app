@@ -1,13 +1,189 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Custom styles below */
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  :root {
+    /* Enterprise Light Theme - Slate/Indigo */
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    
+    --primary: 238 83% 66%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 215 20% 95%;
+    --secondary-foreground: 222 47% 11%;
+    
+    --muted: 215 20% 95%;
+    --muted-foreground: 215 16% 47%;
+    
+    --accent: 215 20% 95%;
+    --accent-foreground: 222 47% 11%;
+    
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 238 83% 66%;
+    
+    --radius: 0.5rem;
+    
+    /* Sidebar - Light */
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 215 20% 95%;
+    --sidebar-primary: 238 83% 66%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 28% 17%;
+    --sidebar-accent-foreground: 215 20% 95%;
+    --sidebar-border: 215 28% 17%;
+    --sidebar-ring: 238 83% 66%;
+  }
+
+  .dark {
+    /* Enterprise Dark Theme */
+    --background: 222 47% 6%;
+    --foreground: 215 20% 95%;
+    
+    --card: 222 47% 9%;
+    --card-foreground: 215 20% 95%;
+    
+    --popover: 222 47% 9%;
+    --popover-foreground: 215 20% 95%;
+    
+    --primary: 238 83% 66%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 215 28% 20%;
+    --secondary-foreground: 215 20% 98%;
+    
+    --muted: 215 28% 18%;
+    --muted-foreground: 215 20% 65%;
+    
+    --accent: 215 28% 20%;
+    --accent-foreground: 215 20% 98%;
+    
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 215 25% 25%;
+    --input: 215 28% 22%;
+    --ring: 238 83% 66%;
+    
+    /* Sidebar - Dark */
+    --sidebar-background: 222 47% 5%;
+    --sidebar-foreground: 215 20% 95%;
+    --sidebar-primary: 238 83% 66%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 28% 12%;
+    --sidebar-accent-foreground: 215 20% 95%;
+    --sidebar-border: 215 28% 12%;
+    --sidebar-ring: 238 83% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Focus visible styles for accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Custom scrollbar for webkit browsers */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-muted;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-muted-foreground/30 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/50;
+  }
+}
+
+@layer utilities {
+  /* Text balance for headings */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Hide scrollbar but allow scrolling */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Transition utilities */
+  .transition-sidebar {
+    transition: width 0.2s ease-in-out, padding 0.2s ease-in-out;
+  }
+}
+
+/* MUI overrides to ensure compatibility */
+.MuiAppBar-root {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
+.dark .MuiAppBar-root {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Ensure MUI components respect dark mode */
+.dark .MuiPaper-root {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+
+.dark .MuiCard-root {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+
+/* Command palette overlay */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9998;
+}
+
+[cmdk-dialog] {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 9999;
 }

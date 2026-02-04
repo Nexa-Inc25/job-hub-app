@@ -85,6 +85,7 @@ const asbuiltRoutes = require('./routes/asbuilt.routes');
 const oracleRoutes = require('./routes/oracle.routes');
 const timesheetRoutes = require('./routes/timesheet.routes');
 const lmeRoutes = require('./routes/lme.routes');
+const smartformsRoutes = require('./routes/smartforms.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1116,6 +1117,9 @@ app.use('/api/timesheets', timesheetRoutes);
 
 // Mount LME routes (PG&E Daily Statement of Labor, Material, Equipment)
 app.use('/api/lme', lmeRoutes);
+
+// Mount SmartForms routes (PDF template field mapping and filling)
+app.use('/api/smartforms', authenticateUser, smartformsRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 

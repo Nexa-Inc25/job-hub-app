@@ -27,8 +27,6 @@ import {
   LinearProgress,
   Alert,
   Snackbar,
-  AppBar,
-  Toolbar,
   Tooltip,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
@@ -44,12 +42,8 @@ import AssessmentIcon from '@mui/icons-material/Assessment';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FolderIcon from '@mui/icons-material/Folder';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
-import LogoutIcon from '@mui/icons-material/Logout';
 import AssignIcon from '@mui/icons-material/AssignmentInd';
 import CalendarIcon from '@mui/icons-material/CalendarMonth';
-import ReceiptIcon from '@mui/icons-material/Receipt';
 import FlipIcon from '@mui/icons-material/Flip';
 import ChatIcon from '@mui/icons-material/Chat';
 import ConstructionIcon from '@mui/icons-material/Construction';
@@ -59,10 +53,8 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import TodayIcon from '@mui/icons-material/Today';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import BlockIcon from '@mui/icons-material/Block';
-import AnalyticsIcon from '@mui/icons-material/Analytics';
 import DownloadIcon from '@mui/icons-material/Download';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
 import Dialog from '@mui/material/Dialog';
 import FeedbackButton from './FeedbackButton';
 import OfflineIndicator from './OfflineIndicator';
@@ -75,7 +67,6 @@ import Select from '@mui/material/Select';
 import Checkbox from '@mui/material/Checkbox';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Collapse from '@mui/material/Collapse';
-import { useThemeMode } from '../ThemeContext';
 
 // Helper functions extracted to reduce component complexity
 const needsPreField = (status) => {
@@ -604,7 +595,6 @@ const Dashboard = () => {
   const [depScheduleDialogOpen, setDepScheduleDialogOpen] = useState(false);
   const [depScheduleData, setDepScheduleData] = useState({ jobId: null, depId: null, date: '' });
   const navigate = useNavigate();
-  const { darkMode, toggleDarkMode } = useThemeMode();
 
   // Check user role from token and fetch name if needed
   useEffect(() => {
@@ -640,11 +630,6 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Error fetching foremen:', err);
     }
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
   };
 
   // Handle card flip - load full details on first flip
@@ -1176,14 +1161,6 @@ const Dashboard = () => {
     return transitions;
   };
 
-  const handleGoToCalendar = () => {
-    navigate('/calendar');
-  };
-
-  const handleGoToBilling = () => {
-    navigate('/billing');
-  };
-
   const handleCreateWorkOrder = () => {
     navigate('/create-wo');
   };
@@ -1261,75 +1238,11 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Top Navigation Bar */}
-      <AppBar position="static" elevation={0} sx={{ mb: 3 }}>
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 700 }}>
-            FieldLedger
-          </Typography>
-          
-          {/* Owner Dashboard - Super Admin Only (FieldLedger Owners) */}
-          {isSuperAdmin && (
-            <Tooltip title="Owner Dashboard">
-              <IconButton color="inherit" onClick={() => navigate('/admin/owner-dashboard')} sx={{ mr: 1 }} aria-label="Admin Dashboard">
-                <AnalyticsIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          
-          {/* QA Dashboard - QA and Admin roles (PM not involved in go-back workflow) */}
-          {['qa', 'admin'].includes(userRole) && (
-            <Tooltip title="QA Dashboard">
-              <IconButton color="inherit" onClick={() => navigate('/qa/dashboard')} sx={{ mr: 1 }} aria-label="QA Dashboard">
-                <FactCheckIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          
-          {/* Procedure Manager - Admin/PM can upload PG&E procedure docs */}
-          {['admin', 'pm', 'owner'].includes(userRole) && (
-            <Tooltip title="Procedure Documents (AI Learning)">
-              <IconButton color="inherit" onClick={() => navigate('/admin/procedures')} sx={{ mr: 1 }} aria-label="Procedure Manager">
-                <MenuBookIcon />
-              </IconButton>
-            </Tooltip>
-          )}
-          
-          {/* Billing Button */}
-          <Tooltip title="Unit Billing">
-            <IconButton color="inherit" onClick={handleGoToBilling} sx={{ mr: 1 }} aria-label="Billing">
-              <ReceiptIcon />
-            </IconButton>
-          </Tooltip>
-
-          {/* Calendar Button */}
-          <Tooltip title="My Schedule">
-            <IconButton color="inherit" onClick={handleGoToCalendar} sx={{ mr: 1 }} aria-label="Calendar">
-              <CalendarIcon />
-            </IconButton>
-          </Tooltip>
-          
-          {/* Dark Mode Toggle */}
-          <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1 }} aria-label="Toggle dark mode">
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </Tooltip>
-          
-          {/* Offline Status Indicator */}
-          <OfflineIndicator color="inherit" />
-          
-          {/* Feedback Button - Critical for Pilot */}
-          <FeedbackButton color="inherit" />
-          
-          {/* Logout Button */}
-          <Tooltip title="Logout">
-            <IconButton color="inherit" onClick={handleLogout} sx={{ ml: 1 }} aria-label="Logout">
-              <LogoutIcon />
-            </IconButton>
-          </Tooltip>
-        </Toolbar>
-      </AppBar>
+      {/* Offline and Feedback indicators */}
+      <Box sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 1000, display: 'flex', gap: 1 }}>
+        <OfflineIndicator />
+        <FeedbackButton />
+      </Box>
 
       <Container maxWidth="xl" sx={{ py: 2 }}>
         {/* Header Section */}

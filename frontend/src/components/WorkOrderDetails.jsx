@@ -31,11 +31,11 @@ import {
   ListItemIcon,
   Tooltip,
   CircularProgress,
-  AppBar,
-  Toolbar,
   LinearProgress,
+  Paper,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+// Note: FolderIcon, PlaylistAddCheckIcon, ReceiptLongIcon now only used in Quick Actions card below
 import ScheduleIcon from '@mui/icons-material/Schedule';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -585,58 +585,27 @@ const WorkOrderDetails = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* App Bar */}
-      <AppBar position="static" color="default" elevation={1}>
-        <Toolbar>
-          <IconButton edge="start" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }} aria-label="Back to dashboard">
-            <ArrowBackIcon />
+      {/* Page Header */}
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+        <IconButton onClick={() => navigate('/dashboard')} aria-label="Back to dashboard">
+          <ArrowBackIcon />
+        </IconButton>
+        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          {job.pmNumber || job.woNumber || job.title || 'Work Order Details'}
+        </Typography>
+        <Chip
+          label={getStatusLabel(job.status)}
+          color={getStatusColor(job.status)}
+          sx={{ ...getStatusChipSx(job.status) }}
+        />
+        <Tooltip title="Refresh">
+          <IconButton onClick={fetchJobDetails} aria-label="Refresh">
+            <RefreshIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            {job.pmNumber || job.woNumber || job.title || 'Work Order Details'}
-          </Typography>
-          <Chip
-            label={getStatusLabel(job.status)}
-            color={getStatusColor(job.status)}
-            sx={{ mr: 2, ...getStatusChipSx(job.status) }}
-          />
-          <Tooltip title="Refresh">
-            <IconButton onClick={fetchJobDetails} aria-label="Refresh">
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-          <Button
-            component={Link}
-            to={`/jobs/${jobId}/tailboard`}
-            startIcon={<PlaylistAddCheckIcon />}
-            variant="contained"
-            color="primary"
-            sx={{ ml: 1 }}
-          >
-            Tailboard
-          </Button>
-          <Button
-            component={Link}
-            to={`/jobs/${jobId}/log-unit`}
-            startIcon={<ReceiptLongIcon />}
-            variant="contained"
-            color="success"
-            sx={{ ml: 1 }}
-          >
-            Log Unit
-          </Button>
-          <Button
-            component={Link}
-            to={`/jobs/${jobId}/files`}
-            startIcon={<FolderIcon />}
-            variant="outlined"
-            sx={{ ml: 1 }}
-          >
-            Files
-          </Button>
-        </Toolbar>
-      </AppBar>
+        </Tooltip>
+      </Paper>
 
-      <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: 1 }}>
         <Grid container spacing={2}>
 
           {/* Quick Actions Bar - Always visible */}

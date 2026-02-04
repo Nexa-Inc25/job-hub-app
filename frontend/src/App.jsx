@@ -5,10 +5,14 @@
  */
 
 import React, { Suspense, lazy } from 'react';
+import PropTypes from 'prop-types';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
+
+// Lazy load layout components
+const AppShell = lazy(() => import('./components/layout/AppShell'));
 
 // Lazy load all route components for code splitting
 const Login = lazy(() => import('./components/Login'));
@@ -41,20 +45,25 @@ const ForemanCapturePage = lazy(() => import('./components/billing/ForemanCaptur
 const PriceBookAdmin = lazy(() => import('./components/billing/PriceBookAdmin'));
 const AsBuiltRouter = lazy(() => import('./components/asbuilt/AsBuiltRouter'));
 
+// SmartForms - PDF template field mapping and filling
+const SmartFormsPage = lazy(() => import('./components/smartforms/SmartFormsPage'));
+const TemplateEditor = lazy(() => import('./components/smartforms/TemplateEditor'));
+const TemplateFill = lazy(() => import('./components/smartforms/TemplateFill'));
+
 // CSS-only loading spinner - avoids MUI import in critical path
 const spinnerStyle = {
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
   minHeight: '100vh',
-  background: 'var(--bg-default, #fafafa)',
+  background: 'hsl(210 20% 98%)',
 };
 
 const loaderStyle = {
   width: 48,
   height: 48,
-  border: '4px solid #e0e0e0',
-  borderTopColor: '#1976d2',
+  border: '4px solid hsl(214 32% 91%)',
+  borderTopColor: 'hsl(238 83% 66%)',
   borderRadius: '50%',
   animation: 'spin 1s linear infinite',
 };
@@ -69,6 +78,26 @@ const PageLoader = () => (
   </>
 );
 
+// Wrapper component for protected routes with AppShell
+const ProtectedRoute = ({ children }) => (
+  <AppShell>{children}</AppShell>
+);
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+};
+
+// 404 component with styling
+const NotFound = () => (
+  <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+    <h1 className="text-6xl font-bold text-primary">404</h1>
+    <p className="mt-4 text-xl text-muted-foreground">Page not found</p>
+    <a href="/dashboard" className="mt-6 text-primary hover:underline">
+      Return to Dashboard
+    </a>
+  </div>
+);
+
 function App() {
   return (
     <ErrorBoundary>
@@ -77,39 +106,49 @@ function App() {
         <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
+              {/* Auth routes - no AppShell */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/jobs/:id" element={<JobFileSystem />} />
-              <Route path="/jobs/:id/files" element={<JobFileSystem />} />
-              <Route path="/jobs/:id/details" element={<WorkOrderDetails />} />
-              <Route path="/create-wo" element={<CreateWorkOrder />} />
-              <Route path="/emergency-wo" element={<EmergencyWO />} />
-              <Route path="/forms" element={<Forms />} />
-              <Route path="/admin/templates" element={<TemplateManager />} />
-              <Route path="/admin/owner-dashboard" element={<OwnerDashboard />} />
-              <Route path="/admin/security" element={<SecurityDashboard />} />
-              <Route path="/admin/onboarding" element={<CompanyOnboarding />} />
-              <Route path="/admin/users" element={<AdminUsersList />} />
-              <Route path="/admin/jobs-overview" element={<AdminJobsOverview />} />
-              <Route path="/admin/ai-costs" element={<AdminAICosts />} />
-              <Route path="/qa/dashboard" element={<QADashboard />} />
-              <Route path="/qa/spec-library" element={<SpecLibrary />} />
-              <Route path="/admin/procedures" element={<ProcedureManager />} />
-              <Route path="/jobs/:jobId/asbuilt-assistant" element={<AsBuiltAssistant />} />
-              <Route path="/jobs/:jobId/tailboard" element={<TailboardForm />} />
-              <Route path="/jobs/:jobId/closeout" element={<ForemanCloseOut />} />
-              <Route path="/jobs/:jobId/timesheet" element={<TimesheetEntry />} />
-              <Route path="/jobs/:jobId/lme" element={<LMEForm />} />
-              <Route path="/calendar" element={<Calendar />} />
-              <Route path="/billing" element={<BillingDashboard />} />
-              <Route path="/billing/pricebooks" element={<PriceBookAdmin />} />
-              <Route path="/billing/capture" element={<UnitEntryForm />} />
-              <Route path="/billing/capture/:jobId" element={<ForemanCapturePage />} />
-              <Route path="/jobs/:jobId/log-unit" element={<ForemanCapturePage />} />
-              <Route path="/asbuilt-router" element={<AsBuiltRouter />} />
-              <Route path="*" element={<div>404 - Not Found</div>} />
+
+              {/* Protected routes with AppShell layout */}
+              <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/jobs/:id" element={<ProtectedRoute><JobFileSystem /></ProtectedRoute>} />
+              <Route path="/jobs/:id/files" element={<ProtectedRoute><JobFileSystem /></ProtectedRoute>} />
+              <Route path="/jobs/:id/details" element={<ProtectedRoute><WorkOrderDetails /></ProtectedRoute>} />
+              <Route path="/create-wo" element={<ProtectedRoute><CreateWorkOrder /></ProtectedRoute>} />
+              <Route path="/emergency-wo" element={<ProtectedRoute><EmergencyWO /></ProtectedRoute>} />
+              <Route path="/forms" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
+              <Route path="/admin/templates" element={<ProtectedRoute><TemplateManager /></ProtectedRoute>} />
+              <Route path="/admin/owner-dashboard" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
+              <Route path="/admin/security" element={<ProtectedRoute><SecurityDashboard /></ProtectedRoute>} />
+              <Route path="/admin/onboarding" element={<ProtectedRoute><CompanyOnboarding /></ProtectedRoute>} />
+              <Route path="/admin/users" element={<ProtectedRoute><AdminUsersList /></ProtectedRoute>} />
+              <Route path="/admin/jobs-overview" element={<ProtectedRoute><AdminJobsOverview /></ProtectedRoute>} />
+              <Route path="/admin/ai-costs" element={<ProtectedRoute><AdminAICosts /></ProtectedRoute>} />
+              <Route path="/qa/dashboard" element={<ProtectedRoute><QADashboard /></ProtectedRoute>} />
+              <Route path="/qa/spec-library" element={<ProtectedRoute><SpecLibrary /></ProtectedRoute>} />
+              <Route path="/admin/procedures" element={<ProtectedRoute><ProcedureManager /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/asbuilt-assistant" element={<ProtectedRoute><AsBuiltAssistant /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/tailboard" element={<ProtectedRoute><TailboardForm /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/closeout" element={<ProtectedRoute><ForemanCloseOut /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/timesheet" element={<ProtectedRoute><TimesheetEntry /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/lme" element={<ProtectedRoute><LMEForm /></ProtectedRoute>} />
+              <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+              <Route path="/billing" element={<ProtectedRoute><BillingDashboard /></ProtectedRoute>} />
+              <Route path="/billing/pricebooks" element={<ProtectedRoute><PriceBookAdmin /></ProtectedRoute>} />
+              <Route path="/billing/capture" element={<ProtectedRoute><UnitEntryForm /></ProtectedRoute>} />
+              <Route path="/billing/capture/:jobId" element={<ProtectedRoute><ForemanCapturePage /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/log-unit" element={<ProtectedRoute><ForemanCapturePage /></ProtectedRoute>} />
+              <Route path="/asbuilt-router" element={<ProtectedRoute><AsBuiltRouter /></ProtectedRoute>} />
+              
+              {/* SmartForms - PDF template field mapping and filling */}
+              <Route path="/smartforms" element={<ProtectedRoute><SmartFormsPage /></ProtectedRoute>} />
+              <Route path="/smartforms/editor/:templateId" element={<ProtectedRoute><TemplateEditor /></ProtectedRoute>} />
+              <Route path="/smartforms/fill/:templateId" element={<ProtectedRoute><TemplateFill /></ProtectedRoute>} />
+              
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

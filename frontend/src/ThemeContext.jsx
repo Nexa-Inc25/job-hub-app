@@ -22,6 +22,16 @@ export const useThemeMode = () => {
 export const ThemeProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(getDarkModePreference);
 
+  // Sync dark mode state with HTML class for Tailwind CSS
+  useEffect(() => {
+    const root = document.documentElement;
+    if (darkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+  }, [darkMode]);
+
   // Listen for system preference changes
   useEffect(() => {
     const mediaQuery = globalThis.matchMedia('(prefers-color-scheme: dark)');

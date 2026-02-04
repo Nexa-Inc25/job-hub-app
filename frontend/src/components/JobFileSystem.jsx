@@ -25,8 +25,6 @@ import {
   ListItemIcon,
   CircularProgress,
   Alert,
-  AppBar,
-  Toolbar,
   Tooltip,
   Menu,
   MenuItem,
@@ -49,14 +47,11 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
-import HomeIcon from '@mui/icons-material/Home';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import EmailIcon from '@mui/icons-material/Email';
@@ -68,7 +63,6 @@ import PDFFormEditor from './PDFFormEditor';
 import FeedbackButton from './FeedbackButton';
 import OfflineIndicator from './OfflineIndicator';
 import OfflinePhotoCapture from './OfflinePhotoCapture';
-import { useThemeMode } from '../ThemeContext';
 import { useOffline } from '../hooks/useOffline';
 import { alpha } from '@mui/material/styles';
 import { red, blue } from '@mui/material/colors';
@@ -508,7 +502,6 @@ ApprovalStatusChip.propTypes = {
 const JobFileSystem = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { darkMode, toggleDarkMode } = useThemeMode();
   const { cacheJob, getPendingPhotos } = useOffline();
   const [jobs, setJobs] = useState([]);
   const [job, setJob] = useState(null);
@@ -1117,123 +1110,84 @@ const JobFileSystem = () => {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Tooltip title="Back to Dashboard">
-            <IconButton color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 1 }} aria-label="Back to Dashboard">
-              <HomeIcon />
-            </IconButton>
-          </Tooltip>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-            Job File System
-          </Typography>
-          <Autocomplete
-            options={jobs}
-            getOptionLabel={(option) => option.title}
-            value={job}
-            onChange={handleJobChange}
-            renderInput={(params) => (
-              <TextField 
-                {...params} 
-                id="job-selector" 
-                label="Select Job" 
-                variant="outlined" 
-                size="small"
-                sx={{
-                  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.9)', fontWeight: 500 },
-                  '& .MuiInputLabel-root.Mui-focused': { color: '#fff' },
-                  '& .MuiOutlinedInput-root': { 
-                    color: '#fff',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.5)' },
-                    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.8)' },
-                    '&.Mui-focused fieldset': { borderColor: '#fff' },
-                  },
-                  '& .MuiSvgIcon-root': { color: 'rgba(255,255,255,0.7)' },
-                }}
-              />
-            )}
-            sx={{ width: 300, mr: 2 }}
-          />
-          <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            <IconButton color="inherit" onClick={toggleDarkMode} sx={{ mr: 1 }} aria-label="Toggle dark mode">
-              {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </Tooltip>
-          
-          {/* Offline Status Indicator */}
-          <OfflineIndicator color="inherit" />
-          
-          {/* Camera Capture Button */}
-          <Tooltip title="Capture Photo">
-            <IconButton 
-              color="inherit" 
-              onClick={() => setPhotoCaptureOpen(true)}
-              sx={{ mr: 1 }}
-              aria-label="Capture Photo"
-            >
-              <Badge badgeContent={pendingPhotos.length} color="warning" max={9}>
-                <CameraAltIcon />
-              </Badge>
-            </IconButton>
-          </Tooltip>
-          
-          {/* Log Unit - Field Billing */}
-          <Tooltip title="Log Unit (Field Billing)">
-            <Button
-              color="inherit"
-              startIcon={<ReceiptIcon />}
-              onClick={() => navigate(`/jobs/${id}/log-unit`)}
-              sx={{ 
-                mr: 1,
-                textTransform: 'none',
-                fontWeight: 600,
-                bgcolor: 'rgba(0,230,118,0.2)',
-                '&:hover': { bgcolor: 'rgba(0,230,118,0.3)' }
-              }}
-            >
-              Log Unit
-            </Button>
-          </Tooltip>
-          
-          {/* Daily Tailboard / JHA Button */}
-          <Tooltip title="Daily Tailboard / JHA">
-            <Button
-              color="inherit"
-              startIcon={<AssignmentIcon />}
-              onClick={() => navigate(`/jobs/${id}/tailboard`)}
-              sx={{ 
-                mr: 1,
-                textTransform: 'none',
-                fontWeight: 600,
-                bgcolor: 'rgba(255,255,255,0.1)',
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' }
-              }}
-            >
-              Tailboard
-            </Button>
-          </Tooltip>
-          
-          {/* Feedback Button - Critical for Pilot */}
-          <FeedbackButton color="inherit" jobId={id} />
-          <FormControlLabel
-            control={<Switch checked={viewDetails} onChange={() => setViewDetails(!viewDetails)} />}
-            label={<Typography sx={{ fontWeight: 600, color: '#fff' }}>View Details</Typography>}
-          />
-            {isAdmin && (
-              <Button
-                variant="contained"
-                color="secondary"
-                startIcon={<AddIcon />}
-                onClick={() => setCreateFolderOpen(true)}
-                sx={{ ml: 2 }}
-              >
-                New Folder
-              </Button>
-            )}
-          </Toolbar>
-        </AppBar>
+      {/* Action Toolbar */}
+      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+        <Autocomplete
+          options={jobs}
+          getOptionLabel={(option) => option?.title || ''}
+          value={job}
+          onChange={handleJobChange}
+          isOptionEqualToValue={(option, value) => option?._id === value?._id}
+          renderInput={(params) => (
+            <TextField 
+              {...params} 
+              id="job-selector" 
+              label="Select Job" 
+              variant="outlined" 
+              size="small"
+            />
+          )}
+          sx={{ width: 300 }}
+        />
+        
+        <Box sx={{ flexGrow: 1 }} />
+        
+        {/* Camera Capture Button */}
+        <Tooltip title="Capture Photo">
+          <IconButton 
+            onClick={() => setPhotoCaptureOpen(true)}
+            aria-label="Capture Photo"
+            color="primary"
+          >
+            <Badge badgeContent={pendingPhotos.length} color="warning" max={9}>
+              <CameraAltIcon />
+            </Badge>
+          </IconButton>
+        </Tooltip>
+        
+        {/* Log Unit - Field Billing */}
+        <Button
+          variant="contained"
+          color="success"
+          startIcon={<ReceiptIcon />}
+          onClick={() => navigate(`/jobs/${id}/log-unit`)}
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+        >
+          Log Unit
+        </Button>
+        
+        {/* Daily Tailboard / JHA Button */}
+        <Button
+          variant="outlined"
+          startIcon={<AssignmentIcon />}
+          onClick={() => navigate(`/jobs/${id}/tailboard`)}
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+        >
+          Tailboard
+        </Button>
+        
+        <FormControlLabel
+          control={<Switch checked={viewDetails} onChange={() => setViewDetails(!viewDetails)} />}
+          label={<Typography sx={{ fontWeight: 600 }}>View Details</Typography>}
+        />
+        
+        {isAdmin && (
+          <Button
+            variant="contained"
+            color="secondary"
+            startIcon={<AddIcon />}
+            onClick={() => setCreateFolderOpen(true)}
+          >
+            New Folder
+          </Button>
+        )}
+        
+        {/* Feedback Button */}
+        <FeedbackButton jobId={id} />
+        <OfflineIndicator />
+      </Paper>
 
-        <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)' }}>
+      <Box sx={{ display: 'flex', height: 'calc(100vh - 140px)' }}>
           {/* Left: Tree View */}
           <Paper sx={{ width: 300, p: 2, overflowY: 'auto' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
