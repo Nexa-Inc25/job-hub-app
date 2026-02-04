@@ -24,63 +24,72 @@ const r2Storage = require('../utils/storage');
 // ============================================================================
 
 /**
+ * Try to load LME template from R2 storage
+ * @returns {Promise<Buffer|null>} Template bytes or null
+ */
+async function loadTemplateFromR2() {
+  if (!r2Storage.isR2Configured()) return null;
+  
+  const templates = await r2Storage.listFiles('templates/master/');
+  const lmeTemplate = templates.find(t => 
+    t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
+  );
+  
+  if (!lmeTemplate) return null;
+  
+  console.log(`Loading LME template from R2: ${lmeTemplate.Key}`);
+  const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
+  
+  if (!templateStream?.stream) return null;
+  
+  const chunks = [];
+  for await (const chunk of templateStream.stream) {
+    chunks.push(chunk);
+  }
+  console.log('Successfully loaded LME template from R2');
+  return Buffer.concat(chunks);
+}
+
+/**
+ * Try to load LME template from local filesystem
+ * @returns {Promise<Buffer|null>} Template bytes or null
+ */
+async function loadTemplateFromLocal() {
+  const possiblePaths = [
+    path.join(__dirname, '../templates/master/blank LME.pdf'),
+    path.join(process.cwd(), 'templates/master/blank LME.pdf'),
+    path.join(process.cwd(), 'backend/templates/master/blank LME.pdf'),
+    '/app/backend/templates/master/blank LME.pdf',
+  ];
+  
+  for (const templatePath of possiblePaths) {
+    try {
+      const bytes = await fs.readFile(templatePath);
+      console.log('Loaded LME template from:', templatePath);
+      return bytes;
+    } catch {
+      // Try next path
+    }
+  }
+  console.warn('Could not load local LME template');
+  return null;
+}
+
+/**
  * Load LME template from R2 storage or local filesystem
  * @returns {Promise<Buffer|null>} Template bytes or null if not found
  */
 async function loadLmeTemplate() {
-  let templateBytes = null;
-  
   // First, try R2 storage
   try {
-    if (r2Storage.isR2Configured()) {
-      const templates = await r2Storage.listFiles('templates/master/');
-      const lmeTemplate = templates.find(t => 
-        t.Key?.toLowerCase().includes('lme') && t.Key?.toLowerCase().endsWith('.pdf')
-      );
-      
-      if (lmeTemplate) {
-        console.log(`Loading LME template from R2: ${lmeTemplate.Key}`);
-        const templateStream = await r2Storage.getFileStream(lmeTemplate.Key);
-        
-        if (templateStream?.stream) {
-          const chunks = [];
-          for await (const chunk of templateStream.stream) {
-            chunks.push(chunk);
-          }
-          templateBytes = Buffer.concat(chunks);
-          console.log('Successfully loaded LME template from R2');
-        }
-      }
-    }
+    const r2Template = await loadTemplateFromR2();
+    if (r2Template) return r2Template;
   } catch (r2Error) {
     console.warn('Could not load LME template from R2:', r2Error.message);
   }
   
-  // If R2 failed, try local templates folder
-  if (!templateBytes) {
-    const possiblePaths = [
-      path.join(__dirname, '../templates/master/blank LME.pdf'),
-      path.join(process.cwd(), 'templates/master/blank LME.pdf'),
-      path.join(process.cwd(), 'backend/templates/master/blank LME.pdf'),
-      '/app/backend/templates/master/blank LME.pdf',
-    ];
-    
-    for (const templatePath of possiblePaths) {
-      try {
-        templateBytes = await fs.readFile(templatePath);
-        console.log('Loaded LME template from:', templatePath);
-        break;
-      } catch {
-        // Try next path
-      }
-    }
-    
-    if (!templateBytes) {
-      console.warn('Could not load local LME template');
-    }
-  }
-  
-  return templateBytes;
+  // Fallback to local filesystem
+  return loadTemplateFromLocal();
 }
 
 /**
@@ -153,6 +162,85 @@ function buildFieldMappings(lme) {
 }
 
 /**
+ * Format a number to 2 decimal places or return empty string
+ */
+function formatAmount(value) {
+  return value ? value.toFixed(2) : '';
+}
+
+/**
+ * Calculate overtime rate (1.5x base) or use provided rate
+ */
+function getOvertimeRate(entry) {
+  if (entry.otRate) return entry.otRate.toFixed(2);
+  if (entry.rate) return (entry.rate * 1.5).toFixed(2);
+  return '';
+}
+
+/**
+ * Calculate double-time rate (2x base) or use provided rate
+ */
+function getDoubletimeRate(entry) {
+  if (entry.dtRate) return entry.dtRate.toFixed(2);
+  if (entry.rate) return (entry.rate * 2).toFixed(2);
+  return '';
+}
+
+/**
+ * Add basic labor fields for a single worker entry
+ */
+function addWorkerBasicFields(fieldMappings, entry, workerNum, rowIndex) {
+  fieldMappings[`CRAFTRow${workerNum}`] = entry.craft || '';
+  fieldMappings[`NAMERow${workerNum}`] = entry.name || '';
+  
+  const stRow = (rowIndex * 3) + 1;
+  const otRow = (rowIndex * 3) + 2;
+  const dtRow = (rowIndex * 3) + 3;
+  
+  fieldMappings[`HRSDYSRow${stRow}`] = entry.stHours ? String(entry.stHours) : '';
+  fieldMappings[`HRSDYSRow${otRow}`] = entry.otHours ? String(entry.otHours) : '';
+  fieldMappings[`HRSDYSRow${dtRow}`] = entry.dtHours ? String(entry.dtHours) : '';
+  
+  const rateSuffix = rowIndex === 0 ? '' : `_${rowIndex + 1}`;
+  fieldMappings[`RATEST${rateSuffix}`] = formatAmount(entry.rate);
+  fieldMappings[`RATEOTPT${rateSuffix}`] = getOvertimeRate(entry);
+  fieldMappings[`RATEDT${rateSuffix}`] = getDoubletimeRate(entry);
+  
+  fieldMappings[`ST${workerNum}`] = formatAmount(entry.stAmount);
+  fieldMappings[`OT${workerNum}`] = formatAmount(entry.otAmount);
+  fieldMappings[`DT${workerNum}`] = formatAmount(entry.dtAmount);
+}
+
+/**
+ * Add missed meals fields for a worker
+ * @returns {number} Hours of missed meals added
+ */
+function addWorkerMissedMeals(fieldMappings, entry, workerNum) {
+  if (!entry.missedMeals) return 0;
+  
+  const missedMealsHrs = entry.missedMeals * 0.5; // 0.5 hrs per meal
+  const hrsStr = String(missedMealsHrs);
+  fieldMappings[`Missed MealsRow${workerNum}`] = hrsStr;
+  fieldMappings[`MISSED MEALSRow${workerNum}`] = hrsStr;
+  fieldMappings[`Missed Meals${workerNum}`] = hrsStr;
+  return missedMealsHrs;
+}
+
+/**
+ * Add subsistence fields for a worker
+ * @returns {number} Subsistence count added
+ */
+function addWorkerSubsistence(fieldMappings, entry, workerNum) {
+  if (!entry.subsistence) return 0;
+  
+  const subsStr = String(entry.subsistence);
+  fieldMappings[`SUBSISTENCERow${workerNum}`] = subsStr;
+  fieldMappings[`SubsistenceRow${workerNum}`] = subsStr;
+  fieldMappings[`SUBS${workerNum}`] = subsStr;
+  return entry.subsistence;
+}
+
+/**
  * Add labor row field mappings
  * Includes per-worker missed meals and subsistence
  */
@@ -160,48 +248,19 @@ function addLaborFieldMappings(fieldMappings, labor) {
   let totalMissedMeals = 0;
   let totalSubsistence = 0;
   
-  for (let i = 0; i < (labor || []).length && i < 9; i++) {
-    const entry = labor[i];
+  const laborEntries = labor || [];
+  const maxWorkers = Math.min(laborEntries.length, 9);
+  
+  for (let i = 0; i < maxWorkers; i++) {
+    const entry = laborEntries[i];
     const workerNum = i + 1;
     
-    fieldMappings[`CRAFTRow${workerNum}`] = entry.craft || '';
-    fieldMappings[`NAMERow${workerNum}`] = entry.name || '';
-    
-    const stRow = (i * 3) + 1;
-    const otRow = (i * 3) + 2;
-    const dtRow = (i * 3) + 3;
-    
-    fieldMappings[`HRSDYSRow${stRow}`] = entry.stHours ? String(entry.stHours) : '';
-    fieldMappings[`HRSDYSRow${otRow}`] = entry.otHours ? String(entry.otHours) : '';
-    fieldMappings[`HRSDYSRow${dtRow}`] = entry.dtHours ? String(entry.dtHours) : '';
-    
-    const rateSuffix = i === 0 ? '' : `_${i + 1}`;
-    fieldMappings[`RATEST${rateSuffix}`] = entry.rate ? entry.rate.toFixed(2) : '';
-    fieldMappings[`RATEOTPT${rateSuffix}`] = entry.otRate ? entry.otRate.toFixed(2) : (entry.rate ? (entry.rate * 1.5).toFixed(2) : '');
-    fieldMappings[`RATEDT${rateSuffix}`] = entry.dtRate ? entry.dtRate.toFixed(2) : (entry.rate ? (entry.rate * 2).toFixed(2) : '');
-    
-    fieldMappings[`ST${workerNum}`] = entry.stAmount ? entry.stAmount.toFixed(2) : '';
-    fieldMappings[`OT${workerNum}`] = entry.otAmount ? entry.otAmount.toFixed(2) : '';
-    fieldMappings[`DT${workerNum}`] = entry.dtAmount ? entry.dtAmount.toFixed(2) : '';
-    
-    // Per-worker missed meals (in hours - 0.5 per meal) and subsistence (count)
-    // Try various field name patterns the template might use
-    if (entry.missedMeals) {
-      const missedMealsHrs = entry.missedMeals * 0.5; // Convert count to hours
-      fieldMappings[`Missed MealsRow${workerNum}`] = String(missedMealsHrs);
-      fieldMappings[`MISSED MEALSRow${workerNum}`] = String(missedMealsHrs);
-      fieldMappings[`Missed Meals${workerNum}`] = String(missedMealsHrs);
-      totalMissedMeals += missedMealsHrs;
-    }
-    if (entry.subsistence) {
-      fieldMappings[`SUBSISTENCERow${workerNum}`] = String(entry.subsistence);
-      fieldMappings[`SubsistenceRow${workerNum}`] = String(entry.subsistence);
-      fieldMappings[`SUBS${workerNum}`] = String(entry.subsistence);
-      totalSubsistence += entry.subsistence;
-    }
+    addWorkerBasicFields(fieldMappings, entry, workerNum, i);
+    totalMissedMeals += addWorkerMissedMeals(fieldMappings, entry, workerNum);
+    totalSubsistence += addWorkerSubsistence(fieldMappings, entry, workerNum);
   }
   
-  // Add totals for missed meals and subsistence
+  // Add totals
   if (totalMissedMeals > 0) {
     fieldMappings['TOTAL MISSED MEALS'] = String(totalMissedMeals);
     fieldMappings['WELFARE AND MISSED MEALS'] = String(totalMissedMeals);
@@ -213,17 +272,29 @@ function addLaborFieldMappings(fieldMappings, labor) {
 }
 
 /**
+ * Get material rate (prefer rate over unitCost)
+ */
+function getMaterialRate(mat) {
+  if (mat.rate) return mat.rate.toFixed(2);
+  if (mat.unitCost) return mat.unitCost.toFixed(2);
+  return '';
+}
+
+/**
  * Add material row field mappings
  */
 function addMaterialFieldMappings(fieldMappings, materials) {
-  for (let i = 0; i < (materials || []).length && i < 11; i++) {
-    const mat = materials[i];
+  const matEntries = materials || [];
+  const maxMaterials = Math.min(matEntries.length, 11);
+  
+  for (let i = 0; i < maxMaterials; i++) {
+    const mat = matEntries[i];
     const suffix = i === 0 ? '' : `_${i + 1}`;
     
     fieldMappings[`DESCRIPTION${suffix}`] = mat.description || '';
     fieldMappings[`QTY${suffix}`] = mat.quantity ? String(mat.quantity) : '';
-    fieldMappings[`RATE${suffix}`] = mat.rate ? mat.rate.toFixed(2) : (mat.unitCost ? mat.unitCost.toFixed(2) : '');
-    fieldMappings[`AMOUNT${suffix}`] = mat.amount ? mat.amount.toFixed(2) : '';
+    fieldMappings[`RATE${suffix}`] = getMaterialRate(mat);
+    fieldMappings[`AMOUNT${suffix}`] = formatAmount(mat.amount);
   }
 }
 
@@ -339,7 +410,7 @@ function drawLaborTableOverlay(page, labor, font, width, height) {
   const workerBlockHeight = subRowHeight * 3;
   
   const craftX = laborTableWidth * 0.02;
-  const nameX = laborTableWidth * 0.10;
+  const nameX = laborTableWidth * 0.1;
   const hrsDysX = laborTableWidth * 0.42;
   const stptX = laborTableWidth * 0.52;
   const rateX = laborTableWidth * 0.62;
@@ -389,6 +460,75 @@ function drawTotalsOverlay(page, lme, font, boldFont, width) {
 }
 
 /**
+ * Filter materials to show (exclude PG&E/vendor names)
+ */
+function filterMaterialsForDisplay(materials) {
+  return (materials || []).filter(mat => {
+    const desc = (mat.description || '').toLowerCase();
+    const excludeTerms = ['rochelle', 'san jose', 'pge', 'pg&e'];
+    const isExcluded = excludeTerms.some(term => desc.includes(term));
+    return desc && !isExcluded && mat.quantity;
+  });
+}
+
+/**
+ * Draw materials section on right side
+ */
+function drawMaterialsOverlay(page, materials, coords, font) {
+  const { descX, qtyX, rateX, amountX, startY, rowH } = coords;
+  const maxMaterials = Math.min(materials.length, 8);
+  
+  for (let i = 0; i < maxMaterials; i++) {
+    const mat = materials[i];
+    const y = startY - (i * rowH);
+    page.drawText((mat.description || '').substring(0, 22), { x: descX, y, size: 5, font });
+    page.drawText(String(mat.quantity || ''), { x: qtyX, y, size: 5, font });
+    if (mat.rate) page.drawText(mat.rate.toFixed(2), { x: rateX, y, size: 5, font });
+    if (mat.amount) page.drawText(mat.amount.toFixed(2), { x: amountX, y, size: 5, font });
+  }
+}
+
+/**
+ * Draw equipment section on right side
+ * @returns {number} Total equipment hours
+ */
+function drawEquipmentOverlay(page, equipment, coords, font) {
+  const { descX, qtyX, rateX, amountX, startY, rowH } = coords;
+  let totalHours = 0;
+  const maxEquipment = Math.min((equipment || []).length, 5);
+  
+  for (let i = 0; i < maxEquipment; i++) {
+    const eq = equipment[i];
+    const y = startY - (i * rowH);
+    const equipDesc = eq.unitNumber || eq.type || eq.description || '';
+    page.drawText(equipDesc.substring(0, 18), { x: descX, y, size: 5, font });
+    if (eq.hours) {
+      page.drawText(String(eq.hours), { x: qtyX, y, size: 5, font });
+      totalHours += eq.hours;
+    }
+    if (eq.rate) page.drawText(eq.rate.toFixed(2), { x: rateX, y, size: 5, font });
+    if (eq.amount) page.drawText(eq.amount.toFixed(2), { x: amountX, y, size: 5, font });
+  }
+  return totalHours;
+}
+
+/**
+ * Draw right side totals
+ */
+function drawRightSideTotals(page, lme, amountX, qtyX, totalEqHours, height, font, boldFont) {
+  if (totalEqHours > 0) {
+    page.drawText(String(totalEqHours), { x: qtyX, y: height - 300, size: 6, font });
+  }
+  
+  const totals = lme.totals || {};
+  page.drawText((totals.ownedEquipment || totals.equipment || 0).toFixed(2), { x: amountX, y: height - 300, size: 6, font });
+  page.drawText((totals.material || 0).toFixed(2), { x: amountX, y: height - 320, size: 6, font });
+  page.drawText((totals.labor || 0).toFixed(2), { x: amountX, y: height - 340, size: 6, font });
+  page.drawText((totals.equipment || 0).toFixed(2), { x: amountX, y: height - 360, size: 6, font });
+  page.drawText((totals.grand || 0).toFixed(2), { x: amountX, y: 32, size: 8, font: boldFont });
+}
+
+/**
  * Draw right side overlay (materials, equipment, subcontractor)
  */
 function drawRightSideOverlay(page, lme, font, boldFont, width, height) {
@@ -396,62 +536,22 @@ function drawRightSideOverlay(page, lme, font, boldFont, width, height) {
   const rightAmountX = width - 35;
   const rightRateX = width - 65;
   const rightQtyX = width - 95;
-  const rightDescX = rightSectionX;
   
-  // MISCELLANEOUS INVOICES
-  const miscStartY = height - 116;
-  const miscRowH = 10;
-  const materialsToShow = (lme.materials || []).filter(mat => {
-    const desc = (mat.description || '').toLowerCase();
-    return desc && !desc.includes('rochelle') && !desc.includes('san jose') && 
-           !desc.includes('pge') && !desc.includes('pg&e') && mat.quantity;
-  });
-  
-  for (let i = 0; i < materialsToShow.length && i < 8; i++) {
-    const mat = materialsToShow[i];
-    const y = miscStartY - (i * miscRowH);
-    page.drawText((mat.description || '').substring(0, 22), { x: rightDescX, y, size: 5, font });
-    page.drawText(String(mat.quantity || ''), { x: rightQtyX, y, size: 5, font });
-    if (mat.rate) page.drawText(mat.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
-    if (mat.amount) page.drawText(mat.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
-  }
+  // Draw materials
+  const materialsToShow = filterMaterialsForDisplay(lme.materials);
+  const matCoords = { descX: rightSectionX, qtyX: rightQtyX, rateX: rightRateX, amountX: rightAmountX, startY: height - 116, rowH: 10 };
+  drawMaterialsOverlay(page, materialsToShow, matCoords, font);
   
   page.drawText((lme.totals?.invoices || lme.totals?.material || 0).toFixed(2), { 
     x: rightAmountX, y: height - 210, size: 6, font 
   });
   
-  // CONTRACTOR OWNED EQUIPMENT
-  const eqStartY = height - 238;
-  const eqRowH = 10;
-  let totalEqHours = 0;
-  for (let i = 0; i < (lme.equipment || []).length && i < 5; i++) {
-    const eq = lme.equipment[i];
-    const y = eqStartY - (i * eqRowH);
-    // Use unit number (truck number) instead of type
-    const equipDesc = eq.unitNumber || eq.type || eq.description || '';
-    page.drawText(equipDesc.substring(0, 18), { x: rightDescX, y, size: 5, font });
-    if (eq.hours) {
-      page.drawText(String(eq.hours), { x: rightQtyX, y, size: 5, font });
-      totalEqHours += eq.hours;
-    }
-    if (eq.rate) page.drawText(eq.rate.toFixed(2), { x: rightRateX, y, size: 5, font });
-    if (eq.amount) page.drawText(eq.amount.toFixed(2), { x: rightAmountX, y, size: 5, font });
-  }
-  // Equipment hours total
-  if (totalEqHours > 0) {
-    page.drawText(String(totalEqHours), { x: rightQtyX, y: height - 300, size: 6, font });
-  }
+  // Draw equipment
+  const eqCoords = { descX: rightSectionX, qtyX: rightQtyX, rateX: rightRateX, amountX: rightAmountX, startY: height - 238, rowH: 10 };
+  const totalEqHours = drawEquipmentOverlay(page, lme.equipment, eqCoords, font);
   
-  // Right side totals
-  page.drawText((lme.totals?.ownedEquipment || lme.totals?.equipment || 0).toFixed(2), { 
-    x: rightAmountX, y: height - 300, size: 6, font 
-  });
-  page.drawText((lme.totals?.material || 0).toFixed(2), { x: rightAmountX, y: height - 320, size: 6, font });
-  page.drawText((lme.totals?.labor || 0).toFixed(2), { x: rightAmountX, y: height - 340, size: 6, font });
-  page.drawText((lme.totals?.equipment || 0).toFixed(2), { x: rightAmountX, y: height - 360, size: 6, font });
-  page.drawText((lme.totals?.grand || 0).toFixed(2), { 
-    x: rightAmountX, y: 32, size: 8, font: boldFont 
-  });
+  // Draw totals
+  drawRightSideTotals(page, lme, rightAmountX, rightQtyX, totalEqHours, height, font, boldFont);
   
   // Subcontractor and counts
   if (lme.subcontractorName) {
@@ -769,11 +869,68 @@ router.get('/:id', authenticateUser, async (req, res) => {
 });
 
 /**
+ * Load or create PDF document from template
+ * @returns {{ pdfDoc: PDFDocument, usedTemplate: boolean }}
+ */
+async function loadOrCreatePdfDoc(templateBytes) {
+  if (templateBytes) {
+    try {
+      const pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
+      console.log('Successfully loaded LME template');
+      return { pdfDoc, usedTemplate: true };
+    } catch (loadError) {
+      console.warn('Failed to parse LME template PDF:', loadError.message);
+    }
+  }
+  
+  console.log('No LME template found, generating from scratch');
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.addPage([612, 792]); // Letter size
+  return { pdfDoc, usedTemplate: false };
+}
+
+/**
+ * Ensure PDF has at least one page
+ */
+function ensurePdfHasPages(pdfDoc) {
+  let pages = pdfDoc.getPages();
+  if (pages.length === 0) {
+    console.warn('Template PDF has no pages, adding a blank page');
+    pdfDoc.addPage([612, 792]);
+    pages = pdfDoc.getPages();
+  }
+  return pages;
+}
+
+/**
+ * Try to fill PDF form fields
+ * @returns {boolean} Whether fields were successfully filled
+ */
+function tryFillFormFields(pdfDoc, lme) {
+  try {
+    const form = pdfDoc.getForm();
+    const fields = form.getFields();
+    
+    if (fields.length === 0) return false;
+    
+    console.log(`Found ${fields.length} form fields in LME template`);
+    const fieldMappings = buildFieldMappings(lme);
+    const filled = fillPdfFormFields(form, fields, fieldMappings);
+    
+    if (filled) {
+      form.flatten();
+      console.log('Filled and flattened form fields');
+    }
+    return filled;
+  } catch (formError) {
+    console.log('Template is not a fillable PDF, using text overlay:', formError.message);
+    return false;
+  }
+}
+
+/**
  * GET /api/lme/:id/pdf
  * Generate PDF of LME using the actual PG&E template
- * 
- * This fetches the official LME template from R2 storage and fills it
- * with the data, producing an identical document to what PG&E expects.
  */
 router.get('/:id/pdf', authenticateUser, async (req, res) => {
   try {
@@ -784,68 +941,22 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
     const lme = await LME.findOne({ _id: lmeId, companyId: user?.companyId });
     if (!lme) return res.status(404).json({ error: 'LME not found' });
 
-    // Load template using helper function
+    // Load template and create PDF document
     const templateBytes = await loadLmeTemplate();
+    let { pdfDoc, usedTemplate } = await loadOrCreatePdfDoc(templateBytes);
     
-    let pdfDoc;
-    let usedTemplate = false;
-    
-    if (templateBytes) {
-      try {
-        pdfDoc = await PDFDocument.load(templateBytes, { ignoreEncryption: true });
-        usedTemplate = true;
-        console.log('Successfully loaded LME template');
-      } catch (loadError) {
-        console.warn('Failed to parse LME template PDF:', loadError.message);
-      }
-    }
-
-    // If no template found, create from scratch (fallback)
-    if (!pdfDoc) {
-      console.log('No LME template found, generating from scratch');
-      pdfDoc = await PDFDocument.create();
-      pdfDoc.addPage([612, 792]); // Letter size
-    }
-
+    // Embed fonts
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-    let pages = pdfDoc.getPages();
     
-    // Handle empty or malformed PDFs
-    if (pages.length === 0) {
-      console.warn('Template PDF has no pages, adding a blank page');
-      pdfDoc.addPage([612, 792]);
-      pages = pdfDoc.getPages();
-      usedTemplate = false;
-    }
-    
+    // Ensure we have pages
+    const pages = ensurePdfHasPages(pdfDoc);
+    if (pages.length === 1 && !usedTemplate) usedTemplate = false;
     const page = pages[0];
 
-    // Try to fill form fields if it's a fillable PDF
-    let filledFormFields = false;
-    try {
-      const form = pdfDoc.getForm();
-      const fields = form.getFields();
-      
-      if (fields.length > 0) {
-        console.log(`Found ${fields.length} form fields in LME template`);
-        
-        // Build field mappings using helper function
-        const fieldMappings = buildFieldMappings(lme);
-        
-        // Fill form fields using helper function
-        filledFormFields = fillPdfFormFields(form, fields, fieldMappings);
-        
-        if (filledFormFields) {
-          form.flatten();
-          console.log('Filled and flattened form fields');
-        }
-      }
-    } catch (formError) {
-      console.log('Template is not a fillable PDF, using text overlay:', formError.message);
-    }
-
-    // If we couldn't fill form fields, overlay text directly
+    // Try to fill form fields, fallback to text overlay
+    const filledFormFields = tryFillFormFields(pdfDoc, lme);
+    
     if (!filledFormFields) {
       if (usedTemplate) {
         drawTemplateTextOverlay(page, lme, font, boldFont);
@@ -855,7 +966,6 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
     }
 
     const pdfBytes = await pdfDoc.save();
-    
     console.log(`Generated LME PDF: template=${usedTemplate}, formFields=${filledFormFields}`);
 
     res.setHeader('Content-Type', 'application/pdf');
