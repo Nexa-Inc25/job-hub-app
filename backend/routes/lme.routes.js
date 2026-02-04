@@ -321,7 +321,7 @@ function drawTemplateTextOverlay(page, lme, font, boldFont) {
   drawLaborTableOverlay(page, lme.labor, font, width, height);
   
   // Draw totals
-  drawTotalsOverlay(page, lme, font, boldFont, width, height);
+  drawTotalsOverlay(page, lme, font, boldFont, width);
   
   // Draw right side (materials, equipment)
   drawRightSideOverlay(page, lme, font, boldFont, width, height);
