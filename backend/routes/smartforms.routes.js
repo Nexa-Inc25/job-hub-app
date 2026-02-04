@@ -215,7 +215,7 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
     const r2Key = `smartforms/templates/${companyId}/${safeName}_${timestamp}.pdf`;
     console.log('[SmartForms] Uploading to R2:', r2Key);
     
-    await r2Storage.uploadFile(r2Key, req.file.buffer, 'application/pdf');
+    await r2Storage.uploadBuffer(req.file.buffer, r2Key, 'application/pdf');
     console.log('[SmartForms] R2 upload complete');
     
     // Create the template record
