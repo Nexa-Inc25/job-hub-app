@@ -942,11 +942,14 @@ const Dashboard = () => {
       const url = search ? `/api/jobs?search=${encodeURIComponent(search)}` : '/api/jobs';
       // api module automatically adds Authorization header
       const response = await api.get(url);
-      setJobs(response.data);
+      // Ensure we always have an array to prevent crashes
+      const jobsData = Array.isArray(response.data) ? response.data : [];
+      setJobs(jobsData);
       setError('');
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setError('Failed to load work orders');
+      // Don't crash on error - keep existing jobs if any
       if (err.response?.status === 401) {
         localStorage.removeItem('token');
         navigate('/login');
