@@ -59,8 +59,10 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import GroupsIcon from '@mui/icons-material/Groups';
+import CloseIcon from '@mui/icons-material/Close';
 import api from '../api';
 import { useOffline } from '../hooks/useOffline';
+import PDFFormEditor from './PDFFormEditor';
 
 // High-contrast field-ready colors
 const COLORS = {
@@ -691,6 +693,10 @@ const ForemanCloseOut = () => {
   const [timesheet, setTimesheet] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+  
+  // PDF Editor state
+  const [pdfEditorOpen, setPdfEditorOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
 
   // Load job data
   useEffect(() => {
@@ -768,8 +774,56 @@ const ForemanCloseOut = () => {
   };
 
   const handleNavigatePDF = (doc) => {
-    // Navigate to PDF editor
-    navigate(`/jobs/${jobId}/details`, { state: { openDocument: doc } });
+    // Open PDF editor dialog
+    setSelectedDocument(doc);
+    setPdfEditorOpen(true);
+  };
+  
+  const handlePdfSave = async (pdfBytes) => {
+    try {
+      // Upload the edited PDF back to R2
+      const formData = new FormData();
+      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      formData.append('file', blob, selectedDocument.name);
+      formData.append('folder', 'ACI');
+      formData.append('subfolder', 'Completed Forms');
+      
+      await api.post(`/api/jobs/${jobId}/files`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      
+      setPdfEditorOpen(false);
+      setSelectedDocument(null);
+      
+      // Reload job to get updated documents
+      const res = await api.get(`/api/jobs/${jobId}`);
+      const jobData = res.data;
+      setJob(jobData);
+      
+      // Re-extract documents
+      const aciFolder = jobData.folders?.find(f => f.name === 'ACI');
+      const preFieldFolder = aciFolder?.subfolders?.find(sf => sf.name === 'Pre-Field Documents');
+      const generalFormsFolder = aciFolder?.subfolders?.find(sf => sf.name === 'General Forms');
+      const completedFormsFolder = aciFolder?.subfolders?.find(sf => sf.name === 'Completed Forms');
+      const allDocs = [
+        ...(preFieldFolder?.documents || []),
+        ...(generalFormsFolder?.documents || []),
+        ...(completedFormsFolder?.documents || []),
+      ];
+      setDocuments(allDocs);
+    } catch (err) {
+      console.error('Failed to save PDF:', err);
+      setError('Failed to save document');
+    }
+  };
+  
+  const getDocumentUrl = (doc) => {
+    if (doc.url) return doc.url;
+    if (doc.r2Key) {
+      const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
+      return `${apiBase}/api/files/stream/${encodeURIComponent(doc.r2Key)}`;
+    }
+    return '';
   };
 
   const handleNavigateUnits = () => {
@@ -1027,6 +1081,54 @@ const ForemanCloseOut = () => {
             {submitting ? <CircularProgress size={20} /> : 'Submit'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* PDF Editor Dialog */}
+      <Dialog
+        open={pdfEditorOpen}
+        onClose={() => {
+          setPdfEditorOpen(false);
+          setSelectedDocument(null);
+        }}
+        fullScreen
+        PaperProps={{
+          sx: { bgcolor: COLORS.bg },
+        }}
+      >
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          p: 1,
+          borderBottom: `1px solid ${COLORS.border}`,
+          bgcolor: COLORS.surface,
+        }}>
+          <Typography sx={{ color: COLORS.text, fontWeight: 600, ml: 1 }}>
+            {selectedDocument?.name || 'Edit Document'}
+          </Typography>
+          <IconButton 
+            onClick={() => {
+              setPdfEditorOpen(false);
+              setSelectedDocument(null);
+            }}
+            sx={{ color: COLORS.text }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </Box>
+        {selectedDocument && (
+          <PDFFormEditor
+            pdfUrl={getDocumentUrl(selectedDocument)}
+            jobInfo={{
+              pmNumber: job?.pmNumber,
+              woNumber: job?.woNumber,
+              address: job?.address,
+              city: job?.city,
+            }}
+            documentName={selectedDocument.name}
+            onSave={handlePdfSave}
+          />
+        )}
       </Dialog>
     </Box>
   );
