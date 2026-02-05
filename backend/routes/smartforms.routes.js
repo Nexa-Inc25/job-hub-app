@@ -54,16 +54,36 @@ function hexToRgb(hex) {
 
 /**
  * Resolve a data path against a data object
- * e.g., "job.address" -> data.job.address
+ * Supports dot notation and array indexing:
+ * - "job.address" -> data.job.address
+ * - "lme.labor[0].name" -> data.lme.labor[0].name
  */
 function resolveDataPath(obj, path) {
   if (!path || !obj) return '';
-  const parts = path.split('.');
+  
+  // Parse path into segments, handling both dot notation and array brackets
+  // e.g., "lme.labor[0].name" -> ["lme", "labor", "0", "name"]
+  const segments = path.split(/\.|\[|\]/).filter(s => s !== '');
+  
   let current = obj;
-  for (const part of parts) {
+  for (const segment of segments) {
     if (current === null || current === undefined) return '';
-    current = current[part];
+    
+    // Try to parse as number for array access
+    const index = Number.parseInt(segment, 10);
+    if (!Number.isNaN(index) && Array.isArray(current)) {
+      current = current[index];
+    } else {
+      current = current[segment];
+    }
   }
+  
+  // Handle object values by converting to string representation
+  if (current !== null && typeof current === 'object' && !(current instanceof Date)) {
+    // For nested objects without further path, return empty
+    return '';
+  }
+  
   return current ?? '';
 }
 
@@ -515,6 +535,17 @@ router.post('/templates/:id/fill', async (req, res) => {
     dataContext.currentMonth = now.toLocaleString('en-US', { month: 'long' });
     dataContext.user = { name: user.name, email: user.email, role: user.role };
     
+    // Debug: Log available data paths
+    console.log('[SmartForms] Data context keys:', Object.keys(dataContext));
+    if (dataContext.job) {
+      console.log('[SmartForms] Job keys:', Object.keys(dataContext.job));
+      console.log('[SmartForms] Job pmNumber:', dataContext.job.pmNumber);
+    }
+    if (dataContext.lme) {
+      console.log('[SmartForms] LME keys:', Object.keys(dataContext.lme));
+      console.log('[SmartForms] LME labor count:', dataContext.lme.labor?.length);
+    }
+    
     // Load and fill the PDF
     const pdfBytes = await loadPdfFromR2(template.sourceFile.r2Key);
     const pdfDoc = await PDFDocument.load(pdfBytes);
@@ -522,6 +553,8 @@ router.post('/templates/:id/fill', async (req, res) => {
     const pages = pdfDoc.getPages();
     
     // Fill each field
+    console.log(`[SmartForms] Filling ${template.fields.length} fields...`);
+    
     for (const field of template.fields) {
       const pageIndex = field.page - 1;
       if (pageIndex < 0 || pageIndex >= pages.length) continue;
@@ -532,8 +565,12 @@ router.post('/templates/:id/fill', async (req, res) => {
       let value = '';
       if (mapping) {
         value = resolveDataPath(dataContext, mapping);
+        console.log(`[SmartForms] Field "${field.name}" mapped to "${mapping}" => "${value}"`);
       } else if (field.defaultValue) {
         value = field.defaultValue;
+        console.log(`[SmartForms] Field "${field.name}" using default => "${value}"`);
+      } else {
+        console.log(`[SmartForms] Field "${field.name}" has no mapping or default`);
       }
       
       // Format dates
@@ -550,13 +587,19 @@ router.post('/templates/:id/fill', async (req, res) => {
       
       if (!value) continue;
       
-      // Draw the text
+      // Draw the text with slight padding from field edge
       const color = hexToRgb(field.fontColor || '#000000');
       const fontSize = field.fontSize || 10;
+      const padding = 2; // Small padding from field edge
+      
+      // Y position: field.bounds.y is the bottom of the field box
+      // Text baseline should be slightly above the bottom
+      const textY = field.bounds.y + padding;
+      const textX = field.bounds.x + padding;
       
       page.drawText(String(value), {
-        x: field.bounds.x,
-        y: field.bounds.y,
+        x: textX,
+        y: textY,
         size: fontSize,
         font,
         color: rgb(color.r, color.g, color.b),
@@ -687,10 +730,13 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           if (!value) continue;
           
           const color = hexToRgb(field.fontColor || '#000000');
+          const fontSize = field.fontSize || 10;
+          const padding = 2;
+          
           page.drawText(String(value), {
-            x: field.bounds.x,
-            y: field.bounds.y,
-            size: field.fontSize || 10,
+            x: field.bounds.x + padding,
+            y: field.bounds.y + padding,
+            size: fontSize,
             font,
             color: rgb(color.r, color.g, color.b),
           });
