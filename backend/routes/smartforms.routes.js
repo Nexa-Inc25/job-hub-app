@@ -698,10 +698,10 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
         
         // Save filled PDF to R2
         const filledPdfBytes = await pdfDoc.save();
-        const jobNumber = job.pm || job.wo || job._id.toString();
+        const jobNumber = job.pmNumber || job.woNumber || job._id.toString();
         const filledR2Key = `smartforms/filled/${companyId}/${template.name}_${jobNumber}_${Date.now()}.pdf`;
         
-        await r2Storage.uploadFile(filledR2Key, Buffer.from(filledPdfBytes), 'application/pdf');
+        await r2Storage.uploadBuffer(Buffer.from(filledPdfBytes), filledR2Key, 'application/pdf');
         
         // Generate signed URL
         const signedUrl = await r2Storage.getSignedUrl(filledR2Key, 3600); // 1 hour
