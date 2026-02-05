@@ -16,6 +16,7 @@ const FormTemplate = require('../models/FormTemplate');
 const Job = require('../models/Job');
 const Company = require('../models/Company');
 const User = require('../models/User');
+const LME = require('../models/LME');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const r2Storage = require('../utils/storage');
 const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
@@ -489,6 +490,14 @@ router.post('/templates/:id/fill', async (req, res) => {
       
       if (job) {
         dataContext.job = job.toObject();
+        
+        // Fetch the most recent LME for this job
+        const lme = await LME.findOne({ jobId: job._id, companyId })
+          .sort({ date: -1 })
+          .lean();
+        if (lme) {
+          dataContext.lme = lme;
+        }
       }
     }
     
@@ -499,8 +508,12 @@ router.post('/templates/:id/fill', async (req, res) => {
     }
     
     // Add current date/time
-    dataContext.today = new Date();
-    dataContext.user = { name: user.name, email: user.email };
+    const now = new Date();
+    dataContext.today = now;
+    dataContext.now = now;
+    dataContext.currentYear = now.getFullYear();
+    dataContext.currentMonth = now.toLocaleString('en-US', { month: 'long' });
+    dataContext.user = { name: user.name, email: user.email, role: user.role };
     
     // Load and fill the PDF
     const pdfBytes = await loadPdfFromR2(template.sourceFile.r2Key);
@@ -623,12 +636,22 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           continue;
         }
         
+        // Fetch the most recent LME for this job
+        const lme = await LME.findOne({ jobId: job._id, companyId })
+          .sort({ date: -1 })
+          .lean();
+        
         // Build data context
+        const now = new Date();
         const dataContext = {
           job: job.toObject(),
+          lme: lme || null,
           company: company?.toObject(),
-          today: new Date(),
-          user: { name: user.name, email: user.email },
+          today: now,
+          now: now,
+          currentYear: now.getFullYear(),
+          currentMonth: now.toLocaleString('en-US', { month: 'long' }),
+          user: { name: user.name, email: user.email, role: user.role },
         };
         
         // Load fresh PDF for each job
@@ -725,37 +748,172 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
 router.get('/data-paths', async (req, res) => {
   // Return available data paths that can be mapped to fields
   const dataPaths = [
-    // Job fields
-    { path: 'job.pm', label: 'PM Number', category: 'Job' },
-    { path: 'job.wo', label: 'Work Order', category: 'Job' },
+    // === JOB FIELDS ===
+    { path: 'job.pmNumber', label: 'PM Number', category: 'Job' },
+    { path: 'job.woNumber', label: 'Work Order Number', category: 'Job' },
+    { path: 'job.notificationNumber', label: 'Notification Number', category: 'Job' },
     { path: 'job.title', label: 'Job Title', category: 'Job' },
-    { path: 'job.description', label: 'Job Description', category: 'Job' },
-    { path: 'job.address', label: 'Address', category: 'Job' },
+    { path: 'job.description', label: 'Description of Work', category: 'Job' },
+    { path: 'job.address', label: 'Job Address', category: 'Job' },
     { path: 'job.city', label: 'City', category: 'Job' },
     { path: 'job.state', label: 'State', category: 'Job' },
     { path: 'job.zip', label: 'ZIP Code', category: 'Job' },
     { path: 'job.status', label: 'Job Status', category: 'Job' },
-    { path: 'job.startDate', label: 'Start Date', category: 'Job' },
+    { path: 'job.startDate', label: 'Job Start Date', category: 'Job' },
     { path: 'job.dueDate', label: 'Due Date', category: 'Job' },
     { path: 'job.completedDate', label: 'Completed Date', category: 'Job' },
     { path: 'job.division', label: 'Division', category: 'Job' },
     { path: 'job.circuit', label: 'Circuit', category: 'Job' },
+    { path: 'job.poNumber', label: 'PO Number', category: 'Job' },
+    { path: 'job.cwaNumber', label: 'CWA Number', category: 'Job' },
+    { path: 'job.fieldAuthNumber', label: 'Field Authorization #', category: 'Job' },
+    { path: 'job.corNumber', label: 'COR Number', category: 'Job' },
     { path: 'job.lat', label: 'Latitude', category: 'Job' },
     { path: 'job.lng', label: 'Longitude', category: 'Job' },
     
-    // Company fields
+    // === CREW & ASSIGNMENT ===
+    { path: 'job.assignedToGF.name', label: 'Assigned GF Name', category: 'Crew' },
+    { path: 'job.assignedTo.name', label: 'Assigned Foreman Name', category: 'Crew' },
+    { path: 'job.crewScheduledDate', label: 'Crew Scheduled Date', category: 'Crew' },
+    { path: 'job.crewScheduledEndDate', label: 'Crew End Date', category: 'Crew' },
+    { path: 'job.crewSize', label: 'Crew Size', category: 'Crew' },
+    { path: 'job.estimatedHours', label: 'Estimated Hours', category: 'Crew' },
+    { path: 'job.assignmentNotes', label: 'Assignment Notes', category: 'Crew' },
+    
+    // === LME WORK DETAILS ===
+    { path: 'lme.date', label: 'LME Date', category: 'LME' },
+    { path: 'lme.lmeNumber', label: 'LME Number', category: 'LME' },
+    { path: 'lme.startTime', label: 'Start Time', category: 'LME' },
+    { path: 'lme.endTime', label: 'End Time', category: 'LME' },
+    { path: 'lme.workDescription', label: 'Work Description', category: 'LME' },
+    { path: 'lme.subcontractorName', label: 'Subcontractor Name(s)', category: 'LME' },
+    { path: 'lme.sheetNumber', label: 'Sheet Number', category: 'LME' },
+    { path: 'lme.totalSheets', label: 'Total Sheets', category: 'LME' },
+    
+    // === LME LABOR (Crew Members) ===
+    { path: 'lme.labor[0].name', label: 'Worker 1 Name', category: 'Labor' },
+    { path: 'lme.labor[0].craft', label: 'Worker 1 Craft', category: 'Labor' },
+    { path: 'lme.labor[0].stHours', label: 'Worker 1 ST Hours', category: 'Labor' },
+    { path: 'lme.labor[0].otHours', label: 'Worker 1 OT Hours', category: 'Labor' },
+    { path: 'lme.labor[0].dtHours', label: 'Worker 1 DT Hours', category: 'Labor' },
+    { path: 'lme.labor[0].rate', label: 'Worker 1 Rate', category: 'Labor' },
+    { path: 'lme.labor[0].missedMeals', label: 'Worker 1 Missed Meals', category: 'Labor' },
+    { path: 'lme.labor[0].subsistence', label: 'Worker 1 Per Diem/Sub', category: 'Labor' },
+    { path: 'lme.labor[0].totalAmount', label: 'Worker 1 Total', category: 'Labor' },
+    
+    { path: 'lme.labor[1].name', label: 'Worker 2 Name', category: 'Labor' },
+    { path: 'lme.labor[1].craft', label: 'Worker 2 Craft', category: 'Labor' },
+    { path: 'lme.labor[1].stHours', label: 'Worker 2 ST Hours', category: 'Labor' },
+    { path: 'lme.labor[1].otHours', label: 'Worker 2 OT Hours', category: 'Labor' },
+    { path: 'lme.labor[1].dtHours', label: 'Worker 2 DT Hours', category: 'Labor' },
+    { path: 'lme.labor[1].rate', label: 'Worker 2 Rate', category: 'Labor' },
+    { path: 'lme.labor[1].missedMeals', label: 'Worker 2 Missed Meals', category: 'Labor' },
+    { path: 'lme.labor[1].subsistence', label: 'Worker 2 Per Diem/Sub', category: 'Labor' },
+    { path: 'lme.labor[1].totalAmount', label: 'Worker 2 Total', category: 'Labor' },
+    
+    { path: 'lme.labor[2].name', label: 'Worker 3 Name', category: 'Labor' },
+    { path: 'lme.labor[2].craft', label: 'Worker 3 Craft', category: 'Labor' },
+    { path: 'lme.labor[2].stHours', label: 'Worker 3 ST Hours', category: 'Labor' },
+    { path: 'lme.labor[2].otHours', label: 'Worker 3 OT Hours', category: 'Labor' },
+    { path: 'lme.labor[2].dtHours', label: 'Worker 3 DT Hours', category: 'Labor' },
+    { path: 'lme.labor[2].rate', label: 'Worker 3 Rate', category: 'Labor' },
+    { path: 'lme.labor[2].missedMeals', label: 'Worker 3 Missed Meals', category: 'Labor' },
+    { path: 'lme.labor[2].subsistence', label: 'Worker 3 Per Diem/Sub', category: 'Labor' },
+    { path: 'lme.labor[2].totalAmount', label: 'Worker 3 Total', category: 'Labor' },
+    
+    { path: 'lme.labor[3].name', label: 'Worker 4 Name', category: 'Labor' },
+    { path: 'lme.labor[3].craft', label: 'Worker 4 Craft', category: 'Labor' },
+    { path: 'lme.labor[3].stHours', label: 'Worker 4 ST Hours', category: 'Labor' },
+    { path: 'lme.labor[3].otHours', label: 'Worker 4 OT Hours', category: 'Labor' },
+    { path: 'lme.labor[3].dtHours', label: 'Worker 4 DT Hours', category: 'Labor' },
+    { path: 'lme.labor[3].rate', label: 'Worker 4 Rate', category: 'Labor' },
+    { path: 'lme.labor[3].missedMeals', label: 'Worker 4 Missed Meals', category: 'Labor' },
+    { path: 'lme.labor[3].subsistence', label: 'Worker 4 Per Diem/Sub', category: 'Labor' },
+    { path: 'lme.labor[3].totalAmount', label: 'Worker 4 Total', category: 'Labor' },
+    
+    { path: 'lme.labor[4].name', label: 'Worker 5 Name', category: 'Labor' },
+    { path: 'lme.labor[4].craft', label: 'Worker 5 Craft', category: 'Labor' },
+    { path: 'lme.labor[4].stHours', label: 'Worker 5 ST Hours', category: 'Labor' },
+    { path: 'lme.labor[4].otHours', label: 'Worker 5 OT Hours', category: 'Labor' },
+    { path: 'lme.labor[4].dtHours', label: 'Worker 5 DT Hours', category: 'Labor' },
+    { path: 'lme.labor[4].rate', label: 'Worker 5 Rate', category: 'Labor' },
+    { path: 'lme.labor[4].missedMeals', label: 'Worker 5 Missed Meals', category: 'Labor' },
+    { path: 'lme.labor[4].subsistence', label: 'Worker 5 Per Diem/Sub', category: 'Labor' },
+    { path: 'lme.labor[4].totalAmount', label: 'Worker 5 Total', category: 'Labor' },
+    
+    { path: 'lme.labor[5].name', label: 'Worker 6 Name', category: 'Labor' },
+    { path: 'lme.labor[5].craft', label: 'Worker 6 Craft', category: 'Labor' },
+    { path: 'lme.labor[5].stHours', label: 'Worker 6 ST Hours', category: 'Labor' },
+    { path: 'lme.labor[5].otHours', label: 'Worker 6 OT Hours', category: 'Labor' },
+    { path: 'lme.labor[5].dtHours', label: 'Worker 6 DT Hours', category: 'Labor' },
+    { path: 'lme.labor[5].rate', label: 'Worker 6 Rate', category: 'Labor' },
+    { path: 'lme.labor[5].missedMeals', label: 'Worker 6 Missed Meals', category: 'Labor' },
+    { path: 'lme.labor[5].subsistence', label: 'Worker 6 Per Diem/Sub', category: 'Labor' },
+    { path: 'lme.labor[5].totalAmount', label: 'Worker 6 Total', category: 'Labor' },
+    
+    // === LME EQUIPMENT ===
+    { path: 'lme.equipment[0].type', label: 'Equipment 1 Type', category: 'Equipment' },
+    { path: 'lme.equipment[0].unitNumber', label: 'Equipment 1 Unit #', category: 'Equipment' },
+    { path: 'lme.equipment[0].hours', label: 'Equipment 1 Hours', category: 'Equipment' },
+    { path: 'lme.equipment[0].rate', label: 'Equipment 1 Rate', category: 'Equipment' },
+    { path: 'lme.equipment[0].amount', label: 'Equipment 1 Amount', category: 'Equipment' },
+    
+    { path: 'lme.equipment[1].type', label: 'Equipment 2 Type', category: 'Equipment' },
+    { path: 'lme.equipment[1].unitNumber', label: 'Equipment 2 Unit #', category: 'Equipment' },
+    { path: 'lme.equipment[1].hours', label: 'Equipment 2 Hours', category: 'Equipment' },
+    { path: 'lme.equipment[1].rate', label: 'Equipment 2 Rate', category: 'Equipment' },
+    { path: 'lme.equipment[1].amount', label: 'Equipment 2 Amount', category: 'Equipment' },
+    
+    { path: 'lme.equipment[2].type', label: 'Equipment 3 Type', category: 'Equipment' },
+    { path: 'lme.equipment[2].unitNumber', label: 'Equipment 3 Unit #', category: 'Equipment' },
+    { path: 'lme.equipment[2].hours', label: 'Equipment 3 Hours', category: 'Equipment' },
+    { path: 'lme.equipment[2].rate', label: 'Equipment 3 Rate', category: 'Equipment' },
+    { path: 'lme.equipment[2].amount', label: 'Equipment 3 Amount', category: 'Equipment' },
+    
+    { path: 'lme.equipment[3].type', label: 'Equipment 4 Type', category: 'Equipment' },
+    { path: 'lme.equipment[3].unitNumber', label: 'Equipment 4 Unit #', category: 'Equipment' },
+    { path: 'lme.equipment[3].hours', label: 'Equipment 4 Hours', category: 'Equipment' },
+    { path: 'lme.equipment[3].rate', label: 'Equipment 4 Rate', category: 'Equipment' },
+    { path: 'lme.equipment[3].amount', label: 'Equipment 4 Amount', category: 'Equipment' },
+    
+    // === LME MATERIALS ===
+    { path: 'lme.materials[0].description', label: 'Material 1 Description', category: 'Materials' },
+    { path: 'lme.materials[0].quantity', label: 'Material 1 Qty', category: 'Materials' },
+    { path: 'lme.materials[0].unit', label: 'Material 1 Unit', category: 'Materials' },
+    { path: 'lme.materials[0].unitCost', label: 'Material 1 Unit Cost', category: 'Materials' },
+    { path: 'lme.materials[0].amount', label: 'Material 1 Amount', category: 'Materials' },
+    
+    { path: 'lme.materials[1].description', label: 'Material 2 Description', category: 'Materials' },
+    { path: 'lme.materials[1].quantity', label: 'Material 2 Qty', category: 'Materials' },
+    { path: 'lme.materials[1].unit', label: 'Material 2 Unit', category: 'Materials' },
+    { path: 'lme.materials[1].unitCost', label: 'Material 2 Unit Cost', category: 'Materials' },
+    { path: 'lme.materials[1].amount', label: 'Material 2 Amount', category: 'Materials' },
+    
+    // === LME TOTALS ===
+    { path: 'lme.totals.labor', label: 'Total Labor Amount', category: 'Totals' },
+    { path: 'lme.totals.material', label: 'Total Material Amount', category: 'Totals' },
+    { path: 'lme.totals.equipment', label: 'Total Equipment Amount', category: 'Totals' },
+    { path: 'lme.totals.grand', label: 'Grand Total', category: 'Totals' },
+    { path: 'lme.missedMeals', label: 'Total Missed Meals', category: 'Totals' },
+    { path: 'lme.subsistanceCount', label: 'Total Per Diem/Subsistence', category: 'Totals' },
+    
+    // === COMPANY FIELDS ===
     { path: 'company.name', label: 'Company Name', category: 'Company' },
     { path: 'company.contractorLicense', label: 'Contractor License', category: 'Company' },
     { path: 'company.phone', label: 'Company Phone', category: 'Company' },
     { path: 'company.email', label: 'Company Email', category: 'Company' },
     { path: 'company.address', label: 'Company Address', category: 'Company' },
     
-    // User fields
+    // === USER FIELDS ===
     { path: 'user.name', label: 'Current User Name', category: 'User' },
     { path: 'user.email', label: 'Current User Email', category: 'User' },
+    { path: 'user.role', label: 'Current User Role', category: 'User' },
     
-    // Date fields
-    { path: 'today', label: 'Today\'s Date', category: 'System' },
+    // === DATE/TIME FIELDS ===
+    { path: 'today', label: 'Today\'s Date', category: 'Date/Time' },
+    { path: 'now', label: 'Current Date & Time', category: 'Date/Time' },
+    { path: 'currentYear', label: 'Current Year', category: 'Date/Time' },
+    { path: 'currentMonth', label: 'Current Month', category: 'Date/Time' },
   ];
   
   res.json(dataPaths);
