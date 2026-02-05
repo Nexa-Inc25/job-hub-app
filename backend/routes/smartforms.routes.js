@@ -17,6 +17,7 @@ const Job = require('../models/Job');
 const Company = require('../models/Company');
 const User = require('../models/User');
 const LME = require('../models/LME');
+const UnitEntry = require('../models/UnitEntry');
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const r2Storage = require('../utils/storage');
 const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
@@ -85,6 +86,66 @@ function resolveDataPath(obj, path) {
   }
   
   return current ?? '';
+}
+
+/**
+ * Build unit summary from UnitEntry records for a job
+ */
+async function buildUnitSummary(jobId, companyId) {
+  const units = await UnitEntry.find({ 
+    jobId, 
+    companyId, 
+    isDeleted: { $ne: true } 
+  }).lean();
+  
+  if (!units.length) {
+    return { totalCount: 0, totalAmount: 0, categories: '', itemCodes: '' };
+  }
+  
+  const categories = [...new Set(units.map(u => u.category).filter(Boolean))];
+  const itemCodes = [...new Set(units.map(u => u.itemCode).filter(Boolean))];
+  const totalAmount = units.reduce((sum, u) => sum + (u.totalAmount || 0), 0);
+  
+  return {
+    totalCount: units.length,
+    totalAmount: Math.round(totalAmount * 100) / 100,
+    categories: categories.join(', '),
+    itemCodes: itemCodes.join(', '),
+  };
+}
+
+/**
+ * Build crew summary from LME labor entries
+ */
+function buildCrewSummary(lme) {
+  if (!lme?.labor?.length) {
+    return {
+      headcount: 0,
+      totalSTHours: 0,
+      totalOTHours: 0,
+      totalDTHours: 0,
+      stHeadcount: 0,
+      otHeadcount: 0,
+    };
+  }
+  
+  const labor = lme.labor;
+  const totalSTHours = labor.reduce((sum, l) => sum + (Number(l.stHours) || 0), 0);
+  const totalOTHours = labor.reduce((sum, l) => sum + (Number(l.otHours) || 0), 0);
+  const totalDTHours = labor.reduce((sum, l) => sum + (Number(l.dtHours) || 0), 0);
+  
+  // Headcount = workers with any hours
+  const stHeadcount = labor.filter(l => Number(l.stHours) > 0).length;
+  const otHeadcount = labor.filter(l => Number(l.otHours) > 0 || Number(l.dtHours) > 0).length;
+  
+  return {
+    headcount: labor.length,
+    totalSTHours,
+    totalOTHours,
+    totalDTHours,
+    stHeadcount,
+    otHeadcount,
+  };
 }
 
 /**
@@ -517,7 +578,12 @@ router.post('/templates/:id/fill', async (req, res) => {
           .lean();
         if (lme) {
           dataContext.lme = lme;
+          // Build crew summary from LME labor
+          dataContext.crew = buildCrewSummary(lme);
         }
+        
+        // Build unit summary for this job
+        dataContext.units = await buildUnitSummary(job._id, companyId);
       }
     }
     
@@ -544,6 +610,12 @@ router.post('/templates/:id/fill', async (req, res) => {
     if (dataContext.lme) {
       console.log('[SmartForms] LME keys:', Object.keys(dataContext.lme));
       console.log('[SmartForms] LME labor count:', dataContext.lme.labor?.length);
+    }
+    if (dataContext.units) {
+      console.log('[SmartForms] Units:', dataContext.units);
+    }
+    if (dataContext.crew) {
+      console.log('[SmartForms] Crew summary:', dataContext.crew);
     }
     
     // Load and fill the PDF
@@ -696,11 +768,17 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           .sort({ date: -1 })
           .lean();
         
+        // Build unit and crew summaries
+        const units = await buildUnitSummary(job._id, companyId);
+        const crew = lme ? buildCrewSummary(lme) : null;
+        
         // Build data context
         const now = new Date();
         const dataContext = {
           job: job.toObject(),
           lme: lme || null,
+          units,
+          crew,
           company: company?.toObject(),
           today: now,
           now: now,
@@ -1010,6 +1088,30 @@ router.get('/data-paths', async (req, res) => {
     { path: 'lme.totals.grand', label: 'Grand Total', category: 'Totals' },
     { path: 'lme.missedMeals', label: 'Total Missed Meals', category: 'Totals' },
     { path: 'lme.subsistanceCount', label: 'Total Per Diem/Subsistence', category: 'Totals' },
+    
+    // === PG&E UNIT PRICE FORM (Exhibit B) ===
+    { path: 'job.division', label: 'Division Code', category: 'Unit Price' },
+    { path: 'job.ecTag.tagType', label: 'Tag Type (A/B/C/D/E)', category: 'Unit Price' },
+    { path: 'job.preFieldLabels.roadAccess', label: 'Accessibility', category: 'Unit Price' },
+    { path: 'job.preFieldLabels.constructionType', label: 'Construction Type (OH/UG)', category: 'Unit Price' },
+    { path: 'job.preFieldLabels.craneRequired', label: 'Crane Required', category: 'Unit Price' },
+    { path: 'job.preFieldLabels.craneType', label: 'Crane Type', category: 'Unit Price' },
+    { path: 'job.ecTag.programType', label: 'Program Type', category: 'Unit Price' },
+    { path: 'job.ecTag.programCode', label: 'Program Code', category: 'Unit Price' },
+    
+    // === UNIT SUMMARY (Aggregated from UnitEntry) ===
+    { path: 'units.totalCount', label: 'Total Unit Count', category: 'Units' },
+    { path: 'units.totalAmount', label: 'Total Unit Amount', category: 'Units' },
+    { path: 'units.categories', label: 'Unit Categories (comma-sep)', category: 'Units' },
+    { path: 'units.itemCodes', label: 'Unit Item Codes (comma-sep)', category: 'Units' },
+    
+    // === CREW SUMMARY (calculated) ===
+    { path: 'crew.headcount', label: 'Crew Headcount', category: 'Crew Summary' },
+    { path: 'crew.totalSTHours', label: 'Total ST Hours (all crew)', category: 'Crew Summary' },
+    { path: 'crew.totalOTHours', label: 'Total OT Hours (all crew)', category: 'Crew Summary' },
+    { path: 'crew.totalDTHours', label: 'Total DT Hours (all crew)', category: 'Crew Summary' },
+    { path: 'crew.stHeadcount', label: 'ST Crew Headcount', category: 'Crew Summary' },
+    { path: 'crew.otHeadcount', label: 'OT/PT Crew Headcount', category: 'Crew Summary' },
     
     // === COMPANY FIELDS ===
     { path: 'company.name', label: 'Company Name', category: 'Company' },
