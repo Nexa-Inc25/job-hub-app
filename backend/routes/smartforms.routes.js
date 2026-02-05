@@ -1089,15 +1089,35 @@ router.get('/data-paths', async (req, res) => {
     { path: 'lme.missedMeals', label: 'Total Missed Meals', category: 'Totals' },
     { path: 'lme.subsistanceCount', label: 'Total Per Diem/Subsistence', category: 'Totals' },
     
-    // === PG&E UNIT PRICE FORM (Exhibit B) ===
-    { path: 'job.division', label: 'Division Code', category: 'Unit Price' },
-    { path: 'job.ecTag.tagType', label: 'Tag Type (A/B/C/D/E)', category: 'Unit Price' },
-    { path: 'job.preFieldLabels.roadAccess', label: 'Accessibility', category: 'Unit Price' },
-    { path: 'job.preFieldLabels.constructionType', label: 'Construction Type (OH/UG)', category: 'Unit Price' },
-    { path: 'job.preFieldLabels.craneRequired', label: 'Crane Required', category: 'Unit Price' },
-    { path: 'job.preFieldLabels.craneType', label: 'Crane Type', category: 'Unit Price' },
-    { path: 'job.ecTag.programType', label: 'Program Type', category: 'Unit Price' },
-    { path: 'job.ecTag.programCode', label: 'Program Code', category: 'Unit Price' },
+    // === PG&E UNIT PRICE / PROJECT COMPLETION (Exhibit B) ===
+    { path: 'job.division', label: 'Division Code', category: 'Exhibit B' },
+    { path: 'job.ecTag.tagType', label: 'Tag Type (A/B/C/D/E)', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.roadAccess', label: 'Accessibility', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.constructionType', label: 'Construction Type (OH/UG)', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.craneRequired', label: 'Crane Required', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.craneType', label: 'Crane Type', category: 'Exhibit B' },
+    { path: 'job.ecTag.programType', label: 'Program Type', category: 'Exhibit B' },
+    { path: 'job.ecTag.programCode', label: 'Program Code', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.specialEquipment', label: 'Special Equipment List', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.poleWork', label: 'Pole Work Type', category: 'Exhibit B' },
+    { path: 'job.preFieldLabels.accessNotes', label: 'Access Notes', category: 'Exhibit B' },
+    
+    // === PROJECT COMPLETION FORM FIELDS ===
+    { path: 'job.poNumber', label: 'PO Number', category: 'Project Completion' },
+    { path: 'job.completedDate', label: 'Completed Date', category: 'Project Completion' },
+    { path: 'job.completedBy.name', label: 'Completed By Name', category: 'Project Completion' },
+    { path: 'job.status', label: 'Job Status', category: 'Project Completion' },
+    { path: 'job.jobScope.summary', label: 'Scope Summary', category: 'Project Completion' },
+    { path: 'job.jobScope.workType', label: 'Work Type', category: 'Project Completion' },
+    { path: 'job.jobScope.footage', label: 'Footage/Length', category: 'Project Completion' },
+    { path: 'job.jobScope.voltage', label: 'Voltage', category: 'Project Completion' },
+    { path: 'job.jobScope.phases', label: 'Phases', category: 'Project Completion' },
+    { path: 'job.jobScope.specialNotes', label: 'Special Notes', category: 'Project Completion' },
+    
+    // === SIGNATURE FIELDS ===
+    { path: 'job.assignedToGF.name', label: 'GF Name (Contractor Rep)', category: 'Signatures' },
+    { path: 'user.name', label: 'Current User Name', category: 'Signatures' },
+    { path: 'company.name', label: 'Contractor Company Name', category: 'Signatures' },
     
     // === UNIT SUMMARY (Aggregated from UnitEntry) ===
     { path: 'units.totalCount', label: 'Total Unit Count', category: 'Units' },
