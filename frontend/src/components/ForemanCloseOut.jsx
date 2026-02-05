@@ -697,6 +697,12 @@ const ForemanCloseOut = () => {
   // PDF Editor state
   const [pdfEditorOpen, setPdfEditorOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [filledPdfUrl, setFilledPdfUrl] = useState(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  
+  // SmartForms templates
+  const [smartFormTemplates, setSmartFormTemplates] = useState([]);
+  const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
 
   // Load job data
   useEffect(() => {
@@ -748,6 +754,14 @@ const ForemanCloseOut = () => {
           setTimesheet(null);
         }
 
+        // Load active SmartForms templates
+        try {
+          const templatesRes = await api.get('/api/smartforms/templates?status=active');
+          setSmartFormTemplates(Array.isArray(templatesRes.data) ? templatesRes.data : []);
+        } catch {
+          setSmartFormTemplates([]);
+        }
+
       } catch (err) {
         console.error('Failed to load job:', err);
         setError(err.message);
@@ -774,8 +788,52 @@ const ForemanCloseOut = () => {
   };
 
   const handleNavigatePDF = (doc) => {
-    // Open PDF editor dialog
-    setSelectedDocument(doc);
+    // If we have SmartForms templates, show the template picker
+    if (smartFormTemplates.length > 0) {
+      setSelectedDocument(doc);
+      setTemplatePickerOpen(true);
+    } else {
+      // No templates - open blank PDF editor
+      setSelectedDocument(doc);
+      setFilledPdfUrl(null);
+      setPdfEditorOpen(true);
+    }
+  };
+  
+  // Fill template with job data and open editor
+  const handleSelectTemplate = async (template) => {
+    setTemplatePickerOpen(false);
+    setPdfLoading(true);
+    
+    try {
+      // Call SmartForms fill API to get pre-populated PDF
+      const response = await api.post(
+        `/api/smartforms/templates/${template._id}/fill`,
+        { jobId },
+        { responseType: 'blob' }
+      );
+      
+      // Create blob URL for the filled PDF
+      const blob = new Blob([response.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      setFilledPdfUrl(url);
+      setPdfEditorOpen(true);
+    } catch (err) {
+      console.error('Failed to fill template:', err);
+      setError('Failed to pre-fill form. Opening blank form instead.');
+      // Fall back to opening the original document
+      setFilledPdfUrl(null);
+      setPdfEditorOpen(true);
+    } finally {
+      setPdfLoading(false);
+    }
+  };
+  
+  // Skip template and open blank document
+  const handleSkipTemplate = () => {
+    setTemplatePickerOpen(false);
+    setFilledPdfUrl(null);
     setPdfEditorOpen(true);
   };
   
@@ -1083,12 +1141,95 @@ const ForemanCloseOut = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Template Picker Dialog */}
+      <Dialog
+        open={templatePickerOpen}
+        onClose={() => setTemplatePickerOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: { bgcolor: COLORS.surface, color: COLORS.text },
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: `1px solid ${COLORS.border}` }}>
+          <Typography sx={{ fontWeight: 700 }}>
+            Select Form Template
+          </Typography>
+          <Typography variant="body2" sx={{ color: COLORS.textSecondary, mt: 0.5 }}>
+            Choose a template to auto-fill with job data
+          </Typography>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {pdfLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress sx={{ color: COLORS.primary }} />
+            </Box>
+          ) : (
+            <List sx={{ p: 0 }}>
+              {smartFormTemplates.map((template) => (
+                <Card 
+                  key={template._id}
+                  sx={{ 
+                    bgcolor: COLORS.surfaceLight, 
+                    mb: 1.5, 
+                    border: `1px solid ${COLORS.border}`,
+                    cursor: 'pointer',
+                    '&:hover': { borderColor: COLORS.primary },
+                  }}
+                  onClick={() => handleSelectTemplate(template)}
+                >
+                  <ListItem>
+                    <ListItemIcon>
+                      <PictureAsPdfIcon sx={{ color: COLORS.primary, fontSize: 32 }} />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={
+                        <Typography sx={{ color: COLORS.text, fontWeight: 600 }}>
+                          {template.name}
+                        </Typography>
+                      }
+                      secondary={
+                        <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem' }}>
+                          {template.description || template.category || 'SmartForm template'}
+                        </Typography>
+                      }
+                    />
+                    <Chip 
+                      label="Auto-fill" 
+                      size="small" 
+                      sx={{ 
+                        bgcolor: COLORS.primary, 
+                        color: COLORS.bg,
+                        fontWeight: 600,
+                      }} 
+                    />
+                  </ListItem>
+                </Card>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, borderTop: `1px solid ${COLORS.border}` }}>
+          <Button 
+            onClick={handleSkipTemplate} 
+            sx={{ color: COLORS.textSecondary }}
+          >
+            Skip - Open Blank Form
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* PDF Editor Dialog */}
       <Dialog
         open={pdfEditorOpen}
         onClose={() => {
           setPdfEditorOpen(false);
           setSelectedDocument(null);
+          // Clean up blob URL
+          if (filledPdfUrl) {
+            URL.revokeObjectURL(filledPdfUrl);
+            setFilledPdfUrl(null);
+          }
         }}
         fullScreen
         PaperProps={{
@@ -1118,7 +1259,7 @@ const ForemanCloseOut = () => {
         </Box>
         {selectedDocument && (
           <PDFFormEditor
-            pdfUrl={getDocumentUrl(selectedDocument)}
+            pdfUrl={filledPdfUrl || getDocumentUrl(selectedDocument)}
             jobInfo={{
               pmNumber: job?.pmNumber,
               woNumber: job?.woNumber,
@@ -1128,6 +1269,21 @@ const ForemanCloseOut = () => {
             documentName={selectedDocument.name}
             onSave={handlePdfSave}
           />
+        )}
+        {pdfLoading && (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column',
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            height: '100%',
+            gap: 2,
+          }}>
+            <CircularProgress sx={{ color: COLORS.primary }} />
+            <Typography sx={{ color: COLORS.text }}>
+              Pre-filling form with job data...
+            </Typography>
+          </Box>
         )}
       </Dialog>
     </Box>
