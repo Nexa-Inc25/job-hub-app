@@ -62,8 +62,8 @@ const FIELD_TYPES = [
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const { darkMode } = useThemeMode();
+  const isDark = darkMode;
 
   // Template state
   const [template, setTemplate] = useState(null);

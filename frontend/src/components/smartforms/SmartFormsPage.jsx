@@ -73,8 +73,8 @@ const getUploadBgColor = (hasFile, isDark) => {
 
 export default function SmartFormsPage() {
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
-  const isDark = mode === 'dark';
+  const { darkMode } = useThemeMode();
+  const isDark = darkMode;
   
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
