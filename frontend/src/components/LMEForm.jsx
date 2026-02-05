@@ -27,10 +27,13 @@ import {
   Select,
   MenuItem,
   FormControl,
+  FormControlLabel,
+  Checkbox,
   Chip,
   Alert,
   CircularProgress,
   Fab,
+  Tooltip,
 } from '@mui/material';
 import BackIcon from '@mui/icons-material/ArrowBack';
 import AddIcon from '@mui/icons-material/Add';
@@ -83,7 +86,7 @@ const EQUIPMENT_TYPES = [
 /**
  * Labor Entry Row Component
  */
-const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
+const LaborRow = ({ entry, index, onUpdate, onRemove, defaultHours }) => {
   const calculateAmount = (hours, rateType, baseRate) => {
     const multiplier = RATE_TYPES.find(r => r.code === rateType)?.multiplier || 1;
     return (Number.parseFloat(hours) || 0) * (Number.parseFloat(baseRate) || 0) * multiplier;
@@ -91,6 +94,11 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
 
   const handleChange = (field, value) => {
     const updated = { ...entry, [field]: value };
+    
+    // If changing hours, mark as custom
+    if (['stHours', 'otHours', 'dtHours'].includes(field)) {
+      updated.useCustomHours = true;
+    }
     
     // Recalculate amounts when hours or rate changes
     if (['stHours', 'otHours', 'dtHours', 'rate'].includes(field)) {
@@ -103,10 +111,48 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
     onUpdate(index, updated);
   };
 
+  // Toggle custom hours - when unchecked, revert to defaults
+  const handleCustomToggle = (e) => {
+    const useCustom = e.target.checked;
+    
+    if (useCustom) {
+      // Just mark as custom, keep current values
+      onUpdate(index, { ...entry, useCustomHours: true });
+    } else {
+      // Revert to default hours
+      const rate = Number.parseFloat(entry.rate) || 0;
+      const stHours = Number.parseFloat(defaultHours.stHours) || 0;
+      const otHours = Number.parseFloat(defaultHours.otHours) || 0;
+      const dtHours = Number.parseFloat(defaultHours.dtHours) || 0;
+      
+      const stAmount = stHours * rate;
+      const otAmount = otHours * rate * 1.5;
+      const dtAmount = dtHours * rate * 2;
+      
+      onUpdate(index, {
+        ...entry,
+        stHours: defaultHours.stHours,
+        otHours: defaultHours.otHours,
+        dtHours: defaultHours.dtHours,
+        stAmount,
+        otAmount,
+        dtAmount,
+        totalAmount: stAmount + otAmount + dtAmount,
+        useCustomHours: false,
+      });
+    }
+  };
+
+  // Visual indicator for whether using defaults or custom
+  const isCustom = entry.useCustomHours;
+
   return (
     <>
       {/* Main row */}
-      <TableRow sx={{ '& td': { py: 0.5, borderBottom: 'none' } }}>
+      <TableRow sx={{ 
+        '& td': { py: 0.5, borderBottom: 'none' },
+        bgcolor: isCustom ? 'action.hover' : 'transparent',
+      }}>
         <TableCell rowSpan={3} sx={{ verticalAlign: 'top', width: 80 }}>
           <FormControl size="small" fullWidth>
             <Select
@@ -129,6 +175,20 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
             value={entry.name || ''}
             onChange={(e) => handleChange('name', e.target.value)}
           />
+          {/* Custom hours toggle */}
+          <Tooltip title={isCustom ? "Using custom hours for this person" : "Using default hours for all crew"}>
+            <FormControlLabel
+              control={
+                <Checkbox 
+                  size="small" 
+                  checked={isCustom} 
+                  onChange={handleCustomToggle}
+                />
+              }
+              label={<Typography variant="caption" color="text.secondary">Custom hrs</Typography>}
+              sx={{ mt: 0.5, ml: 0 }}
+            />
+          </Tooltip>
         </TableCell>
         <TableCell sx={{ width: 60, textAlign: 'center', fontWeight: 600 }}>ST</TableCell>
         <TableCell sx={{ width: 70 }}>
@@ -138,7 +198,11 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
             inputProps={{ step: 0.5, min: 0 }}
             value={entry.stHours || ''}
             onChange={(e) => handleChange('stHours', e.target.value)}
-            sx={{ '& input': { textAlign: 'center', p: 0.5 } }}
+            disabled={!isCustom}
+            sx={{ 
+              '& input': { textAlign: 'center', p: 0.5 },
+              opacity: isCustom ? 1 : 0.7,
+            }}
           />
         </TableCell>
         <TableCell rowSpan={3} sx={{ verticalAlign: 'top', width: 80 }}>
@@ -162,7 +226,10 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
         </TableCell>
       </TableRow>
       {/* OT row */}
-      <TableRow sx={{ '& td': { py: 0.5, borderBottom: 'none' } }}>
+      <TableRow sx={{ 
+        '& td': { py: 0.5, borderBottom: 'none' },
+        bgcolor: isCustom ? 'action.hover' : 'transparent',
+      }}>
         <TableCell sx={{ textAlign: 'center', fontWeight: 600 }}>OT/PT</TableCell>
         <TableCell>
           <TextField
@@ -171,7 +238,11 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
             inputProps={{ step: 0.5, min: 0 }}
             value={entry.otHours || ''}
             onChange={(e) => handleChange('otHours', e.target.value)}
-            sx={{ '& input': { textAlign: 'center', p: 0.5 } }}
+            disabled={!isCustom}
+            sx={{ 
+              '& input': { textAlign: 'center', p: 0.5 },
+              opacity: isCustom ? 1 : 0.7,
+            }}
           />
         </TableCell>
         <TableCell sx={{ textAlign: 'right' }}>
@@ -179,7 +250,10 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
         </TableCell>
       </TableRow>
       {/* DT row */}
-      <TableRow sx={{ '& td': { py: 0.5 } }}>
+      <TableRow sx={{ 
+        '& td': { py: 0.5 },
+        bgcolor: isCustom ? 'action.hover' : 'transparent',
+      }}>
         <TableCell sx={{ textAlign: 'center', fontWeight: 600 }}>DT</TableCell>
         <TableCell>
           <TextField
@@ -188,7 +262,11 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, rates }) => {
             inputProps={{ step: 0.5, min: 0 }}
             value={entry.dtHours || ''}
             onChange={(e) => handleChange('dtHours', e.target.value)}
-            sx={{ '& input': { textAlign: 'center', p: 0.5 } }}
+            disabled={!isCustom}
+            sx={{ 
+              '& input': { textAlign: 'center', p: 0.5 },
+              opacity: isCustom ? 1 : 0.7,
+            }}
           />
         </TableCell>
         <TableCell sx={{ textAlign: 'right', fontWeight: 600 }}>
@@ -211,11 +289,16 @@ LaborRow.propTypes = {
     otAmount: PropTypes.number,
     dtAmount: PropTypes.number,
     totalAmount: PropTypes.number,
+    useCustomHours: PropTypes.bool,
   }).isRequired,
   index: PropTypes.number.isRequired,
   onUpdate: PropTypes.func.isRequired,
   onRemove: PropTypes.func.isRequired,
-  rates: PropTypes.object,
+  defaultHours: PropTypes.shape({
+    stHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    otHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    dtHours: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+  }),
 };
 
 /**
@@ -401,9 +484,17 @@ const LMEForm = () => {
   const [sheetNumber, setSheetNumber] = useState('1');
   const [totalSheets, setTotalSheets] = useState('1');
 
+  // Default hours for all crew (apply to everyone unless overridden)
+  const [defaultHours, setDefaultHours] = useState({
+    stHours: '',
+    otHours: '',
+    dtHours: '',
+  });
+
   // Labor, Material, Equipment entries
+  // Each entry has an 'useCustomHours' flag - when false, uses defaultHours
   const [laborEntries, setLaborEntries] = useState([
-    { craft: '', name: '', stHours: '', otHours: '', dtHours: '', rate: '', stAmount: 0, otAmount: 0, dtAmount: 0, totalAmount: 0 }
+    { craft: '', name: '', stHours: '', otHours: '', dtHours: '', rate: '', stAmount: 0, otAmount: 0, dtAmount: 0, totalAmount: 0, useCustomHours: false }
   ]);
   const [materialEntries, setMaterialEntries] = useState([]);
   const [equipmentEntries, setEquipmentEntries] = useState([]);
@@ -443,12 +534,49 @@ const LMEForm = () => {
   const equipmentTotal = equipmentEntries.reduce((sum, e) => sum + (e.amount || 0), 0);
   const grandTotal = laborTotal + materialTotal + equipmentTotal;
 
+  // Apply default hours to all entries that don't have custom hours
+  const applyDefaultHours = (newDefaults) => {
+    setDefaultHours(newDefaults);
+    
+    // Update all entries that are NOT using custom hours
+    setLaborEntries(prev => prev.map(entry => {
+      if (entry.useCustomHours) return entry;
+      
+      // Calculate amounts with default hours
+      const rate = Number.parseFloat(entry.rate) || 0;
+      const stHours = Number.parseFloat(newDefaults.stHours) || 0;
+      const otHours = Number.parseFloat(newDefaults.otHours) || 0;
+      const dtHours = Number.parseFloat(newDefaults.dtHours) || 0;
+      
+      const stAmount = stHours * rate;
+      const otAmount = otHours * rate * 1.5;
+      const dtAmount = dtHours * rate * 2;
+      
+      return {
+        ...entry,
+        stHours: newDefaults.stHours,
+        otHours: newDefaults.otHours,
+        dtHours: newDefaults.dtHours,
+        stAmount,
+        otAmount,
+        dtAmount,
+        totalAmount: stAmount + otAmount + dtAmount,
+      };
+    }));
+  };
+
   // Handlers
   const addLaborEntry = () => {
+    // New entries get default hours unless they set custom
+    const stHours = defaultHours.stHours;
+    const otHours = defaultHours.otHours;
+    const dtHours = defaultHours.dtHours;
+    
     setLaborEntries([...laborEntries, { 
       id: `labor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      craft: '', name: '', stHours: '', otHours: '', dtHours: '', rate: '', 
-      stAmount: 0, otAmount: 0, dtAmount: 0, totalAmount: 0 
+      craft: '', name: '', stHours, otHours, dtHours, rate: '', 
+      stAmount: 0, otAmount: 0, dtAmount: 0, totalAmount: 0,
+      useCustomHours: false
     }]);
   };
 
@@ -756,6 +884,63 @@ const LMEForm = () => {
           </Button>
         </Box>
 
+        {/* Default Hours - Apply to All Crew */}
+        <Paper 
+          variant="outlined" 
+          sx={{ 
+            mb: 2, 
+            p: 2, 
+            bgcolor: 'primary.50', 
+            borderColor: 'primary.200',
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1.5, color: 'primary.main' }}>
+            Default Hours (Applied to All Crew)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" fontWeight={600} sx={{ minWidth: 30 }}>ST:</Typography>
+              <TextField
+                size="small"
+                type="number"
+                inputProps={{ step: 0.5, min: 0 }}
+                value={defaultHours.stHours}
+                onChange={(e) => applyDefaultHours({ ...defaultHours, stHours: e.target.value })}
+                sx={{ width: 80, '& input': { textAlign: 'center' } }}
+                placeholder="0"
+              />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" fontWeight={600} sx={{ minWidth: 45 }}>OT/PT:</Typography>
+              <TextField
+                size="small"
+                type="number"
+                inputProps={{ step: 0.5, min: 0 }}
+                value={defaultHours.otHours}
+                onChange={(e) => applyDefaultHours({ ...defaultHours, otHours: e.target.value })}
+                sx={{ width: 80, '& input': { textAlign: 'center' } }}
+                placeholder="0"
+              />
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2" fontWeight={600} sx={{ minWidth: 30 }}>DT:</Typography>
+              <TextField
+                size="small"
+                type="number"
+                inputProps={{ step: 0.5, min: 0 }}
+                value={defaultHours.dtHours}
+                onChange={(e) => applyDefaultHours({ ...defaultHours, dtHours: e.target.value })}
+                sx={{ width: 80, '& input': { textAlign: 'center' } }}
+                placeholder="0"
+              />
+            </Box>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+              Check "Custom hrs" on individual workers to override
+            </Typography>
+          </Box>
+        </Paper>
+
         <TableContainer>
           <Table size="small">
             <TableHead>
@@ -777,6 +962,7 @@ const LMEForm = () => {
                   index={idx}
                   onUpdate={updateLaborEntry}
                   onRemove={removeLaborEntry}
+                  defaultHours={defaultHours}
                 />
               ))}
               <TableRow sx={{ bgcolor: 'grey.100' }}>
