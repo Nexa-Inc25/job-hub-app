@@ -555,6 +555,9 @@ router.post('/templates/:id/fill', async (req, res) => {
     // Fill each field
     console.log(`[SmartForms] Filling ${template.fields.length} fields...`);
     
+    // Get stored page dimensions for coordinate conversion
+    const storedDimensions = template.sourceFile?.pageDimensions || [];
+    
     for (const field of template.fields) {
       const pageIndex = field.page - 1;
       if (pageIndex < 0 || pageIndex >= pages.length) continue;
@@ -592,14 +595,23 @@ router.post('/templates/:id/fill', async (req, res) => {
       const fontSize = field.fontSize || 10;
       const padding = 2; // Small padding from field edge
       
-      // Y position: field.bounds.y is the bottom of the field box
-      // Text baseline should be slightly above the bottom
-      const textY = field.bounds.y + padding;
-      const textX = field.bounds.x + padding;
+      // Get the actual PDF page height for coordinate conversion
+      const pdfPageHeight = page.getHeight();
+      
+      // The fields are stored with screen coordinates (Y from top, increases downward)
+      // PDF coordinates have Y from bottom (increases upward)
+      // Convert: pdfY = pageHeight - screenY - fieldHeight
+      // Text baseline should be near the bottom of the field box
+      const screenY = field.bounds.y;
+      const fieldHeight = field.bounds.height || fontSize;
+      const pdfY = pdfPageHeight - screenY - fieldHeight + padding;
+      const pdfX = field.bounds.x + padding;
+      
+      console.log(`[SmartForms] Field "${field.name}" coords: screen(${field.bounds.x}, ${screenY}) -> pdf(${pdfX}, ${pdfY}), pageHeight=${pdfPageHeight}`);
       
       page.drawText(String(value), {
-        x: textX,
-        y: textY,
+        x: pdfX,
+        y: pdfY,
         size: fontSize,
         font,
         color: rgb(color.r, color.g, color.b),
@@ -733,9 +745,17 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           const fontSize = field.fontSize || 10;
           const padding = 2;
           
+          // Convert screen coordinates to PDF coordinates
+          // Screen: Y from top (0 = top), PDF: Y from bottom (0 = bottom)
+          const pdfPageHeight = page.getHeight();
+          const screenY = field.bounds.y;
+          const fieldHeight = field.bounds.height || fontSize;
+          const pdfY = pdfPageHeight - screenY - fieldHeight + padding;
+          const pdfX = field.bounds.x + padding;
+          
           page.drawText(String(value), {
-            x: field.bounds.x + padding,
-            y: field.bounds.y + padding,
+            x: pdfX,
+            y: pdfY,
             size: fontSize,
             font,
             color: rgb(color.r, color.g, color.b),
@@ -784,6 +804,54 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
   } catch (error) {
     console.error('Error batch filling template:', error);
     res.status(500).json({ error: 'Failed to batch fill template' });
+  }
+});
+
+/**
+ * GET /api/smartforms/templates/:id/debug
+ * Debug endpoint to inspect template state
+ */
+router.get('/templates/:id/debug', async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    
+    const template = await FormTemplate.findOne({
+      _id: sanitizeObjectId(req.params.id),
+      companyId: user.companyId,
+    });
+    
+    if (!template) return res.status(404).json({ error: 'Template not found' });
+    
+    // Convert Map to object for inspection
+    const mappingsObj = {};
+    if (template.dataMappings) {
+      for (const [key, value] of template.dataMappings.entries()) {
+        mappingsObj[key] = value;
+      }
+    }
+    
+    res.json({
+      templateId: template._id,
+      name: template.name,
+      status: template.status,
+      fieldCount: template.fields?.length || 0,
+      fields: template.fields?.map(f => ({
+        id: f.id,
+        name: f.name,
+        type: f.type,
+        page: f.page,
+        bounds: f.bounds,
+        hasMapping: !!mappingsObj[f.name],
+        mappedTo: mappingsObj[f.name] || null,
+      })),
+      mappings: mappingsObj,
+      pageDimensions: template.sourceFile?.pageDimensions,
+    });
+  } catch (error) {
+    console.error('Error getting template debug info:', error);
+    res.status(500).json({ error: 'Failed to get template debug info' });
   }
 });
 
