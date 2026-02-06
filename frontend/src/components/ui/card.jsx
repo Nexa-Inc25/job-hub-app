@@ -28,12 +28,14 @@ const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
+const CardTitle = React.forwardRef(({ className, children, ...props }, ref) => (
   <h3
     ref={ref}
     className={cn('text-lg font-semibold leading-none tracking-tight', className)}
     {...props}
-  />
+  >
+    {children}
+  </h3>
 ));
 CardTitle.displayName = 'CardTitle';
 
@@ -62,7 +64,7 @@ CardFooter.displayName = 'CardFooter';
 
 Card.propTypes = { className: PropTypes.string };
 CardHeader.propTypes = { className: PropTypes.string };
-CardTitle.propTypes = { className: PropTypes.string };
+CardTitle.propTypes = { className: PropTypes.string, children: PropTypes.node.isRequired };
 CardDescription.propTypes = { className: PropTypes.string };
 CardContent.propTypes = { className: PropTypes.string };
 CardFooter.propTypes = { className: PropTypes.string };

@@ -59,7 +59,8 @@ Textarea.propTypes = {
   className: PropTypes.string,
 };
 
-// Label component
+// Label component - htmlFor is required for accessibility
+// Must match the id attribute of the associated form control
 const Label = React.forwardRef(({ className, htmlFor, ...props }, ref) => (
   <label
     ref={ref}
@@ -76,7 +77,8 @@ Label.displayName = 'Label';
 
 Label.propTypes = {
   className: PropTypes.string,
-  htmlFor: PropTypes.string,
+  htmlFor: PropTypes.string.isRequired, // Required for a11y: must match input id
+  children: PropTypes.node,
 };
 
 export { Input, Textarea, Label };
