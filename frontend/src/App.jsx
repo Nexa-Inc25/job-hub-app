@@ -89,6 +89,33 @@ ProtectedRoute.propTypes = {
   children: PropTypes.node.isRequired,
 };
 
+// Wrapper that blocks demo users from accessing certain routes
+const DemoRestrictedRoute = ({ children }) => {
+  const isDemo = localStorage.getItem('isDemo') === 'true';
+  
+  if (isDemo) {
+    return (
+      <AppShell>
+        <div className="flex min-h-[60vh] flex-col items-center justify-center text-center">
+          <h1 className="text-2xl font-bold text-foreground mb-2">Access Restricted</h1>
+          <p className="text-muted-foreground mb-4">
+            This feature is not available in demo mode.
+          </p>
+          <a href="/dashboard" className="text-primary hover:underline">
+            Return to Dashboard
+          </a>
+        </div>
+      </AppShell>
+    );
+  }
+  
+  return <AppShell>{children}</AppShell>;
+};
+
+DemoRestrictedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+};
+
 // 404 component with styling
 const NotFound = () => (
   <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
@@ -122,16 +149,16 @@ function App() {
               <Route path="/create-wo" element={<ProtectedRoute><CreateWorkOrder /></ProtectedRoute>} />
               <Route path="/emergency-wo" element={<ProtectedRoute><EmergencyWO /></ProtectedRoute>} />
               <Route path="/forms" element={<ProtectedRoute><Forms /></ProtectedRoute>} />
-              <Route path="/admin/templates" element={<ProtectedRoute><TemplateManager /></ProtectedRoute>} />
+              <Route path="/admin/templates" element={<DemoRestrictedRoute><TemplateManager /></DemoRestrictedRoute>} />
               <Route path="/admin/owner-dashboard" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
-              <Route path="/admin/security" element={<ProtectedRoute><SecurityDashboard /></ProtectedRoute>} />
+              <Route path="/admin/security" element={<DemoRestrictedRoute><SecurityDashboard /></DemoRestrictedRoute>} />
               <Route path="/admin/onboarding" element={<ProtectedRoute><CompanyOnboarding /></ProtectedRoute>} />
               <Route path="/admin/users" element={<ProtectedRoute><AdminUsersList /></ProtectedRoute>} />
               <Route path="/admin/jobs-overview" element={<ProtectedRoute><AdminJobsOverview /></ProtectedRoute>} />
               <Route path="/admin/ai-costs" element={<ProtectedRoute><AdminAICosts /></ProtectedRoute>} />
               <Route path="/qa/dashboard" element={<ProtectedRoute><QADashboard /></ProtectedRoute>} />
               <Route path="/qa/spec-library" element={<ProtectedRoute><SpecLibrary /></ProtectedRoute>} />
-              <Route path="/admin/procedures" element={<ProtectedRoute><ProcedureManager /></ProtectedRoute>} />
+              <Route path="/admin/procedures" element={<DemoRestrictedRoute><ProcedureManager /></DemoRestrictedRoute>} />
               <Route path="/jobs/:jobId/asbuilt-assistant" element={<ProtectedRoute><AsBuiltAssistant /></ProtectedRoute>} />
               <Route path="/jobs/:jobId/tailboard" element={<ProtectedRoute><TailboardForm /></ProtectedRoute>} />
               <Route path="/jobs/:jobId/closeout" element={<ProtectedRoute><ForemanCloseOut /></ProtectedRoute>} />
