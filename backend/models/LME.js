@@ -108,6 +108,10 @@ const lmeSchema = new mongoose.Schema({
   pgeRepName: String,
   pgeRepSignedAt: Date,
   
+  // Demo sandbox flags
+  isDemo: { type: Boolean, default: false },
+  demoSessionId: { type: String, index: true },
+  
 }, { timestamps: true });
 
 // Indexes

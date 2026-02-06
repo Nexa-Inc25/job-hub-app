@@ -8,10 +8,13 @@ import {
   Alert,
   IconButton,
   InputAdornment,
+  Divider,
+  Box,
 } from '@mui/material';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { AuthLayout } from './shared';
 
 const Login = () => {
@@ -101,6 +104,28 @@ const Login = () => {
           Sign Up
         </Link>
       </Typography>
+
+      {/* Demo Option */}
+      <Box sx={{ mt: 4 }}>
+        <Divider sx={{ mb: 3 }}>
+          <Typography variant="caption" color="text.secondary">
+            OR
+          </Typography>
+        </Divider>
+        <Button
+          variant="outlined"
+          fullWidth
+          size="large"
+          startIcon={<PlayArrowIcon />}
+          onClick={() => navigate('/demo')}
+          sx={{ py: 1.5 }}
+        >
+          Try Demo (No Account Required)
+        </Button>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+          Explore FieldLedger with sample data
+        </Typography>
+      </Box>
     </AuthLayout>
   );
 };

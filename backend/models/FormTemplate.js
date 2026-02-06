@@ -99,6 +99,10 @@ const formTemplateSchema = new mongoose.Schema({
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
+  // Demo sandbox flags
+  isDemo: { type: Boolean, default: false },
+  demoSessionId: { type: String, index: true },
+  
 }, { timestamps: true });
 
 // Indexes for common queries

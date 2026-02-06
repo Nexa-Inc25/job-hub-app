@@ -17,6 +17,7 @@ const AppShell = lazy(() => import('./components/layout/AppShell'));
 // Lazy load all route components for code splitting
 const Login = lazy(() => import('./components/Login'));
 const Signup = lazy(() => import('./components/Signup'));
+const DemoLanding = lazy(() => import('./components/DemoLanding'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const CreateWorkOrder = lazy(() => import('./components/CreateWorkOrder'));
 const EmergencyWO = lazy(() => import('./components/EmergencyWO'));
@@ -109,6 +110,7 @@ function App() {
               {/* Auth routes - no AppShell */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
+              <Route path="/demo" element={<DemoLanding />} />
 
               {/* Protected routes with AppShell layout */}
               <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

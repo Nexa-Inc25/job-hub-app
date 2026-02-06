@@ -94,6 +94,11 @@ const userSchema = new mongoose.Schema({
   passwordChangedAt: Date,
   mustChangePassword: { type: Boolean, default: false },
   
+  // Demo sandbox flags
+  isDemo: { type: Boolean, default: false },
+  demoSessionId: { type: String, index: true },
+  demoExpiresAt: { type: Date },
+  
   createdAt: {
     type: Date,
     default: Date.now

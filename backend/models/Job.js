@@ -422,6 +422,10 @@ const jobSchema = new mongoose.Schema({
   isArchived: { type: Boolean, default: false },
   archivedAt: Date,
   archivedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  
+  // Demo sandbox flags
+  isDemo: { type: Boolean, default: false },
+  demoSessionId: { type: String, index: true },
   archiveReason: String, // 'completed', 'billed', 'invoiced', 'retention_policy'
   
   // Document retention compliance (utilities often require 7+ years)

@@ -86,6 +86,7 @@ const oracleRoutes = require('./routes/oracle.routes');
 const timesheetRoutes = require('./routes/timesheet.routes');
 const lmeRoutes = require('./routes/lme.routes');
 const smartformsRoutes = require('./routes/smartforms.routes');
+const demoRoutes = require('./routes/demo.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -412,6 +413,7 @@ const upload = multer({
 // MONGODB CONNECTION WITH RETRY LOGIC
 // ============================================
 const { runMigration } = require('./utils/migration');
+const { scheduleCleanup: scheduleDemoCleanup } = require('./utils/demoCleanup');
 
 const MONGO_OPTIONS = {
   maxPoolSize: 10,              // Connection pool size
@@ -486,6 +488,13 @@ connectWithRetry()
       console.error('[CLEANUP] Error resetting stuck extractions:', cleanupErr.message);
     }
     
+    // === SCHEDULE DEMO SESSION CLEANUP ===
+    // Clean up expired demo sessions periodically
+    if (process.env.DEMO_ENABLED === 'true') {
+      scheduleDemoCleanup();
+      console.log('[DEMO] Demo mode enabled - scheduled hourly cleanup');
+    }
+    
     // ============================================
     // START SERVER (after MongoDB connection established)
     // This ensures health checks pass immediately since DB is already connected
@@ -495,6 +504,9 @@ connectWithRetry()
       console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`   Health endpoint: /api/health`);
       console.log(`   API docs: /api-docs`);
+      if (process.env.DEMO_ENABLED === 'true') {
+        console.log(`   Demo sandbox: /api/demo/start-session`);
+      }
     });
   })
   .catch(err => {
@@ -1120,6 +1132,9 @@ app.use('/api/lme', lmeRoutes);
 
 // Mount SmartForms routes (PDF template field mapping and filling)
 app.use('/api/smartforms', authenticateUser, smartformsRoutes);
+
+// Mount Demo Sandbox routes (no auth required for start-session)
+app.use('/api/demo', demoRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 

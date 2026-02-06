@@ -107,6 +107,11 @@ const companySchema = new mongoose.Schema({
   // Status
   isActive: { type: Boolean, default: true },
   
+  // Demo sandbox flags
+  isDemo: { type: Boolean, default: false },
+  demoSessionId: { type: String, index: true },
+  demoExpiresAt: { type: Date },
+  
   // Custom folder structure template for jobs
   // Each company can have their own organizational structure
   folderTemplate: [{
