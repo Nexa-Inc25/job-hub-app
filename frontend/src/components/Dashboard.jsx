@@ -203,8 +203,8 @@ const shouldShowGFView = (userRole, isAdmin, filter, search) => {
 };
 
 // Check if user can manage jobs (assign, mark stuck, etc.) - extracted for reuse
-const canManageJobs = (userRole, isAdmin) => {
-  return isAdmin || ['gf', 'pm'].includes(userRole);
+const canManageJobs = (userRole, isAdmin, isSuperAdmin = false) => {
+  return isAdmin || isSuperAdmin || ['gf', 'pm'].includes(userRole);
 };
 
 // Check if job can be marked as stuck
@@ -580,8 +580,7 @@ const Dashboard = () => {
     assignmentNotes: ''
   });
   const [isAdmin, setIsAdmin] = useState(false);
-  // eslint-disable-next-line no-unused-vars
-  const [_isSuperAdmin, setIsSuperAdmin] = useState(false); // Reserved for FieldLedger platform owners
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Reserved for FieldLedger platform owners - used in applyUserPermissions
   const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
   const [userName, setUserName] = useState('');
   const [canApprove, setCanApprove] = useState(false);
@@ -2493,7 +2492,7 @@ const Dashboard = () => {
           <FolderIcon fontSize="small" sx={{ mr: 1 }} />
           Open Files
         </MenuItem>
-        {canManageJobs(userRole, isAdmin) && (
+        {canManageJobs(userRole, isAdmin, isSuperAdmin) && (
           <MenuItem onClick={handleOpenAssignDialog}>
             <AssignIcon fontSize="small" sx={{ mr: 1 }} />
             Assign to Foreman
@@ -2501,7 +2500,7 @@ const Dashboard = () => {
         )}
         
         {/* Mark as Stuck option for GF/PM/Admin */}
-        {canManageJobs(userRole, isAdmin) && selectedJobId && canMarkAsStuck(jobs.find(j => j._id === selectedJobId)) && (
+        {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && canMarkAsStuck(jobs.find(j => j._id === selectedJobId)) && (
             <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
               <BlockIcon fontSize="small" sx={{ mr: 1 }} />
               Mark as Stuck
@@ -2509,7 +2508,7 @@ const Dashboard = () => {
         )}
         
         {/* Unstick option for stuck jobs */}
-        {canManageJobs(userRole, isAdmin) && selectedJobId && jobs.find(j => j._id === selectedJobId)?.status === 'stuck' && (
+        {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && jobs.find(j => j._id === selectedJobId)?.status === 'stuck' && (
             <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
               <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
               Resume Job

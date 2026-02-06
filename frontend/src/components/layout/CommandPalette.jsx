@@ -151,7 +151,16 @@ const CommandPalette = ({ open, onOpenChange }) => {
                         'rounded-full px-2 py-0.5 text-xs font-medium capitalize',
                         job.status === 'in_progress' && 'bg-success/10 text-success',
                         job.status === 'new' && 'bg-info/10 text-info',
-                        job.status === 'pending' && 'bg-warning/10 text-warning'
+                        job.status === 'pending' && 'bg-warning/10 text-warning',
+                        job.status === 'completed' && 'bg-success/20 text-success',
+                        job.status === 'billed' && 'bg-primary/10 text-primary',
+                        job.status === 'invoiced' && 'bg-primary/20 text-primary',
+                        job.status === 'submitted' && 'bg-info/20 text-info',
+                        job.status === 'ready_to_submit' && 'bg-info/10 text-info',
+                        job.status === 'stuck' && 'bg-error/10 text-error',
+                        job.status === 'on_hold' && 'bg-warning/20 text-warning',
+                        // Fallback for any other status
+                        !['in_progress', 'new', 'pending', 'completed', 'billed', 'invoiced', 'submitted', 'ready_to_submit', 'stuck', 'on_hold'].includes(job.status) && 'bg-muted text-muted-foreground'
                       )}>
                         {job.status?.replaceAll('_', ' ')}
                       </span>
