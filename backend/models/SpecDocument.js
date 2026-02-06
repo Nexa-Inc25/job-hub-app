@@ -84,10 +84,11 @@ const specDocumentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Indexes for fast queries - organized by Division -> Section -> Document
-specDocumentSchema.index({ utilityId: 1, division: 1, section: 1 });
+// Note: Single-field indexes removed if covered by compound indexes (MongoDB best practice)
+specDocumentSchema.index({ utilityId: 1, category: 1, section: 1 }); // For utility-based queries with category/section
+specDocumentSchema.index({ utilityId: 1, division: 1, section: 1 }); // For utility-based queries with division/section
 specDocumentSchema.index({ utilityId: 1, isDeleted: 1 });
-specDocumentSchema.index({ companyId: 1 });
-specDocumentSchema.index({ division: 1, section: 1 });
+specDocumentSchema.index({ division: 1, section: 1 }); // Covers division-only queries (prefix)
 specDocumentSchema.index({ tags: 1 });
 specDocumentSchema.index({ documentNumber: 1 });
 specDocumentSchema.index({ name: 'text', description: 'text', documentNumber: 'text', section: 'text' }); // Full-text search

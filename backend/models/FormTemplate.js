@@ -44,11 +44,11 @@ const pageDimensionSchema = new mongoose.Schema({
 
 // Main FormTemplate schema
 const formTemplateSchema = new mongoose.Schema({
+  // Note: companyId indexed via compound indexes companyId_1_status_1 and companyId_1_category_1
   companyId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'Company', 
-    required: true,
-    index: true
+    required: true
   },
   
   // Template metadata

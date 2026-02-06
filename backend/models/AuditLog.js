@@ -21,20 +21,20 @@ const auditLogSchema = new mongoose.Schema({
   },
   
   // Who performed the action
+  // Note: indexed via compound index userId_1_timestamp_-1
   userId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    index: true
+    ref: 'User'
   },
   userEmail: String,
   userName: String,
   userRole: String,
   
   // Company for multi-tenant isolation
+  // Note: indexed via compound index companyId_1_timestamp_-1
   companyId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    index: true
+    ref: 'Company'
   },
   
   // What action was performed
@@ -94,8 +94,8 @@ const auditLogSchema = new mongoose.Schema({
       'UNAUTHORIZED_ACCESS_ATTEMPT',
       'API_KEY_CREATED',
       'API_KEY_REVOKED'
-    ],
-    index: true
+    ]
+    // Note: indexed via compound index action_1_timestamp_-1
   },
   
   // What resource was affected
