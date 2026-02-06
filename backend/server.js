@@ -1613,7 +1613,8 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     const patterns = {
       pmNumber: /(?:PM|PM#|PM Number|Project)[:\s#]*(\d{7,8})/i,
       woNumber: /(?:WO|WO#|Work Order)[:\s#]*([A-Z0-9-]+)/i,
-      notificationNumber: /(?:Notification|Notif)[:\s#]*(\d+)/i,
+      notificationNumber: /(?:Notification|Notif|NOTIF)[:\s#]*(\d+)/i,
+      matCode: /(?:MAT|MAT Code|Material Code|Mat\.?\s*Code)[:\s#]*([A-Z0-9-]+)/i,
       address: /(\d+\s+[A-Za-z0-9\s]+(?:St|Street|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Rd|Road|Way|Lane|Ln|Ct|Court)\.?)/i,
       city: /(?:City)[:\s]*([A-Za-z\s]+?)(?:,|\s+CA|\s+California|\n)/i,
       client: /(PG&E|Pacific Gas|SCE|Southern California Edison|SDG&E)/i,
@@ -1638,7 +1639,7 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     if (req.file.size > MAX_FILE_SIZE) {
       // Still try regex extraction from filename
       const structured = {
-        pmNumber: '', woNumber: '', notificationNumber: '',
+        pmNumber: '', woNumber: '', notificationNumber: '', matCode: '',
         address: '', city: '', client: '', projectName: '', orderType: '',
         jobScope: null
       };
@@ -1700,7 +1701,11 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
           content: `Extract utility work order fields from PG&E job package Face Sheet. Return ONLY valid JSON.
 
 Required fields:
-- pmNumber, woNumber, notificationNumber, address, city, client, projectName, orderType
+- pmNumber, woNumber, notificationNumber, matCode, address, city, client, projectName, orderType
+
+Key identifiers to look for:
+- notificationNumber: The notification number (often labeled "Notification", "Notif #", or similar, usually 9-10 digits)
+- matCode: The MAT code or Material Code (often labeled "MAT", "MAT Code", "Material Code")
 
 Job Scope (extract from Face Sheet "Scope" or "Description" sections):
 - jobScope.summary: 1-2 sentence work description (e.g., "Install new transformer and 150ft underground primary")
@@ -1762,6 +1767,7 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
       pmNumber: aiResults.pmNumber || quickResults.pmNumber || '',
       woNumber: aiResults.woNumber || quickResults.woNumber || '',
       notificationNumber: aiResults.notificationNumber || quickResults.notificationNumber || '',
+      matCode: aiResults.matCode || quickResults.matCode || '',
       address: aiResults.address || quickResults.address || '',
       city: aiResults.city || quickResults.city || '',
       client: aiResults.client || quickResults.client || '',
@@ -1793,7 +1799,7 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
     // Return empty results - let user fill manually
     // Don't try to re-parse PDF (could crash again)
     const emptyResults = {
-      pmNumber: '', woNumber: '', notificationNumber: '',
+      pmNumber: '', woNumber: '', notificationNumber: '', matCode: '',
       address: '', city: '', client: '', projectName: '', orderType: '',
       jobScope: null
     };

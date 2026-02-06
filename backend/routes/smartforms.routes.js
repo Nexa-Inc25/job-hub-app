@@ -944,6 +944,7 @@ router.get('/data-paths', async (req, res) => {
     { path: 'job.pmNumber', label: 'PM Number', category: 'Job' },
     { path: 'job.woNumber', label: 'Work Order Number', category: 'Job' },
     { path: 'job.notificationNumber', label: 'Notification Number', category: 'Job' },
+    { path: 'job.matCode', label: 'MAT Code', category: 'Job' },
     { path: 'job.title', label: 'Job Title', category: 'Job' },
     { path: 'job.description', label: 'Description of Work', category: 'Job' },
     { path: 'job.address', label: 'Job Address', category: 'Job' },

@@ -84,6 +84,7 @@ const CreateWorkOrder = ({ token }) => {
             pmNumber: setPmNumber,
             woNumber: setWoNumber,
             notificationNumber: setNotificationNumber,
+            matCode: setMatCode,
             address: setAddress,
             city: setCity,
             client: setClient,
