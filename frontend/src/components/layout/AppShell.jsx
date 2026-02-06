@@ -53,6 +53,9 @@ const AppShell = ({ children }) => {
     }
   }, []);
 
+  // Check if this is a demo session
+  const isDemo = localStorage.getItem('isDemo') === 'true';
+
   return (
     <div className="min-h-screen bg-background">
       {/* Sidebar */}
@@ -62,6 +65,7 @@ const AppShell = ({ children }) => {
         mobileOpen={sidebarOpen}
         onMobileOpenChange={setSidebarOpen}
         userRole={user.role}
+        isDemo={isDemo}
       />
 
       {/* Main content area */}

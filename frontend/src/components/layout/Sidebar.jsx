@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 
 // Navigation items with role-based visibility
-const getNavItems = (role) => {
+const getNavItems = (role, isDemo = false) => {
   const items = [
     {
       title: 'Dashboard',
@@ -96,24 +96,28 @@ const getNavItems = (role) => {
       href: '/admin/security',
       icon: Shield,
       roles: ['admin', 'super_admin'],
+      hideInDemo: true,
     },
     {
       title: 'Templates',
       href: '/admin/templates',
       icon: FileText,
       roles: ['admin', 'super_admin'],
+      hideInDemo: true,
     },
     {
       title: 'Settings',
       href: '/admin/procedures',
       icon: Settings,
       roles: ['admin', 'super_admin'],
+      hideInDemo: true,
     },
   ];
 
-  // Filter by role
+  // Filter by role and demo mode
   const filterByRole = (item) => {
     if (!role) return true;
+    if (isDemo && item.hideInDemo) return false;
     return item.roles.includes(role);
   };
 
@@ -161,9 +165,10 @@ const Sidebar = ({
   mobileOpen,
   onMobileOpenChange,
   userRole,
+  isDemo = false,
 }) => {
   const location = useLocation();
-  const navItems = getNavItems(userRole);
+  const navItems = getNavItems(userRole, isDemo);
 
   const isActive = (href) => {
     if (href === '/dashboard') {
@@ -291,6 +296,7 @@ Sidebar.propTypes = {
   mobileOpen: PropTypes.bool.isRequired,
   onMobileOpenChange: PropTypes.func.isRequired,
   userRole: PropTypes.string,
+  isDemo: PropTypes.bool,
 };
 
 export default Sidebar;
