@@ -7,6 +7,7 @@
 import React, { Suspense, lazy } from 'react';
 import PropTypes from 'prop-types';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './ThemeContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
@@ -154,6 +155,7 @@ function App() {
             </Routes>
           </Suspense>
         </BrowserRouter>
+        <Analytics />
       </ThemeProvider>
     </ErrorBoundary>
   );
