@@ -14,6 +14,7 @@ module.exports = {
   ],
   
   // Coverage configuration
+  coverageReporters: ['text', 'lcov', 'html'],
   collectCoverageFrom: [
     'routes/**/*.js',
     'controllers/**/*.js',
