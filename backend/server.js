@@ -1100,6 +1100,9 @@ app.post('/api/jobs/:id/add-templates', authenticateUser, async (req, res) => {
   }
 });
 
+// Mount Demo Sandbox routes FIRST (no auth required - public demo access)
+app.use('/api/demo', demoRoutes);
+
 // Mount API routes (for /api/ai/* endpoints) - must be before /api/jobs middleware
 app.use('/api', authenticateUser, apiRoutes);
 
@@ -1132,9 +1135,6 @@ app.use('/api/lme', lmeRoutes);
 
 // Mount SmartForms routes (PDF template field mapping and filling)
 app.use('/api/smartforms', authenticateUser, smartformsRoutes);
-
-// Mount Demo Sandbox routes (no auth required for start-session)
-app.use('/api/demo', demoRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
