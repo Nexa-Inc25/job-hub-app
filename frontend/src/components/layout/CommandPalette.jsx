@@ -157,7 +157,7 @@ const CommandPalette = ({ open, onOpenChange }) => {
                         job.status === 'invoiced' && 'bg-primary/20 text-primary',
                         job.status === 'submitted' && 'bg-info/20 text-info',
                         job.status === 'ready_to_submit' && 'bg-info/10 text-info',
-                        job.status === 'stuck' && 'bg-error/10 text-error',
+                        job.status === 'stuck' && 'bg-destructive/10 text-destructive',
                         job.status === 'on_hold' && 'bg-warning/20 text-warning',
                         // Fallback for any other status
                         !['in_progress', 'new', 'pending', 'completed', 'billed', 'invoiced', 'submitted', 'ready_to_submit', 'stuck', 'on_hold'].includes(job.status) && 'bg-muted text-muted-foreground'

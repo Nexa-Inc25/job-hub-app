@@ -667,19 +667,14 @@ router.post('/templates/:id/fill', async (req, res) => {
       const fontSize = field.fontSize || 10;
       const padding = 2; // Small padding from field edge
       
-      // Get the actual PDF page height for coordinate conversion
-      const pdfPageHeight = page.getHeight();
-      
-      // The fields are stored with screen coordinates (Y from top, increases downward)
-      // PDF coordinates have Y from bottom (increases upward)
-      // Convert: pdfY = pageHeight - screenY - fieldHeight
-      // Text baseline should be near the bottom of the field box
-      const screenY = field.bounds.y;
-      const fieldHeight = field.bounds.height || fontSize;
-      const pdfY = pdfPageHeight - screenY - fieldHeight + padding;
+      // field.bounds.y is already stored in PDF coordinates (origin at bottom-left)
+      // by the frontend TemplateEditor (see handleMouseUp conversion)
+      // No additional conversion needed - just use the coordinates directly
+      // Add small padding for text baseline positioning
       const pdfX = field.bounds.x + padding;
+      const pdfY = field.bounds.y + padding;
       
-      console.log(`[SmartForms] Field "${field.name}" coords: screen(${field.bounds.x}, ${screenY}) -> pdf(${pdfX}, ${pdfY}), pageHeight=${pdfPageHeight}`);
+      console.log(`[SmartForms] Field "${field.name}" coords: pdf(${pdfX}, ${pdfY}), fieldBounds=(${field.bounds.x}, ${field.bounds.y})`);
       
       page.drawText(String(value), {
         x: pdfX,
@@ -823,13 +818,10 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
           const fontSize = field.fontSize || 10;
           const padding = 2;
           
-          // Convert screen coordinates to PDF coordinates
-          // Screen: Y from top (0 = top), PDF: Y from bottom (0 = bottom)
-          const pdfPageHeight = page.getHeight();
-          const screenY = field.bounds.y;
-          const fieldHeight = field.bounds.height || fontSize;
-          const pdfY = pdfPageHeight - screenY - fieldHeight + padding;
+          // field.bounds.y is already stored in PDF coordinates (origin at bottom-left)
+          // by the frontend TemplateEditor - no conversion needed
           const pdfX = field.bounds.x + padding;
+          const pdfY = field.bounds.y + padding;
           
           page.drawText(String(value), {
             x: pdfX,
