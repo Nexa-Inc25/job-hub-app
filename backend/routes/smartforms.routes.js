@@ -149,6 +149,123 @@ function buildCrewSummary(lme) {
 }
 
 /**
+ * Build data context for template filling
+ * @param {Object} params - Parameters
+ * @param {string} params.jobId - Job ID
+ * @param {string} params.companyId - Company ID
+ * @param {Object} params.user - User object
+ * @param {Object} params.customData - Custom data to merge
+ * @returns {Promise<Object>} Data context for template filling
+ */
+async function buildDataContext({ jobId, companyId, user, customData = {} }) {
+  let dataContext = { ...customData };
+  
+  if (jobId) {
+    const job = await Job.findOne({ 
+      _id: sanitizeObjectId(jobId), 
+      companyId 
+    }).populate('userId', 'name email')
+      .populate('assignedTo', 'name email')
+      .populate('assignedToGF', 'name email');
+    
+    if (job) {
+      dataContext.job = job.toObject();
+      
+      // Fetch the most recent LME for this job
+      const lme = await LME.findOne({ jobId: job._id, companyId })
+        .sort({ date: -1 })
+        .lean();
+      if (lme) {
+        dataContext.lme = lme;
+        dataContext.crew = buildCrewSummary(lme);
+      }
+      
+      // Build unit summary for this job
+      dataContext.units = await buildUnitSummary(job._id, companyId);
+    }
+  }
+  
+  // Get company info
+  const company = await Company.findById(companyId);
+  if (company) {
+    dataContext.company = company.toObject();
+  }
+  
+  // Add current date/time
+  const now = new Date();
+  dataContext.today = now;
+  dataContext.now = now;
+  dataContext.currentYear = now.getFullYear();
+  dataContext.currentMonth = now.toLocaleString('en-US', { month: 'long' });
+  dataContext.user = { name: user.name, email: user.email, role: user.role };
+  
+  return dataContext;
+}
+
+/**
+ * Fill fields on PDF pages with data context
+ * @param {Object} params - Parameters
+ * @param {Object} params.template - Template with fields and dataMappings
+ * @param {Object} params.dataContext - Data context for resolving values
+ * @param {Array} params.pages - PDF pages array
+ * @param {Object} params.font - Embedded font
+ * @param {boolean} params.debug - Enable debug logging
+ */
+function fillPdfFields({ template, dataContext, pages, font, debug = false }) {
+  for (const field of template.fields) {
+    const pageIndex = field.page - 1;
+    if (pageIndex < 0 || pageIndex >= pages.length) continue;
+    
+    const page = pages[pageIndex];
+    const mapping = template.dataMappings.get(field.name);
+    
+    let value = '';
+    if (mapping) {
+      value = resolveDataPath(dataContext, mapping);
+      if (debug) console.log(`[SmartForms] Field "${field.name}" mapped to "${mapping}" => "${value}"`);
+    } else if (field.defaultValue) {
+      value = field.defaultValue;
+      if (debug) console.log(`[SmartForms] Field "${field.name}" using default => "${value}"`);
+    }
+    
+    // Format dates
+    if (field.type === 'date' && value) {
+      value = formatDate(value, field.dateFormat);
+    }
+    
+    // Handle checkboxes - check for truthy values
+    if (field.type === 'checkbox') {
+      const strValue = String(value).toLowerCase();
+      const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
+      value = isTruthy ? '✓' : '';
+    }
+    
+    if (!value) continue;
+    
+    // Draw the text with slight padding from field edge
+    const color = hexToRgb(field.fontColor || '#000000');
+    const fontSize = field.fontSize || 10;
+    const padding = 2;
+    
+    // field.bounds.y is already stored in PDF coordinates (origin at bottom-left)
+    const pdfX = field.bounds.x + padding;
+    const pdfY = field.bounds.y + padding;
+    
+    if (debug) {
+      console.log(`[SmartForms] Field "${field.name}" coords: pdf(${pdfX}, ${pdfY})`);
+    }
+    
+    page.drawText(String(value), {
+      x: pdfX,
+      y: pdfY,
+      size: fontSize,
+      font,
+      color: rgb(color.r, color.g, color.b),
+    });
+  }
+}
+
+/**
  * Format a date value according to format string
  */
 function formatDate(value, format = 'MM/DD/YYYY') {
@@ -559,63 +676,15 @@ router.post('/templates/:id/fill', async (req, res) => {
     const { jobId, customData } = req.body;
     
     // Build the data context
-    let dataContext = { ...customData };
-    
-    if (jobId) {
-      const job = await Job.findOne({ 
-        _id: sanitizeObjectId(jobId), 
-        companyId 
-      }).populate('userId', 'name email')
-        .populate('assignedTo', 'name email')
-        .populate('assignedToGF', 'name email');
-      
-      if (job) {
-        dataContext.job = job.toObject();
-        
-        // Fetch the most recent LME for this job
-        const lme = await LME.findOne({ jobId: job._id, companyId })
-          .sort({ date: -1 })
-          .lean();
-        if (lme) {
-          dataContext.lme = lme;
-          // Build crew summary from LME labor
-          dataContext.crew = buildCrewSummary(lme);
-        }
-        
-        // Build unit summary for this job
-        dataContext.units = await buildUnitSummary(job._id, companyId);
-      }
-    }
-    
-    // Get company info
-    const company = await Company.findById(companyId);
-    if (company) {
-      dataContext.company = company.toObject();
-    }
-    
-    // Add current date/time
-    const now = new Date();
-    dataContext.today = now;
-    dataContext.now = now;
-    dataContext.currentYear = now.getFullYear();
-    dataContext.currentMonth = now.toLocaleString('en-US', { month: 'long' });
-    dataContext.user = { name: user.name, email: user.email, role: user.role };
+    const dataContext = await buildDataContext({ jobId, companyId, user, customData });
     
     // Debug: Log available data paths
     console.log('[SmartForms] Data context keys:', Object.keys(dataContext));
     if (dataContext.job) {
-      console.log('[SmartForms] Job keys:', Object.keys(dataContext.job));
       console.log('[SmartForms] Job pmNumber:', dataContext.job.pmNumber);
     }
     if (dataContext.lme) {
-      console.log('[SmartForms] LME keys:', Object.keys(dataContext.lme));
       console.log('[SmartForms] LME labor count:', dataContext.lme.labor?.length);
-    }
-    if (dataContext.units) {
-      console.log('[SmartForms] Units:', dataContext.units);
-    }
-    if (dataContext.crew) {
-      console.log('[SmartForms] Crew summary:', dataContext.crew);
     }
     
     // Load and fill the PDF
@@ -626,61 +695,7 @@ router.post('/templates/:id/fill', async (req, res) => {
     
     // Fill each field
     console.log(`[SmartForms] Filling ${template.fields.length} fields...`);
-    
-    for (const field of template.fields) {
-      const pageIndex = field.page - 1;
-      if (pageIndex < 0 || pageIndex >= pages.length) continue;
-      
-      const page = pages[pageIndex];
-      const mapping = template.dataMappings.get(field.name);
-      
-      let value = '';
-      if (mapping) {
-        value = resolveDataPath(dataContext, mapping);
-        console.log(`[SmartForms] Field "${field.name}" mapped to "${mapping}" => "${value}"`);
-      } else if (field.defaultValue) {
-        value = field.defaultValue;
-        console.log(`[SmartForms] Field "${field.name}" using default => "${value}"`);
-      } else {
-        console.log(`[SmartForms] Field "${field.name}" has no mapping or default`);
-      }
-      
-      // Format dates
-      if (field.type === 'date' && value) {
-        value = formatDate(value, field.dateFormat);
-      }
-      
-      // Handle checkboxes - check for truthy values
-      if (field.type === 'checkbox') {
-        const strValue = String(value).toLowerCase();
-        const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
-        value = isTruthy ? '✓' : '';
-      }
-      
-      if (!value) continue;
-      
-      // Draw the text with slight padding from field edge
-      const color = hexToRgb(field.fontColor || '#000000');
-      const fontSize = field.fontSize || 10;
-      const padding = 2; // Small padding from field edge
-      
-      // field.bounds.y is already stored in PDF coordinates (origin at bottom-left)
-      // by the frontend TemplateEditor (see handleMouseUp conversion)
-      // No additional conversion needed - just use the coordinates directly
-      // Add small padding for text baseline positioning
-      const pdfX = field.bounds.x + padding;
-      const pdfY = field.bounds.y + padding;
-      
-      console.log(`[SmartForms] Field "${field.name}" coords: pdf(${pdfX}, ${pdfY}), fieldBounds=(${field.bounds.x}, ${field.bounds.y})`);
-      
-      page.drawText(String(value), {
-        x: pdfX,
-        y: pdfY,
-        size: fontSize,
-        font,
-        color: rgb(color.r, color.g, color.b),
-      });
-    }
+    fillPdfFields({ template, dataContext, pages, font, debug: true });
     
     // Save the filled PDF
     const filledPdfBytes = await pdfDoc.save();
@@ -743,95 +758,25 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
     
     for (const jobId of jobIds) {
       try {
-        const job = await Job.findOne({ 
-          _id: sanitizeObjectId(jobId), 
-          companyId 
-        }).populate('userId', 'name email')
-          .populate('assignedTo', 'name email')
-          .populate('assignedToGF', 'name email');
+        // Build data context for this job
+        const dataContext = await buildDataContext({ jobId, companyId, user });
         
-        if (!job) {
+        if (!dataContext.job) {
           results.push({ jobId, success: false, error: 'Job not found' });
           continue;
         }
-        
-        // Fetch the most recent LME for this job
-        const lme = await LME.findOne({ jobId: job._id, companyId })
-          .sort({ date: -1 })
-          .lean();
-        
-        // Build unit and crew summaries
-        const units = await buildUnitSummary(job._id, companyId);
-        const crew = lme ? buildCrewSummary(lme) : null;
-        
-        // Build data context
-        const now = new Date();
-        const dataContext = {
-          job: job.toObject(),
-          lme: lme || null,
-          units,
-          crew,
-          company: company?.toObject(),
-          today: now,
-          now: now,
-          currentYear: now.getFullYear(),
-          currentMonth: now.toLocaleString('en-US', { month: 'long' }),
-          user: { name: user.name, email: user.email, role: user.role },
-        };
         
         // Load fresh PDF for each job
         const pdfDoc = await PDFDocument.load(templateBytes);
         const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
         const pages = pdfDoc.getPages();
         
-        // Fill fields
-        for (const field of template.fields) {
-          const pageIndex = field.page - 1;
-          if (pageIndex < 0 || pageIndex >= pages.length) continue;
-          
-          const page = pages[pageIndex];
-          const mapping = template.dataMappings.get(field.name);
-          
-          let value = '';
-          if (mapping) {
-            value = resolveDataPath(dataContext, mapping);
-          } else if (field.defaultValue) {
-            value = field.defaultValue;
-          }
-          
-          if (field.type === 'date' && value) {
-            value = formatDate(value, field.dateFormat);
-          }
-          
-          if (field.type === 'checkbox') {
-            const strValue = String(value).toLowerCase();
-            const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
-            value = isTruthy ? '✓' : '';
-          }
-          
-          if (!value) continue;
-          
-          const color = hexToRgb(field.fontColor || '#000000');
-          const fontSize = field.fontSize || 10;
-          const padding = 2;
-          
-          // field.bounds.y is already stored in PDF coordinates (origin at bottom-left)
-          // by the frontend TemplateEditor - no conversion needed
-          const pdfX = field.bounds.x + padding;
-          const pdfY = field.bounds.y + padding;
-          
-          page.drawText(String(value), {
-            x: pdfX,
-            y: pdfY,
-            size: fontSize,
-            font,
-            color: rgb(color.r, color.g, color.b),
-          });
-        }
+        // Fill fields using helper
+        fillPdfFields({ template, dataContext, pages, font });
         
         // Save filled PDF to R2
         const filledPdfBytes = await pdfDoc.save();
-        const jobNumber = job.pmNumber || job.woNumber || job._id.toString();
+        const jobNumber = dataContext.job.pmNumber || dataContext.job.woNumber || jobId;
         const filledR2Key = `smartforms/filled/${companyId}/${template.name}_${jobNumber}_${Date.now()}.pdf`;
         
         await r2Storage.uploadBuffer(Buffer.from(filledPdfBytes), filledR2Key, 'application/pdf');

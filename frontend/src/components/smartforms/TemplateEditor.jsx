@@ -59,6 +59,18 @@ const FIELD_TYPES = [
   { value: 'number', label: 'Number', icon: TextFieldsIcon },
 ];
 
+/**
+ * Convert data mappings from server format to object
+ */
+function convertMappingsToObject(dataMappings) {
+  if (!dataMappings) return {};
+  const mappingsObj = {};
+  for (const [key, value] of Object.entries(dataMappings)) {
+    mappingsObj[key] = value;
+  }
+  return mappingsObj;
+}
+
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -114,15 +126,7 @@ export default function TemplateEditor() {
         const data = await response.json();
         setTemplate(data);
         setFields(data.fields || []);
-        
-        // Convert Map to object for mappings
-        const mappingsObj = {};
-        if (data.dataMappings) {
-          for (const [key, value] of Object.entries(data.dataMappings)) {
-            mappingsObj[key] = value;
-          }
-        }
-        setMappings(mappingsObj);
+        setMappings(convertMappingsToObject(data.dataMappings));
         setError('');
       } catch (err) {
         console.error('Error loading template:', err);

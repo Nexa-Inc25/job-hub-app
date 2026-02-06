@@ -710,6 +710,60 @@ function drawScratchEquipmentSection(page, lme, font, boldFont, leftMargin, y) {
   return y;
 }
 
+/**
+ * Save LME reference to the Close Out Documents folder in job
+ * @param {Object} job - The job document
+ * @param {Object} lme - The LME document  
+ * @param {Date|string} date - The LME date
+ * @param {Object} totals - The LME totals
+ * @returns {Promise<void>}
+ */
+async function saveLmeToCloseOutFolder(job, lme, date, totals) {
+  const aciFolder = job.folders?.find(f => f.name === 'ACI');
+  if (!aciFolder) return;
+
+  if (!aciFolder.subfolders) aciFolder.subfolders = [];
+  
+  let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
+  if (!closeOutFolder) {
+    closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
+    aciFolder.subfolders.push(closeOutFolder);
+  }
+  if (!closeOutFolder.documents) closeOutFolder.documents = [];
+
+  const dateStr = new Date(date).toISOString().split('T')[0];
+  const lmeFilename = `${job.pmNumber || job.woNumber}_LME_${dateStr}.pdf`;
+
+  // Remove old version if exists
+  const existingIdx = closeOutFolder.documents.findIndex(d =>
+    d.name?.includes('LME') && d.name?.includes(dateStr)
+  );
+  if (existingIdx !== -1) {
+    closeOutFolder.documents.splice(existingIdx, 1);
+  }
+
+  // Add LME reference with proper url field for frontend compatibility
+  closeOutFolder.documents.push({
+    name: lmeFilename,
+    type: 'lme',
+    lmeId: lme._id,
+    url: `/api/lme/${lme._id}/pdf`,
+    path: `/api/lme/${lme._id}/pdf`,
+    date: new Date(date),
+    totals,
+    uploadDate: new Date(),
+    isCompleted: true,
+    exportUrls: {
+      pdf: `/api/lme/${lme._id}/pdf`,
+      oracle: `/api/lme/${lme._id}/export?format=oracle`,
+      sap: `/api/lme/${lme._id}/export?format=sap`,
+    }
+  });
+
+  await job.save();
+  console.log(`LME saved to Close Out Documents: ${lmeFilename}`);
+}
+
 // ============================================================================
 // END HELPER FUNCTIONS
 // ============================================================================
@@ -775,48 +829,7 @@ router.post('/', authenticateUser, async (req, res) => {
 
     // Save LME reference to Close Out Documents
     try {
-      const aciFolder = job.folders?.find(f => f.name === 'ACI');
-      if (aciFolder) {
-        if (!aciFolder.subfolders) aciFolder.subfolders = [];
-        let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
-        if (!closeOutFolder) {
-          closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
-          aciFolder.subfolders.push(closeOutFolder);
-        }
-        if (!closeOutFolder.documents) closeOutFolder.documents = [];
-
-        const dateStr = new Date(date).toISOString().split('T')[0];
-        const lmeFilename = `${job.pmNumber || job.woNumber}_LME_${dateStr}.pdf`;
-
-        // Remove old version if exists
-        const existingIdx = closeOutFolder.documents.findIndex(d =>
-          d.name?.includes('LME') && d.name?.includes(dateStr)
-        );
-        if (existingIdx !== -1) {
-          closeOutFolder.documents.splice(existingIdx, 1);
-        }
-
-        // Add LME reference with proper url field for frontend compatibility
-        closeOutFolder.documents.push({
-          name: lmeFilename,
-          type: 'lme',
-          lmeId: lme._id,
-          url: `/api/lme/${lme._id}/pdf`,  // Primary URL for viewing
-          path: `/api/lme/${lme._id}/pdf`, // Fallback path
-          date: new Date(date),
-          totals: lmeData.totals,
-          uploadDate: new Date(),
-          isCompleted: true,
-          exportUrls: {
-            pdf: `/api/lme/${lme._id}/pdf`,
-            oracle: `/api/lme/${lme._id}/export?format=oracle`,
-            sap: `/api/lme/${lme._id}/export?format=sap`,
-          }
-        });
-
-        await job.save();
-        console.log(`LME saved to Close Out Documents: ${lmeFilename}`);
-      }
+      await saveLmeToCloseOutFolder(job, lme, date, lmeData.totals);
     } catch (error_) {
       console.warn('Failed to save LME to Close Out folder:', error_.message);
     }
@@ -893,7 +906,8 @@ router.get('/:id', authenticateUser, async (req, res) => {
 
 /**
  * Load or create PDF document from template
- * @returns {{ pdfDoc: PDFDocument, usedTemplate: boolean }}
+ * @param {Buffer|null} templateBytes - Template bytes or null
+ * @returns {Promise<{ pdfDoc: PDFDocument, usedTemplate: boolean }>}
  */
 async function loadOrCreatePdfDoc(templateBytes) {
   if (templateBytes) {

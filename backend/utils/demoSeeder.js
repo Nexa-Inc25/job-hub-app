@@ -227,7 +227,7 @@ const DEFAULT_FOLDERS = [
  * Create a new demo session with isolated data
  * @param {Object} options - Session options
  * @param {number} options.sessionHours - Hours until session expires
- * @returns {Object} Demo session with company, user, and jobs
+ * @returns {Promise<Object>} Demo session with company, user, and jobs
  */
 async function createDemoSession(options = {}) {
   const { sessionHours = 2 } = options;
@@ -355,7 +355,7 @@ async function createDemoSession(options = {}) {
 /**
  * Reset an existing demo session to fresh state
  * @param {string} sessionId - The demo session ID
- * @returns {Object|null} Updated session or null if not found
+ * @returns {Promise<Object|null>} Updated session or null if not found
  */
 async function resetDemoSession(sessionId) {
   console.log(`Resetting demo session: ${sessionId}`);

@@ -15,7 +15,7 @@ const FormTemplate = require('../models/FormTemplate');
 /**
  * Clean up all expired demo sessions
  * Deletes: Companies, Users, Jobs, LMEs, FormTemplates
- * @returns {Object} Cleanup statistics
+ * @returns {Promise<Object>} Cleanup statistics
  */
 async function cleanupExpiredDemoSessions() {
   const now = new Date();
