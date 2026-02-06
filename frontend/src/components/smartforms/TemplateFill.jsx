@@ -250,9 +250,11 @@ export default function TemplateFill() {
           disabled={filling || selectedJobs.length === 0}
           size="large"
         >
-          {selectedJobs.length > 0
-            ? `Fill ${selectedJobs.length} Job${selectedJobs.length > 1 ? 's' : ''}`
-            : 'Fill Selected'}
+          {(() => {
+            if (selectedJobs.length === 0) return 'Fill Selected';
+            const plural = selectedJobs.length === 1 ? '' : 's';
+            return `Fill ${selectedJobs.length} Job${plural}`;
+          })()}
         </Button>
       </Box>
 

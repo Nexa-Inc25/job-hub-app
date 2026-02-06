@@ -183,11 +183,14 @@ router.get('/status', async (req, res) => {
     }
     
     // Check if demo company still exists
-    const company = await Company.findOne({
-      _id: payload.userId ? undefined : null, // We need to look up by session
+    const demoCompanyExists = await Company.exists({
       isDemo: true,
       demoSessionId: payload.demoSessionId
     });
+    
+    if (!demoCompanyExists) {
+      return res.json({ isDemo: true, active: false, expired: true, reason: 'session_cleaned_up' });
+    }
     
     const now = new Date();
     const expiresAt = new Date(payload.demoExpiresAt);

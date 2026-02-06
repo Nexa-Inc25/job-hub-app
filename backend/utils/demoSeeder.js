@@ -9,7 +9,7 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const Company = require('../models/Company');
 const User = require('../models/User');
 const Job = require('../models/Job');
@@ -271,7 +271,7 @@ async function createDemoSession(options = {}) {
       userId: user._id,
       isDemo: true,
       demoSessionId: sessionId,
-      folders: JSON.parse(JSON.stringify(DEFAULT_FOLDERS)), // Deep clone
+      folders: structuredClone(DEFAULT_FOLDERS),
       createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random date in last week
     });
     jobs.push(job);
@@ -282,7 +282,7 @@ async function createDemoSession(options = {}) {
   const inProgressJob = jobs.find(j => j.status === 'in_progress');
   if (inProgressJob) {
     const today = new Date();
-    const lmeNumber = `${inProgressJob.pmNumber}-${today.toISOString().slice(0, 10).replace(/-/g, '')}`;
+    const lmeNumber = `${inProgressJob.pmNumber}-${today.toISOString().slice(0, 10).replaceAll('-', '')}`;
     
     const lme = await LME.create({
       jobId: inProgressJob._id,
@@ -309,7 +309,7 @@ async function createDemoSession(options = {}) {
       ],
       materials: [
         { description: '50ft Composite Pole', quantity: 1, unit: 'EA', unitCost: 2500 },
-        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.50 }
+        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.5 }
       ]
     });
     lmes.push(lme);
@@ -370,7 +370,7 @@ async function resetDemoSession(sessionId) {
       userId: user._id,
       isDemo: true,
       demoSessionId: sessionId,
-      folders: JSON.parse(JSON.stringify(DEFAULT_FOLDERS)),
+      folders: structuredClone(DEFAULT_FOLDERS),
       createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000),
     });
     jobs.push(job);
@@ -381,7 +381,7 @@ async function resetDemoSession(sessionId) {
   const inProgressJob = jobs.find(j => j.status === 'in_progress');
   if (inProgressJob) {
     const today = new Date();
-    const lmeNumber = `${inProgressJob.pmNumber}-${today.toISOString().slice(0, 10).replace(/-/g, '')}`;
+    const lmeNumber = `${inProgressJob.pmNumber}-${today.toISOString().slice(0, 10).replaceAll('-', '')}`;
     
     const lme = await LME.create({
       jobId: inProgressJob._id,
@@ -408,7 +408,7 @@ async function resetDemoSession(sessionId) {
       ],
       materials: [
         { description: '50ft Composite Pole', quantity: 1, unit: 'EA', unitCost: 2500 },
-        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.50 }
+        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.5 }
       ]
     });
     lmes.push(lme);

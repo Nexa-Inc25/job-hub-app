@@ -207,8 +207,8 @@ const DemoLanding = () => {
               What You&apos;ll Explore
             </Typography>
             <List disablePadding>
-              {DEMO_FEATURES.map((feature, index) => (
-                <ListItem key={index} sx={{ px: 0, py: 1.5 }}>
+              {DEMO_FEATURES.map((feature) => (
+                <ListItem key={feature.title} sx={{ px: 0, py: 1.5 }}>
                   <ListItemIcon sx={{ color: 'primary.main', minWidth: 44 }}>
                     {feature.icon}
                   </ListItemIcon>

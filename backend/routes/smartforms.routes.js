@@ -64,7 +64,7 @@ function resolveDataPath(obj, path) {
   
   // Parse path into segments, handling both dot notation and array brackets
   // e.g., "lme.labor[0].name" -> ["lme", "labor", "0", "name"]
-  const segments = path.split(/\.|\[|\]/).filter(s => s !== '');
+  const segments = path.split(/[.[\]]/).filter(s => s !== '');
   
   let current = obj;
   for (const segment of segments) {
@@ -626,9 +626,6 @@ router.post('/templates/:id/fill', async (req, res) => {
     
     // Fill each field
     console.log(`[SmartForms] Filling ${template.fields.length} fields...`);
-    
-    // Get stored page dimensions for coordinate conversion
-    const storedDimensions = template.sourceFile?.pageDimensions || [];
     
     for (const field of template.fields) {
       const pageIndex = field.page - 1;

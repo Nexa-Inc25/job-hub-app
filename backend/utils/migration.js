@@ -208,12 +208,12 @@ async function fixLmeIndex() {
     try {
       await collection.dropIndex('lmeNumber_1');
       console.log('Old lmeNumber_1 index dropped successfully');
-    } catch (dropErr) {
+    } catch (indexDropError) {
       // Index might already be dropped or not exist
-      if (dropErr.message.includes('index not found') || dropErr.codeName === 'IndexNotFound') {
+      if (indexDropError.message.includes('index not found') || indexDropError.codeName === 'IndexNotFound') {
         console.log('lmeNumber_1 index already dropped or does not exist');
       } else {
-        console.warn('Could not drop lmeNumber_1 index:', dropErr.message);
+        console.warn('Could not drop lmeNumber_1 index:', indexDropError.message);
       }
     }
     
@@ -224,12 +224,12 @@ async function fixLmeIndex() {
         { unique: true, background: true }
       );
       console.log('Created compound unique index on (lmeNumber, companyId)');
-    } catch (createErr) {
+    } catch (indexCreateError) {
       // Index might already exist
-      if (createErr.message.includes('already exists') || createErr.code === 85) {
+      if (indexCreateError.message.includes('already exists') || indexCreateError.code === 85) {
         console.log('Compound index (lmeNumber, companyId) already exists');
       } else {
-        console.warn('Could not create compound index:', createErr.message);
+        console.warn('Could not create compound index:', indexCreateError.message);
       }
     }
   } catch (err) {

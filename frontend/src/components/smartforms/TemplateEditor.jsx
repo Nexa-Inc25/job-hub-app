@@ -535,7 +535,7 @@ export default function TemplateEditor() {
             {template?.name}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            {fields.length} field{fields.length !== 1 ? 's' : ''} • Page {currentPage} of {numPages || 1}
+            {fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}
           </Typography>
         </Box>
 
