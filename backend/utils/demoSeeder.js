@@ -42,13 +42,13 @@ const DEMO_USER = {
   canApprove: true
 };
 
-// Sample crew members for LMEs
+// Sample crew members for LMEs - uses craft codes matching LME schema
 const DEMO_CREW = [
-  { name: 'John Smith', classification: 'Journeyman Lineman', employeeId: 'EMP001' },
-  { name: 'Maria Garcia', classification: 'Foreman', employeeId: 'EMP002' },
-  { name: 'David Chen', classification: 'Apprentice Lineman', employeeId: 'EMP003' },
-  { name: 'Sarah Johnson', classification: 'Equipment Operator', employeeId: 'EMP004' },
-  { name: 'Michael Brown', classification: 'Groundman', employeeId: 'EMP005' }
+  { name: 'John Smith', craft: 'JL', classification: 'Journeyman Lineman', rate: 85 },
+  { name: 'Maria Garcia', craft: 'F', classification: 'Foreman', rate: 95 },
+  { name: 'David Chen', craft: 'AL', classification: 'Apprentice Lineman', rate: 55 },
+  { name: 'Sarah Johnson', craft: 'EO', classification: 'Equipment Operator', rate: 75 },
+  { name: 'Michael Brown', craft: 'GM', classification: 'Groundman', rate: 45 }
 ];
 
 // Sample jobs with various statuses
@@ -286,31 +286,56 @@ async function createDemoSession(options = {}) {
     
     const lme = await LME.create({
       jobId: inProgressJob._id,
-      pmNumber: inProgressJob.pmNumber,
       companyId: company._id,
-      createdBy: user._id,
       lmeNumber,
       date: today,
       status: 'draft',
       isDemo: true,
       demoSessionId: sessionId,
-      labor: DEMO_CREW.map((crew, idx) => ({
-        employeeName: crew.name,
-        classification: crew.classification,
-        straightTime: idx === 0 ? 8 : 6 + Math.floor(Math.random() * 3),
-        overtime: idx < 2 ? 2 : 0,
-        doubleTime: 0,
-        perDiem: true,
-        meals: idx === 0 ? 1 : 0
-      })),
+      jobInfo: {
+        pmNumber: inProgressJob.pmNumber,
+        woNumber: inProgressJob.woNumber,
+        notificationNumber: inProgressJob.notificationNumber,
+        address: inProgressJob.address,
+        city: inProgressJob.city,
+      },
+      workDescription: 'Pole replacement and transformer install',
+      startTime: '07:00',
+      endTime: '15:30',
+      labor: DEMO_CREW.map((crew, idx) => {
+        const stHours = idx === 0 ? 8 : 6 + Math.floor(Math.random() * 3);
+        const otHours = idx < 2 ? 2 : 0;
+        const stAmount = stHours * crew.rate;
+        const otAmount = otHours * crew.rate * 1.5;
+        return {
+          name: crew.name,
+          craft: crew.craft,
+          rate: crew.rate,
+          stHours,
+          otHours,
+          dtHours: 0,
+          stAmount,
+          otAmount,
+          dtAmount: 0,
+          totalAmount: stAmount + otAmount,
+          missedMeals: idx === 0 ? 1 : 0,
+          subsistence: 1
+        };
+      }),
       equipment: [
-        { description: 'Digger Derrick Truck', hours: 8, rate: 150 },
-        { description: 'Aerial Lift', hours: 4, rate: 85 }
+        { type: 'Digger Derrick Truck', unitNumber: 'DD-101', hours: 8, rate: 150, amount: 1200 },
+        { type: 'Aerial Lift', unitNumber: 'AL-205', hours: 4, rate: 85, amount: 340 }
       ],
       materials: [
-        { description: '50ft Composite Pole', quantity: 1, unit: 'EA', unitCost: 2500 },
-        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.5 }
-      ]
+        { description: '50ft Composite Pole', quantity: 1, unit: 'EA', unitCost: 2500, amount: 2500 },
+        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.5, amount: 525 }
+      ],
+      totals: {
+        labor: 3500,
+        material: 3025,
+        equipment: 1540,
+        grand: 8065
+      }
     });
     lmes.push(lme);
   }
@@ -385,31 +410,56 @@ async function resetDemoSession(sessionId) {
     
     const lme = await LME.create({
       jobId: inProgressJob._id,
-      pmNumber: inProgressJob.pmNumber,
       companyId: company._id,
-      createdBy: user._id,
       lmeNumber,
       date: today,
       status: 'draft',
       isDemo: true,
       demoSessionId: sessionId,
-      labor: DEMO_CREW.map((crew, idx) => ({
-        employeeName: crew.name,
-        classification: crew.classification,
-        straightTime: idx === 0 ? 8 : 6 + Math.floor(Math.random() * 3),
-        overtime: idx < 2 ? 2 : 0,
-        doubleTime: 0,
-        perDiem: true,
-        meals: idx === 0 ? 1 : 0
-      })),
+      jobInfo: {
+        pmNumber: inProgressJob.pmNumber,
+        woNumber: inProgressJob.woNumber,
+        notificationNumber: inProgressJob.notificationNumber,
+        address: inProgressJob.address,
+        city: inProgressJob.city,
+      },
+      workDescription: 'Pole replacement and transformer install',
+      startTime: '07:00',
+      endTime: '15:30',
+      labor: DEMO_CREW.map((crew, idx) => {
+        const stHours = idx === 0 ? 8 : 6 + Math.floor(Math.random() * 3);
+        const otHours = idx < 2 ? 2 : 0;
+        const stAmount = stHours * crew.rate;
+        const otAmount = otHours * crew.rate * 1.5;
+        return {
+          name: crew.name,
+          craft: crew.craft,
+          rate: crew.rate,
+          stHours,
+          otHours,
+          dtHours: 0,
+          stAmount,
+          otAmount,
+          dtAmount: 0,
+          totalAmount: stAmount + otAmount,
+          missedMeals: idx === 0 ? 1 : 0,
+          subsistence: 1
+        };
+      }),
       equipment: [
-        { description: 'Digger Derrick Truck', hours: 8, rate: 150 },
-        { description: 'Aerial Lift', hours: 4, rate: 85 }
+        { type: 'Digger Derrick Truck', unitNumber: 'DD-101', hours: 8, rate: 150, amount: 1200 },
+        { type: 'Aerial Lift', unitNumber: 'AL-205', hours: 4, rate: 85, amount: 340 }
       ],
       materials: [
-        { description: '50ft Composite Pole', quantity: 1, unit: 'EA', unitCost: 2500 },
-        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.5 }
-      ]
+        { description: '50ft Composite Pole', quantity: 1, unit: 'EA', unitCost: 2500, amount: 2500 },
+        { description: '1/0 AL Conductor', quantity: 150, unit: 'FT', unitCost: 3.5, amount: 525 }
+      ],
+      totals: {
+        labor: 3500,
+        material: 3025,
+        equipment: 1540,
+        grand: 8065
+      }
     });
     lmes.push(lme);
   }
