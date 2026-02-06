@@ -34,8 +34,9 @@ api.interceptors.response.use(
       globalThis.dispatchEvent(new CustomEvent('auth-required', { 
         detail: { reason: 'token_expired' } 
       }));
-      // Optionally redirect to login
-      if (globalThis.location.pathname !== '/login' && globalThis.location.pathname !== '/signup') {
+      // Optionally redirect to login (except for public pages)
+      const publicPaths = ['/login', '/signup', '/demo'];
+      if (!publicPaths.includes(globalThis.location.pathname)) {
         globalThis.location.href = '/login';
       }
     }
