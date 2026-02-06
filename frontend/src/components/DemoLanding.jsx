@@ -37,7 +37,7 @@ const DEMO_FEATURES = [
   {
     icon: <DescriptionIcon />,
     title: 'Smart Job Package Upload',
-    description: 'AI extracts PM#, address, and scope from PDFs automatically'
+    description: 'Automatically extracts PM#, address, and scope from PDFs'
   },
   {
     icon: <AutoFixHighIcon />,
@@ -171,10 +171,12 @@ const DemoLanding = () => {
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 6 }}>
           <Typography 
-            variant="h2" 
+            variant="h1" 
+            component="h1"
             fontWeight={800}
             sx={{ 
               mb: 2,
+              fontSize: { xs: '2.5rem', md: '3.5rem' },
               background: 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
@@ -182,14 +184,26 @@ const DemoLanding = () => {
           >
             Try FieldLedger
           </Typography>
-          <Typography variant="h5" color="text.secondary" sx={{ mb: 3 }}>
+          <Typography 
+            variant="h2" 
+            component="p"
+            sx={{ 
+              mb: 3,
+              fontSize: { xs: '1.25rem', md: '1.5rem' },
+              color: 'text.primary',
+              fontWeight: 400,
+            }}
+          >
             The complete field operations platform for utility contractors
           </Typography>
           <Chip 
             icon={<TimerIcon />}
             label={`${demoInfo.sessionDurationHours || 2} Hour Demo Session`}
             color="primary"
-            variant="outlined"
+            sx={{ 
+              fontWeight: 600,
+              '& .MuiChip-label': { color: 'primary.main' }
+            }}
           />
         </Box>
 
