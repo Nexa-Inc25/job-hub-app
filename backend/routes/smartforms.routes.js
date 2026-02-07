@@ -203,6 +203,69 @@ async function buildDataContext({ jobId, companyId, user, customData = {} }) {
 }
 
 /**
+ * Resolve field value from data context or default
+ */
+function resolveFieldValue(field, dataContext, dataMappings, debug) {
+  const mapping = dataMappings.get(field.name);
+  
+  if (mapping) {
+    const value = resolveDataPath(dataContext, mapping);
+    if (debug) console.log(`[SmartForms] Field "${field.name}" mapped to "${mapping}" => "${value}"`);
+    return value;
+  }
+  
+  if (field.defaultValue) {
+    if (debug) console.log(`[SmartForms] Field "${field.name}" using default => "${field.defaultValue}"`);
+    return field.defaultValue;
+  }
+  
+  return '';
+}
+
+/**
+ * Format field value based on field type
+ */
+function formatFieldValue(value, field) {
+  if (!value) return '';
+  
+  if (field.type === 'date') {
+    return formatDate(value, field.dateFormat);
+  }
+  
+  if (field.type === 'checkbox') {
+    const strValue = String(value).toLowerCase();
+    const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
+    return isTruthy ? '✓' : '';
+  }
+  
+  return value;
+}
+
+/**
+ * Draw field text on PDF page
+ */
+function drawFieldOnPage(page, field, value, font, debug) {
+  const color = hexToRgb(field.fontColor || '#000000');
+  const fontSize = field.fontSize || 10;
+  const padding = 2;
+  
+  const pdfX = field.bounds.x + padding;
+  const pdfY = field.bounds.y + padding;
+  
+  if (debug) {
+    console.log(`[SmartForms] Field "${field.name}" coords: pdf(${pdfX}, ${pdfY})`);
+  }
+  
+  page.drawText(String(value), {
+    x: pdfX,
+    y: pdfY,
+    size: fontSize,
+    font,
+    color: rgb(color.r, color.g, color.b),
+  });
+}
+
+/**
  * Fill fields on PDF pages with data context
  * @param {Object} params - Parameters
  * @param {Object} params.template - Template with fields and dataMappings
@@ -216,52 +279,12 @@ function fillPdfFields({ template, dataContext, pages, font, debug = false }) {
     const pageIndex = field.page - 1;
     if (pageIndex < 0 || pageIndex >= pages.length) continue;
     
-    const page = pages[pageIndex];
-    const mapping = template.dataMappings.get(field.name);
-    
-    let value = '';
-    if (mapping) {
-      value = resolveDataPath(dataContext, mapping);
-      if (debug) console.log(`[SmartForms] Field "${field.name}" mapped to "${mapping}" => "${value}"`);
-    } else if (field.defaultValue) {
-      value = field.defaultValue;
-      if (debug) console.log(`[SmartForms] Field "${field.name}" using default => "${value}"`);
-    }
-    
-    // Format dates
-    if (field.type === 'date' && value) {
-      value = formatDate(value, field.dateFormat);
-    }
-    
-    // Handle checkboxes - check for truthy values
-    if (field.type === 'checkbox') {
-      const strValue = String(value).toLowerCase();
-      const isTruthy = strValue === 'true' || strValue === '1' || strValue === 'yes';
-      value = isTruthy ? '✓' : '';
-    }
+    const rawValue = resolveFieldValue(field, dataContext, template.dataMappings, debug);
+    const value = formatFieldValue(rawValue, field);
     
     if (!value) continue;
     
-    // Draw the text with slight padding from field edge
-    const color = hexToRgb(field.fontColor || '#000000');
-    const fontSize = field.fontSize || 10;
-    const padding = 2;
-    
-    // field.bounds.y is already stored in PDF coordinates (origin at bottom-left)
-    const pdfX = field.bounds.x + padding;
-    const pdfY = field.bounds.y + padding;
-    
-    if (debug) {
-      console.log(`[SmartForms] Field "${field.name}" coords: pdf(${pdfX}, ${pdfY})`);
-    }
-    
-    page.drawText(String(value), {
-      x: pdfX,
-      y: pdfY,
-      size: fontSize,
-      font,
-      color: rgb(color.r, color.g, color.b),
-    });
+    drawFieldOnPage(pages[pageIndex], field, value, font, debug);
   }
 }
 
@@ -746,9 +769,6 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
     if (jobIds.length > 100) {
       return res.status(400).json({ error: 'Maximum 100 jobs per batch' });
     }
-    
-    // Get company info once
-    const company = await Company.findById(companyId);
     
     // Load template PDF once
     const templateBytes = await loadPdfFromR2(template.sourceFile.r2Key);

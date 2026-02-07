@@ -71,6 +71,50 @@ function convertMappingsToObject(dataMappings) {
   return mappingsObj;
 }
 
+/**
+ * Generate unique field ID
+ */
+function generateFieldId() {
+  return `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+}
+
+/**
+ * Calculate draw rectangle from start and current position
+ */
+function calculateDrawRect(startX, startY, currentX, currentY) {
+  return {
+    left: Math.min(startX, currentX),
+    top: Math.min(startY, currentY),
+    width: Math.abs(currentX - startX),
+    height: Math.abs(currentY - startY),
+  };
+}
+
+/**
+ * Create a new field from draw rectangle
+ */
+function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, fieldsCount) {
+  const scaleX = pageDim.width / pageRect.width;
+  const scaleY = pageDim.height / pageRect.height;
+
+  const pdfX = drawRect.left * scaleX;
+  const pdfWidth = drawRect.width * scaleX;
+  const pdfHeight = drawRect.height * scaleY;
+  const pdfY = pageDim.height - (drawRect.top + drawRect.height) * scaleY;
+
+  return {
+    id: generateFieldId(),
+    name: `field_${fieldsCount + 1}`,
+    label: `Field ${fieldsCount + 1}`,
+    page: currentPage,
+    type: 'text',
+    bounds: { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight },
+    fontSize: 10,
+    fontColor: '#000000',
+    required: false,
+  };
+}
+
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -214,9 +258,6 @@ export default function TemplateEditor() {
     console.log('[TemplateEditor] PDF loaded, pages:', pages);
   };
 
-  // Generate unique field ID
-  const generateFieldId = () => `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-
   // Convert PDF coords to screen coords for display
   const pdfToScreenCoords = useCallback((pdfX, pdfY, pdfWidth, pdfHeight, pageElement) => {
     if (!pageElement || !template?.sourceFile?.pageDimensions) return { left: 0, top: 0, width: 0, height: 0 };
@@ -253,17 +294,11 @@ export default function TemplateEditor() {
   const handleMouseMove = useCallback((e) => {
     if (!isDrawing || !drawStart) return;
 
-    const pageElement = e.currentTarget;
-    const rect = pageElement.getBoundingClientRect();
+    const rect = e.currentTarget.getBoundingClientRect();
     const currentX = e.clientX - rect.left;
     const currentY = e.clientY - rect.top;
 
-    const left = Math.min(drawStart.x, currentX);
-    const top = Math.min(drawStart.y, currentY);
-    const width = Math.abs(currentX - drawStart.x);
-    const height = Math.abs(currentY - drawStart.y);
-
-    setDrawRect({ left, top, width, height });
+    setDrawRect(calculateDrawRect(drawStart.x, drawStart.y, currentX, currentY));
   }, [isDrawing, drawStart]);
 
   const handleMouseUp = useCallback((e) => {
@@ -280,37 +315,11 @@ export default function TemplateEditor() {
       return;
     }
 
-    const pageElement = e.currentTarget;
     const pageDim = template?.sourceFile?.pageDimensions?.[currentPage - 1];
     if (!pageDim) return;
 
-    const rect = pageElement.getBoundingClientRect();
-    const scaleX = pageDim.width / rect.width;
-    const scaleY = pageDim.height / rect.height;
-
-    // Convert to PDF coordinates
-    const pdfX = drawRect.left * scaleX;
-    const pdfWidth = drawRect.width * scaleX;
-    const pdfHeight = drawRect.height * scaleY;
-    // PDF Y is from bottom
-    const pdfY = pageDim.height - (drawRect.top + drawRect.height) * scaleY;
-
-    const newField = {
-      id: generateFieldId(),
-      name: `field_${fields.length + 1}`,
-      label: `Field ${fields.length + 1}`,
-      page: currentPage,
-      type: 'text',
-      bounds: {
-        x: pdfX,
-        y: pdfY,
-        width: pdfWidth,
-        height: pdfHeight,
-      },
-      fontSize: 10,
-      fontColor: '#000000',
-      required: false,
-    };
+    const pageRect = e.currentTarget.getBoundingClientRect();
+    const newField = createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, fields.length);
 
     setFields((prev) => [...prev, newField]);
     setSelectedField(newField.id);
