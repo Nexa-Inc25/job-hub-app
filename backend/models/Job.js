@@ -11,7 +11,7 @@ const documentSchema = new mongoose.Schema({
   path: String,
   url: String,
   r2Key: String, // R2 storage key
-  type: { type: String, enum: ['pdf', 'image', 'photo', 'template', 'drawing', 'map', 'filled_pdf', 'lme', 'timesheet', 'other'], default: 'other' },
+  type: { type: String, enum: ['pdf', 'image', 'photo', 'template', 'drawing', 'map', 'filled_pdf', 'lme', 'timesheet', 'tailboard', 'other'], default: 'other' },
   // AI-assigned category for extracted content
   // Categories for intelligent routing to correct folders:
   // - SKETCH: Construction sketches, as-built drawings

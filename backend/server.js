@@ -4834,6 +4834,109 @@ app.post('/api/jobs/:id/upload', authenticateUser, upload.single('file'), async 
   }
 });
 
+// Alias for /api/jobs/:id/files (used by ForemanCloseOut PDF save)
+// Accepts: file, folder, subfolder - same as /api/jobs/:id/upload
+app.post('/api/jobs/:id/files', authenticateUser, upload.single('file'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { folder = 'ACI', subfolder = 'Completed Forms' } = req.body;
+    
+    const currentUser = await User.findById(req.userId).select('companyId');
+    
+    let query = { _id: id };
+    if (currentUser?.companyId) {
+      query.companyId = currentUser.companyId;
+    }
+    
+    if (!(req.isAdmin || req.userRole === 'pm' || req.userRole === 'admin')) {
+      query.$or = [
+        { userId: req.userId },
+        { assignedTo: req.userId },
+        { assignedToGF: req.userId }
+      ];
+    }
+    
+    const job = await Job.findOne(query);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found or access denied' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    const file = req.file;
+    const ext = path.extname(file.originalname).toLowerCase();
+    const isPdf = ext === '.pdf';
+    const timestamp = Date.now();
+    
+    const pmNumber = job.pmNumber || 'NOPM';
+    const baseName = file.originalname.replace(/[^a-zA-Z0-9\-_.]/g, '_');
+    const newFilename = isPdf ? file.originalname : `${pmNumber}_${baseName}_${timestamp}${ext}`;
+    
+    let docUrl = `/uploads/${newFilename}`;
+    let r2Key = null;
+    
+    if (r2Storage.isR2Configured()) {
+      try {
+        const folderPath = subfolder ? `${folder}/${subfolder}` : folder;
+        const result = await r2Storage.uploadJobFile(file.path, id, folderPath, newFilename);
+        docUrl = r2Storage.getPublicUrl(result.key);
+        r2Key = result.key;
+        if (fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
+      } catch (uploadErr) {
+        console.error('R2 upload failed:', uploadErr.message);
+      }
+    } else {
+      const destPath = path.join(__dirname, 'uploads', newFilename);
+      fs.renameSync(file.path, destPath);
+    }
+    
+    // Find target folder and subfolder
+    let targetFolder = job.folders.find(f => f.name === folder);
+    if (!targetFolder) {
+      targetFolder = { name: folder, documents: [], subfolders: [] };
+      job.folders.push(targetFolder);
+    }
+    
+    let targetDocs = targetFolder.documents;
+    if (subfolder) {
+      if (!targetFolder.subfolders) targetFolder.subfolders = [];
+      let subfolderObj = targetFolder.subfolders.find(sf => sf.name === subfolder);
+      if (!subfolderObj) {
+        subfolderObj = { name: subfolder, documents: [], subfolders: [] };
+        targetFolder.subfolders.push(subfolderObj);
+      }
+      if (!subfolderObj.documents) subfolderObj.documents = [];
+      targetDocs = subfolderObj.documents;
+    }
+    
+    const newDoc = {
+      name: newFilename,
+      url: docUrl,
+      r2Key: r2Key,
+      type: isPdf ? 'filled_pdf' : 'other',
+      uploadDate: new Date(),
+      uploadedBy: req.userId,
+    };
+    targetDocs.push(newDoc);
+    
+    job.markModified('folders');
+    await job.save();
+    
+    console.log(`File saved: ${newFilename} to ${folder}/${subfolder || ''}`);
+    res.status(201).json({ 
+      message: 'File saved successfully', 
+      document: newDoc 
+    });
+  } catch (err) {
+    console.error('File save error:', err);
+    res.status(500).json({ error: 'Save failed', details: err.message });
+  }
+});
+
 // ==================== GENERIC DOCUMENT UPLOAD (for offline sync) ====================
 // Used by offline sync to upload documents/photos to a job
 // Supports: folderName, subfolderName, document (file)
