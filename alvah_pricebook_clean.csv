@@ -1,0 +1,107 @@
+itemcode,description,category,unit,unitprice
+CCREW-9,4 man crew with equipment,Civil - Civil Crew Rate,EA,888.45
+CCREW-11,5 man crew with equipment,Civil - Civil Crew Rate,EA,1091.29
+CCREW-13,6 man crew with equipment,Civil - Civil Crew Rate,EA,1275.32
+TCON-1,Flaggers - outside of normal jobsite setup 1 Flagmen,Civil - Traffic Control,EA,143.77
+TCON-2,Flaggers - outside of normal jobsite setup 1 Flagmen (Premium Time),Civil - Traffic Control,EA,180.36
+TCON-3,Flaggers - outside of normal jobsite setup 2 Flagmen,Civil - Traffic Control,EA,271.84
+TCON-4,Flaggers - outside of normal jobsite setup 2 Flagmen (Premium Time),Civil - Traffic Control,EA,331.96
+OC-2,Steel plates on site for extended period of time. Greater than 8 weeks,Civil - Other Costs,EA,96.57
+OCE-13,Trench requiring hand digging 0 to 5' deep (0-15LF),Civil - Open Cut,LF,458.23
+OCE-14,Trench requiring hand digging 0 to 5' deep (16-30LF),Civil - Open Cut,LF,393.60
+OCE-15,Trench requiring hand digging 0 to 5' deep (31-50LF),Civil - Open Cut,LF,382.23
+OCE-16,Trench requiring hand digging 0 to 5' deep (51LF+),Civil - Open Cut,LF,382.23
+OCE-17,Vacuum Trailer Excavation (0-15LF),Civil - Open Cut,LF,501.57
+OCE-18,Vacuum Trailer Excavation (16-30LF),Civil - Open Cut,LF,431.33
+OCE-19,Vacuum Trailer Excavation (31-50LF),Civil - Open Cut,LF,421.36
+OCE-20,Vacuum Trailer Excavation (51LF+),Civil - Open Cut,LF,413.29
+OCE-21,Adder for Enclosure Bell holes greater than 8 sq ft.,Civil - Open Cut- Adder,SQFT,177.65
+PROV-1,Proving existing 2 through 6 conduit,Civil - Conduit Proving,LF,9.67
+PROV-2,Proving existing 2 through 6 conduit,Civil - Conduit Proving,LF,7.24
+PROV-3,Proving existing 2 through 6 conduit,Civil - Conduit Proving,LF,6.46
+PROV-4,Proving additional conduits within the same segment,Civil - Conduit Proving,LF,6.04
+SC-1,SAWCUT (concrete and/or asphalt street) (0-50 LF),Civil - Saw Cutting,LF,13.03
+SC-6,SAWCUT (concrete sidewalk) (0-50 LF),Civil - Saw Cutting,LF,13.85
+SC-7,SAWCUT (concrete sidewalk) (51-100 LF),Civil - Saw Cutting,LF,11.07
+SC-8,SAWCUT (concrete sidewalk),Civil - Saw Cutting,LF,5.47
+PAD-3,Install new Pre-cast pad Residential,Civil - Pads,EACH,5520.33
+CCREW-1,2 man VAC crew rate for open cut excavation- Trailer,Civil - Civil Crew Rate,EA,526.45
+CCREW-3,2 man VAC crew rate for open cut excavation- Truck,Civil - Civil Crew Rate,EA,860.17
+CCREW-5,2 Man crew with equipment,Civil - Civil Crew Rate,EA,505.44
+CCREW-6,2 Man crew with equipment (Premium Time),Civil - Civil Crew Rate,EA,695.33
+CCREW-7,3 Man crew with equipment,Civil - Civil Crew Rate,EA,704.42
+CCREW-9,4 Man crew with equipment,Civil - Civil Crew Rate,EA,888.45
+CCREW-11,5 Man crew with equipment,Civil - Civil Crew Rate,EA,1091.29
+CCREW-13,6 Man crew with equipment,Civil - Civil Crew Rate,EA,1275.32
+ECREW-1,4 Man crew with equipment,Elect - Electrical Crew Rate,EA,1168.13
+ECREW-3,5 Man crew with equipment,Elect - Electrical Crew Rate,EA,1365.25
+ECREW-4,5 Man crew with equipment (Premium Time),Elect - Electrical Crew Rate,EA,1891.45
+ECREW-5,6 Man crew with equipment,Elect - Electrical Crew Rate,EA,1617.61
+OS-9,Vault or Manhole Pumping & Clean Out,Civil - Other Services,EACH,3704.13
+OS-10,Splice Box Pumping & Clean Out,Civil - Other Services,EACH,3704.13
+OS-12,Flaggers - outside of normal jobsite setup 1 Flagmen,Civil - Other Services,EA,143.77
+OS-14,Flaggers - outside of normal jobsite setup 2 Flagmen,Civil - Other Services,EA,271.84
+OC-1,Steel plates on site for extended period of time. Greater than 8 weeks,Civil - Other Costs,EA,96.57
+OC-2,Hard Rock Adder,Civil - Other Costs,CUFT,188.80
+OC-5,Light Tower,Elec/Civil - Other Costs,EA,135.44
+OCE-13,Trench requiring hand digging 0 to 5' deep (0-15LF),Civil - Open Cut,LF,458.23
+OCE-14,Trench requiring hand digging 0 to 5' deep (16-30LF),Civil - Open Cut,LF,393.60
+OCE-15,Trench requiring hand digging 0 to 5' deep (31-50LF),Civil - Open Cut,LF,382.23
+OCE-16,Trench requiring hand digging 0 to 5' deep (51LF+),Civil - Open Cut,LF,382.23
+OCE-17,Vacuum Trailer Excavation (0-15LF),Civil - Open Cut,LF,501.57
+OCE-18,Vacuum Trailer Excavation (16-30LF),Civil - Open Cut,LF,431.33
+OCE-19,Vacuum Trailer Excavation (31-50LF),Civil - Open Cut,LF,421.36
+OCE-20,Vacuum Trailer Excavation (51LF+),Civil - Open Cut,LF,413.29
+OCE-21,Adder for Enclosure Bell holes greater than 8 sq ft.,Civil - Open Cut- Adder,SQFT,177.65
+PROV-1,Proving existing 2 through 6 conduit,Civil - Conduit Proving,LF,9.67
+PROV-2,Proving existing 2 through 6 conduit,Civil - Conduit Proving,LF,7.24
+PROV-3,Proving existing 2 through 6 conduit,Civil - Conduit Proving,LF,6.46
+SC-6,SAWCUT (concrete sidewalk) (0-50 LF),Civil - Saw Cutting,LF,13.85
+SC-7,SAWCUT (concrete sidewalk) (51-100 LF),Civil - Saw Cutting,LF,11.07
+SC-8,SAWCUT (concrete sidewalk),Civil - Saw Cutting,LF,5.47
+PAD-2,Replace existing Residential pad,Civil - Pads,EACH,6335.86
+PAD-5,Install new Pre-cast pad Commercial,Civil - Pads,EACH,6579.30
+CCREW-1,2 man VAC crew rate for open cut excavation- Trailer,Civil - Civil Crew Rate,EA,526.45
+CCREW-2,2 man VAC crew rate for open cut excavation- Trailer (Premium Time),Civil - Civil Crew Rate,EA,749.49
+CCREW-3,2 man VAC crew rate for open cut excavation- Truck,Civil - Civil Crew Rate,EA,860.17
+CCREW-5,2 Man crew with equipment,Civil - Civil Crew Rate,EA,505.44
+CCREW-7,3 Man crew with equipment,Civil - Civil Crew Rate,EA,704.42
+CCREW-9,4 Man crew with equipment,Civil - Civil Crew Rate,EA,888.45
+CCREW-11,5 Man crew with equipment,Civil - Civil Crew Rate,EA,1091.29
+CCREW-13,6 Man crew with equipment,Civil - Civil Crew Rate,EA,1275.32
+ECREW-1,4 Man crew with equipment,Elect - Electrical Crew Rate,EA,1168.13
+ECREW-2,4 Man crew with equipment (Premium Time),Elect - Electrical Crew Rate,EA,1636.62
+ECREW-3,5 Man crew with equipment,Elect - Electrical Crew Rate,EA,1365.25
+ECREW-5,6 Man crew with equipment,Elect - Electrical Crew Rate,EA,1617.61
+OS-1,Cable Testing Crew,Elect - Other Services,EACH,5994.31
+OS-4,Retaining Wall Installation/Replacement - Round enclosure or small pad mounted equipment.,Civil - Other Services,EACH,3683.09
+OS-8,Installation of each additional Ballard,Civil - Other Services,EACH,738.04
+OS-9,Vault or Manhole Pumping & Clean Out,Civil - Other Services,EACH,3704.13
+OS-10,Splice Box Pumping & Clean Out,Civil - Other Services,EACH,3704.13
+OS-12,Flaggers - outside of normal jobsite setup 1 Flagmen,Civil - Other Services,EA,143.77
+OS-14,Flaggers - outside of normal jobsite setup 2 Flagmen,Civil - Other Services,EA,271.84
+OS-16,One Touch - Design Build,Elec/Civil - Other Services,EA,3224.19
+OC-1,Steel plates on site for extended period of time. Greater than 8 weeks,Civil - Other Costs,EA,96.57
+OC-2,Hard Rock Adder,Civil - Other Costs,CUFT,188.80
+OC-5,Light Tower,Elec/Civil - Other Costs,EA,135.44
+PAD-6,Replace existing Commercial pad,Civil - Restoration,EACH,7503.59
+PAD-7,Install Poured In Place SCADA Pad,Civil - Restoration,EACH,10044.18
+CCREW-1,2 man VAC crew rate for open cut excavation- Trailer,Civil - Restoration,EA,526.45
+CCREW-3,2 man VAC crew rate for open cut excavation- Truck,Civil - Restoration,EA,860.17
+CCREW-5,2 Man crew with equipment,Civil - Restoration,EA,505.44
+CCREW-6,2 Man crew with equipment (Premium Time),Civil - Restoration,EA,695.33
+CCREW-7,3 Man crew with equipment,Civil - Restoration,EA,704.42
+CCREW-8,3 Man crew with equipment (Premium Time),Civil - Restoration,EA,963.01
+CCREW-9,4 Man crew with equipment,Civil - Restoration,EA,888.45
+CCREW-10,4 Man crew with equipment (Premium Time),Civil - Restoration,EA,1202.31
+CCREW-11,5 Man crew with equipment,Civil - Restoration,EA,1091.29
+CCREW-13,6 Man crew with equipment,Civil - Restoration,EA,1275.32
+ECREW-7,QEW (Qualified Electrical Worker) in support of civil work.,Civil - Restoration,EA,255.02
+OS-6,Vault or Manhole Pumping & Clean Out,Civil - Restoration,EACH,3704.13
+OS-7,Splice Box Pumping & Clean Out,Civil - Restoration,EACH,3704.13
+OS-11,Flaggers - outside of normal jobsite setup 1 Flagmen,Civil - Restoration,EA,143.77
+OS-13,Flaggers - outside of normal jobsite setup 2 Flagmen,Civil - Restoration,EA,271.84
+OC-1,Arrow Board/ ECMS Board,Civil - Restoration,EA,246.21
+OC-2,Light Tower,Civil - Restoration,EA,135.44
+OC-6,Steel plates on site for extended period of time. Greater than 8 weeks,Civil - Restoration,EA,96.57
+OC-7,Hard Rock Adder,Civil - Restoration,CUFT,188.80
