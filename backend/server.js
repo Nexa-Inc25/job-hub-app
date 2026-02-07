@@ -5221,20 +5221,20 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
         if (!freshJob) throw new Error('Job not found');
         
         // Find the target folder
-        const freshAci = freshJob.folders?.find(f => f.name === 'ACI');
-        if (!freshAci) throw new Error('ACI folder not found');
+        const freshParentFolder = freshJob.folders?.find(f => f.name === targetFolderName);
+        if (!freshParentFolder) throw new Error(`${targetFolderName} folder not found`);
         
         let targetFolder;
-        if (cleanSubfolderPath) {
-          targetFolder = freshAci.subfolders?.find(sf => sf.name === cleanSubfolderPath);
+        if (targetSubfolderName) {
+          targetFolder = freshParentFolder.subfolders?.find(sf => sf.name === targetSubfolderName);
           if (!targetFolder) {
             // Create subfolder if missing
-            targetFolder = { name: cleanSubfolderPath, documents: [], subfolders: [] };
-            if (!freshAci.subfolders) freshAci.subfolders = [];
-            freshAci.subfolders.push(targetFolder);
+            targetFolder = { name: targetSubfolderName, documents: [], subfolders: [] };
+            if (!freshParentFolder.subfolders) freshParentFolder.subfolders = [];
+            freshParentFolder.subfolders.push(targetFolder);
           }
         } else {
-          targetFolder = freshAci;
+          targetFolder = freshParentFolder;
         }
         
         if (!targetFolder.documents) targetFolder.documents = [];
