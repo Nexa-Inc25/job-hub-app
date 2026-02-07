@@ -55,7 +55,9 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import BlockIcon from '@mui/icons-material/Block';
 import DownloadIcon from '@mui/icons-material/Download';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
+import DirectionsIcon from '@mui/icons-material/Directions';
 import Dialog from '@mui/material/Dialog';
+import { openDirections } from '../utils/navigation';
 import FeedbackButton from './FeedbackButton';
 import OfflineIndicator from './OfflineIndicator';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -1535,9 +1537,25 @@ const Dashboard = () => {
                                     {job.pmNumber || job.woNumber || job.title || 'Untitled'}
                                   </Typography>
                                   {job.address && (
-                                    <Typography variant="body2" color="text.secondary">
-                                      📍 {job.address}
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+                                        📍 {job.address}
+                                      </Typography>
+                                      <Tooltip title="Get Directions">
+                                        <IconButton
+                                          size="small"
+                                          color="primary"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            openDirections(job.address, job.city);
+                                          }}
+                                          sx={{ p: 0.5 }}
+                                        >
+                                          <DirectionsIcon fontSize="small" />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </Box>
                                   )}
                                   {/* EC Tag & Pre-field Labels */}
                                   {(job.ecTag?.tagType || job.preFieldLabels?.craneRequired) && (

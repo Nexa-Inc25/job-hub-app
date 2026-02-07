@@ -60,7 +60,9 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import GroupsIcon from '@mui/icons-material/Groups';
 import CloseIcon from '@mui/icons-material/Close';
+import DirectionsIcon from '@mui/icons-material/Directions';
 import api from '../api';
+import { openDirections } from '../utils/navigation';
 import { useOffline } from '../hooks/useOffline';
 import PDFFormEditor from './PDFFormEditor';
 
@@ -963,6 +965,21 @@ const ForemanCloseOut = () => {
                 {job?.woNumber || job?.jobNumber} • {job?.address?.slice(0, 30)}...
               </Typography>
             </Box>
+            {/* Navigate to job button */}
+            {job?.address && (
+              <IconButton
+                onClick={() => openDirections(job.address, job.city)}
+                sx={{ 
+                  color: COLORS.secondary,
+                  bgcolor: `${COLORS.secondary}20`,
+                  ml: 1,
+                  '&:hover': { bgcolor: `${COLORS.secondary}40` }
+                }}
+                size="small"
+              >
+                <DirectionsIcon fontSize="small" />
+              </IconButton>
+            )}
           </Box>
           
           <Chip

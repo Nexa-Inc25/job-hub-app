@@ -62,7 +62,9 @@ import EmailIcon from '@mui/icons-material/Email';
 import PdfIcon from '@mui/icons-material/PictureAsPdf';
 import SketchIcon from '@mui/icons-material/Architecture';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DirectionsIcon from '@mui/icons-material/Directions';
 // Note: InstructionsIcon was duplicate of AssignmentIcon - use AssignmentIcon directly
+import { openDirections } from '../utils/navigation';
 
 // Helper to determine status color (avoids nested ternary) - uses high-contrast colors
 const getTimelineStatusColor = (status, defaultColor) => {
@@ -708,9 +710,24 @@ const WorkOrderDetails = () => {
                     </Typography>
                   )}
                   {job.address && (
-                    <Typography variant="body2">
-                      <strong>Address:</strong> {job.address}
-                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="body2">
+                        <strong>Address:</strong> {job.address}
+                      </Typography>
+                      <Tooltip title="Get Directions">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={() => openDirections(job.address, job.city)}
+                          sx={{ 
+                            bgcolor: 'primary.light', 
+                            '&:hover': { bgcolor: 'primary.main', color: 'white' } 
+                          }}
+                        >
+                          <DirectionsIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   )}
                   {job.client && (
                     <Typography variant="body2">
