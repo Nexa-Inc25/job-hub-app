@@ -521,14 +521,17 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         if (pageIndex >= pages.length) continue;
         
         const page = pages[pageIndex];
-        const { height } = page.getSize();
-        const y = height - annotation.y;
+        const { height: pageHeight } = page.getSize();
+        
+        // PDF Y coordinate: flip from top-down (screen) to bottom-up (PDF)
+        // annotation.y is already scaled to PDF units
+        const pdfY = pageHeight - annotation.y;
         const color = getColorRgb(annotation.color);
 
         if (annotation.type === 'text') {
           page.drawText(annotation.text, {
             x: annotation.x,
-            y: y - annotation.fontSize,
+            y: pdfY - annotation.fontSize,
             size: annotation.fontSize,
             font: helveticaFont,
             color,
@@ -537,7 +540,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           // Use 'X' instead of Unicode checkmark - WinAnsi encoding doesn't support ✓
           page.drawText('X', {
             x: annotation.x,
-            y: y - annotation.size,
+            y: pdfY - annotation.size,
             size: annotation.size,
             font: helveticaBold,
             color,
@@ -549,7 +552,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             const signatureImage = await pdfDoc.embedPng(signatureBytes);
             page.drawImage(signatureImage, {
               x: annotation.x,
-              y: y - annotation.height,
+              y: pdfY - annotation.height,
               width: annotation.width,
               height: annotation.height,
             });

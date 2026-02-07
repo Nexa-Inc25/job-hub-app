@@ -837,11 +837,18 @@ const ForemanCloseOut = () => {
     setPdfEditorOpen(true);
   };
   
-  const handlePdfSave = async (pdfBytes) => {
+  const handlePdfSave = async (pdfBase64) => {
     try {
+      // Convert base64 to bytes
+      const binaryString = atob(pdfBase64);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      
       // Upload the edited PDF back to R2
       const formData = new FormData();
-      const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+      const blob = new Blob([bytes], { type: 'application/pdf' });
       formData.append('file', blob, selectedDocument.name);
       formData.append('folder', 'ACI');
       formData.append('subfolder', 'Completed Forms');
