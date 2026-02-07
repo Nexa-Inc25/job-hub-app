@@ -5108,8 +5108,52 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       });
     }
     
-    photosFolder.documents.push(...uploadedPhotos);
-    await job.save();
+    // Use retry loop with reload to handle concurrent uploads
+    let retries = 5;
+    let saved = false;
+    while (retries > 0 && !saved) {
+      try {
+        // Reload job fresh to get latest version
+        const freshJob = await Job.findById(job._id);
+        if (!freshJob) throw new Error('Job not found');
+        
+        // Find the target folder
+        const freshAci = freshJob.folders?.find(f => f.name === 'ACI');
+        if (!freshAci) throw new Error('ACI folder not found');
+        
+        let targetFolder;
+        if (cleanSubfolderPath) {
+          targetFolder = freshAci.subfolders?.find(sf => sf.name === cleanSubfolderPath);
+          if (!targetFolder) {
+            // Create subfolder if missing
+            targetFolder = { name: cleanSubfolderPath, documents: [], subfolders: [] };
+            if (!freshAci.subfolders) freshAci.subfolders = [];
+            freshAci.subfolders.push(targetFolder);
+          }
+        } else {
+          targetFolder = freshAci;
+        }
+        
+        if (!targetFolder.documents) targetFolder.documents = [];
+        targetFolder.documents.push(...uploadedPhotos);
+        freshJob.markModified('folders');
+        await freshJob.save();
+        saved = true;
+      } catch (saveErr) {
+        if (saveErr.name === 'VersionError' && retries > 1) {
+          retries--;
+          console.log(`Version conflict saving photos for job ${job._id}, retrying... (${retries} left)`);
+          // Small delay to reduce collision chance
+          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+        } else {
+          throw saveErr;
+        }
+      }
+    }
+    
+    if (!saved) {
+      throw new Error('Failed to save photos after retries');
+    }
     
     console.log('Photos uploaded:', uploadedPhotos.map(p => p.name));
     res.json({ message: 'Photos uploaded successfully', photos: uploadedPhotos });
