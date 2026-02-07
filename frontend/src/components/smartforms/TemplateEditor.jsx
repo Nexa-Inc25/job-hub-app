@@ -115,6 +115,55 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
   };
 }
 
+/**
+ * FieldOverlay - Renders a single field overlay on the PDF
+ */
+function FieldOverlay({ field, screenPos, isSelected, hasMapping, onSelect, onEdit, onDelete }) {
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        left: screenPos.left,
+        top: screenPos.top,
+        width: screenPos.width,
+        height: screenPos.height,
+        border: isSelected ? '3px solid #1976d2' : '2px solid #4caf50',
+        bgcolor: isSelected ? 'rgba(25, 118, 210, 0.2)' : 'rgba(76, 175, 80, 0.15)',
+        cursor: 'pointer',
+        '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.3)' },
+      }}
+      onClick={(e) => { e.stopPropagation(); onSelect(field.id); }}
+    >
+      <Chip
+        size="small"
+        label={field.name}
+        color={hasMapping ? 'success' : 'default'}
+        icon={hasMapping ? <LinkIcon /> : undefined}
+        sx={{ position: 'absolute', top: -12, left: 0, height: 20, fontSize: 10 }}
+      />
+      {isSelected && (
+        <Box sx={{ position: 'absolute', top: -12, right: 0, display: 'flex', gap: 0.5 }}>
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onEdit(field); }}
+            sx={{ bgcolor: 'white', width: 24, height: 24 }}
+          >
+            <EditIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+          <IconButton
+            size="small"
+            onClick={(e) => { e.stopPropagation(); onDelete(field.id); }}
+            sx={{ bgcolor: 'white', width: 24, height: 24 }}
+            color="error"
+          >
+            <DeleteIcon sx={{ fontSize: 14 }} />
+          </IconButton>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -438,80 +487,22 @@ export default function TemplateEditor() {
       if (!field?.bounds) return null;
       
       const screenPos = pdfToScreenCoords(
-        field.bounds.x,
-        field.bounds.y,
-        field.bounds.width,
-        field.bounds.height,
-        pageElement
+        field.bounds.x, field.bounds.y, field.bounds.width, field.bounds.height, pageElement
       );
       
-      // Skip fields with invalid positions
       if (screenPos.width <= 0 || screenPos.height <= 0) return null;
 
-      const isSelected = selectedField === field.id;
-      const hasMapping = mappings[field.name];
-
       return (
-        <Box
+        <FieldOverlay
           key={field.id}
-          sx={{
-            position: 'absolute',
-            left: screenPos.left,
-            top: screenPos.top,
-            width: screenPos.width,
-            height: screenPos.height,
-            border: isSelected ? '3px solid #1976d2' : '2px solid #4caf50',
-            bgcolor: isSelected ? 'rgba(25, 118, 210, 0.2)' : 'rgba(76, 175, 80, 0.15)',
-            cursor: 'pointer',
-            '&:hover': {
-              bgcolor: 'rgba(25, 118, 210, 0.3)',
-            },
-          }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedField(field.id);
-          }}
-        >
-          <Chip
-            size="small"
-            label={field.name}
-            color={hasMapping ? 'success' : 'default'}
-            icon={hasMapping ? <LinkIcon /> : undefined}
-            sx={{
-              position: 'absolute',
-              top: -12,
-              left: 0,
-              height: 20,
-              fontSize: 10,
-            }}
-          />
-          {isSelected && (
-            <Box sx={{ position: 'absolute', top: -12, right: 0, display: 'flex', gap: 0.5 }}>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setEditingField(field);
-                  setEditDialogOpen(true);
-                }}
-                sx={{ bgcolor: 'white', width: 24, height: 24 }}
-              >
-                <EditIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteField(field.id);
-                }}
-                sx={{ bgcolor: 'white', width: 24, height: 24 }}
-                color="error"
-              >
-                <DeleteIcon sx={{ fontSize: 14 }} />
-              </IconButton>
-            </Box>
-          )}
-        </Box>
+          field={field}
+          screenPos={screenPos}
+          isSelected={selectedField === field.id}
+          hasMapping={!!mappings[field.name]}
+          onSelect={setSelectedField}
+          onEdit={(f) => { setEditingField(f); setEditDialogOpen(true); }}
+          onDelete={handleDeleteField}
+        />
       );
     });
   };
