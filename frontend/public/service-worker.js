@@ -8,7 +8,7 @@
  * - Background sync support
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const STATIC_CACHE = `fieldledger-static-${CACHE_VERSION}`;
 const API_CACHE = `fieldledger-api-${CACHE_VERSION}`;
 const IMAGE_CACHE = `fieldledger-images-${CACHE_VERSION}`;
@@ -204,10 +204,49 @@ async function handleNavigationRequest(request) {
 }
 
 /**
- * Handle static assets - stale-while-revalidate
+ * Handle static assets
+ * - JS/CSS with hashes: network-first (prevents stale chunk errors)
+ * - Other static: stale-while-revalidate
  */
 async function handleStaticRequest(request) {
+  const url = new URL(request.url);
   const cache = await caches.open(STATIC_CACHE);
+  
+  // JS/CSS assets with content hashes should be network-first
+  // to prevent serving stale chunks after deployments
+  const isHashedAsset = /\.(js|css)$/.test(url.pathname) && 
+                        /assets\//.test(url.pathname);
+  
+  if (isHashedAsset) {
+    try {
+      const networkResponse = await fetch(request);
+      // Only cache if we got a valid JS/CSS response (not HTML fallback)
+      const contentType = networkResponse.headers.get('content-type') || '';
+      if (networkResponse.ok && (contentType.includes('javascript') || contentType.includes('css'))) {
+        cache.put(request, networkResponse.clone());
+        return networkResponse;
+      }
+      // Server returned HTML for a JS file = chunk doesn't exist (version mismatch)
+      // Force page reload to get new index.html
+      if (contentType.includes('text/html')) {
+        console.log('[SW] Detected stale chunk request, triggering reload');
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(client => {
+          client.postMessage({ type: 'STALE_CHUNK_DETECTED' });
+        });
+      }
+      return networkResponse;
+    } catch (error) {
+      // Network failed, try cache
+      const cachedResponse = await cache.match(request);
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return new Response('Offline', { status: 503 });
+    }
+  }
+  
+  // Other static assets: stale-while-revalidate
   const cachedResponse = await cache.match(request);
 
   // Fetch from network in background
@@ -215,8 +254,8 @@ async function handleStaticRequest(request) {
     .then(networkResponse => {
       if (networkResponse.ok) {
         cache.put(request, networkResponse.clone());
-            }
-            return networkResponse;
+      }
+      return networkResponse;
     })
     .catch(() => null);
 

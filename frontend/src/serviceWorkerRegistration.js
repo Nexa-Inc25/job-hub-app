@@ -47,6 +47,23 @@ function registerValidSW(swUrl, config) {
     .then((registration) => {
       console.log('[SW] Service worker registered successfully');
       
+      // Listen for messages from service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'STALE_CHUNK_DETECTED') {
+          console.log('[SW] Stale chunk detected - reloading to get new version');
+          // Clear caches and reload
+          if ('caches' in window) {
+            caches.keys().then(keys => {
+              Promise.all(keys.map(key => caches.delete(key))).then(() => {
+                globalThis.location.reload();
+              });
+            });
+          } else {
+            globalThis.location.reload();
+          }
+        }
+      });
+      
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (!installingWorker) return;
