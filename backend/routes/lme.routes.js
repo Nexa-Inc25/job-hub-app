@@ -373,7 +373,11 @@ function drawTemplateTextOverlay(page, lme, font, boldFont) {
   
   // === RIGHT SIDE HEADER ===
   page.drawText(lme.lmeNumber || '', { x: width - 85, y: height - 38, size: 9, font });
-  page.drawText(lme.date?.toLocaleDateString() || '', { x: width - 155, y: height - 58, size: 8, font });
+  // Format date as MM/DD/YY to fit the field
+  const dateStr = lme.date 
+    ? `${String(lme.date.getMonth() + 1).padStart(2, '0')}/${String(lme.date.getDate()).padStart(2, '0')}/${String(lme.date.getFullYear()).slice(-2)}`
+    : '';
+  page.drawText(dateStr, { x: width - 155, y: height - 58, size: 8, font });
   page.drawText(lme.startTime || '', { x: width - 155, y: height - 70, size: 8, font });
   page.drawText(lme.endTime || '', { x: width - 85, y: height - 70, size: 8, font });
   
