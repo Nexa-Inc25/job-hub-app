@@ -527,9 +527,15 @@ router.post('/:id/import', upload.single('file'), async (req, res) => {
 
     // Parse CSV using helper function
     const csvContent = req.file.buffer.toString('utf-8');
+    console.log('[PriceBook Import] File:', req.file.originalname, 'Size:', csvContent.length, 'bytes');
+    console.log('[PriceBook Import] First 200 chars:', csvContent.substring(0, 200));
+    
     const { headers, items, errors, validationError, requiredColumns } = parseCSVContent(csvContent);
+    console.log('[PriceBook Import] Headers found:', headers);
+    console.log('[PriceBook Import] Items parsed:', items.length, 'Errors:', errors.length);
     
     if (validationError) {
+      console.log('[PriceBook Import] Validation error:', validationError);
       return res.status(400).json({ 
         error: validationError,
         ...(requiredColumns && { requiredColumns, foundColumns: headers })
