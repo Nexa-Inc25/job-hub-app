@@ -21,6 +21,57 @@ const ITEM_CODE_PATTERN = /^[A-Z0-9]{2,6}-\d{1,3}[A-Z]?$/i;
 // Price pattern to extract dollar amounts (e.g., "$ 458.23", "$1,234.56")
 const PRICE_PATTERN = /\$\s*([\d,]+\.?\d*)/;
 
+// Valid pricebook categories (must match backend/routes/pricebook.routes.js VALID_CATEGORIES)
+const VALID_CATEGORIES = ['civil', 'electrical', 'overhead', 'underground', 'traffic_control', 'vegetation', 'emergency', 'other'];
+
+/**
+ * Map MSA category/subcategory to valid pricebook category
+ */
+function mapToValidCategory(category, subcategory) {
+  const combined = `${category} ${subcategory}`.toLowerCase();
+  
+  // Traffic control
+  if (combined.includes('traffic') || combined.includes('flagg')) {
+    return 'traffic_control';
+  }
+  
+  // Electrical
+  if (combined.includes('elect') || combined.includes('ecrew') || combined.includes('qew')) {
+    return 'electrical';
+  }
+  
+  // Overhead
+  if (combined.includes('overhead') || combined.includes('pole') || combined.includes('oh ')) {
+    return 'overhead';
+  }
+  
+  // Underground
+  if (combined.includes('underground') || combined.includes('conduit') || combined.includes('vault') || 
+      combined.includes('manhole') || combined.includes('trench') || combined.includes('ug ')) {
+    return 'underground';
+  }
+  
+  // Vegetation
+  if (combined.includes('vegetation') || combined.includes('tree') || combined.includes('brush')) {
+    return 'vegetation';
+  }
+  
+  // Emergency
+  if (combined.includes('emergency') || combined.includes('storm')) {
+    return 'emergency';
+  }
+  
+  // Civil (default for civil work, excavation, paving, etc.)
+  if (combined.includes('civil') || combined.includes('excavat') || combined.includes('pav') || 
+      combined.includes('concrete') || combined.includes('asphalt') || combined.includes('restore') ||
+      combined.includes('open cut') || combined.includes('saw') || combined.includes('pad')) {
+    return 'civil';
+  }
+  
+  // Default to other
+  return 'other';
+}
+
 /**
  * Parse a CSV line handling quoted fields with commas
  */
@@ -232,15 +283,19 @@ function parseMsaRateSheet(inputPath, outputPath) {
       continue;
     }
     
-    // Build combined category
-    const fullCategory = subcategory 
+    // Map to valid pricebook category
+    const validCategory = mapToValidCategory(category, subcategory);
+    
+    // Build original category string for subcategory field
+    const originalCategory = subcategory 
       ? `${category} - ${subcategory}`.trim().replace(/^- /, '')
       : category;
     
     items.push({
       itemcode: itemCode,
       description: description || itemCode,
-      category: fullCategory || 'General',
+      category: validCategory,
+      subcategory: originalCategory || '',
       unit: unit,
       unitprice: unitPrice.toFixed(2)
     });
@@ -252,9 +307,9 @@ function parseMsaRateSheet(inputPath, outputPath) {
   }
   
   // Write output CSV
-  const header = 'itemcode,description,category,unit,unitprice';
+  const header = 'itemcode,description,category,subcategory,unit,unitprice';
   const rows = items.map(item => 
-    [item.itemcode, item.description, item.category, item.unit, item.unitprice]
+    [item.itemcode, item.description, item.category, item.subcategory, item.unit, item.unitprice]
       .map(escapeCSVField)
       .join(',')
   );
