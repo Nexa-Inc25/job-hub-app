@@ -739,7 +739,7 @@ const ForemanCloseOut = () => {
         // Load tailboard status (today's tailboard for this job)
         try {
           const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
-          setTailboard(tailboardRes.data);
+          setTailboard(tailboardRes.data || null);
         } catch {
           setTailboard(null);
         }

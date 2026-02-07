@@ -485,11 +485,8 @@ const getTodaysTailboard = async (req, res) => {
       date: { $gte: startOfYesterday, $lte: endOfToday }
     }).sort({ date: -1, createdAt: -1 }).lean();
 
-    if (!tailboard) {
-      return res.status(404).json({ error: 'No tailboard for today' });
-    }
-
-    res.json(tailboard);
+    // Return null instead of 404 to avoid console errors on expected "not found"
+    res.json(tailboard || null);
   } catch (error) {
     console.error('Error fetching today\'s tailboard:', error);
     res.status(500).json({ error: 'Failed to fetch tailboard' });

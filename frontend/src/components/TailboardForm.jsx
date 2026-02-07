@@ -370,19 +370,21 @@ const TailboardForm = () => {
         // Check for existing tailboard today
         try {
           const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
-          setTailboard(tailboardRes.data);
-          
-          // Populate form using helper function
-          populateFormFromTailboard(tailboardRes.data, {
-            setDate, setStartTime, setTaskDescription, setJobSteps, setHazards,
-            setHazardsDescription, setMitigationDescription, setPpeRequired, setCrewMembers,
-            setWeatherConditions, setEmergencyContact, setEmergencyPhone, setNearestHospital,
-            setAdditionalNotes, setPmNumber, setCircuit, setShowUpYardLocation,
-            setGeneralForemanName, setInspector, setInspectorName, setEicName, setEicPhone,
-            setSpecialMitigations, setGroundingNeeded, setGroundingAccountedFor,
-            setGroundingLocations, setSourceSideDevices, setNominalVoltages,
-            setCopperConditionInspected, setNotTiedIntoCircuit, setUgChecklist, setShowUgChecklist
-          });
+          if (tailboardRes.data) {
+            setTailboard(tailboardRes.data);
+            
+            // Populate form using helper function
+            populateFormFromTailboard(tailboardRes.data, {
+              setDate, setStartTime, setTaskDescription, setJobSteps, setHazards,
+              setHazardsDescription, setMitigationDescription, setPpeRequired, setCrewMembers,
+              setWeatherConditions, setEmergencyContact, setEmergencyPhone, setNearestHospital,
+              setAdditionalNotes, setPmNumber, setCircuit, setShowUpYardLocation,
+              setGeneralForemanName, setInspector, setInspectorName, setEicName, setEicPhone,
+              setSpecialMitigations, setGroundingNeeded, setGroundingAccountedFor,
+              setGroundingLocations, setSourceSideDevices, setNominalVoltages,
+              setCopperConditionInspected, setNotTiedIntoCircuit, setUgChecklist, setShowUgChecklist
+            });
+          }
         } catch {
           // No tailboard for today - that's fine
         }
