@@ -263,10 +263,18 @@ REQUIRED EXTRACTION (return as JSON object):
 JOB SCOPE:
 - jobScope.summary: 1-2 sentence work description
 - jobScope.workType: Type of work (New Service, Pole Replacement, etc.)
-- jobScope.equipment: Array of equipment mentioned
+- jobScope.equipment: Array of simplified equipment names for quick reference (e.g., ["Transformers", "Poles", "Cable 4/0A"])
 - jobScope.footage: Total footage if mentioned
-- jobScope.voltage: Voltage level
+- jobScope.voltage: Voltage level (e.g., "600V")
 - jobScope.phases: Number of phases (1-phase, 3-phase)
+
+CREW MATERIALS (extract from "Crew Materials" page if present):
+Look for a table with columns: Quantity, Unit, M-Code, Description
+- crewMaterials: Array of material items, each with:
+  - quantity: Number (e.g., 139)
+  - unit: Unit code string (e.g., "FT", "EA", "CO", "AY")
+  - mCode: PG&E M-Code (e.g., "M294371")
+  - description: Full description (e.g., "CABLE ELEC INSUL AL 600V 4/0 AWG XLP")
 
 PRE-FIELD LABELS (for crew planning):
 - preFieldLabels.roadAccess: One of "accessible", "limited", "non-accessible", "backyard", "easement" based on location description
@@ -285,6 +293,7 @@ EC TAG / PROGRAM INFO:
 
 LOOK FOR THESE PATTERNS:
 - "PM Order Number:" or "PM#"
+- "Crew Materials" page with M-Code table (Quantity, Unit, M-Code, Description, Lead Time columns)
 - "EC Tag", "Tag Type", "A Tag", "B Tag", "E Tag"
 - "Required Date", "Due Date", "Completion Date"
 - "Program:", "Project Type:", "Work Type:"
@@ -299,7 +308,7 @@ VALIDATION:
 - Return ONLY valid JSON
 
 EXAMPLE OUTPUT:
-{"pmNumber":"35611981","address":"105 HIGHLAND AV","city":"LOS GATOS","client":"PG&E","orderType":"E460","jobScope":{"summary":"Replace 45ft pole in backyard, transfer existing equipment","workType":"Pole Replacement","constructionType":"overhead"},"preFieldLabels":{"roadAccess":"backyard","accessNotes":"120ft from street, gate access required","craneRequired":true,"craneType":"Crane Truck","constructionType":"overhead","poleWork":"change-out"},"ecTag":{"tagType":"B","tagDueDate":"2026-03-15","programType":"pole-replacement","programCode":"B-TAG","isUrgent":false}}`;
+{"pmNumber":"35653821","address":"21621 COLUMBUS AVE","city":"CUPERTINO","client":"PG&E","orderType":"E460","jobScope":{"summary":"UG Secondary and SVC Upgrade","workType":"Underground","equipment":["Transformers","Cable 4/0A 600V XLP TPX","Dist Conduit 4in"],"footage":"197","voltage":"600V"},"crewMaterials":[{"quantity":139,"unit":"FT","mCode":"M294371","description":"CABLE ELEC INSUL AL 600V 4/0 AWG XLP"},{"quantity":67,"unit":"FT","mCode":"M016472","description":"RIGID CONDUIT PLASTIC 4in PVC SCHEDULE 40"},{"quantity":8,"unit":"EA","mCode":"M384199","description":"CAP CABLE END 0.574in-0.827in # CAP65"}],"preFieldLabels":{"roadAccess":"accessible","constructionType":"underground"},"ecTag":{"tagType":"B","programType":"capacity","isUrgent":false}}`;
 
     const result = await getPdfUtils().extractWithAI(req.file.path, prompt);
     console.log('AI extraction completed successfully');

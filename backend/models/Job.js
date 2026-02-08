@@ -139,6 +139,19 @@ const jobSchema = new mongoose.Schema({
     programCode: String,       // e.g., "NB", "CAP", "REL", etc.
     isUrgent: { type: Boolean, default: false },
   },
+  
+  // PG&E Crew Materials - extracted from job package "Crew Materials" page
+  // Contains the official materials list with M-Codes for accurate equipment tracking
+  crewMaterials: [{
+    quantity: Number,           // Quantity needed (e.g., 139)
+    unit: String,               // Unit of measure: EA, FT, CO, AY, etc.
+    mCode: String,              // PG&E Material Code (e.g., "M294371")
+    description: String,        // Full description (e.g., "CABLE ELEC INSUL AL 600V 4/0 AWG XLP")
+  }],
+  
+  // Metadata for crew materials extraction
+  crewMaterialsExtractedAt: Date,     // When materials were last extracted
+  
   // Job status workflow:
   // new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
   // pending_gf_review → pending_qa_review → pending_pm_approval → ready_to_submit → submitted → billed → invoiced
