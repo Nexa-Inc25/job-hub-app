@@ -19,19 +19,22 @@ import TodayIcon from '@mui/icons-material/Today';
 import WorkIcon from '@mui/icons-material/Work';
 import api from '../api';
 
-// Helper to get admin status from token synchronously
-const getAdminStatus = () => {
+// Helper to get user info from token synchronously
+const getUserInfoFromToken = () => {
   const token = localStorage.getItem('token');
   if (token) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.isAdmin === true;
+      return {
+        isAdmin: payload.isAdmin === true,
+        role: payload.role || null
+      };
     } catch (error) {
       console.error('Failed to parse token:', error);
-      return false;
+      return { isAdmin: false, role: null };
     }
   }
-  return false;
+  return { isAdmin: false, role: null };
 };
 
 const Calendar = () => {
@@ -41,7 +44,9 @@ const Calendar = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [isAdmin] = useState(() => getAdminStatus()); // Initialize synchronously
+  const [userInfo] = useState(() => getUserInfoFromToken()); // Initialize synchronously
+  const isAdmin = userInfo.isAdmin;
+  const userRole = userInfo.role;
   const [viewAll, setViewAll] = useState(true); // Admin toggle to view all scheduled jobs
 
   const fetchCalendarData = useCallback(async () => {
@@ -102,7 +107,13 @@ const Calendar = () => {
   };
 
   const handleJobClick = (jobId) => {
-    navigate(`/jobs/${jobId}`);
+    // Foremen and GFs go to the details page for quick access to sketches and job info
+    // Admins and PMs go to the file system view
+    if (userRole === 'foreman' || userRole === 'gf') {
+      navigate(`/jobs/${jobId}/details`);
+    } else {
+      navigate(`/jobs/${jobId}`);
+    }
   };
 
   const getPriorityColor = (priority) => {
