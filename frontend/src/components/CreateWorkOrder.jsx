@@ -288,44 +288,44 @@ const CreateWorkOrder = ({ token }) => {
                 sx={{
                   p: 2,
                   mb: 3,
-                  bgcolor: 'rgba(59, 130, 246, 0.08)',
-                  borderColor: '#3b82f6',
+                  bgcolor: 'primary.dark',
+                  borderColor: 'primary.main',
                   borderRadius: 2
                 }}
               >
-                <Typography variant="subtitle2" sx={{ color: '#1e40af', fontWeight: 700, mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: 'primary.contrastText', fontWeight: 700, mb: 1 }}>
                   📋 Job Scope (from Face Sheet)
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'text.primary', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: 'primary.contrastText', mb: 1 }}>
                   {jobScope.summary}
                 </Typography>
                 {(jobScope.workType || jobScope.footage || jobScope.voltage) && (
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
                     {jobScope.workType && (
-                      <Typography variant="caption" sx={{ bgcolor: '#e0f2fe', color: '#0c4a6e', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
-                        <strong>Work:</strong> {jobScope.workType}
+                      <Typography variant="caption" sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', px: 1, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                        Work: {jobScope.workType}
                       </Typography>
                     )}
                     {jobScope.footage && (
-                      <Typography variant="caption" sx={{ bgcolor: '#fef3c7', color: '#78350f', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
-                        <strong>Footage:</strong> {jobScope.footage}
+                      <Typography variant="caption" sx={{ bgcolor: 'warning.main', color: 'warning.contrastText', px: 1, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                        Footage: {jobScope.footage}
                       </Typography>
                     )}
                     {jobScope.voltage && (
-                      <Typography variant="caption" sx={{ bgcolor: '#fee2e2', color: '#7f1d1d', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
-                        <strong>Voltage:</strong> {jobScope.voltage}
+                      <Typography variant="caption" sx={{ bgcolor: 'error.main', color: 'error.contrastText', px: 1, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                        Voltage: {jobScope.voltage}
                       </Typography>
                     )}
                     {jobScope.phases && (
-                      <Typography variant="caption" sx={{ bgcolor: '#f3e8ff', color: '#581c87', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
-                        <strong>Phases:</strong> {jobScope.phases}
+                      <Typography variant="caption" sx={{ bgcolor: 'secondary.main', color: 'secondary.contrastText', px: 1, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                        Phases: {jobScope.phases}
                       </Typography>
                     )}
                   </Box>
                 )}
                 {jobScope.equipment?.length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    <Typography variant="caption" sx={{ color: 'primary.contrastText' }}>
                       <strong>Equipment:</strong> {jobScope.equipment.join(', ')}
                     </Typography>
                   </Box>
@@ -340,27 +340,27 @@ const CreateWorkOrder = ({ token }) => {
                 sx={{
                   p: 2,
                   mb: 3,
-                  bgcolor: 'rgba(16, 185, 129, 0.08)',
-                  borderColor: '#10b981',
+                  bgcolor: 'success.dark',
+                  borderColor: 'success.main',
                   borderRadius: 2
                 }}
               >
-                <Typography variant="subtitle2" sx={{ color: '#065f46', fontWeight: 700, mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: 'success.contrastText', fontWeight: 700, mb: 1 }}>
                   📦 Crew Materials ({crewMaterials.length} items with M-Codes)
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 150, overflowY: 'auto' }}>
                   {crewMaterials.slice(0, 8).map((mat) => (
                     <Box key={mat.mCode || mat.description} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Typography variant="caption" sx={{ bgcolor: '#d1fae5', color: '#065f46', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, minWidth: 80 }}>
+                      <Typography variant="caption" sx={{ bgcolor: 'success.main', color: 'success.contrastText', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, minWidth: 80 }}>
                         {mat.mCode}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: 'text.primary' }}>
+                      <Typography variant="caption" sx={{ color: 'success.contrastText' }}>
                         {mat.quantity} {mat.unit} - {mat.description?.slice(0, 50)}{mat.description?.length > 50 ? '...' : ''}
                       </Typography>
                     </Box>
                   ))}
                   {crewMaterials.length > 8 && (
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)', fontStyle: 'italic' }}>
                       ... and {crewMaterials.length - 8} more items
                     </Typography>
                   )}
@@ -375,23 +375,23 @@ const CreateWorkOrder = ({ token }) => {
                 sx={{
                   p: 2,
                   mb: 3,
-                  bgcolor: 'rgba(139, 92, 246, 0.08)',
-                  borderColor: '#8b5cf6',
+                  bgcolor: 'secondary.dark',
+                  borderColor: 'secondary.main',
                   borderRadius: 2
                 }}
               >
-                <Typography variant="subtitle2" sx={{ color: '#5b21b6', fontWeight: 700, mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: 'secondary.contrastText', fontWeight: 700, mb: 1 }}>
                   🔗 SAP Integration Data
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   {sapId && (
-                    <Typography variant="caption" sx={{ bgcolor: '#ede9fe', color: '#5b21b6', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
-                      <strong>SAP ID:</strong> {sapId}
+                    <Typography variant="caption" sx={{ bgcolor: 'secondary.main', color: 'secondary.contrastText', px: 1, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                      SAP ID: {sapId}
                     </Typography>
                   )}
                   {sapFuncLocation && (
-                    <Typography variant="caption" sx={{ bgcolor: '#ede9fe', color: '#5b21b6', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
-                      <strong>Func Location:</strong> {sapFuncLocation}
+                    <Typography variant="caption" sx={{ bgcolor: 'secondary.main', color: 'secondary.contrastText', px: 1, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                      Func Location: {sapFuncLocation}
                     </Typography>
                   )}
                 </Box>
