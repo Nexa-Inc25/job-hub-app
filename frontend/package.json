@@ -5,7 +5,6 @@
   "type": "module",
   "dependencies": {
     "@capacitor/camera": "^8.0.0",
-    "@capacitor/cli": "^8.0.2",
     "@capacitor/core": "^8.0.2",
     "@capacitor/geolocation": "^8.0.0",
     "@capacitor/ios": "^8.0.2",
@@ -45,6 +44,7 @@
     "yaml": "^2.8.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.2",
     "@testing-library/cypress": "^10.1.0",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^14.2.0",
