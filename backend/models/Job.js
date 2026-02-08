@@ -416,6 +416,17 @@ const jobSchema = new mongoose.Schema({
     extractedAt: Date
   }],
   
+  // Quick-access construction sketches (extracted from job package)
+  // These are stored separately for fast display in the details page header
+  constructionSketches: [{
+    pageNumber: Number,        // Original page number in job package
+    url: String,               // Direct URL to image
+    r2Key: String,             // R2 storage key if applicable
+    name: String,              // File name (e.g., "sketch_page_11.jpg")
+    extractedFrom: String,     // Original PDF file name
+    extractedAt: { type: Date, default: Date.now }
+  }],
+  
   // === JOB NOTES/CHAT (company internal communication) ===
   notes: [{
     message: { type: String, required: true },

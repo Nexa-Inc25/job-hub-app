@@ -457,6 +457,18 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     const assetsSummary = buildAssetsSummary(extractedAssets);
     job.aiExtractionComplete = true;
     job.aiExtractedAssets = assetsSummary.aiExtractedAssets;
+    
+    // 5. Store construction sketches for quick access in job details
+    const pdfBasename = path.basename(pdfPath);
+    job.constructionSketches = drawings.map(drawing => ({
+      pageNumber: drawing.pageNumber,
+      url: drawing.url,
+      r2Key: drawing.r2Key || null,
+      name: drawing.name,
+      extractedFrom: pdfBasename,
+      extractedAt: new Date()
+    }));
+    
     await job.save();
     
     console.log('Asset extraction complete:', assetsSummary.summary);

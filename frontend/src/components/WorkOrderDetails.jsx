@@ -219,7 +219,14 @@ const WorkOrderDetails = () => {
 
   // Fetch pre-field photos, construction sketches, and crew instructions from folder structure
   const fetchPreFieldAssets = useCallback(() => {
-    if (!job?.folders) return;
+    if (!job) return;
+    
+    // PRIORITY: Use quick-access constructionSketches field if available (faster, more reliable)
+    if (job.constructionSketches?.length > 0) {
+      setConstructionSketches(job.constructionSketches);
+    }
+    
+    if (!job.folders) return;
     
     // Find ACI folder
     const aciFolder = job.folders.find(f => f.name === 'ACI');
@@ -231,12 +238,14 @@ const WorkOrderDetails = () => {
       setPreFieldPhotos(gfAuditFolder.documents);
     }
     
-    // Construction Sketches from Pre-Field Documents
-    const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
-    if (preFieldFolder?.subfolders) {
-      const sketchesFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Sketches');
-      if (sketchesFolder?.documents) {
-        setConstructionSketches(sketchesFolder.documents);
+    // Construction Sketches from Pre-Field Documents - fallback if not in quick-access field
+    if (!job.constructionSketches?.length) {
+      const preFieldFolder = aciFolder.subfolders.find(sf => sf.name === 'Pre-Field Documents');
+      if (preFieldFolder?.subfolders) {
+        const sketchesFolder = preFieldFolder.subfolders.find(sf => sf.name === 'Construction Sketches');
+        if (sketchesFolder?.documents) {
+          setConstructionSketches(sketchesFolder.documents);
+        }
       }
     }
     
@@ -681,6 +690,94 @@ const WorkOrderDetails = () => {
               </CardContent>
             </Card>
           </Grid>
+
+          {/* CONSTRUCTION SKETCH QUICK ACCESS - Right below Quick Actions for fast crew access */}
+          {constructionSketches.length > 0 && (
+            <Grid item xs={12}>
+              <Card sx={{ 
+                borderRadius: 2, 
+                bgcolor: 'background.paper',
+                border: '2px solid',
+                borderColor: 'primary.main',
+                boxShadow: 4
+              }}>
+                <CardContent sx={{ py: 2 }}>
+                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                    <Typography variant="h5" display="flex" alignItems="center" gap={1} fontWeight="bold" color="primary.main">
+                      <SketchIcon fontSize="large" />
+                      Construction Sketches
+                      <Chip 
+                        label={`${constructionSketches.length} page${constructionSketches.length > 1 ? 's' : ''}`} 
+                        color="primary" 
+                        size="small" 
+                        sx={{ ml: 1, fontWeight: 600 }}
+                      />
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Click to view full size
+                    </Typography>
+                  </Box>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    gap: 2, 
+                    flexWrap: 'wrap',
+                    justifyContent: 'flex-start'
+                  }}>
+                    {constructionSketches.map((sketch, idx) => (
+                      <Tooltip key={sketch._id || `sketch-${idx}`} title={`View ${sketch.name || `Page ${sketch.pageNumber || idx + 1}`} - Click to open full size`}>
+                        <Box 
+                          sx={{ 
+                            position: 'relative',
+                            border: '2px solid',
+                            borderColor: 'primary.light',
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease-in-out',
+                            '&:hover': { 
+                              borderColor: 'primary.main',
+                              boxShadow: 6,
+                              transform: 'scale(1.03)'
+                            }
+                          }}
+                          onClick={() => globalThis.open(getDocumentUrl(sketch), '_blank')}
+                        >
+                          <img
+                            src={getDocumentUrl(sketch)}
+                            alt={sketch.name || `Construction Sketch ${idx + 1}`}
+                            loading="lazy"
+                            style={{ 
+                              width: 260, 
+                              height: 200, 
+                              objectFit: 'contain',
+                              backgroundColor: '#f5f5f5'
+                            }}
+                          />
+                          <Box sx={{ 
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            bgcolor: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            p: 1,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
+                          }}>
+                            <Typography variant="body2" fontWeight="medium" noWrap sx={{ maxWidth: 180 }}>
+                              {sketch.pageNumber ? `Page ${sketch.pageNumber}` : sketch.name || `Sketch ${idx + 1}`}
+                            </Typography>
+                            <OpenInNewIcon fontSize="small" />
+                          </Box>
+                        </Box>
+                      </Tooltip>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          )}
 
           {/* ROW 1: Three vertical columns - Job Info | Dependencies | Notes */}
           
@@ -1213,73 +1310,12 @@ const WorkOrderDetails = () => {
             </Grid>
           )}
 
-          {/* ROW 2.5: Construction Sketches & Crew Instructions - Side by side */}
-          {(constructionSketches.length > 0 || crewInstructions.length > 0) && (
+          {/* ROW 2.5: Crew Instructions - Full width (Construction Sketches moved to top) */}
+          {crewInstructions.length > 0 && (
             <Grid item xs={12}>
               <Grid container spacing={2}>
-                {/* Construction Sketches */}
-                {constructionSketches.length > 0 && (
-                  <Grid item xs={12} md={6}>
-                    <Card sx={{ borderRadius: 2, height: '100%' }}>
-                      <CardContent>
-                        <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
-                          <SketchIcon color="primary" />
-                          Construction Sketches ({constructionSketches.length})
-                        </Typography>
-                        <Divider sx={{ mb: 2 }} />
-                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                          {constructionSketches.map((sketch, idx) => (
-                            <Box 
-                              key={sketch._id || idx}
-                              sx={{ 
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                borderRadius: 2,
-                                overflow: 'hidden',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                                '&:hover': { 
-                                  boxShadow: 3,
-                                  transform: 'scale(1.02)'
-                                }
-                              }}
-                              onClick={() => globalThis.open(getDocumentUrl(sketch), '_blank')}
-                            >
-                              <img
-                                src={getDocumentUrl(sketch)}
-                                alt={sketch.name || `Construction Sketch ${idx + 1}`}
-                                style={{ 
-                                  width: 200, 
-                                  height: 150, 
-                                  objectFit: 'cover'
-                                }}
-                              />
-                              <Box sx={{ p: 1, bgcolor: 'background.paper' }}>
-                                <Typography variant="caption" noWrap display="block" sx={{ maxWidth: 180 }}>
-                                  {sketch.name || `Sketch ${idx + 1}`}
-                                </Typography>
-                                <Chip 
-                      size="small"
-                                  icon={<OpenInNewIcon fontSize="small" />}
-                                  label="View Full Size" 
-                                  sx={{ mt: 0.5, cursor: 'pointer' }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    globalThis.open(getDocumentUrl(sketch), '_blank');
-                                  }}
-                                />
-                  </Box>
-                            </Box>
-                          ))}
-                </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                )}
-
                 {/* Crew Instructions (Field As Built) */}
-                {crewInstructions.length > 0 && (
-                  <Grid item xs={12} md={constructionSketches.length > 0 ? 6 : 12}>
+                <Grid item xs={12}>
                     <Card sx={{ borderRadius: 2, height: '100%' }}>
                       <CardContent>
                         <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
