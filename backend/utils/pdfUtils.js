@@ -90,19 +90,19 @@ async function extractWithAI(filePath, prompt = "Extract all relevant informatio
     // Use OpenAI to extract structured information (protected by circuit breaker)
     const completion = await openaiBreaker.execute(async () => {
       return getOpenAIClient().chat.completions.create({
-        model: "gpt-4-turbo-preview",
-        messages: [
-          {
-            role: "system",
-            content: "You are an expert at extracting structured information from documents. Extract all relevant data points, dates, amounts, names, and other structured information from the provided text. Return the information in a clean, organized JSON format."
-          },
-          {
-            role: "user",
-            content: `${prompt}\n\nDocument text:\n${pdfText.substring(0, 12000)}` // Limit text length for API
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.1,
+      model: "gpt-4-turbo-preview",
+      messages: [
+        {
+          role: "system",
+          content: "You are an expert at extracting structured information from documents. Extract all relevant data points, dates, amounts, names, and other structured information from the provided text. Return the information in a clean, organized JSON format."
+        },
+        {
+          role: "user",
+          content: `${prompt}\n\nDocument text:\n${pdfText.substring(0, 12000)}` // Limit text length for API
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0.1,
       });
     });
 

@@ -251,18 +251,21 @@ router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
     const prompt = req.body.prompt || `You are an expert at extracting work order information from PG&E and utility maintenance documents.
 
 REQUIRED EXTRACTION (return as JSON object):
-- pmNumber: PM Order Number (e.g., "35611981")
-- notificationNumber: Notification number (e.g., "126940062")
+- pmNumber: PM Order Number (e.g., "35653821")
+- notificationNumber: Notification number (e.g., "131388398", "119127590")
 - woNumber: Work order number
-- address: Street address (e.g., "2PN/O 105 HIGHLAND AV")
-- city: City name (e.g., "LOS GATOS")
+- address: Street address (e.g., "21621 COLUMBUS AVE")
+- city: City name (e.g., "CUPERTINO")
 - client: Company name (e.g., "PG&E")
 - projectName: Project name
 - orderType: Order type code (e.g., "E460")
+- matCode: MAT Codes value (e.g., "161")
+- sapId: SAP Equipment ID (e.g., "101272791")
+- sapFuncLocation: SAP Functional Location (e.g., "ED.95-N300000000.STRU.POLE")
 
 JOB SCOPE:
 - jobScope.summary: 1-2 sentence work description
-- jobScope.workType: Type of work (New Service, Pole Replacement, etc.)
+- jobScope.workType: Type of work (New Service, Pole Replacement, Tree Trim, etc.)
 - jobScope.equipment: Array of simplified equipment names for quick reference (e.g., ["Transformers", "Poles", "Cable 4/0A"])
 - jobScope.footage: Total footage if mentioned
 - jobScope.voltage: Voltage level (e.g., "600V")
@@ -284,23 +287,30 @@ PRE-FIELD LABELS (for crew planning):
 - preFieldLabels.constructionType: "overhead", "underground", or "both" based on work described
 - preFieldLabels.poleWork: "set" (new pole), "change-out" (replace), "removal", "transfer", or null
 
-EC TAG / PROGRAM INFO:
-- ecTag.tagType: PG&E tag classification - "A", "B", "C", "D", "E", or "emergency"
-- ecTag.tagDueDate: Due date from EC tag (ISO format YYYY-MM-DD)
-- ecTag.programType: One of "new-business", "capacity", "reliability", "maintenance", "tag-work", "pole-replacement", "underground-conversion"
+EC TAG / PROGRAM INFO (from "Electric Overhead Tag" or similar tag documents):
+- ecTag.tagType: PG&E tag classification - "A", "B", "C", "D", "E", or "emergency" (look for "Priority:" field)
+- ecTag.tagDueDate: Due date / Date Required from EC tag (ISO format YYYY-MM-DD)
+- ecTag.dateIdentified: Date Identified from tag (ISO format YYYY-MM-DD)
+- ecTag.dateRequired: Date Required from tag (ISO format YYYY-MM-DD)
+- ecTag.programType: One of "new-business", "capacity", "reliability", "maintenance", "tag-work", "pole-replacement", "underground-conversion", "tree-trim"
 - ecTag.programCode: Program code like "NB", "CAP", "REL", "A-TAG", "E-TAG"
 - ecTag.isUrgent: true if A-tag, E-tag, emergency, or due within 30 days
+- ecTag.commentsSummary: Summarize the "Comments" section from page 2 of EC tag - include key issues, rejections, reason codes, and any important history (2-4 sentences max)
 
 LOOK FOR THESE PATTERNS:
-- "PM Order Number:" or "PM#"
-- "Crew Materials" page with M-Code table (Quantity, Unit, M-Code, Description, Lead Time columns)
-- "EC Tag", "Tag Type", "A Tag", "B Tag", "E Tag"
-- "Required Date", "Due Date", "Completion Date"
-- "Program:", "Project Type:", "Work Type:"
+- "PM Order Number:" or "PM#" or "PM Order #:"
+- "Notification:" or "Notification #:" 
+- "MAT Codes:" value
+- "SAP Equipment:" or "SAP Func. Location:"
+- "Crew Materials" page with M-Code table
+- "Electric Overhead Tag" or "Electric Underground Tag" documents
+- "Priority: E" or "Priority: A" for tag classification
+- "Date Identified:", "Date Required:"
+- "Comments" section on page 2 of EC tags with history and rejections
+- "Notification Returned", "Reason Code:", rejection reasons
 - "Backyard", "easement", "off-road", "limited access"
 - "Crane", "digger", "pole set", "pole change"
 - "OH" or "Overhead", "UG" or "Underground"
-- "New Business", "NB", "Capacity", "Reliability"
 
 VALIDATION:
 - Use null for missing optional fields
@@ -308,7 +318,7 @@ VALIDATION:
 - Return ONLY valid JSON
 
 EXAMPLE OUTPUT:
-{"pmNumber":"35653821","address":"21621 COLUMBUS AVE","city":"CUPERTINO","client":"PG&E","orderType":"E460","jobScope":{"summary":"UG Secondary and SVC Upgrade","workType":"Underground","equipment":["Transformers","Cable 4/0A 600V XLP TPX","Dist Conduit 4in"],"footage":"197","voltage":"600V"},"crewMaterials":[{"quantity":139,"unit":"FT","mCode":"M294371","description":"CABLE ELEC INSUL AL 600V 4/0 AWG XLP"},{"quantity":67,"unit":"FT","mCode":"M016472","description":"RIGID CONDUIT PLASTIC 4in PVC SCHEDULE 40"},{"quantity":8,"unit":"EA","mCode":"M384199","description":"CAP CABLE END 0.574in-0.827in # CAP65"}],"preFieldLabels":{"roadAccess":"accessible","constructionType":"underground"},"ecTag":{"tagType":"B","programType":"capacity","isUrgent":false}}`;
+{"pmNumber":"46357356","notificationNumber":"119127590","address":"2626 RAILROAD FLAT RD","city":"Mokelumne Hill","client":"PG&E","matCode":"161","sapId":"101272791","sapFuncLocation":"ED.95-N300000000.STRU.POLE","jobScope":{"summary":"Tree clearance trim at pole location","workType":"Tree Trim"},"crewMaterials":[],"preFieldLabels":{"roadAccess":"accessible","constructionType":"overhead"},"ecTag":{"tagType":"E","dateIdentified":"2020-06-09","dateRequired":"2025-06-09","programType":"tag-work","isUrgent":true,"commentsSummary":"Pole has split top mitigated by hardware framing, needs vis strips. Previously returned twice - R02 (wrong location/photos don't match map) and R05 (missing required photos). SAP ID matches map but photos showed different structure."}}`;
 
     const result = await getPdfUtils().extractWithAI(req.file.path, prompt);
     console.log('AI extraction completed successfully');

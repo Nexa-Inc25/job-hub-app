@@ -98,7 +98,7 @@ export function openDirections(address, city, state = 'CA') {
   if (city) parts.push(city);
   if (state) parts.push(state);
   const destination = encodeURIComponent(parts.join(', '));
-  
+
   console.log('[Navigation] Opening directions to:', parts.join(', '), '(original:', address, ')');
 
   if (isIOSDevice()) {

@@ -135,10 +135,10 @@ function App() {
       <ThemeProvider>
         <SocketProvider>
           <NotificationProvider>
-            <NetworkStatus />
-            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-              <Suspense fallback={<PageLoader />}>
-                <Routes>
+        <NetworkStatus />
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
               {/* Auth routes - no AppShell */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -184,9 +184,9 @@ function App() {
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-              </Suspense>
-            </BrowserRouter>
-            <Analytics />
+          </Suspense>
+        </BrowserRouter>
+        <Analytics />
           </NotificationProvider>
         </SocketProvider>
       </ThemeProvider>

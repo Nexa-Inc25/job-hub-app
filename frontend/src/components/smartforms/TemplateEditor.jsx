@@ -127,7 +127,7 @@ function useContainerWidth(containerRef) {
     const updateWidth = () => {
       if (containerRef.current) {
         setContainerWidth(containerRef.current.clientWidth);
-      }
+}
     };
 
     updateWidth();
@@ -153,7 +153,7 @@ function useTemplateData(templateId) {
 
   // Load template
   useEffect(() => {
-    setLoading(true);
+        setLoading(true);
     loadTemplateData(templateId)
       .then(data => {
         setTemplate(data);
@@ -170,8 +170,8 @@ function useTemplateData(templateId) {
 
   // Fetch PDF as blob
   useEffect(() => {
-    if (!template) return;
-    
+      if (!template) return;
+      
     let blobUrl = null;
     loadPdfBlob(templateId)
       .then(url => {
@@ -193,7 +193,7 @@ function useTemplateData(templateId) {
       .catch(err => console.error('Error loading data paths:', err));
   }, []);
 
-  return {
+    return {
     template, setTemplate,
     fields, setFields,
     mappings, setMappings,
@@ -279,7 +279,7 @@ function useFieldDrawing(template, currentPage, fieldsLength, onFieldCreated) {
  * Reduces cognitive complexity in main component
  */
 async function fetchWithAuth(url, options = {}) {
-  const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token');
   const headers = {
     Authorization: `Bearer ${token}`,
     ...options.headers,
@@ -308,29 +308,29 @@ async function loadDataPaths() {
 
 async function saveTemplateFields(templateId, fields) {
   const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/fields`, {
-    method: 'PUT',
+        method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ fields }),
-  });
+        body: JSON.stringify({ fields }),
+      });
   if (!response.ok) throw new Error('Failed to save fields');
   return response.json();
 }
 
 async function saveTemplateMappings(templateId, mappings) {
   const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/mappings`, {
-    method: 'PUT',
+        method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ mappings }),
-  });
+        body: JSON.stringify({ mappings }),
+      });
   if (!response.ok) throw new Error('Failed to save mappings');
   return response.json();
-}
+    }
 
 async function activateTemplate(templateId) {
   const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/activate`, {
     method: 'POST',
-  });
-  if (!response.ok) throw new Error('Failed to activate template');
+      });
+      if (!response.ok) throw new Error('Failed to activate template');
   return response.json();
 }
 
@@ -343,7 +343,7 @@ function LoadingState() {
       <CircularProgress />
     </Box>
   );
-}
+    }
 
 /**
  * Error state component
@@ -362,21 +362,21 @@ function ErrorState({ error, onBack }) {
 ErrorState.propTypes = {
   error: PropTypes.string.isRequired,
   onBack: PropTypes.func.isRequired,
-};
+  };
 
 /**
  * Convert a field to its screen overlay representation
  * Returns null if field is invalid or has no visible dimensions
  */
 function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
-  if (!field?.bounds) return null;
-  
-  const screenPos = pdfToScreenCoords(
-    field.bounds.x, field.bounds.y, field.bounds.width, field.bounds.height, pageElement
-  );
-  
-  if (screenPos.width <= 0 || screenPos.height <= 0) return null;
-  
+      if (!field?.bounds) return null;
+      
+      const screenPos = pdfToScreenCoords(
+        field.bounds.x, field.bounds.y, field.bounds.width, field.bounds.height, pageElement
+      );
+      
+      if (screenPos.width <= 0 || screenPos.height <= 0) return null;
+
   return { field, screenPos };
 }
 
@@ -384,7 +384,7 @@ function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
  * FieldOverlay - Renders a single field overlay on the PDF
  */
 function FieldOverlay({ field, screenPos, isSelected, hasMapping, onSelect, onEdit, onDelete }) {
-  return (
+    return (
     <Box
       sx={{
         position: 'absolute',
@@ -425,9 +425,9 @@ function FieldOverlay({ field, screenPos, isSelected, hasMapping, onSelect, onEd
           </IconButton>
         </Box>
       )}
-    </Box>
-  );
-}
+      </Box>
+    );
+  }
 
 FieldOverlay.propTypes = {
   field: PropTypes.shape({
@@ -459,82 +459,82 @@ function EditorToolbar({
   const zoomIn = () => setZoom((z) => Math.min(2, z + 0.25));
   const toggleDrawMode = () => setDrawMode(!drawMode);
   const openMappings = () => setMappingDrawerOpen(true);
-  
+
   return (
-    <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+      <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
       <IconButton onClick={onBack}>
-        <ArrowBackIcon />
-      </IconButton>
+          <ArrowBackIcon />
+        </IconButton>
 
-      <Box sx={{ flex: 1 }}>
-        <Typography variant="h6" fontWeight={600}>
-          {template?.name}
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}
-        </Typography>
-      </Box>
+        <Box sx={{ flex: 1 }}>
+          <Typography variant="h6" fontWeight={600}>
+            {template?.name}
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}
+          </Typography>
+        </Box>
 
-      <Chip
-        label={template?.status === 'active' ? 'Active' : 'Draft'}
-        color={template?.status === 'active' ? 'success' : 'warning'}
-        size="small"
-      />
+        <Chip
+          label={template?.status === 'active' ? 'Active' : 'Draft'}
+          color={template?.status === 'active' ? 'success' : 'warning'}
+          size="small"
+        />
 
-      <Divider orientation="vertical" flexItem />
+        <Divider orientation="vertical" flexItem />
 
-      <Tooltip title="Draw New Field">
-        <Button
-          variant={drawMode ? 'contained' : 'outlined'}
-          startIcon={<AddBoxIcon />}
+        <Tooltip title="Draw New Field">
+          <Button
+            variant={drawMode ? 'contained' : 'outlined'}
+            startIcon={<AddBoxIcon />}
           onClick={toggleDrawMode}
-          color={drawMode ? 'secondary' : 'primary'}
-        >
-          {drawMode ? 'Drawing...' : 'Add Field'}
-        </Button>
-      </Tooltip>
+            color={drawMode ? 'secondary' : 'primary'}
+          >
+            {drawMode ? 'Drawing...' : 'Add Field'}
+          </Button>
+        </Tooltip>
 
-      <Tooltip title="Map Data">
+        <Tooltip title="Map Data">
         <Button variant="outlined" startIcon={<LinkIcon />} onClick={openMappings}>
-          Mappings
-        </Button>
-      </Tooltip>
+            Mappings
+          </Button>
+        </Tooltip>
 
-      <Divider orientation="vertical" flexItem />
+        <Divider orientation="vertical" flexItem />
 
       <IconButton onClick={zoomOut}>
-        <ZoomOutIcon />
-      </IconButton>
-      <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>
-        {Math.round(zoom * 100)}%
-      </Typography>
+          <ZoomOutIcon />
+        </IconButton>
+        <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>
+          {Math.round(zoom * 100)}%
+        </Typography>
       <IconButton onClick={zoomIn}>
-        <ZoomInIcon />
-      </IconButton>
+          <ZoomInIcon />
+        </IconButton>
 
-      <Divider orientation="vertical" flexItem />
+        <Divider orientation="vertical" flexItem />
 
-      <Button
-        variant="outlined"
-        startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-        onClick={onSave}
-        disabled={saving}
-      >
-        Save
-      </Button>
-
-      {template?.status !== 'active' && (
         <Button
-          variant="contained"
-          color="success"
-          startIcon={<PlayArrowIcon />}
-          onClick={onActivate}
-          disabled={saving || fields.length === 0}
+          variant="outlined"
+          startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+        onClick={onSave}
+          disabled={saving}
         >
-          Activate
+          Save
         </Button>
-      )}
-    </Paper>
+
+        {template?.status !== 'active' && (
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<PlayArrowIcon />}
+          onClick={onActivate}
+            disabled={saving || fields.length === 0}
+          >
+            Activate
+          </Button>
+        )}
+      </Paper>
   );
 }
 
@@ -956,7 +956,7 @@ export default function TemplateEditor() {
           numPages={numPages}
           currentPage={currentPage}
           onEditField={openEditDialog}
-        />
+                  />
       </Box>
 
       {/* Field Edit Dialog */}

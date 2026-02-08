@@ -1888,7 +1888,7 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
 
 app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) => {
   try {
-    const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode, jobScope, preFieldLabels, ecTag, crewMaterials } = req.body;
+    const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode, sapId, sapFuncLocation, jobScope, preFieldLabels, ecTag, crewMaterials } = req.body;
     const resolvedTitle = title || pmNumber || woNumber || 'Untitled Work Order';
     
     // Parse JSON fields if they're strings (from form data)
@@ -2006,6 +2006,8 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       orderType,
       division: division || 'DA',
       matCode,
+      sapId,                      // SAP Equipment ID from PG&E
+      sapFuncLocation,            // SAP Functional Location from PG&E
       jobScope: parsedJobScope,  // Scope extracted from PG&E Face Sheet
       preFieldLabels: parsedPreFieldLabels,  // Pre-field crew labels
       ecTag: parsedEcTag,  // EC Tag and program info

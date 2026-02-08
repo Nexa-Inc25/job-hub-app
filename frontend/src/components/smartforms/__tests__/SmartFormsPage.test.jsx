@@ -57,9 +57,9 @@ const mockTemplates = [
 const renderWithRouter = (component) => {
   return render(
     <ThemeProvider>
-      <BrowserRouter>
-        {component}
-      </BrowserRouter>
+    <BrowserRouter>
+      {component}
+    </BrowserRouter>
     </ThemeProvider>
   );
 };

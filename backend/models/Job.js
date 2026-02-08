@@ -73,6 +73,8 @@ const jobSchema = new mongoose.Schema({
   orderType: String,
   division: { type: String, default: 'DA' },
   matCode: String,
+  sapId: String,                // SAP Equipment ID (e.g., "101272791")
+  sapFuncLocation: String,      // SAP Functional Location (e.g., "ED.95-N300000000.STRU.POLE")
   // Job scope extracted from PG&E Face Sheet for quick reference
   jobScope: {
     summary: String,           // Brief scope summary (1-2 sentences)
@@ -138,6 +140,9 @@ const jobSchema = new mongoose.Schema({
     },
     programCode: String,       // e.g., "NB", "CAP", "REL", etc.
     isUrgent: { type: Boolean, default: false },
+    dateIdentified: Date,      // When the tag was identified
+    dateRequired: Date,        // When work is required by
+    commentsSummary: String,   // AI-summarized comments from EC tag (key issues, history, rejections)
   },
   
   // PG&E Crew Materials - extracted from job package "Crew Materials" page
