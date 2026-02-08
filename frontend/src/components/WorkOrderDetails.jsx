@@ -723,8 +723,10 @@ const WorkOrderDetails = () => {
                     flexWrap: 'wrap',
                     justifyContent: 'flex-start'
                   }}>
-                    {constructionSketches.map((sketch, idx) => (
-                      <Tooltip key={sketch._id || `sketch-${idx}`} title={`View ${sketch.name || `Page ${sketch.pageNumber || idx + 1}`} - Click to open full size`}>
+                    {constructionSketches.map((sketch, idx) => {
+                      const sketchLabel = sketch.name || ('Page ' + (sketch.pageNumber || idx + 1));
+                      return (
+                      <Tooltip key={sketch._id || `sketch-${idx}`} title={'View ' + sketchLabel + ' - Click to open full size'}>
                         <Box 
                           sx={{ 
                             position: 'relative',
@@ -772,7 +774,7 @@ const WorkOrderDetails = () => {
                           </Box>
                         </Box>
                       </Tooltip>
-                    ))}
+                    );})}
                   </Box>
                 </CardContent>
               </Card>
