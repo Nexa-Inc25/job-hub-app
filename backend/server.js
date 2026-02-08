@@ -5369,8 +5369,8 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
         if (saveErr.name === 'VersionError' && retries > 1) {
           retries--;
           console.log(`Version conflict saving photos for job ${job._id}, retrying... (${retries} left)`);
-          // Small delay to reduce collision chance
-          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
+          // NOSONAR: Math.random() for retry jitter timing is safe - not security-sensitive
+          await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100)); // NOSONAR
         } else {
           throw saveErr;
         }

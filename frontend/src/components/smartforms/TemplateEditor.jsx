@@ -76,7 +76,8 @@ function convertMappingsToObject(dataMappings) {
  * Generate unique field ID
  */
 function generateFieldId() {
-  return `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+  // NOSONAR: Math.random() for UI element IDs is safe - not security-sensitive
+  return `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`; // NOSONAR
 }
 
 /**

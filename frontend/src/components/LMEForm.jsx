@@ -572,8 +572,9 @@ const LMEForm = () => {
     const otHours = defaultHours.otHours;
     const dtHours = defaultHours.dtHours;
     
+    // NOSONAR: Math.random() for local form element IDs is safe - not security-sensitive
     setLaborEntries([...laborEntries, { 
-      id: `labor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `labor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, // NOSONAR
       craft: '', name: '', stHours, otHours, dtHours, rate: '', 
       stAmount: 0, otAmount: 0, dtAmount: 0, totalAmount: 0,
       useCustomHours: false
@@ -591,8 +592,9 @@ const LMEForm = () => {
   };
 
   const addMaterialEntry = () => {
+    // NOSONAR: Math.random() for local form element IDs is safe
     setMaterialEntries([...materialEntries, { 
-      id: `material-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `material-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, // NOSONAR
       description: '', unit: 'EA', quantity: '', unitCost: '', amount: 0 
     }]);
   };
@@ -608,8 +610,9 @@ const LMEForm = () => {
   };
 
   const addEquipmentEntry = () => {
+    // NOSONAR: Math.random() for local form element IDs is safe
     setEquipmentEntries([...equipmentEntries, { 
-      id: `equipment-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `equipment-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, // NOSONAR
       type: '', unitNumber: '', hours: '', rate: '', amount: 0 
     }]);
   };

@@ -3,6 +3,13 @@
  * 
  * High-accuracy geolocation for Digital Receipt verification.
  * 
+ * SECURITY NOTE: Geolocation is a REQUIRED business feature for this app.
+ * GPS coordinates are collected to:
+ * - Verify field workers were physically at job sites (fraud prevention)
+ * - Satisfy utility company billing requirements (PG&E requires GPS stamps)
+ * - Provide audit trail for construction documentation
+ * Users are prompted for permission and can decline.
+ * 
  * Requirements:
  * - Accuracy < 50m required for submission
  * - < 10m for "high quality" GPS badge

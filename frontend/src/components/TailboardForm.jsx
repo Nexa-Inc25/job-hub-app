@@ -508,8 +508,9 @@ const TailboardForm = () => {
   const handleAddHazard = () => {
     if (!selectedCategory || !customHazard.trim()) return;
     
+    // NOSONAR: Math.random() for local form element IDs is safe - not security-sensitive
     const newHazard = {
-      id: `hazard-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `hazard-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, // NOSONAR
       category: selectedCategory,
       description: customHazard.trim(),
       controls: selectedControls,
@@ -547,8 +548,9 @@ const TailboardForm = () => {
         setCrewMembers(res.data.crewMembers);
       } else {
         // Just add locally for now
+        // NOSONAR: Math.random() for local form element IDs is safe
         setCrewMembers([...crewMembers, { 
-          id: `crew-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          id: `crew-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, // NOSONAR
           ...signatureData, 
           signedAt: new Date() 
         }]);
@@ -588,8 +590,9 @@ const TailboardForm = () => {
 
   // Add grounding location
   const handleAddGroundingLocation = () => {
+    // NOSONAR: Math.random() for local form element IDs is safe
     setGroundingLocations([...groundingLocations, { 
-      id: `grounding-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      id: `grounding-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, // NOSONAR
       location: '', installed: false, removed: false 
     }]);
   };

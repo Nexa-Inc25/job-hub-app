@@ -5,6 +5,11 @@
  * Generates realistic sample data for demo sessions.
  * All data uses fake names, addresses, and identifiers
  * that cannot be confused with real customer data.
+ * 
+ * SECURITY NOTE: This file uses Math.random() for demo data variation
+ * (timestamps, work hours). This is intentional and NOT security-sensitive
+ * as it's only used for generating sample test data, not for auth tokens,
+ * session IDs, or any cryptographic purposes.
  */
 
 const mongoose = require('mongoose');
@@ -276,7 +281,8 @@ async function createDemoSession(options = {}) {
       isDemo: true,
       demoSessionId: sessionId,
       folders: structuredClone(DEFAULT_FOLDERS),
-      createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // Random date in last week
+      // NOSONAR: Math.random() for demo data timestamps is safe - not security-sensitive
+      createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000), // NOSONAR
     });
     jobs.push(job);
   }
