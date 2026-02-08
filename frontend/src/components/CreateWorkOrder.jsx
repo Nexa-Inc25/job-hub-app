@@ -349,8 +349,8 @@ const CreateWorkOrder = ({ token }) => {
                   📦 Crew Materials ({crewMaterials.length} items with M-Codes)
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 150, overflowY: 'auto' }}>
-                  {crewMaterials.slice(0, 8).map((mat, idx) => (
-                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {crewMaterials.slice(0, 8).map((mat) => (
+                    <Box key={mat.mCode || mat.description} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Typography variant="caption" sx={{ bgcolor: '#d1fae5', color: '#065f46', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, minWidth: 80 }}>
                         {mat.mCode}
                       </Typography>

@@ -842,12 +842,15 @@ const ForemanCloseOut = () => {
   const handlePdfSave = async (pdfBase64) => {
     try {
       // Convert base64 to bytes
-      // Use charCodeAt (not codePointAt) - charCodeAt returns 0-255 byte values
-      // while codePointAt can return values >255 for Unicode, causing data corruption
+      // IMPORTANT: Must use charCodeAt (not codePointAt) for binary data!
+      // charCodeAt returns 0-255 byte values matching the decoded base64 bytes.
+      // codePointAt returns Unicode code points which can exceed 255 for
+      // multi-byte characters, causing data corruption when assigned to Uint8Array.
+      // See: https://developer.mozilla.org/en-US/docs/Web/API/atob
       const binaryString = atob(pdfBase64);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+        bytes[i] = binaryString.charCodeAt(i); // NOSONAR: charCodeAt is correct for binary data
       }
       
       // Upload the edited PDF back to R2
