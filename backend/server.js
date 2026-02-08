@@ -2347,6 +2347,20 @@ async function extractAssetsInBackground(jobId, pdfPath) {
       ...(extractedAssets.tcpMaps || []).map(t => ({ type: 'tcp_map', name: t.name, url: t.url, extractedAt: new Date() }))
     ];
     
+    // Store construction sketches for quick access in job details header
+    const pdfBasename = path.basename(pdfPath);
+    if (extractedAssets.drawings && extractedAssets.drawings.length > 0) {
+      job.constructionSketches = extractedAssets.drawings.map(drawing => ({
+        pageNumber: drawing.pageNumber,
+        url: drawing.url,
+        r2Key: drawing.r2Key || null,
+        name: drawing.name,
+        extractedFrom: pdfBasename,
+        extractedAt: new Date()
+      }));
+      console.log(`Stored ${job.constructionSketches.length} construction sketches for quick access`);
+    }
+    
     // Remove extracted photo pages from the job package PDF (clean as-built)
     const photoPageNumbers = extractedAssets.photos
       .map(p => p.pageNumber)
