@@ -1359,14 +1359,13 @@ const WorkOrderDetails = () => {
                                 aria-label={`Open ${doc.name || 'document'}`}
                               >
                                 <OpenInNewIcon fontSize="small" />
-                    </IconButton>
+                              </IconButton>
                             </ListItem>
                           ))}
                         </List>
                       </CardContent>
                     </Card>
                   </Grid>
-                )}
               </Grid>
             </Grid>
           )}
