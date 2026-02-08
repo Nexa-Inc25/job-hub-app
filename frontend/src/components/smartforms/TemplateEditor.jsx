@@ -335,6 +335,52 @@ async function activateTemplate(templateId) {
 }
 
 /**
+ * Loading state component
+ */
+function LoadingState() {
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+      <CircularProgress />
+    </Box>
+  );
+}
+
+/**
+ * Error state component
+ */
+function ErrorState({ error, onBack }) {
+  return (
+    <Box sx={{ p: 3 }}>
+      <Alert severity="error">{error}</Alert>
+      <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mt: 2 }}>
+        Back to SmartForms
+      </Button>
+    </Box>
+  );
+}
+
+ErrorState.propTypes = {
+  error: PropTypes.string.isRequired,
+  onBack: PropTypes.func.isRequired,
+};
+
+/**
+ * Convert a field to its screen overlay representation
+ * Returns null if field is invalid or has no visible dimensions
+ */
+function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
+  if (!field?.bounds) return null;
+  
+  const screenPos = pdfToScreenCoords(
+    field.bounds.x, field.bounds.y, field.bounds.width, field.bounds.height, pageElement
+  );
+  
+  if (screenPos.width <= 0 || screenPos.height <= 0) return null;
+  
+  return { field, screenPos };
+}
+
+/**
  * FieldOverlay - Renders a single field overlay on the PDF
  */
 function FieldOverlay({ field, screenPos, isSelected, hasMapping, onSelect, onEdit, onDelete }) {
@@ -521,67 +567,55 @@ export default function TemplateEditor() {
     );
   };
 
-  // Delete field
-  const handleDeleteField = (fieldId) => {
+  // Delete field - needs fields in dependency for mapping lookup
+  const handleDeleteField = useCallback((fieldId) => {
+    const fieldToDelete = fields.find((f) => f.id === fieldId);
     setFields((prev) => prev.filter((f) => f.id !== fieldId));
-    if (selectedField === fieldId) setSelectedField(null);
-    // Remove mapping
-    setMappings((prev) => {
-      const updated = { ...prev };
-      const field = fields.find((f) => f.id === fieldId);
-      if (field) delete updated[field.name];
-      return updated;
-    });
-  };
+    setSelectedField((prevSelected) => prevSelected === fieldId ? null : prevSelected);
+    // Remove mapping if field had one
+    if (fieldToDelete) {
+      setMappings((prev) => {
+        const updated = { ...prev };
+        delete updated[fieldToDelete.name];
+        return updated;
+      });
+    }
+  }, [fields, setFields, setMappings]);
 
-  // Render field overlays
-  const renderFieldOverlays = (pageElement) => {
+  // Open edit dialog for a field
+  const openEditDialog = useCallback((f) => {
+    setEditingField(f);
+    setEditDialogOpen(true);
+  }, []);
+
+  // Render field overlays - uses extracted helper function
+  const renderFieldOverlays = useCallback((pageElement) => {
     if (!pageElement) return null;
     
-    const pageFields = fields.filter((f) => f.page === currentPage);
+    return fields
+      .filter((f) => f.page === currentPage)
+      .map((field) => {
+        const overlay = fieldToOverlay(field, pdfToScreenCoords, pageElement);
+        if (!overlay) return null;
 
-    return pageFields.map((field) => {
-      if (!field?.bounds) return null;
-      
-      const screenPos = pdfToScreenCoords(
-        field.bounds.x, field.bounds.y, field.bounds.width, field.bounds.height, pageElement
-      );
-      
-      if (screenPos.width <= 0 || screenPos.height <= 0) return null;
+        return (
+          <FieldOverlay
+            key={field.id}
+            field={overlay.field}
+            screenPos={overlay.screenPos}
+            isSelected={selectedField === field.id}
+            hasMapping={!!mappings[field.name]}
+            onSelect={setSelectedField}
+            onEdit={openEditDialog}
+            onDelete={handleDeleteField}
+          />
+        );
+      });
+  }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField]);
 
-      return (
-        <FieldOverlay
-          key={field.id}
-          field={field}
-          screenPos={screenPos}
-          isSelected={selectedField === field.id}
-          hasMapping={!!mappings[field.name]}
-          onSelect={setSelectedField}
-          onEdit={(f) => { setEditingField(f); setEditDialogOpen(true); }}
-          onDelete={handleDeleteField}
-        />
-      );
-    });
-  };
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error}</Alert>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/smartforms')} sx={{ mt: 2 }}>
-          Back to SmartForms
-        </Button>
-      </Box>
-    );
-  }
+  // Early return states - extracted to separate components
+  if (loading) return <LoadingState />;
+  if (error) return <ErrorState error={error} onBack={() => navigate('/smartforms')} />;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
