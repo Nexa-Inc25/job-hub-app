@@ -297,6 +297,40 @@ function applyDisputeResolution(unit, action, user, adjustedQuantity, adjustedRe
   }
 }
 
+/**
+ * Send notification after dispute resolution
+ * Extracted to reduce cognitive complexity of main handler
+ */
+async function sendDisputeResolutionNotification(unit, action, user, resolution) {
+  try {
+    const job = await Job.findById(unit.jobId).select('assignedToGF companyId woNumber').lean();
+    if (!job) return;
+    
+    const isRejection = action === 'resubmit' || action === 'void';
+    
+    if (isRejection) {
+      const reason = action === 'void' 
+        ? 'Unit voided: ' + resolution 
+        : 'Resubmission required: ' + resolution;
+      await notificationService.notifyUnitRejected({
+        job,
+        unitEntry: unit,
+        rejectedBy: user,
+        reason
+      });
+    } else {
+      // action is 'accept' or 'adjust' - send approval notification
+      await notificationService.notifyUnitApproved({
+        job,
+        unitEntry: unit,
+        approvedBy: user
+      });
+    }
+  } catch (error_) {
+    console.error('[Units:ResolveDispute] Notification error:', error_.message);
+  }
+}
+
 // ============================================================================
 // UNIT ENTRIES - The "Digital Receipt"
 // ============================================================================
@@ -934,30 +968,8 @@ router.post('/units/:id/resolve-dispute', async (req, res) => {
 
     await unit.save();
 
-    // Send notification to the General Foreman for rejection cases
-    try {
-      const job = await Job.findById(unit.jobId).select('assignedToGF companyId woNumber').lean();
-      if (job) {
-        if (action === 'resubmit' || action === 'void') {
-          // These are "rejection" cases - notify GF
-          await notificationService.notifyUnitRejected({
-            job,
-            unitEntry: unit,
-            rejectedBy: user,
-            reason: action === 'void' ? 'Unit voided: ' + resolution : 'Resubmission required: ' + resolution
-          });
-        } else if (action === 'accept' || action === 'adjust') {
-          // Approval after dispute - notify GF
-          await notificationService.notifyUnitApproved({
-            job,
-            unitEntry: unit,
-            approvedBy: user
-          });
-        }
-      }
-    } catch (error_) {
-      console.error('[Units:ResolveDispute] Notification error:', error_.message);
-    }
+    // Send notification (extracted to helper for reduced complexity)
+    await sendDisputeResolutionNotification(unit, action, user, resolution);
 
     res.json({
       message: `Dispute resolved: ${action}`,
