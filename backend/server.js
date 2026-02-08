@@ -1905,6 +1905,15 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
     const parsedJobScope = parseJsonField(jobScope, 'jobScope');
     const parsedPreFieldLabels = parseJsonField(preFieldLabels, 'preFieldLabels');
     const parsedEcTag = parseJsonField(ecTag, 'ecTag');
+    const parsedCrewMaterials = parseJsonField(crewMaterials, 'crewMaterials');
+    
+    // Log what we received for debugging
+    console.log('[Job Create] Received fields:', {
+      pmNumber, notificationNumber, woNumber, sapId, sapFuncLocation,
+      hasJobScope: !!parsedJobScope,
+      hasCrewMaterials: !!parsedCrewMaterials,
+      crewMaterialsCount: Array.isArray(parsedCrewMaterials) ? parsedCrewMaterials.length : 0
+    });
     
     const resolvedDescription = description || [address, city, client].filter(Boolean).join(' | ') || '';
     
@@ -2011,8 +2020,8 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
       jobScope: parsedJobScope,  // Scope extracted from PG&E Face Sheet
       preFieldLabels: parsedPreFieldLabels,  // Pre-field crew labels
       ecTag: parsedEcTag,  // EC Tag and program info
-      crewMaterials: parseJsonField(crewMaterials, 'crewMaterials'),  // PG&E Crew Materials with M-Codes
-      crewMaterialsExtractedAt: crewMaterials ? new Date() : undefined,
+      crewMaterials: parsedCrewMaterials,  // PG&E Crew Materials with M-Codes
+      crewMaterialsExtractedAt: parsedCrewMaterials ? new Date() : undefined,
       userId: req.userId,
       companyId: user?.companyId,  // MULTI-TENANT: Assign job to user's company
       status: 'pending',
@@ -2145,6 +2154,16 @@ app.post('/api/jobs', authenticateUser, upload.single('pdf'), async (req, res) =
     }
   } catch (err) {
     console.error('Error creating job:', err);
+    console.error('Error stack:', err.stack);
+    // If it's a Mongoose validation error, provide more details
+    if (err.name === 'ValidationError') {
+      const validationErrors = Object.keys(err.errors).map(key => ({
+        field: key,
+        message: err.errors[key].message
+      }));
+      console.error('Validation errors:', validationErrors);
+      return res.status(400).json({ error: 'Validation failed', details: validationErrors });
+    }
     res.status(500).json({ error: 'Server error', details: err.message });
   }
 });
