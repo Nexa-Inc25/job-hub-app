@@ -2101,13 +2101,13 @@ const Dashboard = () => {
                             {(job.jobScope.workType || job.jobScope.footage) && (
                               <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
                                 {job.jobScope.workType && (
-                                  <Chip size="small" label={job.jobScope.workType} sx={{ height: 18, fontSize: '0.65rem' }} />
+                                  <Chip size="small" label={job.jobScope.workType} sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#e0f2fe', color: '#0c4a6e', fontWeight: 500 }} />
                                 )}
                                 {job.jobScope.footage && (
-                                  <Chip size="small" label={job.jobScope.footage} sx={{ height: 18, fontSize: '0.65rem' }} />
+                                  <Chip size="small" label={`${job.jobScope.footage} ft`} sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#fef3c7', color: '#78350f', fontWeight: 500 }} />
                                 )}
                                 {job.jobScope.voltage && (
-                                  <Chip size="small" label={job.jobScope.voltage} sx={{ height: 18, fontSize: '0.65rem' }} />
+                                  <Chip size="small" label={job.jobScope.voltage} sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#fee2e2', color: '#7f1d1d', fontWeight: 500 }} />
                                 )}
                               </Box>
                             )}

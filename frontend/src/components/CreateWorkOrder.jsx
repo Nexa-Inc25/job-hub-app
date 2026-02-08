@@ -281,22 +281,22 @@ const CreateWorkOrder = ({ token }) => {
                 {(jobScope.workType || jobScope.footage || jobScope.voltage) && (
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 1 }}>
                     {jobScope.workType && (
-                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#e0f2fe', color: '#0c4a6e', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
                         <strong>Work:</strong> {jobScope.workType}
                       </Typography>
                     )}
                     {jobScope.footage && (
-                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#fef3c7', color: '#78350f', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
                         <strong>Footage:</strong> {jobScope.footage}
                       </Typography>
                     )}
                     {jobScope.voltage && (
-                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#fee2e2', color: '#7f1d1d', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
                         <strong>Voltage:</strong> {jobScope.voltage}
                       </Typography>
                     )}
                     {jobScope.phases && (
-                      <Typography variant="caption" sx={{ bgcolor: 'rgba(255,255,255,0.9)', px: 1, py: 0.5, borderRadius: 1 }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#f3e8ff', color: '#581c87', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
                         <strong>Phases:</strong> {jobScope.phases}
                       </Typography>
                     )}
