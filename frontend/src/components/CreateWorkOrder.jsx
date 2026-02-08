@@ -41,6 +41,9 @@ const CreateWorkOrder = ({ token }) => {
   const [orderType, setOrderType] = useState('');
   const [division, setDivision] = useState('DA');
   const [matCode, setMatCode] = useState('');
+  const [sapId, setSapId] = useState('');  // SAP Equipment ID
+  const [sapFuncLocation, setSapFuncLocation] = useState('');  // SAP Functional Location
+  const [crewMaterials, setCrewMaterials] = useState(null);  // PG&E Crew Materials with M-Codes
   const [jobScope, setJobScope] = useState(null);  // Scope extracted from Face Sheet
   const [preFieldLabels, setPreFieldLabels] = useState(null);  // Pre-field crew labels
   const [ecTag, setEcTag] = useState(null);  // EC Tag info
@@ -85,6 +88,8 @@ const CreateWorkOrder = ({ token }) => {
             woNumber: setWoNumber,
             notificationNumber: setNotificationNumber,
             matCode: setMatCode,
+            sapId: setSapId,
+            sapFuncLocation: setSapFuncLocation,
             address: setAddress,
             city: setCity,
             client: setClient,
@@ -94,6 +99,11 @@ const CreateWorkOrder = ({ token }) => {
           Object.entries(fieldSetters).forEach(([key, setter]) => {
             if (data[key]) setter(data[key]);
           });
+          // Store crew materials with M-Codes (from PG&E Crew Materials page)
+          if (data.crewMaterials && Array.isArray(data.crewMaterials) && data.crewMaterials.length > 0) {
+            setCrewMaterials(data.crewMaterials);
+            console.log(`Extracted ${data.crewMaterials.length} crew materials with M-Codes`);
+          }
           // Store job scope from Face Sheet
           if (data.jobScope) {
             setJobScope(data.jobScope);
@@ -147,6 +157,17 @@ const CreateWorkOrder = ({ token }) => {
     jobFormData.append('orderType', orderType);
     jobFormData.append('division', division);
     jobFormData.append('matCode', matCode);
+    // Include SAP IDs for PG&E integration
+    if (sapId) {
+      jobFormData.append('sapId', sapId);
+    }
+    if (sapFuncLocation) {
+      jobFormData.append('sapFuncLocation', sapFuncLocation);
+    }
+    // Include crew materials with M-Codes (from PG&E Crew Materials page)
+    if (crewMaterials && crewMaterials.length > 0) {
+      jobFormData.append('crewMaterials', JSON.stringify(crewMaterials));
+    }
     // Include job scope extracted from Face Sheet
     if (jobScope) {
       jobFormData.append('jobScope', JSON.stringify(jobScope));
@@ -309,6 +330,71 @@ const CreateWorkOrder = ({ token }) => {
                     </Typography>
                   </Box>
                 )}
+              </Paper>
+            )}
+
+            {/* Crew Materials Preview (if extracted from Crew Materials page) */}
+            {crewMaterials && crewMaterials.length > 0 && (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  mb: 3,
+                  bgcolor: 'rgba(16, 185, 129, 0.08)',
+                  borderColor: '#10b981',
+                  borderRadius: 2
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ color: '#065f46', fontWeight: 700, mb: 1 }}>
+                  📦 Crew Materials ({crewMaterials.length} items with M-Codes)
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 150, overflowY: 'auto' }}>
+                  {crewMaterials.slice(0, 8).map((mat, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#d1fae5', color: '#065f46', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, minWidth: 80 }}>
+                        {mat.mCode}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.primary' }}>
+                        {mat.quantity} {mat.unit} - {mat.description?.slice(0, 50)}{mat.description?.length > 50 ? '...' : ''}
+                      </Typography>
+                    </Box>
+                  ))}
+                  {crewMaterials.length > 8 && (
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                      ... and {crewMaterials.length - 8} more items
+                    </Typography>
+                  )}
+                </Box>
+              </Paper>
+            )}
+
+            {/* SAP IDs Preview (if extracted) */}
+            {(sapId || sapFuncLocation) && (
+              <Paper
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  mb: 3,
+                  bgcolor: 'rgba(139, 92, 246, 0.08)',
+                  borderColor: '#8b5cf6',
+                  borderRadius: 2
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ color: '#5b21b6', fontWeight: 700, mb: 1 }}>
+                  🔗 SAP Integration Data
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  {sapId && (
+                    <Typography variant="caption" sx={{ bgcolor: '#ede9fe', color: '#5b21b6', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
+                      <strong>SAP ID:</strong> {sapId}
+                    </Typography>
+                  )}
+                  {sapFuncLocation && (
+                    <Typography variant="caption" sx={{ bgcolor: '#ede9fe', color: '#5b21b6', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
+                      <strong>Func Location:</strong> {sapFuncLocation}
+                    </Typography>
+                  )}
+                </Box>
               </Paper>
             )}
 
