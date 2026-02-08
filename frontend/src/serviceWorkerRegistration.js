@@ -52,12 +52,10 @@ function registerValidSW(swUrl, config) {
         if (event.data?.type === 'STALE_CHUNK_DETECTED') {
           console.log('[SW] Stale chunk detected - reloading to get new version');
           // Clear caches and reload
-          if ('caches' in window) {
-            caches.keys().then(keys => {
-              Promise.all(keys.map(key => caches.delete(key))).then(() => {
-                globalThis.location.reload();
-              });
-            });
+          if ('caches' in globalThis) {
+            caches.keys().then(keys => 
+              Promise.all(keys.map(key => caches.delete(key)))
+            ).then(() => globalThis.location.reload());
           } else {
             globalThis.location.reload();
           }

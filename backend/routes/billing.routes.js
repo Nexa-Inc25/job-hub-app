@@ -24,6 +24,7 @@ const PriceBook = require('../models/PriceBook');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
+const { withOptionalTransaction } = require('../utils/transaction');
 
 // ============================================================================
 // HELPER FUNCTIONS - Extracted to reduce cognitive complexity

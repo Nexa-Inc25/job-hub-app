@@ -2,6 +2,7 @@ const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListO
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('node:fs');
 const path = require('node:path');
+const { r2Breaker } = require('./circuitBreaker');
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'fieldledger-uploads';
 // Cloudflare Worker URL for direct file serving (bypasses Railway for faster loads)
@@ -37,14 +38,14 @@ if (isR2Configured()) {
   console.log('R2 not configured - using local storage fallback');
 }
 
-// Upload a file to R2
+// Upload a file to R2 (protected by circuit breaker)
 async function uploadFile(localFilePath, r2Key, contentType = 'application/octet-stream') {
   if (!isR2Configured()) {
     console.log('R2 not configured, using local storage');
     return { url: localFilePath, key: r2Key, local: true };
   }
 
-  try {
+  return r2Breaker.execute(async () => {
     const fileBuffer = fs.readFileSync(localFilePath);
     
     const command = new PutObjectCommand({
@@ -61,10 +62,7 @@ async function uploadFile(localFilePath, r2Key, contentType = 'application/octet
     console.log(`Uploaded to R2: ${r2Key}`);
     
     return { url, key: r2Key, local: false };
-  } catch (error) {
-    console.error('R2 upload error:', error);
-    throw error;
-  }
+  });
 }
 
 // Upload a buffer directly to R2
@@ -112,13 +110,13 @@ async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
   }
 }
 
-// Get file stream directly from R2 (for proxying through backend)
+// Get file stream directly from R2 (for proxying through backend, protected by circuit breaker)
 async function getFileStream(r2Key) {
   if (!isR2Configured()) {
     return null;
   }
 
-  try {
+  return r2Breaker.execute(async () => {
     const command = new GetObjectCommand({
       Bucket: BUCKET_NAME,
       Key: r2Key,
@@ -130,13 +128,17 @@ async function getFileStream(r2Key) {
       contentType: response.ContentType,
       contentLength: response.ContentLength,
     };
-  } catch (error) {
+  }).catch(error => {
     if (error.name === 'NoSuchKey') {
+      return null;
+    }
+    if (error.code === 'CIRCUIT_OPEN') {
+      console.warn('R2 circuit breaker open, cannot fetch file');
       return null;
     }
     console.error('R2 get file error:', error);
     throw error;
-  }
+  });
 }
 
 // Delete a file from R2

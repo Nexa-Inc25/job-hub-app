@@ -63,8 +63,14 @@ const {
   preventParamPollution,
   slowRequestLogger,
   blockSuspiciousAgents,
-  secureErrorHandler
+  secureErrorHandler,
+  asyncHandler
 } = require('./middleware/security');
+const {
+  loginValidation,
+  signupValidation,
+  mfaValidation
+} = require('./middleware/validators');
 const {
   ipBlockerMiddleware,
   loginAttemptTracker,
@@ -160,13 +166,22 @@ app.get('/api/health', (req, res) => {
   const dbState = mongoose.connection.readyState;
   const dbStates = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
   
+  // Import circuit breaker health (lazy to avoid circular deps)
+  const { getCircuitBreakerHealth } = require('./utils/circuitBreaker');
+  const circuitHealth = getCircuitBreakerHealth();
+  
   // Determine overall health
   // Accept "connecting" state (2) during startup to pass initial healthcheck
-  const isHealthy = dbState === 1 || dbState === 2;
+  const isDbHealthy = dbState === 1 || dbState === 2;
+  
+  // Check if any circuit breakers are open (degraded but not unhealthy)
+  const hasOpenCircuits = circuitHealth.openai.isOpen || circuitHealth.r2.isOpen;
+  
+  const isHealthy = isDbHealthy;
   const statusCode = isHealthy ? 200 : 503;
   
   res.status(statusCode).json({ 
-    status: isHealthy ? 'ok' : 'degraded',
+    status: isHealthy ? (hasOpenCircuits ? 'degraded' : 'ok') : 'unhealthy',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',
     
@@ -174,6 +189,24 @@ app.get('/api/health', (req, res) => {
     database: {
       status: dbStates[dbState] || 'unknown',
       connected: dbState === 1
+    },
+    
+    // External services health (circuit breaker status)
+    services: {
+      storage: {
+        configured: r2Storage.isR2Configured(),
+        status: r2Storage.isR2Configured() 
+          ? (circuitHealth.r2.isOpen ? 'circuit_open' : 'ok')
+          : 'local_fallback',
+        failures: circuitHealth.r2.failures
+      },
+      ai: {
+        configured: Boolean(process.env.OPENAI_API_KEY),
+        status: process.env.OPENAI_API_KEY
+          ? (circuitHealth.openai.isOpen ? 'circuit_open' : 'ok')
+          : 'disabled',
+        failures: circuitHealth.openai.failures
+      }
     },
     
     // System metrics
@@ -186,7 +219,7 @@ app.get('/api/health', (req, res) => {
       }
     },
     
-    // Feature flags
+    // Feature flags (kept for backwards compatibility)
     features: {
       aiEnabled: Boolean(process.env.OPENAI_API_KEY),
       r2Storage: r2Storage.isR2Configured()
@@ -578,7 +611,7 @@ const requireSuperAdmin = (req, res, next) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-app.post('/api/signup', authController.signup);
+app.post('/api/signup', signupValidation, authController.signup);
 
 /**
  * @swagger
@@ -606,12 +639,12 @@ app.post('/api/signup', authController.signup);
  *       423:
  *         description: Account locked due to too many failed attempts
  */
-app.post('/api/login', authController.login);
+app.post('/api/login', loginValidation, authController.login);
 
 // ==================== MFA ENDPOINTS (PG&E Compliance) ====================
 
 // Verify MFA code during login
-app.post('/api/auth/mfa/verify', async (req, res) => {
+app.post('/api/auth/mfa/verify', mfaValidation, async (req, res) => {
   try {
     const { mfaToken, code, trustDevice } = req.body;
     
@@ -732,7 +765,7 @@ app.post('/api/auth/mfa/setup', authenticateUser, async (req, res) => {
 });
 
 // Enable MFA - Verify initial code and activate
-app.post('/api/auth/mfa/enable', authenticateUser, async (req, res) => {
+app.post('/api/auth/mfa/enable', authenticateUser, mfaValidation, async (req, res) => {
   try {
     const { code } = req.body;
     

@@ -845,7 +845,7 @@ const ForemanCloseOut = () => {
       const binaryString = atob(pdfBase64);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+        bytes[i] = binaryString.codePointAt(i);
       }
       
       // Upload the edited PDF back to R2
@@ -954,7 +954,7 @@ const ForemanCloseOut = () => {
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={() => navigate(-1)} sx={{ color: COLORS.text, p: 0.5 }}>
+            <IconButton onClick={() => navigate(-1)} sx={{ color: COLORS.text, p: 0.5 }} aria-label="Go back">
               <BackIcon />
             </IconButton>
             <Box>

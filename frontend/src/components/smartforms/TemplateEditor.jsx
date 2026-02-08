@@ -117,6 +117,66 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
 }
 
 /**
+ * API helper for template operations
+ * Reduces cognitive complexity in main component
+ */
+async function fetchWithAuth(url, options = {}) {
+  const token = localStorage.getItem('token');
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    ...options.headers,
+  };
+  return fetch(url, { ...options, headers });
+}
+
+async function loadTemplateData(templateId) {
+  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}`);
+  if (!response.ok) throw new Error('Failed to load template');
+  return response.json();
+}
+
+async function loadPdfBlob(templateId) {
+  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/pdf`);
+  if (!response.ok) throw new Error('Failed to fetch PDF');
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
+}
+
+async function loadDataPaths() {
+  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/data-paths`);
+  if (response.ok) return response.json();
+  return [];
+}
+
+async function saveTemplateFields(templateId, fields) {
+  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/fields`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields }),
+  });
+  if (!response.ok) throw new Error('Failed to save fields');
+  return response.json();
+}
+
+async function saveTemplateMappings(templateId, mappings) {
+  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/mappings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mappings }),
+  });
+  if (!response.ok) throw new Error('Failed to save mappings');
+  return response.json();
+}
+
+async function activateTemplate(templateId) {
+  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/activate`, {
+    method: 'POST',
+  });
+  if (!response.ok) throw new Error('Failed to activate template');
+  return response.json();
+}
+
+/**
  * FieldOverlay - Renders a single field overlay on the PDF
  */
 function FieldOverlay({ field, screenPos, isSelected, hasMapping, onSelect, onEdit, onDelete }) {
@@ -228,14 +288,7 @@ export default function TemplateEditor() {
     const fetchTemplate = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE}/api/smartforms/templates/${templateId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!response.ok) throw new Error('Failed to load template');
-
-        const data = await response.json();
+        const data = await loadTemplateData(templateId);
         setTemplate(data);
         setFields(data.fields || []);
         setMappings(convertMappingsToObject(data.dataMappings));
@@ -253,59 +306,32 @@ export default function TemplateEditor() {
 
   // Fetch PDF as blob for react-pdf (more reliable than URL with auth headers)
   useEffect(() => {
-    const fetchPdfBlob = async () => {
-      if (!template) return;
-      
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE}/api/smartforms/templates/${templateId}/pdf`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch PDF');
-        }
-        
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
+    if (!template) return;
+    
+    let blobUrl = null;
+    
+    loadPdfBlob(templateId)
+      .then(url => {
+        blobUrl = url;
         setPdfBlobUrl(url);
-        
         console.log('[TemplateEditor] PDF blob URL created:', url);
-      } catch (err) {
+      })
+      .catch(err => {
         console.error('[TemplateEditor] Error fetching PDF blob:', err);
         setError('Failed to load PDF: ' + err.message);
-      }
-    };
-    
-    fetchPdfBlob();
+      });
     
     // Cleanup blob URL on unmount
     return () => {
-      if (pdfBlobUrl) {
-        URL.revokeObjectURL(pdfBlobUrl);
-      }
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
     };
   }, [template, templateId]);
 
   // Load data paths
   useEffect(() => {
-    const fetchDataPaths = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE}/api/smartforms/data-paths`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setDataPaths(data);
-        }
-      } catch (err) {
-        console.error('Error loading data paths:', err);
-      }
-    };
-
-    fetchDataPaths();
+    loadDataPaths()
+      .then(data => setDataPaths(data))
+      .catch(err => console.error('Error loading data paths:', err));
   }, []);
 
   // Container width tracking
@@ -405,32 +431,8 @@ export default function TemplateEditor() {
   const handleSaveFields = async () => {
     try {
       setSaving(true);
-      const token = localStorage.getItem('token');
-
-      // Save fields
-      const fieldsResponse = await fetch(`${API_BASE}/api/smartforms/templates/${templateId}/fields`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ fields }),
-      });
-
-      if (!fieldsResponse.ok) throw new Error('Failed to save fields');
-
-      // Save mappings
-      const mappingsResponse = await fetch(`${API_BASE}/api/smartforms/templates/${templateId}/mappings`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ mappings }),
-      });
-
-      if (!mappingsResponse.ok) throw new Error('Failed to save mappings');
-
+      await saveTemplateFields(templateId, fields);
+      await saveTemplateMappings(templateId, mappings);
       setSnackbar({ open: true, message: 'Template saved successfully!', severity: 'success' });
     } catch (err) {
       console.error('Error saving template:', err);
@@ -449,23 +451,10 @@ export default function TemplateEditor() {
 
     try {
       setSaving(true);
-      const token = localStorage.getItem('token');
-
       // Save fields and mappings first
       await handleSaveFields();
-
-      // Update status
-      const response = await fetch(`${API_BASE}/api/smartforms/templates/${templateId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: 'active' }),
-      });
-
-      if (!response.ok) throw new Error('Failed to activate template');
-
+      // Activate template
+      await activateTemplate(templateId);
       setTemplate((prev) => ({ ...prev, status: 'active' }));
       setSnackbar({ open: true, message: 'Template activated!', severity: 'success' });
     } catch (err) {

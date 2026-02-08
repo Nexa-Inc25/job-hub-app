@@ -7,6 +7,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import SmartFormsPage from '../SmartFormsPage';
+import { ThemeProvider } from '../../../ThemeContext';
 
 // Mock fetch
 const mockFetch = vi.fn();
@@ -55,9 +56,11 @@ const mockTemplates = [
 
 const renderWithRouter = (component) => {
   return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        {component}
+      </BrowserRouter>
+    </ThemeProvider>
   );
 };
 

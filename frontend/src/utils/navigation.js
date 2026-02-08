@@ -4,6 +4,30 @@
  */
 
 /**
+ * Get user agent string for platform detection
+ * @returns {string}
+ */
+function getUserAgent() {
+  return navigator.userAgent || '';
+}
+
+/**
+ * Check if running on iOS
+ * @returns {boolean}
+ */
+function isIOSDevice() {
+  return /iPad|iPhone|iPod/.test(getUserAgent());
+}
+
+/**
+ * Check if running on Android
+ * @returns {boolean}
+ */
+function isAndroidDevice() {
+  return /Android/.test(getUserAgent());
+}
+
+/**
  * Open directions to a job address in the native maps app
  * - iOS: Opens Apple Maps
  * - Android: Opens Google Maps app
@@ -25,22 +49,17 @@ export function openDirections(address, city, state = 'CA') {
   if (state) parts.push(state);
   const destination = encodeURIComponent(parts.join(', '));
 
-  // Detect platform
-  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-  const isAndroid = /Android/.test(userAgent);
-
-  if (isIOS) {
+  if (isIOSDevice()) {
     // Apple Maps - uses maps:// scheme
-    window.location.href = `maps://maps.apple.com/?daddr=${destination}&dirflg=d`;
+    globalThis.location.href = `maps://maps.apple.com/?daddr=${destination}&dirflg=d`;
     return true;
-  } else if (isAndroid) {
+  } else if (isAndroidDevice()) {
     // Google Maps app - uses geo: scheme with navigation intent
-    window.location.href = `google.navigation:q=${destination}`;
+    globalThis.location.href = `google.navigation:q=${destination}`;
     return true;
   } else {
     // Desktop - open Google Maps in new tab
-    window.open(
+    globalThis.open(
       `https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=driving`,
       '_blank'
     );
@@ -53,10 +72,7 @@ export function openDirections(address, city, state = 'CA') {
  * @returns {boolean}
  */
 export function supportsNativeNavigation() {
-  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-  const isAndroid = /Android/.test(userAgent);
-  return isIOS || isAndroid;
+  return isIOSDevice() || isAndroidDevice();
 }
 
 /**
@@ -64,12 +80,7 @@ export function supportsNativeNavigation() {
  * @returns {string}
  */
 export function getMapsAppName() {
-  const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-  const isIOS = /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream;
-  const isAndroid = /Android/.test(userAgent);
-  
-  if (isIOS) return 'Apple Maps';
-  if (isAndroid) return 'Google Maps';
+  if (isIOSDevice()) return 'Apple Maps';
+  if (isAndroidDevice()) return 'Google Maps';
   return 'Google Maps';
 }
-

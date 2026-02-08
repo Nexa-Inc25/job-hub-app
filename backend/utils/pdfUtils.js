@@ -1,5 +1,6 @@
 const fs = require('node:fs');
 const OpenAI = require('openai');
+const { openaiBreaker } = require('./circuitBreaker');
 
 // Initialize OpenAI client lazily
 let openai = null;
@@ -86,21 +87,23 @@ async function extractWithAI(filePath, prompt = "Extract all relevant informatio
     // Allow processing even with minimal text (like the fallback message)
     // The AI can still provide some analysis even with limited content
 
-    // Use OpenAI to extract structured information
-        const completion = await getOpenAIClient().chat.completions.create({
-      model: "gpt-4-turbo-preview",
-      messages: [
-        {
-          role: "system",
-          content: "You are an expert at extracting structured information from documents. Extract all relevant data points, dates, amounts, names, and other structured information from the provided text. Return the information in a clean, organized JSON format."
-        },
-        {
-          role: "user",
-          content: `${prompt}\n\nDocument text:\n${pdfText.substring(0, 12000)}` // Limit text length for API
-        }
-      ],
-      max_tokens: 2000,
-      temperature: 0.1,
+    // Use OpenAI to extract structured information (protected by circuit breaker)
+    const completion = await openaiBreaker.execute(async () => {
+      return getOpenAIClient().chat.completions.create({
+        model: "gpt-4-turbo-preview",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert at extracting structured information from documents. Extract all relevant data points, dates, amounts, names, and other structured information from the provided text. Return the information in a clean, organized JSON format."
+          },
+          {
+            role: "user",
+            content: `${prompt}\n\nDocument text:\n${pdfText.substring(0, 12000)}` // Limit text length for API
+          }
+        ],
+        max_tokens: 2000,
+        temperature: 0.1,
+      });
     });
 
     const extractedInfo = completion.choices[0]?.message?.content;

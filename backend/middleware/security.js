@@ -260,6 +260,8 @@ const REQUEST_LIMITS = {
   json: '10mb'
 };
 
+const asyncHandler = require('./asyncHandler');
+
 module.exports = {
   requestId,
   additionalSecurityHeaders,
@@ -269,6 +271,7 @@ module.exports = {
   slowRequestLogger,
   blockSuspiciousAgents,
   secureErrorHandler,
+  asyncHandler,
   REQUEST_LIMITS
 };
 
