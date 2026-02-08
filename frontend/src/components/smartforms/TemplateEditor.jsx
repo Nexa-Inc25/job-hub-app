@@ -370,13 +370,26 @@ ErrorState.propTypes = {
  * Returns null if field is invalid or has no visible dimensions
  */
 function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
-      if (!field?.bounds) return null;
+  if (!field?.bounds) {
+    console.warn('[TemplateEditor] Field missing bounds:', field?.id);
+    return null;
+  }
+  
+  // Validate bounds have positive dimensions
+  const { x, y, width, height } = field.bounds;
+  if (width <= 0 || height <= 0) {
+    console.warn('[TemplateEditor] Field has zero/negative dimensions:', field.id, field.bounds);
+    return null;
+  }
       
-      const screenPos = pdfToScreenCoords(
-        field.bounds.x, field.bounds.y, field.bounds.width, field.bounds.height, pageElement
-      );
+  const screenPos = pdfToScreenCoords(x, y, width, height, pageElement);
+  
+  // Debug: log if positions seem wrong
+  if (screenPos.left === 0 && screenPos.top === 0) {
+    console.warn('[TemplateEditor] Field positioned at origin:', field.id, { bounds: field.bounds, screenPos });
+  }
       
-      if (screenPos.width <= 0 || screenPos.height <= 0) return null;
+  if (screenPos.width <= 0 || screenPos.height <= 0) return null;
 
   return { field, screenPos };
 }
@@ -714,11 +727,21 @@ export default function TemplateEditor() {
 
   // Convert PDF coords to screen coords for display
   const pdfToScreenCoords = useCallback((pdfX, pdfY, pdfWidth, pdfHeight, pageElement) => {
-    if (!pageElement || !template?.sourceFile?.pageDimensions) return { left: 0, top: 0, width: 0, height: 0 };
+    if (!pageElement) {
+      console.warn('[TemplateEditor] pdfToScreenCoords: pageElement is null');
+      return { left: 0, top: 0, width: 0, height: 0 };
+    }
+    if (!template?.sourceFile?.pageDimensions) {
+      console.warn('[TemplateEditor] pdfToScreenCoords: pageDimensions missing');
+      return { left: 0, top: 0, width: 0, height: 0 };
+    }
 
     const rect = pageElement.getBoundingClientRect();
     const pageDim = template.sourceFile.pageDimensions[currentPage - 1];
-    if (!pageDim) return { left: 0, top: 0, width: 0, height: 0 };
+    if (!pageDim) {
+      console.warn('[TemplateEditor] pdfToScreenCoords: pageDim for page', currentPage, 'is null');
+      return { left: 0, top: 0, width: 0, height: 0 };
+    }
 
     const scaleX = rect.width / pageDim.width;
     const scaleY = rect.height / pageDim.height;

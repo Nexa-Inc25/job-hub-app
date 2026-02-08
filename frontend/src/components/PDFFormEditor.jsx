@@ -82,8 +82,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
-  // PDF page dimensions (actual PDF units, not screen pixels)
+  // PDF page dimensions (actual PDF units, not screen pixels) and rotation
   const [pdfPageDimensions, setPdfPageDimensions] = useState({ width: 612, height: 792 });
+  const [pdfPageRotation, setPdfPageRotation] = useState(0);
 
   // Tool state
   const [currentTool, setCurrentTool] = useState('check');
@@ -173,15 +174,17 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
         const arrayBuffer = await response.arrayBuffer();
         setPdfBytes(arrayBuffer);
         
-        // Extract actual PDF page dimensions for coordinate conversion
+        // Extract actual PDF page dimensions and rotation for coordinate conversion
         try {
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           const pages = pdfDoc.getPages();
           if (pages.length > 0) {
             const firstPage = pages[0];
             const { width, height } = firstPage.getSize();
+            const rotation = firstPage.getRotation().angle;
             setPdfPageDimensions({ width, height });
-            console.log(`PDF page dimensions: ${width}x${height}`);
+            setPdfPageRotation(rotation);
+            console.log(`PDF page dimensions: ${width}x${height}, rotation: ${rotation}°`);
           }
         } catch (error_) {
           console.warn('Could not read PDF dimensions:', error_);
