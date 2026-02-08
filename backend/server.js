@@ -5242,25 +5242,48 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       const uniqueTimestamp = `${baseTimestamp}_${i.toString().padStart(3, '0')}`;
       
       let fileToUpload = file.path;
-      let tempConvertedFile = null;
+      let tempProcessedFile = null;
       
-      // Convert HEIC/HEIF to JPG (browsers can't display HEIC)
-      if (ext === '.heic' || ext === '.heif') {
-        console.log('Converting HEIC/HEIF to JPG:', file.originalname);
-        try {
-          tempConvertedFile = file.path + '.jpg';
-          const inputBuffer = fs.readFileSync(file.path);
-          const outputBuffer = await heicConvert({
-            buffer: inputBuffer,
-            format: 'JPEG',
-            quality: 0.85 // Slightly lower quality for faster processing
-          });
-          fs.writeFileSync(tempConvertedFile, Buffer.from(outputBuffer));
-          fileToUpload = tempConvertedFile;
+      try {
+        // Use sharp to compress and convert ALL images to optimized JPEG
+        // This handles HEIC, PNG, large JPEGs, etc. - much faster than heic-convert
+        const isImage = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.tiff'].includes(ext);
+        
+        if (isImage) {
+          tempProcessedFile = file.path + '_optimized.jpg';
+          await sharp(file.path)
+            .rotate() // Auto-rotate based on EXIF
+            .resize(2048, 2048, { // Max 2048px on longest side (good for field photos)
+              fit: 'inside',
+              withoutEnlargement: true
+            })
+            .jpeg({ 
+              quality: 80, // Good balance of quality vs size
+              mozjpeg: true // Better compression
+            })
+            .toFile(tempProcessedFile);
+          
+          fileToUpload = tempProcessedFile;
           ext = '.jpg';
-        } catch (convertErr) {
-          console.error('Failed to convert HEIC:', convertErr.message);
-          // Continue with original file
+        }
+      } catch (sharpErr) {
+        console.error('Sharp processing failed, trying heic-convert fallback:', sharpErr.message);
+        // Fallback for HEIC if sharp fails (some edge cases)
+        if (ext === '.heic' || ext === '.heif') {
+          try {
+            tempProcessedFile = file.path + '.jpg';
+            const inputBuffer = fs.readFileSync(file.path);
+            const outputBuffer = await heicConvert({
+              buffer: inputBuffer,
+              format: 'JPEG',
+              quality: 0.8
+            });
+            fs.writeFileSync(tempProcessedFile, Buffer.from(outputBuffer));
+            fileToUpload = tempProcessedFile;
+            ext = '.jpg';
+          } catch (convertErr) {
+            console.error('HEIC fallback also failed:', convertErr.message);
+          }
         }
       }
       
@@ -5277,16 +5300,24 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
           r2Key = result.key;
           // Clean up local files
           if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
-          if (tempConvertedFile && fs.existsSync(tempConvertedFile)) fs.unlinkSync(tempConvertedFile);
+          if (tempProcessedFile && fs.existsSync(tempProcessedFile)) fs.unlinkSync(tempProcessedFile);
         } catch (uploadErr) {
           console.error('Failed to upload photo to R2:', uploadErr.message);
           // Fallback to local
           const newPath = path.join(__dirname, 'uploads', newFilename);
           fs.renameSync(fileToUpload, newPath);
+          // Still cleanup temp file
+          if (tempProcessedFile && tempProcessedFile !== fileToUpload && fs.existsSync(tempProcessedFile)) {
+            fs.unlinkSync(tempProcessedFile);
+          }
         }
       } else {
         const newPath = path.join(__dirname, 'uploads', newFilename);
         fs.renameSync(fileToUpload, newPath);
+        // Cleanup original if we used processed file
+        if (tempProcessedFile && file.path !== fileToUpload && fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
       }
       
       return {
