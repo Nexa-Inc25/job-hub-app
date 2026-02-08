@@ -13,6 +13,50 @@ const isLocalhost = Boolean(
   localhostRegex.exec(globalThis.location.hostname)
 );
 
+/**
+ * Clear all caches and reload the page
+ * Extracted to reduce nesting depth
+ */
+function clearCachesAndReload() {
+  if ('caches' in globalThis) {
+    caches.keys()
+      .then(keys => Promise.all(keys.map(key => caches.delete(key))))
+      .then(() => globalThis.location.reload());
+  } else {
+    globalThis.location.reload();
+  }
+}
+
+/**
+ * Handle messages from service worker
+ * Extracted to reduce nesting depth
+ */
+function handleServiceWorkerMessage(event) {
+  if (event.data?.type === 'STALE_CHUNK_DETECTED') {
+    console.log('[SW] Stale chunk detected - reloading to get new version');
+    clearCachesAndReload();
+  }
+}
+
+/**
+ * Handle service worker state changes
+ * Extracted to reduce nesting depth
+ */
+function createStateChangeHandler(registration, config) {
+  return function handleStateChange() {
+    const installingWorker = registration.installing;
+    if (installingWorker?.state === 'installed') {
+      if (navigator.serviceWorker.controller) {
+        console.log('[SW] New content available; please refresh.');
+        config?.onUpdate?.(registration);
+      } else {
+        console.log('[SW] Content is cached for offline use.');
+        config?.onSuccess?.(registration);
+      }
+    }
+  };
+}
+
 export function register(config) {
   if ('serviceWorker' in navigator) {
     // Use Vite's BASE_URL or default to root
@@ -48,37 +92,13 @@ function registerValidSW(swUrl, config) {
       console.log('[SW] Service worker registered successfully');
       
       // Listen for messages from service worker
-      navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event.data?.type === 'STALE_CHUNK_DETECTED') {
-          console.log('[SW] Stale chunk detected - reloading to get new version');
-          // Clear caches and reload
-          if ('caches' in globalThis) {
-            caches.keys().then(keys => 
-              Promise.all(keys.map(key => caches.delete(key)))
-            ).then(() => globalThis.location.reload());
-          } else {
-            globalThis.location.reload();
-          }
-        }
-      });
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
       
+      // Handle updates
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (!installingWorker) return;
-        
-        installingWorker.onstatechange = () => {
-          if (installingWorker.state === 'installed') {
-            if (navigator.serviceWorker.controller) {
-              // New content available
-              console.log('[SW] New content available; please refresh.');
-              config?.onUpdate?.(registration);
-            } else {
-              // Content cached for offline use
-              console.log('[SW] Content is cached for offline use.');
-              config?.onSuccess?.(registration);
-            }
-          }
-        };
+        installingWorker.onstatechange = createStateChangeHandler(registration, config);
       };
     })
     .catch((error) => {
@@ -119,4 +139,3 @@ export function unregister() {
       });
   }
 }
-

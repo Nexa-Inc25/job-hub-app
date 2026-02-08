@@ -117,6 +117,99 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
 }
 
 /**
+ * Custom hook for container width tracking
+ * Reduces cognitive complexity in main component
+ */
+function useContainerWidth(containerRef) {
+  const [containerWidth, setContainerWidth] = useState(null);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setContainerWidth(containerRef.current.clientWidth);
+      }
+    };
+
+    updateWidth();
+    globalThis.addEventListener('resize', updateWidth);
+    return () => globalThis.removeEventListener('resize', updateWidth);
+  }, [containerRef]);
+
+  return containerWidth;
+}
+
+/**
+ * Custom hook for field drawing on PDF
+ * Reduces cognitive complexity in main component
+ */
+function useFieldDrawing(template, currentPage, fieldsLength, onFieldCreated) {
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawStart, setDrawStart] = useState(null);
+  const [drawRect, setDrawRect] = useState(null);
+  const [drawMode, setDrawMode] = useState(false);
+
+  const handleMouseDown = useCallback((e) => {
+    if (!drawMode) return;
+
+    const pageElement = e.currentTarget;
+    const rect = pageElement.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+
+    setIsDrawing(true);
+    setDrawStart({ x: startX, y: startY, clientX: e.clientX, clientY: e.clientY });
+    setDrawRect({ left: startX, top: startY, width: 0, height: 0 });
+  }, [drawMode]);
+
+  const handleMouseMove = useCallback((e) => {
+    if (!isDrawing || !drawStart) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const currentX = e.clientX - rect.left;
+    const currentY = e.clientY - rect.top;
+
+    setDrawRect(calculateDrawRect(drawStart.x, drawStart.y, currentX, currentY));
+  }, [isDrawing, drawStart]);
+
+  const handleMouseUp = useCallback((e) => {
+    if (!isDrawing || !drawRect || !drawStart) {
+      setIsDrawing(false);
+      return;
+    }
+
+    // Minimum size check (10x10 pixels)
+    if (drawRect.width < 10 || drawRect.height < 10) {
+      setIsDrawing(false);
+      setDrawRect(null);
+      setDrawStart(null);
+      return;
+    }
+
+    const pageDim = template?.sourceFile?.pageDimensions?.[currentPage - 1];
+    if (!pageDim) return;
+
+    const pageRect = e.currentTarget.getBoundingClientRect();
+    const newField = createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, fieldsLength);
+
+    onFieldCreated(newField);
+    setIsDrawing(false);
+    setDrawRect(null);
+    setDrawStart(null);
+    setDrawMode(false);
+  }, [isDrawing, drawRect, drawStart, currentPage, template, fieldsLength, onFieldCreated]);
+
+  return {
+    isDrawing,
+    drawRect,
+    drawMode,
+    setDrawMode,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+  };
+}
+
+/**
  * API helper for template operations
  * Reduces cognitive complexity in main component
  */
@@ -260,28 +353,42 @@ export default function TemplateEditor() {
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
-  const [containerWidth, setContainerWidth] = useState(null);
   const containerRef = useRef(null);
+  const containerWidth = useContainerWidth(containerRef);
 
   // Fields state
   const [fields, setFields] = useState([]);
   const [selectedField, setSelectedField] = useState(null);
-  const [isDrawing, setIsDrawing] = useState(false);
-  const [drawStart, setDrawStart] = useState(null);
-  const [drawRect, setDrawRect] = useState(null);
-  const [drawMode, setDrawMode] = useState(false);
+
+  // Field edit dialog
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingField, setEditingField] = useState(null);
 
   // Mapping state
   const [dataPaths, setDataPaths] = useState([]);
   const [mappings, setMappings] = useState({});
   const [mappingDrawerOpen, setMappingDrawerOpen] = useState(false);
-
-  // Field edit dialog
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editingField, setEditingField] = useState(null);
   
   // PDF blob URL for rendering
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+
+  // Field drawing hook - handles all drawing state and mouse events
+  const handleFieldCreated = useCallback((newField) => {
+    setFields((prev) => [...prev, newField]);
+    setSelectedField(newField.id);
+    setEditingField(newField);
+    setEditDialogOpen(true);
+  }, []);
+
+  const {
+    isDrawing,
+    drawRect,
+    drawMode,
+    setDrawMode,
+    handleMouseDown,
+    handleMouseMove,
+    handleMouseUp,
+  } = useFieldDrawing(template, currentPage, fields.length, handleFieldCreated);
 
   // Load template
   useEffect(() => {
@@ -334,19 +441,6 @@ export default function TemplateEditor() {
       .catch(err => console.error('Error loading data paths:', err));
   }, []);
 
-  // Container width tracking
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.clientWidth);
-      }
-    };
-
-    updateWidth();
-    window.addEventListener('resize', updateWidth);
-    return () => window.removeEventListener('resize', updateWidth);
-  }, []);
-
   const onDocumentLoadSuccess = ({ numPages: pages }) => {
     setNumPages(pages);
     console.log('[TemplateEditor] PDF loaded, pages:', pages);
@@ -370,62 +464,6 @@ export default function TemplateEditor() {
       height: pdfHeight * scaleY,
     };
   }, [template, currentPage]);
-
-  // Mouse handlers for drawing
-  const handleMouseDown = useCallback((e) => {
-    if (!drawMode) return;
-
-    const pageElement = e.currentTarget;
-    const rect = pageElement.getBoundingClientRect();
-    const startX = e.clientX - rect.left;
-    const startY = e.clientY - rect.top;
-
-    setIsDrawing(true);
-    setDrawStart({ x: startX, y: startY, clientX: e.clientX, clientY: e.clientY });
-    setDrawRect({ left: startX, top: startY, width: 0, height: 0 });
-  }, [drawMode]);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!isDrawing || !drawStart) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-
-    setDrawRect(calculateDrawRect(drawStart.x, drawStart.y, currentX, currentY));
-  }, [isDrawing, drawStart]);
-
-  const handleMouseUp = useCallback((e) => {
-    if (!isDrawing || !drawRect || !drawStart) {
-      setIsDrawing(false);
-      return;
-    }
-
-    // Minimum size check (10x10 pixels)
-    if (drawRect.width < 10 || drawRect.height < 10) {
-      setIsDrawing(false);
-      setDrawRect(null);
-      setDrawStart(null);
-      return;
-    }
-
-    const pageDim = template?.sourceFile?.pageDimensions?.[currentPage - 1];
-    if (!pageDim) return;
-
-    const pageRect = e.currentTarget.getBoundingClientRect();
-    const newField = createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, fields.length);
-
-    setFields((prev) => [...prev, newField]);
-    setSelectedField(newField.id);
-    setIsDrawing(false);
-    setDrawRect(null);
-    setDrawStart(null);
-    setDrawMode(false);
-
-    // Open edit dialog for the new field
-    setEditingField(newField);
-    setEditDialogOpen(true);
-  }, [isDrawing, drawRect, drawStart, currentPage, template, fields.length]);
 
   // Save fields
   const handleSaveFields = async () => {
