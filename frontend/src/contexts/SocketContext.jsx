@@ -8,15 +8,16 @@ import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
 
-// Get API base URL from environment or use default
+// Get API base URL from environment or use same origin
 const getSocketUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || '';
   if (apiUrl) {
     // Extract base URL (remove /api if present)
     return apiUrl.replace(/\/api\/?$/, '');
   }
-  // Default to same origin in production
-  return globalThis.location?.origin || 'http://localhost:5000';
+  // Default to same origin - works for both production and dev proxy
+  // Never fallback to hardcoded URLs for security
+  return globalThis.location?.origin || '';
 };
 
 export function SocketProvider({ children }) {
