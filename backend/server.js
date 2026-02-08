@@ -93,6 +93,7 @@ const timesheetRoutes = require('./routes/timesheet.routes');
 const lmeRoutes = require('./routes/lme.routes');
 const smartformsRoutes = require('./routes/smartforms.routes');
 const demoRoutes = require('./routes/demo.routes');
+const notificationRoutes = require('./routes/notification.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -340,9 +341,31 @@ console.log('Allowed CORS origins:', allowedOrigins);
 const io = socketIo(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"]
-  }
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  // Ping timeout/interval for connection health
+  pingTimeout: 60000,
+  pingInterval: 25000
 });
+
+// Initialize notification service with socket.io
+const notificationService = require('./services/notification.service');
+notificationService.initialize(io);
+
+// Setup Redis adapter for horizontal scaling (if REDIS_URL is set)
+const { createRedisAdapter } = require('./utils/socketAdapter');
+(async () => {
+  try {
+    const redisAdapter = await createRedisAdapter();
+    if (redisAdapter) {
+      io.adapter(redisAdapter);
+      console.log('[Socket.IO] Using Redis adapter for scaling');
+    }
+  } catch (err) {
+    console.error('[Socket.IO] Redis adapter setup failed:', err.message);
+  }
+})();
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -1168,6 +1191,9 @@ app.use('/api/lme', lmeRoutes);
 
 // Mount SmartForms routes (PDF template field mapping and filling)
 app.use('/api/smartforms', authenticateUser, smartformsRoutes);
+
+// Mount Notification routes (real-time notifications)
+app.use('/api/notifications', authenticateUser, notificationRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 
@@ -8097,12 +8123,67 @@ app.get('/api/jobs/export/csv', authenticateUser, async (req, res) => {
   }
 });
 
-// Socket.io setup
+// ============================================
+// Socket.IO Authentication & Connection Handling
+// ============================================
+
+// JWT authentication middleware for socket connections
+io.use(async (socket, next) => {
+  try {
+    const token = socket.handshake.auth?.token || socket.handshake.headers?.authorization?.replace('Bearer ', '');
+    
+    if (!token) {
+      return next(new Error('Authentication required'));
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId).select('_id name email role companyId').lean();
+    
+    if (!user) {
+      return next(new Error('User not found'));
+    }
+
+    // Attach user to socket
+    socket.user = user;
+    socket.userId = user._id.toString();
+    socket.companyId = user.companyId?.toString();
+    
+    next();
+  } catch (err) {
+    console.error('[Socket.IO] Auth error:', err.message);
+    next(new Error('Invalid token'));
+  }
+});
+
 io.on('connection', (socket) => {
-  console.log('New client connected');
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
+  const { userId, companyId, user } = socket;
+  console.log(`[Socket.IO] User connected: ${user.name} (${userId})`);
+  
+  // Join user-specific room for direct notifications
+  socket.join(`user:${userId}`);
+  
+  // Join company room for company-wide broadcasts
+  if (companyId) {
+    socket.join(`company:${companyId}`);
+  }
+  
+  // Handle joining job-specific rooms
+  socket.on('join:job', (jobId) => {
+    socket.join(`job:${jobId}`);
+    console.log(`[Socket.IO] ${user.name} joined job room: ${jobId}`);
   });
+  
+  socket.on('leave:job', (jobId) => {
+    socket.leave(`job:${jobId}`);
+  });
+  
+  // Handle disconnection
+  socket.on('disconnect', (reason) => {
+    console.log(`[Socket.IO] User disconnected: ${user.name} (${reason})`);
+  });
+  
+  // Send initial connection confirmation
+  socket.emit('connected', { userId, userName: user.name });
 });
 
 // ============================================

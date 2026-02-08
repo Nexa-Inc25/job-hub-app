@@ -3,7 +3,7 @@
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { cn, getInitials } from '../../lib/utils';
@@ -16,16 +16,15 @@ import {
   LogOut,
   User,
   Settings,
-  Bell,
   ChevronDown,
 } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import OfflineIndicator from '../OfflineIndicator';
+import { NotificationBell } from '../notifications';
 
 const Header = ({ onMenuClick, onSearchClick, user }) => {
   const navigate = useNavigate();
   const { darkMode, toggleDarkMode } = useThemeMode();
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -63,31 +62,8 @@ const Header = ({ onMenuClick, onSearchClick, user }) => {
 
       {/* Right side actions */}
       <div className="flex items-center gap-2">
-        {/* Notifications */}
-        <DropdownMenu.Root open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-          <DropdownMenu.Trigger asChild>
-            <button
-              className="relative rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              {/* Notification badge */}
-              <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-destructive" />
-            </button>
-          </DropdownMenu.Trigger>
-          <DropdownMenu.Portal>
-            <DropdownMenu.Content
-              className="z-50 min-w-[280px] rounded-lg border border-border bg-popover p-2 shadow-lg"
-              sideOffset={5}
-              align="end"
-            >
-              <div className="mb-2 px-2 py-1.5 text-sm font-semibold">Notifications</div>
-              <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-                No new notifications
-              </div>
-            </DropdownMenu.Content>
-          </DropdownMenu.Portal>
-        </DropdownMenu.Root>
+        {/* Real-time Notifications */}
+        <NotificationBell />
 
         {/* Offline Sync Indicator */}
         <OfflineIndicator />

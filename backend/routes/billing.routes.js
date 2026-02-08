@@ -25,6 +25,7 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 const { withOptionalTransaction } = require('../utils/transaction');
+const notificationService = require('../services/notification.service');
 
 // ============================================================================
 // HELPER FUNCTIONS - Extracted to reduce cognitive complexity
@@ -602,6 +603,21 @@ router.post('/units/:id/submit', async (req, res) => {
     }
 
     await unit.submit(user._id);
+    
+    // Send notification to assigned GF and PMs
+    try {
+      const job = await Job.findById(unit.jobId).select('assignedToGF companyId woNumber').lean();
+      if (job) {
+        await notificationService.notifyUnitSubmitted({
+          job,
+          unitEntry: unit,
+          submittedBy: user
+        });
+      }
+    } catch (notifErr) {
+      console.error('[Units:Submit] Notification error:', notifErr.message);
+    }
+    
     res.json(unit);
   } catch (err) {
     console.error('Error submitting unit:', err);
@@ -704,6 +720,22 @@ router.post('/units/:id/approve', async (req, res) => {
 
     const { notes } = req.body;
     await unit.approve(user._id, notes);
+    
+    // Send notification to the General Foreman assigned to the job
+    try {
+      const job = await Job.findById(unit.jobId).select('assignedToGF companyId woNumber').lean();
+      if (job) {
+        await notificationService.notifyUnitApproved({
+          job,
+          unitEntry: unit,
+          approvedBy: user
+        });
+      }
+    } catch (notifErr) {
+      console.error('[Units:Approve] Notification error:', notifErr.message);
+      // Don't fail the request if notification fails
+    }
+    
     res.json(unit);
   } catch (err) {
     console.error('Error approving unit:', err);
@@ -886,6 +918,31 @@ router.post('/units/:id/resolve-dispute', async (req, res) => {
     unit.isDisputed = false;
 
     await unit.save();
+
+    // Send notification to the General Foreman for rejection cases
+    try {
+      const job = await Job.findById(unit.jobId).select('assignedToGF companyId woNumber').lean();
+      if (job) {
+        if (action === 'resubmit' || action === 'void') {
+          // These are "rejection" cases - notify GF
+          await notificationService.notifyUnitRejected({
+            job,
+            unitEntry: unit,
+            rejectedBy: user,
+            reason: action === 'void' ? 'Unit voided: ' + resolution : 'Resubmission required: ' + resolution
+          });
+        } else if (action === 'accept' || action === 'adjust') {
+          // Approval after dispute - notify GF
+          await notificationService.notifyUnitApproved({
+            job,
+            unitEntry: unit,
+            approvedBy: user
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error('[Units:ResolveDispute] Notification error:', notifErr.message);
+    }
 
     res.json({
       message: `Dispute resolved: ${action}`,
@@ -1245,6 +1302,16 @@ router.post('/claims', async (req, res) => {
         }
       }
     );
+
+    // Notify relevant GFs about the new claim
+    try {
+      await notificationService.notifyClaimCreated({
+        claim,
+        createdBy: user
+      });
+    } catch (notifErr) {
+      console.error('[Claims:Create] Notification error:', notifErr.message);
+    }
 
     res.status(201).json(claim);
   } catch (err) {

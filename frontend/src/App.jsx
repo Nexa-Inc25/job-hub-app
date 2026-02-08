@@ -9,6 +9,8 @@ import PropTypes from 'prop-types';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Analytics } from '@vercel/analytics/react';
 import { ThemeProvider } from './ThemeContext';
+import { SocketProvider } from './contexts/SocketContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import NetworkStatus from './components/NetworkStatus';
 
@@ -131,10 +133,12 @@ function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <NetworkStatus />
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
+        <SocketProvider>
+          <NotificationProvider>
+            <NetworkStatus />
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
               {/* Auth routes - no AppShell */}
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
@@ -180,9 +184,11 @@ function App() {
               {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
-        </BrowserRouter>
-        <Analytics />
+              </Suspense>
+            </BrowserRouter>
+            <Analytics />
+          </NotificationProvider>
+        </SocketProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );
