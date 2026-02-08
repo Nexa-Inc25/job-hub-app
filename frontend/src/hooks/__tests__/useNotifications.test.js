@@ -55,7 +55,7 @@ describe('useNotifications', () => {
     
     // Default mock responses
     api.get.mockImplementation((url) => {
-      if (url === '/notifications') {
+      if (url === '/api/notifications') {
         return Promise.resolve({
           data: {
             notifications: mockNotifications,
@@ -64,7 +64,7 @@ describe('useNotifications', () => {
           }
         });
       }
-      if (url === '/notifications/unread/count') {
+      if (url === '/api/notifications/unread/count') {
         return Promise.resolve({ data: { count: 1 } });
       }
       return Promise.reject(new Error('Unknown endpoint'));
@@ -84,7 +84,7 @@ describe('useNotifications', () => {
 
     expect(result.current.notifications).toHaveLength(2);
     expect(result.current.unreadCount).toBe(1);
-    expect(api.get).toHaveBeenCalledWith('/notifications', expect.any(Object));
+    expect(api.get).toHaveBeenCalledWith('/api/notifications', expect.any(Object));
   });
 
   it('should not fetch if no token', async () => {
@@ -107,7 +107,7 @@ describe('useNotifications', () => {
       await result.current.fetchUnreadCount();
     });
 
-    expect(api.get).toHaveBeenCalledWith('/notifications/unread/count');
+    expect(api.get).toHaveBeenCalledWith('/api/notifications/unread/count');
   });
 
   it('should mark notification as read', async () => {
@@ -124,7 +124,7 @@ describe('useNotifications', () => {
       expect(success).toBe(true);
     });
 
-    expect(api.put).toHaveBeenCalledWith('/notifications/1/read');
+    expect(api.put).toHaveBeenCalledWith('/api/notifications/1/read');
     
     // Check local state was updated
     const notification = result.current.notifications.find(n => n._id === '1');
@@ -145,7 +145,7 @@ describe('useNotifications', () => {
       expect(success).toBe(true);
     });
 
-    expect(api.put).toHaveBeenCalledWith('/notifications/read-all');
+    expect(api.put).toHaveBeenCalledWith('/api/notifications/read-all');
     expect(result.current.unreadCount).toBe(0);
     
     // All notifications should be marked read
@@ -238,7 +238,7 @@ describe('useNotifications', () => {
     });
 
     expect(result.current.notifications).toHaveLength(3);
-    expect(api.get).toHaveBeenLastCalledWith('/notifications', { params: { limit: 20, skip: 2 } });
+    expect(api.get).toHaveBeenLastCalledWith('/api/notifications', { params: { limit: 20, skip: 2 } });
   });
 });
 

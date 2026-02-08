@@ -26,7 +26,7 @@ export function NotificationProvider({ children }) {
   const fetchNotifications = useCallback(async ({ limit = 20, skip = 0 } = {}) => {
     try {
       setLoading(true);
-      const response = await api.get('/notifications', { params: { limit, skip } });
+      const response = await api.get('/api/notifications', { params: { limit, skip } });
       
       if (skip === 0) {
         setNotifications(response.data.notifications);
@@ -46,7 +46,7 @@ export function NotificationProvider({ children }) {
   // Fetch unread count
   const fetchUnreadCount = useCallback(async () => {
     try {
-      const response = await api.get('/notifications/unread/count');
+      const response = await api.get('/api/notifications/unread/count');
       setUnreadCount(response.data.count);
       return response.data.count;
     } catch (err) {
@@ -58,7 +58,7 @@ export function NotificationProvider({ children }) {
   // Mark notification as read
   const markAsRead = useCallback(async (notificationId) => {
     try {
-      await api.put(`/notifications/${notificationId}/read`);
+      await api.put(`/api/notifications/${notificationId}/read`);
       setNotifications(prev => 
         prev.map(n => n._id === notificationId ? { ...n, read: true } : n)
       );
@@ -73,7 +73,7 @@ export function NotificationProvider({ children }) {
   // Mark all as read
   const markAllAsRead = useCallback(async () => {
     try {
-      await api.put('/notifications/read-all');
+      await api.put('/api/notifications/read-all');
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
       setUnreadCount(0);
       return true;
