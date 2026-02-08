@@ -384,10 +384,12 @@ function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
       
   const screenPos = pdfToScreenCoords(x, y, width, height, pageElement);
   
-  // Debug: log if positions seem wrong
-  if (screenPos.left === 0 && screenPos.top === 0) {
-    console.warn('[TemplateEditor] Field positioned at origin:', field.id, { bounds: field.bounds, screenPos });
-  }
+  // Debug: always log field positions for troubleshooting
+  console.log('[TemplateEditor] Field overlay:', field.name, { 
+    pdfBounds: field.bounds, 
+    screenPos,
+    fieldId: field.id 
+  });
       
   if (screenPos.width <= 0 || screenPos.height <= 0) return null;
 
