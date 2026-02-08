@@ -139,6 +139,71 @@ function useContainerWidth(containerRef) {
 }
 
 /**
+ * Custom hook for template data loading
+ * Reduces cognitive complexity in main component
+ */
+function useTemplateData(templateId) {
+  const [template, setTemplate] = useState(null);
+  const [fields, setFields] = useState([]);
+  const [mappings, setMappings] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
+  const [dataPaths, setDataPaths] = useState([]);
+
+  // Load template
+  useEffect(() => {
+    setLoading(true);
+    loadTemplateData(templateId)
+      .then(data => {
+        setTemplate(data);
+        setFields(data.fields || []);
+        setMappings(convertMappingsToObject(data.dataMappings));
+        setError('');
+      })
+      .catch(err => {
+        console.error('Error loading template:', err);
+        setError(err.message);
+      })
+      .finally(() => setLoading(false));
+  }, [templateId]);
+
+  // Fetch PDF as blob
+  useEffect(() => {
+    if (!template) return;
+    
+    let blobUrl = null;
+    loadPdfBlob(templateId)
+      .then(url => {
+        blobUrl = url;
+        setPdfBlobUrl(url);
+      })
+      .catch(err => {
+        console.error('[TemplateEditor] Error fetching PDF blob:', err);
+        setError('Failed to load PDF: ' + err.message);
+      });
+    
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [template, templateId]);
+
+  // Load data paths
+  useEffect(() => {
+    loadDataPaths()
+      .then(data => setDataPaths(data))
+      .catch(err => console.error('Error loading data paths:', err));
+  }, []);
+
+  return {
+    template, setTemplate,
+    fields, setFields,
+    mappings, setMappings,
+    loading, error, setError,
+    pdfBlobUrl,
+    dataPaths,
+  };
+}
+
+/**
  * Custom hook for field drawing on PDF
  * Reduces cognitive complexity in main component
  */
@@ -342,11 +407,18 @@ export default function TemplateEditor() {
   const { darkMode } = useThemeMode();
   const isDark = darkMode;
 
-  // Template state
-  const [template, setTemplate] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // Template data hook - handles loading, PDF blob, and data paths
+  const {
+    template, setTemplate,
+    fields, setFields,
+    mappings, setMappings,
+    loading, error,
+    pdfBlobUrl,
+    dataPaths,
+  } = useTemplateData(templateId);
+
+  // UI state
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // PDF state
@@ -356,21 +428,11 @@ export default function TemplateEditor() {
   const containerRef = useRef(null);
   const containerWidth = useContainerWidth(containerRef);
 
-  // Fields state
-  const [fields, setFields] = useState([]);
+  // Selection state
   const [selectedField, setSelectedField] = useState(null);
-
-  // Field edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
-
-  // Mapping state
-  const [dataPaths, setDataPaths] = useState([]);
-  const [mappings, setMappings] = useState({});
   const [mappingDrawerOpen, setMappingDrawerOpen] = useState(false);
-  
-  // PDF blob URL for rendering
-  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
 
   // Field drawing hook - handles all drawing state and mouse events
   const handleFieldCreated = useCallback((newField) => {
@@ -378,7 +440,7 @@ export default function TemplateEditor() {
     setSelectedField(newField.id);
     setEditingField(newField);
     setEditDialogOpen(true);
-  }, []);
+  }, [setFields]);
 
   const {
     isDrawing,
@@ -389,57 +451,6 @@ export default function TemplateEditor() {
     handleMouseMove,
     handleMouseUp,
   } = useFieldDrawing(template, currentPage, fields.length, handleFieldCreated);
-
-  // Load template
-  useEffect(() => {
-    const fetchTemplate = async () => {
-      try {
-        setLoading(true);
-        const data = await loadTemplateData(templateId);
-        setTemplate(data);
-        setFields(data.fields || []);
-        setMappings(convertMappingsToObject(data.dataMappings));
-        setError('');
-      } catch (err) {
-        console.error('Error loading template:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchTemplate();
-  }, [templateId]);
-
-  // Fetch PDF as blob for react-pdf (more reliable than URL with auth headers)
-  useEffect(() => {
-    if (!template) return;
-    
-    let blobUrl = null;
-    
-    loadPdfBlob(templateId)
-      .then(url => {
-        blobUrl = url;
-        setPdfBlobUrl(url);
-        console.log('[TemplateEditor] PDF blob URL created:', url);
-      })
-      .catch(err => {
-        console.error('[TemplateEditor] Error fetching PDF blob:', err);
-        setError('Failed to load PDF: ' + err.message);
-      });
-    
-    // Cleanup blob URL on unmount
-    return () => {
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
-    };
-  }, [template, templateId]);
-
-  // Load data paths
-  useEffect(() => {
-    loadDataPaths()
-      .then(data => setDataPaths(data))
-      .catch(err => console.error('Error loading data paths:', err));
-  }, []);
 
   const onDocumentLoadSuccess = ({ numPages: pages }) => {
     setNumPages(pages);
