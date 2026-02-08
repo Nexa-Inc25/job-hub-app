@@ -3,7 +3,8 @@
  * WebSocket connection management with auto-reconnect
  */
 
-import React, { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
@@ -148,7 +149,7 @@ export function SocketProvider({ children }) {
     }
   }, [socket, isConnected]);
 
-  const value = {
+  const value = useMemo(() => ({
     socket,
     isConnected,
     connectionError,
@@ -156,7 +157,7 @@ export function SocketProvider({ children }) {
     disconnect,
     joinJobRoom,
     leaveJobRoom
-  };
+  }), [socket, isConnected, connectionError, connect, disconnect, joinJobRoom, leaveJobRoom]);
 
   return (
     <SocketContext.Provider value={value}>
@@ -164,6 +165,10 @@ export function SocketProvider({ children }) {
     </SocketContext.Provider>
   );
 }
+
+SocketProvider.propTypes = {
+  children: PropTypes.node.isRequired
+};
 
 export function useSocket() {
   const context = useContext(SocketContext);

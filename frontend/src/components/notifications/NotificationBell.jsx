@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import {
   IconButton,
   Badge,
@@ -19,6 +20,41 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
 import { useNotificationContext } from '../../contexts/NotificationContext';
 import NotificationList from './NotificationList';
+
+// Extracted to avoid nested ternary in JSX
+function NotificationContent({ loading, notifications, onClose }) {
+  if (loading && notifications.length === 0) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+        <CircularProgress size={32} />
+      </Box>
+    );
+  }
+  
+  if (notifications.length === 0) {
+    return (
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <NotificationsNoneIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+        <Typography color="text.secondary">
+          No notifications yet
+        </Typography>
+      </Box>
+    );
+  }
+  
+  return (
+    <NotificationList 
+      notifications={notifications} 
+      onClose={onClose}
+    />
+  );
+}
+
+NotificationContent.propTypes = {
+  loading: PropTypes.bool,
+  notifications: PropTypes.array.isRequired,
+  onClose: PropTypes.func
+};
 
 export default function NotificationBell() {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -136,23 +172,11 @@ export default function NotificationBell() {
 
         {/* Notification List */}
         <Box sx={{ flex: 1, overflow: 'auto' }}>
-          {loading && notifications.length === 0 ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-              <CircularProgress size={32} />
-            </Box>
-          ) : notifications.length === 0 ? (
-            <Box sx={{ p: 4, textAlign: 'center' }}>
-              <NotificationsNoneIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
-              <Typography color="text.secondary">
-                No notifications yet
-              </Typography>
-            </Box>
-          ) : (
-            <NotificationList 
-              notifications={notifications} 
-              onClose={handleClose}
-            />
-          )}
+          <NotificationContent 
+            loading={loading} 
+            notifications={notifications} 
+            onClose={handleClose} 
+          />
         </Box>
 
         {/* Footer - Load More */}

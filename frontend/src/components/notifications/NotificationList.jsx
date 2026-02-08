@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import {
   List,
@@ -185,3 +186,15 @@ export default function NotificationList({ notifications, onClose }) {
   );
 }
 
+NotificationList.propTypes = {
+  notifications: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string.isRequired,
+    type: PropTypes.string.isRequired,
+    title: PropTypes.string.isRequired,
+    message: PropTypes.string,
+    read: PropTypes.bool,
+    createdAt: PropTypes.string,
+    data: PropTypes.object
+  })).isRequired,
+  onClose: PropTypes.func
+};

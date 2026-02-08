@@ -447,6 +447,214 @@ FieldOverlay.propTypes = {
   onDelete: PropTypes.func.isRequired,
 };
 
+/**
+ * EditorToolbar - Toolbar component for template editor
+ * Extracted to reduce cognitive complexity of main component
+ */
+function EditorToolbar({ 
+  template, fields, currentPage, numPages, drawMode, setDrawMode, 
+  setMappingDrawerOpen, zoom, setZoom, saving, onSave, onActivate, onBack 
+}) {
+  const zoomOut = () => setZoom((z) => Math.max(0.5, z - 0.25));
+  const zoomIn = () => setZoom((z) => Math.min(2, z + 0.25));
+  const toggleDrawMode = () => setDrawMode(!drawMode);
+  const openMappings = () => setMappingDrawerOpen(true);
+  
+  return (
+    <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+      <IconButton onClick={onBack}>
+        <ArrowBackIcon />
+      </IconButton>
+
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="h6" fontWeight={600}>
+          {template?.name}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}
+        </Typography>
+      </Box>
+
+      <Chip
+        label={template?.status === 'active' ? 'Active' : 'Draft'}
+        color={template?.status === 'active' ? 'success' : 'warning'}
+        size="small"
+      />
+
+      <Divider orientation="vertical" flexItem />
+
+      <Tooltip title="Draw New Field">
+        <Button
+          variant={drawMode ? 'contained' : 'outlined'}
+          startIcon={<AddBoxIcon />}
+          onClick={toggleDrawMode}
+          color={drawMode ? 'secondary' : 'primary'}
+        >
+          {drawMode ? 'Drawing...' : 'Add Field'}
+        </Button>
+      </Tooltip>
+
+      <Tooltip title="Map Data">
+        <Button variant="outlined" startIcon={<LinkIcon />} onClick={openMappings}>
+          Mappings
+        </Button>
+      </Tooltip>
+
+      <Divider orientation="vertical" flexItem />
+
+      <IconButton onClick={zoomOut}>
+        <ZoomOutIcon />
+      </IconButton>
+      <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>
+        {Math.round(zoom * 100)}%
+      </Typography>
+      <IconButton onClick={zoomIn}>
+        <ZoomInIcon />
+      </IconButton>
+
+      <Divider orientation="vertical" flexItem />
+
+      <Button
+        variant="outlined"
+        startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
+        onClick={onSave}
+        disabled={saving}
+      >
+        Save
+      </Button>
+
+      {template?.status !== 'active' && (
+        <Button
+          variant="contained"
+          color="success"
+          startIcon={<PlayArrowIcon />}
+          onClick={onActivate}
+          disabled={saving || fields.length === 0}
+        >
+          Activate
+        </Button>
+      )}
+    </Paper>
+  );
+}
+
+EditorToolbar.propTypes = {
+  template: PropTypes.object,
+  fields: PropTypes.array.isRequired,
+  currentPage: PropTypes.number.isRequired,
+  numPages: PropTypes.number,
+  drawMode: PropTypes.bool.isRequired,
+  setDrawMode: PropTypes.func.isRequired,
+  setMappingDrawerOpen: PropTypes.func.isRequired,
+  zoom: PropTypes.number.isRequired,
+  setZoom: PropTypes.func.isRequired,
+  saving: PropTypes.bool.isRequired,
+  onSave: PropTypes.func.isRequired,
+  onActivate: PropTypes.func.isRequired,
+  onBack: PropTypes.func.isRequired,
+};
+
+/**
+ * FieldsPanel - Sidebar showing field list and page navigation
+ * Extracted to reduce cognitive complexity of main component
+ */
+function FieldsPanel({ 
+  fields, mappings, selectedField, setSelectedField, setCurrentPage, 
+  numPages, currentPage, onEditField 
+}) {
+  return (
+    <Paper
+      sx={{
+        width: 300,
+        flexShrink: 0,
+        overflow: 'auto',
+        borderLeft: 1,
+        borderColor: 'divider',
+      }}
+    >
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="subtitle1" fontWeight={600}>
+          Fields ({fields.length})
+        </Typography>
+      </Box>
+      <List dense>
+        {fields.length === 0 ? (
+          <Box sx={{ p: 3, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Click &quot;Add Field&quot; and draw on the PDF to create fields
+            </Typography>
+          </Box>
+        ) : (
+          fields.map((field) => (
+            <ListItem
+              key={field.id}
+              button
+              selected={selectedField === field.id}
+              onClick={() => {
+                setSelectedField(field.id);
+                setCurrentPage(field.page);
+              }}
+              sx={{
+                borderLeft: 3,
+                borderColor: mappings[field.name] ? 'success.main' : 'transparent',
+              }}
+            >
+              <ListItemText
+                primary={field.name}
+                secondary={
+                  <>
+                    {field.type} • Page {field.page}
+                    {mappings[field.name] && (
+                      <Typography component="span" variant="caption" color="success.main" sx={{ display: 'block' }}>
+                        → {mappings[field.name]}
+                      </Typography>
+                    )}
+                  </>
+                }
+              />
+              <ListItemSecondaryAction>
+                <IconButton size="small" onClick={() => onEditField(field)}>
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </ListItemSecondaryAction>
+            </ListItem>
+          ))
+        )}
+      </List>
+
+      {numPages && numPages > 1 && (
+        <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
+          <Typography variant="caption" color="text.secondary" gutterBottom>
+            Navigate Pages
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+            {Array.from({ length: numPages }, (_, i) => (
+              <Chip
+                key={i + 1}
+                label={i + 1}
+                size="small"
+                color={currentPage === i + 1 ? 'primary' : 'default'}
+                onClick={() => setCurrentPage(i + 1)}
+              />
+            ))}
+          </Box>
+        </Box>
+      )}
+    </Paper>
+  );
+}
+
+FieldsPanel.propTypes = {
+  fields: PropTypes.array.isRequired,
+  mappings: PropTypes.object.isRequired,
+  selectedField: PropTypes.string,
+  setSelectedField: PropTypes.func.isRequired,
+  setCurrentPage: PropTypes.func.isRequired,
+  numPages: PropTypes.number,
+  currentPage: PropTypes.number.isRequired,
+  onEditField: PropTypes.func.isRequired,
+};
+
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
@@ -617,87 +825,27 @@ export default function TemplateEditor() {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState error={error} onBack={() => navigate('/smartforms')} />;
 
+  // Callback for navigating back
+  const handleBack = useCallback(() => navigate('/smartforms'), [navigate]);
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      {/* Toolbar */}
-      <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-        <IconButton onClick={() => navigate('/smartforms')}>
-          <ArrowBackIcon />
-        </IconButton>
-
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" fontWeight={600}>
-            {template?.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}
-          </Typography>
-        </Box>
-
-        <Chip
-          label={template?.status === 'active' ? 'Active' : 'Draft'}
-          color={template?.status === 'active' ? 'success' : 'warning'}
-          size="small"
-        />
-
-        <Divider orientation="vertical" flexItem />
-
-        <Tooltip title="Draw New Field">
-          <Button
-            variant={drawMode ? 'contained' : 'outlined'}
-            startIcon={<AddBoxIcon />}
-            onClick={() => setDrawMode(!drawMode)}
-            color={drawMode ? 'secondary' : 'primary'}
-          >
-            {drawMode ? 'Drawing...' : 'Add Field'}
-          </Button>
-        </Tooltip>
-
-        <Tooltip title="Map Data">
-          <Button
-            variant="outlined"
-            startIcon={<LinkIcon />}
-            onClick={() => setMappingDrawerOpen(true)}
-          >
-            Mappings
-          </Button>
-        </Tooltip>
-
-        <Divider orientation="vertical" flexItem />
-
-        <IconButton onClick={() => setZoom((z) => Math.max(0.5, z - 0.25))}>
-          <ZoomOutIcon />
-        </IconButton>
-        <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>
-          {Math.round(zoom * 100)}%
-        </Typography>
-        <IconButton onClick={() => setZoom((z) => Math.min(2, z + 0.25))}>
-          <ZoomInIcon />
-        </IconButton>
-
-        <Divider orientation="vertical" flexItem />
-
-        <Button
-          variant="outlined"
-          startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-          onClick={handleSaveFields}
-          disabled={saving}
-        >
-          Save
-        </Button>
-
-        {template?.status !== 'active' && (
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<PlayArrowIcon />}
-            onClick={handleActivate}
-            disabled={saving || fields.length === 0}
-          >
-            Activate
-          </Button>
-        )}
-      </Paper>
+      {/* Toolbar - extracted component */}
+      <EditorToolbar
+        template={template}
+        fields={fields}
+        currentPage={currentPage}
+        numPages={numPages}
+        drawMode={drawMode}
+        setDrawMode={setDrawMode}
+        setMappingDrawerOpen={setMappingDrawerOpen}
+        zoom={zoom}
+        setZoom={setZoom}
+        saving={saving}
+        onSave={handleSaveFields}
+        onActivate={handleActivate}
+        onBack={handleBack}
+      />
 
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
@@ -798,92 +946,17 @@ export default function TemplateEditor() {
           )}
         </Box>
 
-        {/* Fields Panel */}
-        <Paper
-          sx={{
-            width: 300,
-            flexShrink: 0,
-            overflow: 'auto',
-            borderLeft: 1,
-            borderColor: 'divider',
-          }}
-        >
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-            <Typography variant="subtitle1" fontWeight={600}>
-              Fields ({fields.length})
-            </Typography>
-          </Box>
-          <List dense>
-            {fields.length === 0 ? (
-              <Box sx={{ p: 3, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  Click "Add Field" and draw on the PDF to create fields
-                </Typography>
-              </Box>
-            ) : (
-              fields.map((field) => (
-                <ListItem
-                  key={field.id}
-                  button
-                  selected={selectedField === field.id}
-                  onClick={() => {
-                    setSelectedField(field.id);
-                    setCurrentPage(field.page);
-                  }}
-                  sx={{
-                    borderLeft: 3,
-                    borderColor: mappings[field.name] ? 'success.main' : 'transparent',
-                  }}
-                >
-                  <ListItemText
-                    primary={field.name}
-                    secondary={
-                      <>
-                        {field.type} • Page {field.page}
-                        {mappings[field.name] && (
-                          <Typography component="span" variant="caption" color="success.main" sx={{ display: 'block' }}>
-                            → {mappings[field.name]}
-                          </Typography>
-                        )}
-                      </>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setEditingField(field);
-                        setEditDialogOpen(true);
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))
-            )}
-          </List>
-
-          {/* Page Navigation */}
-          {numPages && numPages > 1 && (
-            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-              <Typography variant="caption" color="text.secondary" gutterBottom>
-                Navigate Pages
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                {Array.from({ length: numPages }, (_, i) => (
-                  <Chip
-                    key={i + 1}
-                    label={i + 1}
-                    size="small"
-                    color={currentPage === i + 1 ? 'primary' : 'default'}
-                    onClick={() => setCurrentPage(i + 1)}
-                  />
-                ))}
-              </Box>
-            </Box>
-          )}
-        </Paper>
+        {/* Fields Panel - extracted component */}
+        <FieldsPanel
+          fields={fields}
+          mappings={mappings}
+          selectedField={selectedField}
+          setSelectedField={setSelectedField}
+          setCurrentPage={setCurrentPage}
+          numPages={numPages}
+          currentPage={currentPage}
+          onEditField={openEditDialog}
+        />
       </Box>
 
       {/* Field Edit Dialog */}

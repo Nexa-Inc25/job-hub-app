@@ -3,7 +3,8 @@
  * Provides global notification state and toast display
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { useSocket } from './SocketContext';
 import { Snackbar, Alert, IconButton, Typography, Box } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
@@ -137,7 +138,7 @@ export function NotificationProvider({ children }) {
     }
   }, [fetchNotifications]);
 
-  const value = {
+  const value = useMemo(() => ({
     notifications,
     unreadCount,
     loading,
@@ -146,7 +147,7 @@ export function NotificationProvider({ children }) {
     markAsRead,
     markAllAsRead,
     showToast
-  };
+  }), [notifications, unreadCount, loading, fetchNotifications, fetchUnreadCount, markAsRead, markAllAsRead, showToast]);
 
   return (
     <NotificationContext.Provider value={value}>
@@ -193,6 +194,10 @@ export function NotificationProvider({ children }) {
     </NotificationContext.Provider>
   );
 }
+
+NotificationProvider.propTypes = {
+  children: PropTypes.node.isRequired
+};
 
 export function useNotificationContext() {
   const context = useContext(NotificationContext);

@@ -242,6 +242,61 @@ function buildUnitEntryData(params) {
   };
 }
 
+/**
+ * Apply dispute resolution action to a unit entry
+ * Returns { success: true } or { success: false, error: string } for validation errors
+ */
+function applyDisputeResolution(unit, action, user, adjustedQuantity, adjustedReason) {
+  switch (action) {
+    case 'accept':
+      // Accept unit as-is, move to approved status
+      unit.status = 'approved';
+      unit.approvedAt = new Date();
+      unit.approvedBy = user._id;
+      return { success: true };
+      
+    case 'adjust':
+      // Adjust quantity and re-approve - quantity must be different from current
+      if (adjustedQuantity === undefined || adjustedQuantity === unit.quantity) {
+        return { 
+          success: false, 
+          error: 'Adjusted quantity must be provided and different from current quantity' 
+        };
+      }
+      unit.adjustments.push({
+        date: new Date(),
+        adjustedBy: user._id,
+        reason: adjustedReason || 'Dispute resolution adjustment',
+        originalQuantity: unit.quantity,
+        newQuantity: adjustedQuantity,
+        originalTotal: unit.totalAmount,
+        newTotal: adjustedQuantity * unit.unitPrice
+      });
+      unit.quantity = adjustedQuantity;
+      unit.totalAmount = adjustedQuantity * unit.unitPrice;
+      unit.status = 'approved';
+      unit.approvedAt = new Date();
+      unit.approvedBy = user._id;
+      return { success: true };
+      
+    case 'void':
+      // Void the unit - it won't be billed
+      unit.status = 'draft';
+      unit.isDeleted = true;
+      unit.deletedAt = new Date();
+      unit.deletedBy = user._id;
+      return { success: true };
+      
+    case 'resubmit':
+      // Send back to foreman for resubmission
+      unit.status = 'draft';
+      return { success: true };
+      
+    default:
+      return { success: false, error: 'Invalid action' };
+  }
+}
+
 // ============================================================================
 // UNIT ENTRIES - The "Digital Receipt"
 // ============================================================================
@@ -614,8 +669,8 @@ router.post('/units/:id/submit', async (req, res) => {
           submittedBy: user
         });
       }
-    } catch (notifErr) {
-      console.error('[Units:Submit] Notification error:', notifErr.message);
+    } catch (error_) {
+      console.error('[Units:Submit] Notification error:', error_.message);
     }
     
     res.json(unit);
@@ -731,8 +786,8 @@ router.post('/units/:id/approve', async (req, res) => {
           approvedBy: user
         });
       }
-    } catch (notifErr) {
-      console.error('[Units:Approve] Notification error:', notifErr.message);
+    } catch (error_) {
+      console.error('[Units:Approve] Notification error:', error_.message);
       // Don't fail the request if notification fails
     }
     
@@ -865,50 +920,10 @@ router.post('/units/:id/resolve-dispute', async (req, res) => {
       return res.status(400).json({ error: 'Valid action required: accept, adjust, void, or resubmit' });
     }
 
-    // Apply resolution based on action
-    switch (action) {
-      case 'accept':
-        // Accept unit as-is, move to approved status
-        unit.status = 'approved';
-        unit.approvedAt = new Date();
-        unit.approvedBy = user._id;
-        break;
-        
-      case 'adjust':
-        // Adjust quantity and re-approve - quantity must be different from current
-        if (adjustedQuantity === undefined || adjustedQuantity === unit.quantity) {
-          return res.status(400).json({ 
-            error: 'Adjusted quantity must be provided and different from current quantity' 
-          });
-        }
-        unit.adjustments.push({
-          date: new Date(),
-          adjustedBy: user._id,
-          reason: adjustedReason || 'Dispute resolution adjustment',
-          originalQuantity: unit.quantity,  // Match schema field name
-          newQuantity: adjustedQuantity,
-          originalTotal: unit.totalAmount,  // Match schema field name
-          newTotal: adjustedQuantity * unit.unitPrice
-        });
-        unit.quantity = adjustedQuantity;
-        unit.totalAmount = adjustedQuantity * unit.unitPrice;
-        unit.status = 'approved';
-        unit.approvedAt = new Date();
-        unit.approvedBy = user._id;
-        break;
-        
-      case 'void':
-        // Void the unit - it won't be billed
-        unit.status = 'draft';  // Reset to draft so it's not included
-        unit.isDeleted = true;
-        unit.deletedAt = new Date();
-        unit.deletedBy = user._id;
-        break;
-        
-      case 'resubmit':
-        // Send back to foreman for resubmission
-        unit.status = 'draft';
-        break;
+    // Apply resolution based on action (extracted to helper for reduced complexity)
+    const resolutionResult = applyDisputeResolution(unit, action, user, adjustedQuantity, adjustedReason);
+    if (!resolutionResult.success) {
+      return res.status(400).json({ error: resolutionResult.error });
     }
 
     // Mark dispute as resolved
@@ -940,8 +955,8 @@ router.post('/units/:id/resolve-dispute', async (req, res) => {
           });
         }
       }
-    } catch (notifErr) {
-      console.error('[Units:ResolveDispute] Notification error:', notifErr.message);
+    } catch (error_) {
+      console.error('[Units:ResolveDispute] Notification error:', error_.message);
     }
 
     res.json({
@@ -1309,8 +1324,8 @@ router.post('/claims', async (req, res) => {
         claim,
         createdBy: user
       });
-    } catch (notifErr) {
-      console.error('[Claims:Create] Notification error:', notifErr.message);
+    } catch (error_) {
+      console.error('[Claims:Create] Notification error:', error_.message);
     }
 
     res.status(201).json(claim);
