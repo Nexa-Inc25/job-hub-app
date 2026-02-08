@@ -142,8 +142,9 @@ const NavItem = ({ item, collapsed, isActive }) => {
         collapsed && 'justify-center px-2'
       )}
       title={collapsed ? item.title : undefined}
+      aria-label={item.title}
     >
-      <Icon className="h-5 w-5 shrink-0" />
+      <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
       {!collapsed && <span>{item.title}</span>}
     </Link>
   );
@@ -184,8 +185,8 @@ const Sidebar = ({
         'flex h-16 items-center border-b border-sidebar-border px-4',
         collapsed && 'justify-center px-2'
       )}>
-        <Link to="/dashboard" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold">
+        <Link to="/dashboard" className="flex items-center gap-2" aria-label="FieldLedger - Go to Dashboard">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground font-bold" aria-hidden="true">
             FL
           </div>
           {!collapsed && (

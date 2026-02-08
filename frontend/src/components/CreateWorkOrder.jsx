@@ -275,7 +275,7 @@ const CreateWorkOrder = ({ token }) => {
                     return file ? 'Click to change file' : 'Click or drag to upload';
                   })()}
                 </Typography>
-                {extracting && <CircularProgress size={20} sx={{ mt: 1 }} />}
+                {extracting && <CircularProgress size={20} sx={{ mt: 1 }} aria-label="Extracting job details" />}
               </Box>
             </Paper>
 
@@ -536,7 +536,7 @@ const CreateWorkOrder = ({ token }) => {
                 type="submit"
                 variant="contained"
                 disabled={loading || !file}
-                startIcon={loading ? <CircularProgress size={20} /> : <SaveIcon />}
+                startIcon={loading ? <CircularProgress size={20} aria-label="Creating work order" /> : <SaveIcon />}
                 sx={{ flex: 2 }}
               >
                 {loading ? 'Creating...' : 'Create Work Order'}
