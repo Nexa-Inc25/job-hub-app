@@ -26,6 +26,7 @@ export function SocketProvider({ children }) {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState(null);
   const reconnectAttempts = useRef(0);
+  const socketRef = useRef(null); // Ref to track socket for cleanup (avoids stale closure)
   const maxReconnectAttempts = 10;
 
   // Get auth token from localStorage
@@ -87,6 +88,7 @@ export function SocketProvider({ children }) {
     });
 
     setSocket(newSocket);
+    socketRef.current = newSocket; // Keep ref updated for cleanup
 
     return newSocket;
   }, [getToken]);
@@ -97,6 +99,7 @@ export function SocketProvider({ children }) {
       console.log('[Socket] Disconnecting...');
       socket.disconnect();
       setSocket(null);
+      socketRef.current = null; // Clear ref on disconnect
       setIsConnected(false);
     }
   }, [socket]);
@@ -104,16 +107,20 @@ export function SocketProvider({ children }) {
   // Connect on mount if user is logged in
   useEffect(() => {
     const token = getToken();
-    if (token && !socket) {
+    if (token && !socketRef.current) {
       connect();
     }
 
+    // Use ref in cleanup to avoid stale closure issue
+    // State-based cleanup would always see initial null value due to empty deps
     return () => {
-      if (socket) {
-        socket.disconnect();
+      if (socketRef.current) {
+        console.log('[Socket] Cleanup: disconnecting on unmount');
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
     };
-  }, []);
+  }, [connect, getToken]);
 
   // Listen for login/logout events to connect/disconnect
   useEffect(() => {

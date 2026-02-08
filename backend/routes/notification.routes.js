@@ -6,6 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const { param, query } = require('express-validator');
+const { validate } = require('../middleware/validators');
 const notificationService = require('../services/notification.service');
 const asyncHandler = require('../middleware/asyncHandler');
 
@@ -18,7 +19,8 @@ const asyncHandler = require('../middleware/asyncHandler');
 router.get('/',
   [
     query('limit').optional().isInt({ min: 1, max: 100 }).toInt(),
-    query('skip').optional().isInt({ min: 0 }).toInt()
+    query('skip').optional().isInt({ min: 0 }).toInt(),
+    validate
   ],
   asyncHandler(async (req, res) => {
     const limit = req.query.limit || 20;
@@ -56,7 +58,8 @@ router.get('/unread/count',
  */
 router.put('/:id/read',
   [
-    param('id').isMongoId().withMessage('Invalid notification ID')
+    param('id').isMongoId().withMessage('Invalid notification ID'),
+    validate
   ],
   asyncHandler(async (req, res) => {
     const notification = await notificationService.markAsRead(req.params.id, req.userId);
