@@ -278,6 +278,7 @@ const WorkOrderDetails = () => {
 
       const response = await api.post(`/api/jobs/${jobId}/photos`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 300000, // 5 minutes for large photo uploads
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
           setPhotoUploadProgress(percentCompleted);

@@ -862,6 +862,7 @@ const ForemanCloseOut = () => {
       
       await api.post(`/api/jobs/${jobId}/files`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 180000, // 3 minutes for PDF uploads
       });
       
       setPdfEditorOpen(false);
