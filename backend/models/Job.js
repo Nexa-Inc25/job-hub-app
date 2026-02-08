@@ -91,7 +91,7 @@ const jobSchema = new mongoose.Schema({
     // Access assessment
     roadAccess: { 
       type: String, 
-      enum: ['accessible', 'limited', 'non-accessible', 'backyard', 'easement', null],
+      enum: ['accessible', 'limited', 'non-accessible', 'inaccessible', 'backyard', 'easement', null],
       default: null 
     },
     accessNotes: String,       // Details about access (e.g., "150ft from road", "locked gate")

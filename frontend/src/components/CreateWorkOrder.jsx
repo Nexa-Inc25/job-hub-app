@@ -340,27 +340,27 @@ const CreateWorkOrder = ({ token }) => {
                 sx={{
                   p: 2,
                   mb: 3,
-                  bgcolor: '#14532d',
+                  bgcolor: 'rgba(16, 185, 129, 0.08)',
                   borderColor: '#10b981',
                   borderRadius: 2
                 }}
               >
-                <Typography variant="subtitle2" sx={{ color: '#86efac', fontWeight: 700, mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: '#065f46', fontWeight: 700, mb: 1 }}>
                   📦 Crew Materials ({crewMaterials.length} items with M-Codes)
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, maxHeight: 150, overflowY: 'auto' }}>
                   {crewMaterials.slice(0, 8).map((mat, idx) => (
                     <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Typography variant="caption" sx={{ bgcolor: '#16a34a', color: '#ffffff', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, minWidth: 80 }}>
+                      <Typography variant="caption" sx={{ bgcolor: '#d1fae5', color: '#065f46', px: 1, py: 0.25, borderRadius: 1, fontWeight: 600, minWidth: 80 }}>
                         {mat.mCode}
                       </Typography>
-                      <Typography variant="caption" sx={{ color: '#dcfce7' }}>
+                      <Typography variant="caption" sx={{ color: 'text.primary' }}>
                         {mat.quantity} {mat.unit} - {mat.description?.slice(0, 50)}{mat.description?.length > 50 ? '...' : ''}
                       </Typography>
                     </Box>
                   ))}
                   {crewMaterials.length > 8 && (
-                    <Typography variant="caption" sx={{ color: '#86efac', fontStyle: 'italic' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
                       ... and {crewMaterials.length - 8} more items
                     </Typography>
                   )}
@@ -375,22 +375,22 @@ const CreateWorkOrder = ({ token }) => {
                 sx={{
                   p: 2,
                   mb: 3,
-                  bgcolor: '#3b1d60',
+                  bgcolor: 'rgba(139, 92, 246, 0.08)',
                   borderColor: '#8b5cf6',
                   borderRadius: 2
                 }}
               >
-                <Typography variant="subtitle2" sx={{ color: '#c4b5fd', fontWeight: 700, mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: '#5b21b6', fontWeight: 700, mb: 1 }}>
                   🔗 SAP Integration Data
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   {sapId && (
-                    <Typography variant="caption" sx={{ bgcolor: '#7c3aed', color: '#ffffff', px: 1.5, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ bgcolor: '#ede9fe', color: '#5b21b6', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
                       <strong>SAP ID:</strong> {sapId}
                     </Typography>
                   )}
                   {sapFuncLocation && (
-                    <Typography variant="caption" sx={{ bgcolor: '#7c3aed', color: '#ffffff', px: 1.5, py: 0.5, borderRadius: 1, fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ bgcolor: '#ede9fe', color: '#5b21b6', px: 1, py: 0.5, borderRadius: 1, fontWeight: 500 }}>
                       <strong>Func Location:</strong> {sapFuncLocation}
                     </Typography>
                   )}
