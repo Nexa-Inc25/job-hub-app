@@ -33,9 +33,13 @@ const DEMO_COMPANY = {
   contractorLicense: 'DEMO-123456'
 };
 
+// Demo password from environment or generate random if not set
+// This avoids hardcoding credentials in source code
+const DEMO_PASSWORD = process.env.DEMO_PASSWORD || crypto.randomBytes(12).toString('base64url');
+
 const DEMO_USER = {
   email: null, // Will be generated with session ID
-  password: 'Demo123!',
+  password: DEMO_PASSWORD,
   name: 'Demo User',
   role: 'admin',
   isAdmin: true,
@@ -347,6 +351,8 @@ async function createDemoSession(options = {}) {
     expiresAt,
     company,
     user,
+    // Return plaintext password for display to demo user (only for demo sessions)
+    demoPassword: DEMO_USER.password,
     jobs,
     lmes
   };
