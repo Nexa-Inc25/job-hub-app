@@ -5226,17 +5226,20 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       console.log('Created new subfolder:', targetSubfolderName);
     }
     
-    // Generate proper filenames and upload to R2
+    // Generate proper filenames and upload to R2 IN PARALLEL for speed
     const baseTimestamp = Date.now();
-    const uploadedPhotos = [];
-    for (let i = 0; i < req.files.length; i++) {
-      const file = req.files[i];
+    const r2SubfolderPath = targetSubfolderName.toLowerCase().replace(/\s+/g, '_');
+    const division = job.division || 'DA';
+    const pmNumber = job.pmNumber || 'NOPM';
+    const notification = job.notificationNumber || 'NONOTIF';
+    const matCode = job.matCode || '2AA';
+    
+    console.log(`Processing ${req.files.length} photos in parallel, R2 configured:`, r2Storage.isR2Configured());
+    
+    // Process all photos in parallel for much faster uploads
+    const uploadPromises = req.files.map(async (file, i) => {
       let ext = path.extname(file.originalname).toLowerCase() || '.jpg';
       const uniqueTimestamp = `${baseTimestamp}_${i.toString().padStart(3, '0')}`;
-      const division = job.division || 'DA';
-      const pmNumber = job.pmNumber || 'NOPM';
-      const notification = job.notificationNumber || 'NONOTIF';
-      const matCode = job.matCode || '2AA';
       
       let fileToUpload = file.path;
       let tempConvertedFile = null;
@@ -5250,12 +5253,11 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
           const outputBuffer = await heicConvert({
             buffer: inputBuffer,
             format: 'JPEG',
-            quality: 0.9
+            quality: 0.85 // Slightly lower quality for faster processing
           });
           fs.writeFileSync(tempConvertedFile, Buffer.from(outputBuffer));
           fileToUpload = tempConvertedFile;
           ext = '.jpg';
-          console.log('HEIC converted successfully to JPG');
         } catch (convertErr) {
           console.error('Failed to convert HEIC:', convertErr.message);
           // Continue with original file
@@ -5268,23 +5270,14 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
       let r2Key = null;
       
       // Upload to R2 if configured
-      // Use subfolder name for R2 path (e.g., 'gf_audit' for GF Audit folder)
-      const r2SubfolderPath = targetSubfolderName.toLowerCase().replace(/\s+/g, '_');
-      console.log('Manual photo upload - R2 configured:', r2Storage.isR2Configured());
       if (r2Storage.isR2Configured()) {
         try {
-          console.log('Uploading photo to R2:', fileToUpload, '->', `jobs/${id}/${r2SubfolderPath}/${newFilename}`);
           const result = await r2Storage.uploadJobFile(fileToUpload, id, r2SubfolderPath, newFilename);
           docUrl = r2Storage.getPublicUrl(result.key);
           r2Key = result.key;
-          console.log('Photo uploaded to R2 successfully:', r2Key, '-> URL:', docUrl);
           // Clean up local files
-          if (fs.existsSync(file.path)) {
-            fs.unlinkSync(file.path);
-          }
-          if (tempConvertedFile && fs.existsSync(tempConvertedFile)) {
-            fs.unlinkSync(tempConvertedFile);
-          }
+          if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+          if (tempConvertedFile && fs.existsSync(tempConvertedFile)) fs.unlinkSync(tempConvertedFile);
         } catch (uploadErr) {
           console.error('Failed to upload photo to R2:', uploadErr.message);
           // Fallback to local
@@ -5292,20 +5285,23 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
           fs.renameSync(fileToUpload, newPath);
         }
       } else {
-        console.log('R2 not configured, saving locally');
         const newPath = path.join(__dirname, 'uploads', newFilename);
         fs.renameSync(fileToUpload, newPath);
       }
       
-      uploadedPhotos.push({
+      return {
         name: newFilename,
         url: docUrl,
         r2Key: r2Key,
         type: 'image',
         uploadDate: new Date(),
         uploadedBy: req.userId
-      });
-    }
+      };
+    });
+    
+    // Wait for all uploads to complete in parallel
+    const uploadedPhotos = await Promise.all(uploadPromises);
+    console.log(`All ${uploadedPhotos.length} photos uploaded successfully`);
     
     // Use retry loop with reload to handle concurrent uploads
     let retries = 5;
