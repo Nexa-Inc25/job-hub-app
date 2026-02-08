@@ -107,13 +107,8 @@ const Calendar = () => {
   };
 
   const handleJobClick = (jobId) => {
-    // Foremen and GFs go to the details page for quick access to sketches and job info
-    // Admins and PMs go to the file system view
-    if (userRole === 'foreman' || userRole === 'gf') {
-      navigate(`/jobs/${jobId}/details`);
-    } else {
-      navigate(`/jobs/${jobId}`);
-    }
+    // Always go to the details page for quick access to sketches and job info
+    navigate(`/jobs/${jobId}/details`);
   };
 
   const getPriorityColor = (priority) => {
