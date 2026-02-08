@@ -821,12 +821,12 @@ export default function TemplateEditor() {
       });
   }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField]);
 
+  // Callback for navigating back - must be before early returns (React hooks rule)
+  const handleBack = useCallback(() => navigate('/smartforms'), [navigate]);
+
   // Early return states - extracted to separate components
   if (loading) return <LoadingState />;
-  if (error) return <ErrorState error={error} onBack={() => navigate('/smartforms')} />;
-
-  // Callback for navigating back
-  const handleBack = useCallback(() => navigate('/smartforms'), [navigate]);
+  if (error) return <ErrorState error={error} onBack={handleBack} />;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
