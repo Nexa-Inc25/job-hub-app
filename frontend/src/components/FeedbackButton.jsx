@@ -124,7 +124,12 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
       {/* Trigger Button */}
       {variant === 'icon' ? (
         <Tooltip title="Report Issue / Feedback">
-          <IconButton color={color} onClick={handleOpen} size="small" aria-label="Report issue or feedback">
+          <IconButton 
+            color={color} 
+            onClick={handleOpen} 
+            aria-label="Report issue or feedback"
+            sx={{ minWidth: 44, minHeight: 44 }}
+          >
             <FeedbackIcon />
           </IconButton>
         </Tooltip>

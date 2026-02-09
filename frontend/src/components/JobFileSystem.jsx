@@ -1458,7 +1458,18 @@ const JobFileSystem = () => {
           </Box>
 
           {/* Floating Action Button for quick upload */}
-          <Fab color="primary" aria-label="add" sx={{ position: 'fixed', bottom: 32, right: 32 }} onClick={handleUploadClick}>
+          <Fab 
+            color="primary" 
+            aria-label="Upload file" 
+            sx={{ 
+              position: 'fixed', 
+              bottom: 32, 
+              right: 32,
+              width: 56,
+              height: 56
+            }} 
+            onClick={handleUploadClick}
+          >
             <AddIcon />
           </Fab>
           <input

@@ -110,7 +110,15 @@ const OfflineIndicator = ({ color = 'inherit' }) => {
         <IconButton
           color={color}
           onClick={handleClick}
-          sx={{ position: 'relative' }}
+          aria-label={(() => {
+            if (!isOnline) return 'Offline mode - click to view sync status';
+            return hasPendingItems ? `${pendingCounts.total} items pending sync` : 'Online - All synced';
+          })()}
+          sx={{ 
+            position: 'relative',
+            minWidth: 44,
+            minHeight: 44
+          }}
         >
           <Badge 
             badgeContent={hasPendingItems ? pendingCounts.total : 0} 

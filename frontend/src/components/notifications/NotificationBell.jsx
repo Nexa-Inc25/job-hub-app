@@ -93,10 +93,13 @@ export default function NotificationBell() {
     <>
       <IconButton
         aria-describedby={id}
+        aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
         onClick={handleClick}
         color="inherit"
         sx={{ 
           position: 'relative',
+          minWidth: 44,
+          minHeight: 44,
           '&:hover': {
             backgroundColor: 'action.hover'
           }

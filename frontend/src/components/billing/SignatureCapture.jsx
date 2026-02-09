@@ -98,7 +98,7 @@ const SignatureCapture = ({
     // Reset stroke style for signature
     ctx.strokeStyle = COLORS.primary;
     ctx.lineWidth = 3;
-  }, [open]);
+  }, [open, COLORS.border, COLORS.primary, COLORS.surface]);
 
   // Redraw all paths when they change
   useEffect(() => {
@@ -144,7 +144,7 @@ const SignatureCapture = ({
     }
 
     setHasSignature(paths.length > 0 || currentPath.length > 0);
-  }, [paths, currentPath]);
+  }, [paths, currentPath, COLORS.border, COLORS.primary, COLORS.surface]);
 
   // Get coordinates from event
   const getCoordinates = useCallback((e) => {

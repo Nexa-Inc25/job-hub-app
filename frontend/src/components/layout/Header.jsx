@@ -46,16 +46,17 @@ const Header = ({ onMenuClick, onSearchClick, user }) => {
       {/* Search button */}
       <button
         onClick={onSearchClick}
+        aria-label="Search jobs, units, and more. Press Command K to open."
         className={cn(
           'flex flex-1 items-center gap-2 rounded-lg border border-input bg-background px-3 py-2 text-sm',
-          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          'text-foreground/70 hover:bg-accent hover:text-accent-foreground',
           'lg:max-w-sm'
         )}
       >
-        <Search className="h-4 w-4" />
-        <span className="hidden sm:inline">Search jobs, units...</span>
-        <span className="sm:hidden">Search...</span>
-        <kbd className="ml-auto hidden rounded bg-muted px-1.5 py-0.5 text-xs font-medium sm:inline">
+        <Search className="h-4 w-4" aria-hidden="true" />
+        <span className="hidden sm:inline text-foreground/60">Search jobs, units...</span>
+        <span className="sm:hidden text-foreground/60">Search...</span>
+        <kbd className="ml-auto hidden rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-foreground/70 sm:inline" aria-hidden="true">
           ⌘K
         </kbd>
       </button>
@@ -80,7 +81,10 @@ const Header = ({ onMenuClick, onSearchClick, user }) => {
         {/* User menu */}
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
-            <button className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent">
+            <button 
+              className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent"
+              aria-label={`User menu for ${user?.name || user?.email || 'User'}`}
+            >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
                 {getInitials(user?.name || user?.email)}
               </div>
