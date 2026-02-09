@@ -137,30 +137,10 @@ function isAllowedDomain(hostname) {
 }
 
 /**
- * Validate a URL for safe server-side fetching
- * 
- * @param {string} urlString - The URL to validate
- * @param {Object} options - Validation options
- * @param {boolean} options.allowHttp - Allow http:// protocol (default: false)
- * @param {boolean} options.requireAllowlist - Require domain to be in allowlist (default: true)
- * @param {boolean} options.resolveDNS - Resolve DNS and check IP (default: true)
- * @returns {Promise<{valid: boolean, error?: string, url?: URL}>}
+ * Perform basic URL validation (protocol, hostname, IP checks)
+ * Extracted to reduce cognitive complexity of main validateUrl function
  */
-async function validateUrl(urlString, options = {}) {
-  const {
-    allowHttp = false,
-    requireAllowlist = true,
-    resolveDNS = true,
-  } = options;
-  
-  // Parse URL
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(urlString);
-  } catch {
-    return { valid: false, error: 'Invalid URL format' };
-  }
-  
+function performBasicValidation(parsedUrl, allowHttp, requireAllowlist) {
   // Check protocol
   const allowedProtocols = allowHttp ? ['https:', 'http:'] : ['https:'];
   if (!allowedProtocols.includes(parsedUrl.protocol)) {
@@ -172,11 +152,9 @@ async function validateUrl(urlString, options = {}) {
     return { valid: false, error: 'Hostname is blocked' };
   }
   
-  // Check if hostname is an IP address directly
-  if (net.isIP(parsedUrl.hostname)) {
-    if (isPrivateIP(parsedUrl.hostname)) {
-      return { valid: false, error: 'Private/internal IP addresses are not allowed' };
-    }
+  // Check if hostname is a private IP address
+  if (net.isIP(parsedUrl.hostname) && isPrivateIP(parsedUrl.hostname)) {
+    return { valid: false, error: 'Private/internal IP addresses are not allowed' };
   }
   
   // Check allowlist (if required)
@@ -184,26 +162,64 @@ async function validateUrl(urlString, options = {}) {
     return { valid: false, error: `Domain not in allowlist: ${parsedUrl.hostname}` };
   }
   
-  // DNS resolution check (prevents DNS rebinding attacks)
+  return { valid: true };
+}
+
+/**
+ * Perform DNS resolution check to prevent DNS rebinding attacks
+ */
+async function performDnsCheck(hostname) {
+  try {
+    const addresses = await dns.resolve4(hostname);
+    
+    for (const ip of addresses) {
+      if (isPrivateIP(ip)) {
+        return { valid: false, error: `Domain resolves to private IP: ${ip}` };
+      }
+    }
+    return { valid: true };
+  } catch (dnsError) {
+    console.warn('[URLValidator] DNS resolution failed:', hostname, dnsError.code);
+    // Allow if in allowlist, otherwise fail
+    if (!isAllowedDomain(hostname)) {
+      return { valid: false, error: 'DNS resolution failed' };
+    }
+    return { valid: true };
+  }
+}
+
+/**
+ * Validate a URL for safe server-side fetching
+ * 
+ * @param {string} urlString - The URL to validate
+ * @param {Object} options - Validation options
+ * @param {boolean} options.allowHttp - Allow http:// protocol (default: false)
+ * @param {boolean} options.requireAllowlist - Require domain to be in allowlist (default: true)
+ * @param {boolean} options.resolveDNS - Resolve DNS and check IP (default: true)
+ * @returns {Promise<{valid: boolean, error?: string, url?: URL}>}
+ */
+async function validateUrl(urlString, options = {}) {
+  const { allowHttp = false, requireAllowlist = true, resolveDNS = true } = options;
+  
+  // Parse URL
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(urlString);
+  } catch {
+    return { valid: false, error: 'Invalid URL format' };
+  }
+  
+  // Basic validation (protocol, hostname, allowlist)
+  const basicResult = performBasicValidation(parsedUrl, allowHttp, requireAllowlist);
+  if (!basicResult.valid) {
+    return basicResult;
+  }
+  
+  // DNS resolution check (if enabled and hostname is not already an IP)
   if (resolveDNS && !net.isIP(parsedUrl.hostname)) {
-    try {
-      const addresses = await dns.resolve4(parsedUrl.hostname);
-      
-      for (const ip of addresses) {
-        if (isPrivateIP(ip)) {
-          return { 
-            valid: false, 
-            error: `Domain resolves to private IP: ${ip}` 
-          };
-        }
-      }
-    } catch (dnsError) {
-      // DNS resolution failed - could be temporary or invalid domain
-      console.warn('[URLValidator] DNS resolution failed:', parsedUrl.hostname, dnsError.code);
-      // Allow to proceed if in allowlist (trust the allowlist)
-      if (!isAllowedDomain(parsedUrl.hostname)) {
-        return { valid: false, error: 'DNS resolution failed' };
-      }
+    const dnsResult = await performDnsCheck(parsedUrl.hostname);
+    if (!dnsResult.valid) {
+      return dnsResult;
     }
   }
   

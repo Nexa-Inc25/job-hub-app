@@ -350,13 +350,8 @@ const RecordingSection = ({
     return 'Tap to start recording';
   };
 
-  const handleToggle = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
+  // Use ternary for concise toggle - called from RecordingSection UI
+  const handleToggle = () => (isRecording ? stopRecording() : startRecording());
 
   return (
     <Box sx={{ textAlign: 'center' }}>

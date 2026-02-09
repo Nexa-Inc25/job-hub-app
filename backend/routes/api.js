@@ -108,7 +108,7 @@ function resolvePdfPath(req) {
     // Only allow paths within uploads directory
     if (!sanitizedUrl.startsWith('uploads/')) {
       // Sanitize user input before logging to prevent log injection
-      const safeLogValue = String(req.body.documentUrl || '').slice(0, 100).replace(/[\n\r\t]/g, '');
+      const safeLogValue = String(req.body.documentUrl || '').slice(0, 100).replaceAll(/[\n\r\t]/g, '');
       console.warn('[Security] Blocked path traversal attempt:', safeLogValue);
       return null;
     }
@@ -120,7 +120,7 @@ function resolvePdfPath(req) {
     const normalizedPath = path.resolve(resolvedPath);
     if (!normalizedPath.startsWith(backendDir)) {
       // Sanitize user input before logging to prevent log injection
-      const safeLogValue = String(req.body.documentUrl || '').slice(0, 100).replace(/[\n\r\t]/g, '');
+      const safeLogValue = String(req.body.documentUrl || '').slice(0, 100).replaceAll(/[\n\r\t]/g, '');
       console.warn('[Security] Blocked path escape attempt:', safeLogValue);
       return null;
     }
