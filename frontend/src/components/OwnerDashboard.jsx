@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/OwnerDashboard.js
 // Admin-only dashboard for platform owners to monitor business health,
 // user adoption, API costs, and system performance.

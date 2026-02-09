@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Email Service Tests
  * 
  * Tests for email notification functionality with Resend integration.

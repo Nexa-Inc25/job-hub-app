@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 /// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';

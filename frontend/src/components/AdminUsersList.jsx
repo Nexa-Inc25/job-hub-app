@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/AdminUsersList.js
 // Detailed view of all platform users organized by company
 

@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const fs = require('node:fs');
 const path = require('node:path');

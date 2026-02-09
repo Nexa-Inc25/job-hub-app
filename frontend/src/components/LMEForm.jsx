@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * PG&E LME Form - Daily Statement of Labor, Material, and Equipment
  * 
  * Official PG&E contractor timesheet format.

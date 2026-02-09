@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Set up Fuse Electric's custom folder template
  * 
  * Run with: node backend/scripts/setupFuseElectricFolders.js

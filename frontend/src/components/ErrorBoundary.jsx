@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Box, Typography, Button, Paper } from '@mui/material';

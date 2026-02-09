@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * IP Blocking Middleware
  * 
  * Provides automatic and manual IP blocking for brute force protection.

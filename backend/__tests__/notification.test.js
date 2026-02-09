@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * FieldLedger - Notification Tests
  * Tests for notification model and service
  * 

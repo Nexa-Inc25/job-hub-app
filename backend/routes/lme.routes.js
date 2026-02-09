@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * LME Routes - Daily Statement of Labor, Material, and Equipment
  * 
  * PG&E official contractor timesheet format API endpoints.

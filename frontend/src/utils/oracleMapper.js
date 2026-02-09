@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Oracle Payables API Mapper
  * 
  * Transforms internal Claim and UnitEntry objects into the Oracle REST API

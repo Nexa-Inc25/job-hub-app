@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * useSyncQueue Hook - NIST-Compliant Sync Queue Bridge
  * 
  * Bridges the singleton QueueManager to React state.

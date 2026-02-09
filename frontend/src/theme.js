@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 import { createTheme, alpha } from '@mui/material/styles';
 import { blue, grey, green, orange } from '@mui/material/colors';
 

@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Document Auto-Fill Engine
  * 
  * This is the core intelligence for auto-filling utility contractor paperwork.

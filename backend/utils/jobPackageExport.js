@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Job Package Export Utilities
  * 
  * Formats job completion data (timesheets, tailboards, units) for utility systems:

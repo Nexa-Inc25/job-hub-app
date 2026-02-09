@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Test Script: Verify Job Status Workflow
  * 
  * This script tests the job status transitions to ensure they work correctly

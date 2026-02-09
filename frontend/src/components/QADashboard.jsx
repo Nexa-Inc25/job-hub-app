@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/QADashboard.js
 // QA Dashboard - Review jobs, manage go-backs, access spec library
 

@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Migration Script: Add url/path fields to existing LME documents
  * 
  * This fixes LME documents saved to Close Out folders that are missing

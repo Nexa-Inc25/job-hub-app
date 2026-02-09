@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/shared/AuthLayout.js
 // Shared layout wrapper for Login and Signup pages
 

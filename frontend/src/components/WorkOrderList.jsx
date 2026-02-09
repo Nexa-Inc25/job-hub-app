@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/WorkOrderList.js (Updated: Role-based actions in table, e.g., bid button for general foreman)
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';

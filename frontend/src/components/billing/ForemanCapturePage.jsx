@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Foreman Capture Page - Mobile-First Unit Entry
  * 
  * Complete workflow for field workers to:

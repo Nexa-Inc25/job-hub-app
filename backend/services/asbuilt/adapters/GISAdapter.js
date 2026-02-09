@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * GIS/ESRI Adapter
  * Delivers construction sketches and as-built drawings to GIS systems
  * Updates asset locations and attachments in ESRI ArcGIS

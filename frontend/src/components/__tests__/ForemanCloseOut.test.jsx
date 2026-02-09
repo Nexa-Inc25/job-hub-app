@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * ForemanCloseOut Component Tests
  * 
  * Comprehensive test coverage for the Foreman Close Out view.

@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // frontend/src/components/Forms.js
 import React from 'react';
 import { Typography, Box, List, ListItem, ListItemButton, ListItemText } from '@mui/material';

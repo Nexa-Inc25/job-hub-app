@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * useSyncQueue Hook Tests - NIST SP 800-53 Compliance
  * 
  * Tests the sync queue functionality including:

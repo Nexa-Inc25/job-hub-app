@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * ProofPanel Component - Digital Receipt Verification
  * 
  * Displays the forensic evidence for a unit entry:

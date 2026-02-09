@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/SecurityDashboard.js - PG&E Compliance Security Dashboard
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';

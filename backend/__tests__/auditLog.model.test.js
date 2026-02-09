@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * AuditLog Model Tests
  * 
  * Tests for the AuditLog model used for PG&E/NERC compliance.

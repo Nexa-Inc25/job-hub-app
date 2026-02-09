@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Unit Entry Form - Digital Receipt Capture
  * 
  * Mobile-first form for field workers to log unit-price work.

@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 const express = require('express');
 const router = express.Router();
 const ProcedureDoc = require('../models/ProcedureDoc');

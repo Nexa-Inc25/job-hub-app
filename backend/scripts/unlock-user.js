@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // Script to unlock a user account
 // Usage: MONGODB_URI=your_uri node scripts/unlock-user.js user@email.com
 

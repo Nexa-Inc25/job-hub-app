@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Swagger/OpenAPI Configuration
  * 
  * Provides interactive API documentation at /api-docs
@@ -83,16 +87,23 @@ Authorization: Bearer <your-jwt-token>
       description: 'FieldLedger Documentation',
       url: 'https://www.fieldledger.io/docs'
     },
-    servers: [
-      {
-        url: 'https://api.fieldledger.io',
-        description: 'Production API'
-      },
-      {
-        url: 'http://localhost:5000',
-        description: 'Development server'
-      }
-    ],
+    servers: process.env.NODE_ENV === 'production' 
+      ? [
+          {
+            url: 'https://api.fieldledger.io',
+            description: 'Production API'
+          }
+        ]
+      : [
+          {
+            url: 'https://api.fieldledger.io',
+            description: 'Production API'
+          },
+          {
+            url: 'http://localhost:5000',
+            description: 'Development server (local only)'
+          }
+        ],
     components: {
       securitySchemes: {
         bearerAuth: {

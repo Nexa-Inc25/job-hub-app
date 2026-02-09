@@ -1,6 +1,10 @@
 {
   "name": "fieldledger-backend",
   "version": "1.0.0",
+  "description": "FieldLedger Backend API - Enterprise field operations management platform",
+  "author": "FieldLedger <legal@fieldledger.io>",
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * Circuit Breaker Pattern Implementation
  * 
  * Prevents cascade failures when external services (OpenAI, R2) are down.

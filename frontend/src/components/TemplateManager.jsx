@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/TemplateManager.js
 import React, { useState, useEffect, useRef } from 'react';
 import api from '../api';

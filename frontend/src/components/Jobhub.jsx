@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/FieldLedger.js
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';

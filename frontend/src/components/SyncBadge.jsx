@@ -1,4 +1,8 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * SyncBadge Component - NIST-Compliant Outbox Status Indicator
  * 
  * The Foreman's primary source of truth for sync status.

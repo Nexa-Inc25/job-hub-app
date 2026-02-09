@@ -1,3 +1,7 @@
+/**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
 // src/components/CompanyOnboarding.js
 // Super simple UI for FieldLedger owners to onboard new contractor companies
 // Designed to be usable by non-technical people
