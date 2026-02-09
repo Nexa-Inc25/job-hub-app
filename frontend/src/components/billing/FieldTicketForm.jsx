@@ -19,7 +19,8 @@
  * @module components/billing/FieldTicketForm
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import {
   Box,
@@ -457,8 +458,28 @@ MaterialEntry.propTypes = {
 /**
  * Main Field Ticket Form Component
  */
-const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
+const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }) => {
   const { position } = useGeolocation();
+  const { jobId: urlJobId } = useParams();
+  const navigate = useNavigate();
+  
+  // Use prop jobId if provided, otherwise use URL param
+  const jobId = propJobId || urlJobId;
+  
+  // Job data state (can be passed as prop or fetched)
+  const [job, setJob] = useState(propJob || null);
+  const [loadingJob, setLoadingJob] = useState(!propJob && !!jobId);
+  
+  // Fetch job data if not provided as prop
+  useEffect(() => {
+    if (!propJob && jobId) {
+      setLoadingJob(true);
+      api.get(`/api/jobs/${jobId}`)
+        .then(res => setJob(res.data))
+        .catch(err => console.error('Failed to load job:', err))
+        .finally(() => setLoadingJob(false));
+    }
+  }, [propJob, jobId]);
   
   // Form state
   const [changeReason, setChangeReason] = useState('');
@@ -660,6 +681,9 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
       
       if (onSuccess) {
         onSuccess(response.data);
+      } else {
+        // Navigate back to job details if no callback provided
+        navigate(`/jobs/${jobId}`);
       }
     } catch (err) {
       console.error('Error creating field ticket:', err);
@@ -668,6 +692,38 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
       setSubmitting(false);
     }
   };
+
+  // Handle cancel - navigate back or call callback
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate(-1); // Go back
+    }
+  };
+
+  // Show loading state while fetching job
+  if (loadingJob) {
+    return (
+      <Box sx={{ bgcolor: COLORS.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress sx={{ color: COLORS.primary }} />
+      </Box>
+    );
+  }
+
+  // Show error if no jobId
+  if (!jobId) {
+    return (
+      <Box sx={{ bgcolor: COLORS.bg, minHeight: '100vh', p: 4 }}>
+        <Alert severity="error">
+          No job ID provided. Please access this form from a job detail page.
+        </Alert>
+        <Button onClick={() => navigate('/jobs')} sx={{ mt: 2, color: COLORS.primary }}>
+          Go to Jobs
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ bgcolor: COLORS.bg, minHeight: '100vh', pb: 10 }}>
@@ -686,7 +742,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
               T&M Field Ticket
             </Typography>
             <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-              WO: {job?.woNumber || 'N/A'}
+              WO: {job?.woNumber || 'Loading...'}
             </Typography>
           </Box>
           <Chip
@@ -1045,7 +1101,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
         gap: 2
       }}>
         <Button
-          onClick={onCancel}
+          onClick={handleCancel}
           sx={{ flex: 1, color: COLORS.textSecondary }}
         >
           Cancel
@@ -1091,7 +1147,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
 };
 
 FieldTicketForm.propTypes = {
-  jobId: PropTypes.string.isRequired,
+  jobId: PropTypes.string, // Optional - can come from URL params
   job: PropTypes.object,
   onSuccess: PropTypes.func,
   onCancel: PropTypes.func,
