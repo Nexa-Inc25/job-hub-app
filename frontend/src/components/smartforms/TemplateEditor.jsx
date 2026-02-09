@@ -274,6 +274,14 @@ function useFieldDrawing(template, currentPage, fieldsLength, onFieldCreated) {
     setDrawMode(false);
   }, [isDrawing, drawRect, drawStart, currentPage, template, fieldsLength, onFieldCreated]);
 
+  const handleMouseLeave = useCallback(() => {
+    if (isDrawing) {
+      setIsDrawing(false);
+      setDrawRect(null);
+      setDrawStart(null);
+    }
+  }, [isDrawing]);
+
   return {
     isDrawing,
     drawRect,
@@ -282,6 +290,7 @@ function useFieldDrawing(template, currentPage, fieldsLength, onFieldCreated) {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleMouseLeave,
   };
 }
 
@@ -692,7 +701,7 @@ export default function TemplateEditor() {
     template, setTemplate,
     fields, setFields,
     mappings, setMappings,
-    loading, error,
+    loading, error, setError,
     pdfBlobUrl,
     dataPaths,
   } = useTemplateData(templateId);
@@ -731,6 +740,7 @@ export default function TemplateEditor() {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleMouseLeave,
   } = useFieldDrawing(template, currentPage, fields.length, handleFieldCreated);
 
   const onDocumentLoadSuccess = ({ numPages: pages }) => {
@@ -934,13 +944,7 @@ export default function TemplateEditor() {
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
-                onMouseLeave={() => {
-                  if (isDrawing) {
-                    setIsDrawing(false);
-                    setDrawRect(null);
-                    setDrawStart(null);
-                  }
-                }}
+                onMouseLeave={handleMouseLeave}
               >
                 <Page
                   pageNumber={currentPage}
