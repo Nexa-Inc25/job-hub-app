@@ -466,6 +466,9 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
   // Use prop jobId if provided, otherwise use URL param
   const jobId = propJobId || urlJobId;
   
+  // Debug: log jobId source
+  console.log('[FieldTicketForm] jobId sources:', { propJobId, urlJobId, resolved: jobId });
+  
   // Job data state (can be passed as prop or fetched)
   const [job, setJob] = useState(propJob || null);
   const [loadingJob, setLoadingJob] = useState(!propJob && !!jobId);
@@ -640,8 +643,16 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
         return;
       }
 
+      // Validate jobId is present
+      console.log('[FieldTicketForm] Submit - jobId:', jobId);
+      if (!jobId) {
+        setError('Job ID is missing. Please try again from the job details page.');
+        setSubmitting(false);
+        return;
+      }
+
       const ticketData = {
-        jobId,
+        jobId: String(jobId), // Explicitly convert to string and assign
         changeReason,
         changeDescription,
         workDate,
