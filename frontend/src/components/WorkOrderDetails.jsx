@@ -60,6 +60,7 @@ import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import PlaylistAddCheckIcon from '@mui/icons-material/PlaylistAddCheck';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import EmailIcon from '@mui/icons-material/Email';
@@ -673,6 +674,22 @@ const WorkOrderDetails = () => {
                       }}
                     >
                       Log Unit
+                    </Button>
+                    <Button
+                      component={Link}
+                      to={`/jobs/${jobId}/field-ticket`}
+                      startIcon={<NoteAddIcon />}
+                      variant="contained"
+                      size="large"
+                      sx={{ 
+                        bgcolor: 'secondary.main',
+                        color: 'secondary.contrastText',
+                        fontWeight: 700,
+                        px: 3,
+                        '&:hover': { bgcolor: 'secondary.dark' }
+                      }}
+                    >
+                      Field Ticket
                     </Button>
                     <Button
                       component={Link}

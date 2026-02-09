@@ -56,6 +56,14 @@ const SmartFormsPage = lazy(() => import('./components/smartforms/SmartFormsPage
 const TemplateEditor = lazy(() => import('./components/smartforms/TemplateEditor'));
 const TemplateFill = lazy(() => import('./components/smartforms/TemplateFill'));
 
+// Field Tickets (T&M / Change Orders) - Phase 2
+const FieldTicketForm = lazy(() => import('./components/billing/FieldTicketForm'));
+const AtRiskDashboard = lazy(() => import('./components/billing/AtRiskDashboard'));
+
+// Bidding Intelligence - Phase 2
+const BiddingDashboard = lazy(() => import('./components/bidding/BiddingDashboard'));
+const EstimateBuilder = lazy(() => import('./components/bidding/EstimateBuilder'));
+
 // CSS-only loading spinner - avoids MUI import in critical path
 const spinnerStyle = {
   display: 'flex',
@@ -184,6 +192,15 @@ function App() {
               <Route path="/smartforms" element={<ProtectedRoute><SmartFormsPage /></ProtectedRoute>} />
               <Route path="/smartforms/editor/:templateId" element={<ProtectedRoute><TemplateEditor /></ProtectedRoute>} />
               <Route path="/smartforms/fill/:templateId" element={<ProtectedRoute><TemplateFill /></ProtectedRoute>} />
+              
+              {/* Field Tickets (T&M / Change Orders) - Phase 2 */}
+              <Route path="/jobs/:jobId/field-ticket" element={<ProtectedRoute><FieldTicketForm /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/field-ticket/:ticketId" element={<ProtectedRoute><FieldTicketForm /></ProtectedRoute>} />
+              <Route path="/billing/change-orders" element={<ProtectedRoute><AtRiskDashboard /></ProtectedRoute>} />
+              
+              {/* Bidding Intelligence - Phase 2 */}
+              <Route path="/bidding" element={<ProtectedRoute><BiddingDashboard /></ProtectedRoute>} />
+              <Route path="/bidding/estimate" element={<ProtectedRoute><EstimateBuilder /></ProtectedRoute>} />
               
               {/* 404 */}
               <Route path="*" element={<NotFound />} />

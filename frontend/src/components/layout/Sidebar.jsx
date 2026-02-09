@@ -23,6 +23,8 @@ import {
   BarChart3,
   Building2,
   X,
+  FileWarning,
+  TrendingUp,
 } from 'lucide-react';
 
 // Navigation items with role-based visibility
@@ -50,6 +52,18 @@ const getNavItems = (role, isDemo = false) => {
       title: 'Billing',
       href: '/billing',
       icon: DollarSign,
+      roles: ['admin', 'pm', 'super_admin'],
+    },
+    {
+      title: 'Change Orders',
+      href: '/billing/change-orders',
+      icon: FileWarning,
+      roles: ['admin', 'pm', 'gf', 'super_admin'],
+    },
+    {
+      title: 'Bidding',
+      href: '/bidding',
+      icon: TrendingUp,
       roles: ['admin', 'pm', 'super_admin'],
     },
     {
