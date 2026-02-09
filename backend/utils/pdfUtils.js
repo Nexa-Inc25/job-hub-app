@@ -119,7 +119,7 @@ async function extractWithAI(filePath, prompt = "Extract all relevant informatio
 
     return {
       rawText: pdfText,
-      extractedInfo: extractedInfo,
+      extractedInfo,
       model: completion.model,
       usage: completion.usage
     };

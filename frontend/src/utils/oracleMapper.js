@@ -98,7 +98,7 @@ export async function formatForOracle(claim, units, options = {}) {
     HeaderAttribute3: await generateClaimChecksum(claim, units),
     
     // Invoice lines
-    invoiceLines: invoiceLines,
+    invoiceLines,
     
     // Holds (if any validation issues)
     holds: generateHolds(units),

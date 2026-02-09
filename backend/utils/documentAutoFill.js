@@ -165,7 +165,7 @@ function getFieldValue(fieldDef, job, user, patterns) {
 async function generateAutoFill(documentType, jobId, userId) {
   const template = DOCUMENT_TEMPLATES[documentType];
   if (!template) {
-    return { error: `Unknown document type: ${documentType}`, fields: {} };
+    return { error: 'Unknown document type: ' + documentType, fields: {} };
   }
 
   const job = await Job.findById(jobId)

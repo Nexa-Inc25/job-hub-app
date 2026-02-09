@@ -274,8 +274,8 @@ async function renderPageToImage(pdf, pageNum, outputPath, scale = 2) {
     // Render the page - MUST pass canvasFactory in renderContext for pdfjs-dist Node.js
     const renderContext = {
       canvasContext: context,
-      viewport: viewport,
-      canvasFactory: canvasFactory
+      viewport,
+      canvasFactory
     };
     
     await page.render(renderContext).promise;

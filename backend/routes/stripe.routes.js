@@ -212,13 +212,13 @@ router.post('/create-checkout-session', authenticateToken, requireStripe, async 
         trial_period_days: company.subscription?.status === 'trialing' ? undefined : 14,
         metadata: {
           companyId: String(company._id),
-          plan: plan
+          plan
         }
       },
       metadata: {
         companyId: String(company._id),
-        plan: plan,
-        billingInterval: billingInterval
+        plan,
+        billingInterval
       }
     });
     
@@ -435,7 +435,7 @@ async function handleCheckoutComplete(session) {
   // Update company subscription
   company.subscription = {
     ...company.subscription,
-    plan: plan,
+    plan,
     stripeCustomerId: session.customer,
     stripeSubscriptionId: session.subscription,
     stripePriceId: subscription.items.data[0]?.price?.id,

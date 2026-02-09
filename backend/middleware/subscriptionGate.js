@@ -283,19 +283,19 @@ async function checkSeatLimit(req, res, next) {
     
     if (seatsUsed >= planFeatures.maxUsers) {
       return res.status(403).json({
-        error: `Seat limit reached. Your ${plan} plan allows ${planFeatures.maxUsers} users.`,
+        error: 'Seat limit reached. Your ' + plan + ' plan allows ' + planFeatures.maxUsers + ' users.',
         code: 'SEAT_LIMIT_REACHED',
-        seatsUsed: seatsUsed,
+        seatsUsed,
         seatsAllowed: planFeatures.maxUsers,
         upgradeUrl: '/settings/billing'
       });
     }
     
-    next();
+    return next();
     
   } catch (error) {
     console.error('[SubscriptionGate] Error checking seat limit:', error);
-    next(error);
+    return next(error);
   }
 }
 
