@@ -2,8 +2,11 @@
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  * Proprietary and confidential. Unauthorized copying prohibited.
  */
-// src/components/shared/themeUtils.js
+// src/components/shared/themeUtils.jsx
 // Shared theme utilities to reduce duplication
+
+import { useTheme } from '@mui/material/styles';
+import { useMemo } from 'react';
 
 /**
  * Get theme-aware colors based on light/dark mode
@@ -24,6 +27,75 @@ export const getThemeColors = (mode) => ({
   sectionHeaderBg: mode === 'dark' ? '#252538' : '#f8fafc',
   sectionHeaderHoverBg: mode === 'dark' ? '#2a2a40' : '#f1f5f9',
 });
+
+/**
+ * Get app-wide colors that respond to light/dark mode.
+ * Use this to replace hardcoded COLORS constants in components.
+ * 
+ * @param {string} mode - 'light' or 'dark'
+ * @returns {Object} Complete color palette for the app
+ */
+export const getAppColors = (mode) => ({
+  // Page backgrounds
+  bg: mode === 'dark' ? '#0f0f1a' : '#f8fafc',
+  surface: mode === 'dark' ? '#1e1e2e' : '#ffffff',
+  surfaceLight: mode === 'dark' ? '#252538' : '#f1f5f9',
+  
+  // Primary action colors (consistent across modes for brand identity)
+  primary: '#00e676',
+  primaryDark: '#00c853',
+  secondary: '#7c4dff',
+  
+  // Status colors
+  error: '#ff5252',
+  warning: '#ffab00',
+  success: '#00e676',
+  info: '#448aff',
+  
+  // Text colors
+  text: mode === 'dark' ? '#ffffff' : '#1e293b',
+  textSecondary: mode === 'dark' ? '#9e9e9e' : '#64748b',
+  
+  // Borders and dividers
+  border: mode === 'dark' ? '#333344' : '#e2e8f0',
+  divider: mode === 'dark' ? '#2a2a3c' : '#e5e7eb',
+  
+  // Special purpose
+  recording: '#ff1744',
+  
+  // GPS quality indicators (consistent for safety/visibility)
+  gpsHigh: '#00e676',
+  gpsGood: '#69f0ae',
+  gpsAcceptable: '#ffab00',
+  gpsPoor: '#ff5252',
+  
+  // Input fields
+  inputBg: mode === 'dark' ? '#16161f' : '#ffffff',
+  inputBorder: mode === 'dark' ? '#444455' : '#d1d5db',
+  inputText: mode === 'dark' ? '#ffffff' : '#1e293b',
+  
+  // Card shadows
+  cardShadow: mode === 'dark' 
+    ? '0 4px 20px rgba(0,0,0,0.5)' 
+    : '0 2px 12px rgba(0,0,0,0.08)',
+});
+
+/**
+ * Hook to get theme-aware app colors.
+ * Automatically updates when theme mode changes.
+ * 
+ * @example
+ * const COLORS = useAppColors();
+ * <Box sx={{ bgcolor: COLORS.bg, color: COLORS.text }}>...</Box>
+ * 
+ * @returns {Object} Theme-aware color palette
+ */
+export const useAppColors = () => {
+  const theme = useTheme();
+  const mode = theme.palette.mode;
+  
+  return useMemo(() => getAppColors(mode), [mode]);
+};
 
 /**
  * Common color palette for charts

@@ -45,20 +45,7 @@ import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import WarningIcon from '@mui/icons-material/Warning';
 import InfoIcon from '@mui/icons-material/Info';
 import api from '../../api';
-
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  secondary: '#7c4dff',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Format currency
 const formatCurrency = (amount) => {
@@ -70,14 +57,17 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
-// Confidence labels
-const CONFIDENCE_LABELS = {
-  conservative: { label: 'Conservative', desc: 'Higher pricing, less risk', color: COLORS.primary },
-  moderate: { label: 'Moderate', desc: 'Average historical pricing', color: COLORS.secondary },
-  aggressive: { label: 'Aggressive', desc: 'Lower pricing, more competitive', color: COLORS.warning },
-};
+// Get confidence labels with dynamic colors
+const getConfidenceLabels = (colors) => ({
+  conservative: { label: 'Conservative', desc: 'Higher pricing, less risk', color: colors.primary },
+  moderate: { label: 'Moderate', desc: 'Average historical pricing', color: colors.secondary },
+  aggressive: { label: 'Aggressive', desc: 'Lower pricing, more competitive', color: colors.warning },
+});
 
 const EstimateBuilder = () => {
+  const COLORS = useAppColors();
+  const CONFIDENCE_LABELS = getConfidenceLabels(COLORS);
+  
   // State
   const [items, setItems] = useState([
     { id: `item-${Date.now()}`, itemCode: '', quantity: 0 }

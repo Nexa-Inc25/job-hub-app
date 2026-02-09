@@ -38,20 +38,7 @@ import OfflineIcon from '@mui/icons-material/CloudOff';
 import { useOffline } from '../../hooks/useOffline';
 import offlineStorage from '../../utils/offlineStorage';
 import api from '../../api';
-
-// Colors matching UnitEntryForm
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Category colors
 const CATEGORY_COLORS = {
@@ -82,6 +69,7 @@ const CATEGORIES = [
  * Rate Item Card
  */
 const RateItemCard = ({ item, onSelect, isRecent }) => {
+  const COLORS = useAppColors();
   const categoryColor = CATEGORY_COLORS[item.category] || CATEGORY_COLORS.other;
   
   return (
@@ -182,6 +170,8 @@ const PriceBookSelector = ({
   onSelect,
   onClose,
 }) => {
+  const COLORS = useAppColors();
+  
   // State
   const [priceBook, setPriceBook] = useState(null);
   const [loading, setLoading] = useState(true);

@@ -49,22 +49,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import api from '../api';
-
-// High-contrast colors
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  secondary: '#448aff',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-  success: '#00e676',
-};
+import { useAppColors } from './shared/themeUtils';
 
 // Work type options
 const WORK_TYPES = [
@@ -95,6 +80,7 @@ const formatDuration = (minutes) => {
  * Crew Member Time Card
  */
 const CrewMemberCard = ({ member, onEdit, onDelete }) => {
+  const COLORS = useAppColors();
   const totalMinutes = member.entries?.reduce((sum, e) => {
     if (e.clockIn && e.clockOut) {
       const diff = (new Date(e.clockOut) - new Date(e.clockIn)) / 60000;
@@ -186,6 +172,7 @@ CrewMemberCard.propTypes = {
  * Add/Edit Time Entry Dialog
  */
 const TimeEntryDialog = ({ open, onClose, onSave, member, entry }) => {
+  const COLORS = useAppColors();
   const [clockIn, setClockIn] = useState(entry?.clockIn ? new Date(entry.clockIn).toTimeString().slice(0, 5) : '');
   const [clockOut, setClockOut] = useState(entry?.clockOut ? new Date(entry.clockOut).toTimeString().slice(0, 5) : '');
   const [breakMinutes, setBreakMinutes] = useState(entry?.breakMinutes || 30);
@@ -343,6 +330,7 @@ TimeEntryDialog.propTypes = {
  * Add Crew Member Dialog
  */
 const AddCrewMemberDialog = ({ open, onClose, onAdd }) => {
+  const COLORS = useAppColors();
   const [name, setName] = useState('');
   const [classification, setClassification] = useState('Lineman');
 
@@ -427,6 +415,7 @@ AddCrewMemberDialog.propTypes = {
  * Main Timesheet Entry Component
  */
 const TimesheetEntry = () => {
+  const COLORS = useAppColors();
   const { jobId } = useParams();
   const navigate = useNavigate();
 

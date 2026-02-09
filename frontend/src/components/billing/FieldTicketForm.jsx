@@ -55,21 +55,7 @@ import { useGeolocation } from '../../hooks/useGeolocation';
 import GPSPhotoCapture from './GPSPhotoCapture';
 import SignatureCapture from './SignatureCapture';
 import api from '../../api';
-
-// High-contrast colors for field visibility
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-  success: '#00e676',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Change reason options
 const CHANGE_REASONS = [
@@ -118,6 +104,7 @@ const EQUIPMENT_TYPES = [
  * Labor Entry Row Component
  */
 const LaborEntry = ({ entry, onChange, onRemove }) => {
+  const COLORS = useAppColors();
   const total = (entry.regularHours * entry.regularRate) + 
                 (entry.overtimeHours * (entry.overtimeRate || entry.regularRate * 1.5)) +
                 (entry.doubleTimeHours * (entry.doubleTimeRate || entry.regularRate * 2));
@@ -234,6 +221,7 @@ LaborEntry.propTypes = {
  * Equipment Entry Row Component
  */
 const EquipmentEntry = ({ entry, onChange, onRemove }) => {
+  const COLORS = useAppColors();
   const total = (entry.hours * entry.hourlyRate) + 
                 (entry.standbyHours * (entry.standbyRate || entry.hourlyRate * 0.5));
 
@@ -346,6 +334,7 @@ EquipmentEntry.propTypes = {
  * Material Entry Row Component
  */
 const MaterialEntry = ({ entry, onChange, onRemove }) => {
+  const COLORS = useAppColors();
   const base = entry.quantity * entry.unitCost;
   const markup = base * ((entry.markup || 0) / 100);
   const total = base + markup;
@@ -459,6 +448,7 @@ MaterialEntry.propTypes = {
  * Main Field Ticket Form Component
  */
 const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }) => {
+  const COLORS = useAppColors();
   const { position } = useGeolocation();
   const { jobId: urlJobId } = useParams();
   const navigate = useNavigate();

@@ -37,20 +37,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
 import GPSIcon from '@mui/icons-material/MyLocation';
 import { useGeolocation } from '../../hooks/useGeolocation';
-
-// High-contrast colors for field visibility
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 const SignatureCapture = ({
   open,
@@ -61,6 +48,7 @@ const SignatureCapture = ({
   requireCompany = false,
   showGPS = true,
 }) => {
+  const COLORS = useAppColors();
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);

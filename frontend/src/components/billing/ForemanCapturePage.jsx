@@ -46,26 +46,13 @@ import { useOffline } from '../../hooks/useOffline';
 import UnitEntryForm from './UnitEntryForm';
 import api from '../../api';
 import offlineStorage from '../../utils/offlineStorage';
-
-// High-contrast colors for field visibility
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-  success: '#00e676',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 /**
  * Recent Items Quick Access
  */
 const RecentItems = ({ items, onSelect }) => {
+  const COLORS = useAppColors();
   if (!items.length) return null;
   
   return (
@@ -110,7 +97,9 @@ RecentItems.propTypes = {
 /**
  * Item Card for price book selection
  */
-const ItemCard = ({ item, onSelect, isRecent }) => (
+const ItemCard = ({ item, onSelect, isRecent }) => {
+  const COLORS = useAppColors();
+  return (
   <Card 
     onClick={() => onSelect(item)}
     sx={{ 
@@ -162,6 +151,7 @@ const ItemCard = ({ item, onSelect, isRecent }) => (
     </CardContent>
   </Card>
 );
+};
 
 ItemCard.propTypes = {
   item: PropTypes.shape({
@@ -179,6 +169,7 @@ ItemCard.propTypes = {
  * Pending Queue Badge
  */
 const PendingBadge = ({ count, onClick }) => {
+  const COLORS = useAppColors();
   if (!count) return null;
   
   return (
@@ -205,6 +196,7 @@ PendingBadge.propTypes = {
  * Main Foreman Capture Page
  */
 const ForemanCapturePage = () => {
+  const COLORS = useAppColors();
   const navigate = useNavigate();
   const { jobId } = useParams();
   const [searchParams] = useSearchParams();

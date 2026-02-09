@@ -42,29 +42,15 @@ import RetryIcon from '@mui/icons-material/Refresh';
 import GalleryIcon from '@mui/icons-material/PhotoLibrary';
 import WarningIcon from '@mui/icons-material/Warning';
 import { useGeolocation, GPS_THRESHOLDS } from '../../hooks/useGeolocation';
-
-// High-contrast colors for sunlight visibility
-const COLORS = {
-  bg: '#000000',
-  surface: '#1a1a1a',
-  primary: '#00e676',      // Bright green - visible in sunlight
-  error: '#ff5252',        // Bright red
-  warning: '#ffab00',      // Amber
-  text: '#ffffff',
-  textSecondary: '#b0b0b0',
-  gpsHigh: '#00e676',
-  gpsGood: '#69f0ae',
-  gpsAcceptable: '#ffab00',
-  gpsPoor: '#ff5252',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Get GPS color based on quality
-const getGPSColor = (quality) => {
+const getGPSColor = (quality, colors) => {
   switch (quality) {
-    case 'high': return COLORS.gpsHigh;
-    case 'good': return COLORS.gpsGood;
-    case 'acceptable': return COLORS.gpsAcceptable;
-    default: return COLORS.gpsPoor;
+    case 'high': return colors.gpsHigh;
+    case 'good': return colors.gpsGood;
+    case 'acceptable': return colors.gpsAcceptable;
+    default: return colors.gpsPoor;
   }
 };
 
@@ -72,6 +58,7 @@ const getGPSColor = (quality) => {
  * GPS Status Badge Component
  */
 const GPSBadge = ({ position, loading, error, onRetry }) => {
+  const COLORS = useAppColors();
   if (loading) {
     return (
       <Box sx={{ 
@@ -185,6 +172,7 @@ const GPSPhotoCapture = ({
   requireGPS = true,
   maxAccuracy = GPS_THRESHOLDS.ACCEPTABLE,
 }) => {
+  const COLORS = useAppColors();
   // Camera state
   const [stream, setStream] = useState(null);
   const [facingMode, setFacingMode] = useState('environment');

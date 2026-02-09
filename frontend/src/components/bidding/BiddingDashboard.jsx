@@ -48,21 +48,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import api from '../../api';
 import CostAnalysisChart from './CostAnalysisChart';
-
-// Colors
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  secondary: '#7c4dff',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Format currency
 const formatCurrency = (amount) => {
@@ -80,7 +66,11 @@ const formatCurrency = (amount) => {
 };
 
 // Metric Card Component
-const MetricCard = ({ title, value, subtitle, icon: Icon, color = COLORS.primary }) => (
+const MetricCard = ({ title, value, subtitle, icon: Icon, color }) => {
+  const COLORS = useAppColors();
+  const displayColor = color || COLORS.primary;
+  
+  return (
   <Card sx={{ bgcolor: COLORS.surface, height: '100%' }}>
     <CardContent>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -88,7 +78,7 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, color = COLORS.primary
           <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 0.5 }}>
             {title}
           </Typography>
-          <Typography variant="h4" sx={{ color, fontWeight: 700 }}>
+            <Typography variant="h4" sx={{ color: displayColor, fontWeight: 700 }}>
             {value}
           </Typography>
           {subtitle && (
@@ -105,12 +95,13 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, color = COLORS.primary
           alignItems: 'center',
           justifyContent: 'center'
         }}>
-          <Icon sx={{ color, fontSize: 28 }} />
+            <Icon sx={{ color: displayColor, fontSize: 28 }} />
         </Box>
       </Box>
     </CardContent>
   </Card>
 );
+};
 
 MetricCard.propTypes = {
   title: PropTypes.string.isRequired,
@@ -121,6 +112,7 @@ MetricCard.propTypes = {
 };
 
 const BiddingDashboard = () => {
+  const COLORS = useAppColors();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState(365);

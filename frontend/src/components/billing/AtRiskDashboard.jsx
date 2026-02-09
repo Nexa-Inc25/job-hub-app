@@ -46,20 +46,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
-
-// High-contrast colors
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Format currency
 const formatCurrency = (amount) => {
@@ -79,15 +66,16 @@ const daysSince = (dateString) => {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
-// Get aging color
-const getAgingColor = (days) => {
-  if (days <= 2) return COLORS.primary;
-  if (days <= 5) return COLORS.warning;
-  return COLORS.error;
+// Get aging color based on days
+const getAgingColor = (days, colors) => {
+  if (days <= 2) return colors.primary;
+  if (days <= 5) return colors.warning;
+  return colors.error;
 };
 
 // Status chip component
 const StatusChip = ({ status }) => {
+  const COLORS = useAppColors();
   const statusConfig = {
     draft: { label: 'Draft', color: COLORS.textSecondary, bgcolor: COLORS.surfaceLight },
     pending_signature: { label: 'Needs Signature', color: COLORS.bg, bgcolor: COLORS.warning },
@@ -116,6 +104,7 @@ StatusChip.propTypes = {
 };
 
 const AtRiskDashboard = () => {
+  const COLORS = useAppColors();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -399,7 +388,7 @@ const AtRiskDashboard = () => {
                             label={`${days}d`}
                             size="small"
                             sx={{
-                              bgcolor: getAgingColor(days),
+                              bgcolor: getAgingColor(days, COLORS),
                               color: COLORS.bg,
                               fontWeight: 600,
                               minWidth: 40

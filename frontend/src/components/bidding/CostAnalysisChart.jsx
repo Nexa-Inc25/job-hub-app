@@ -12,18 +12,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Box, Typography, Tooltip } from '@mui/material';
-
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  secondary: '#7c4dff',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 // Format currency for tooltip
 const formatCurrency = (amount) => {
@@ -42,6 +31,8 @@ const formatMonth = (monthStr) => {
 };
 
 const CostAnalysisChart = ({ data = [], height = 200 }) => {
+  const COLORS = useAppColors();
+  
   if (!data || data.length === 0) {
     return (
       <Box sx={{ 

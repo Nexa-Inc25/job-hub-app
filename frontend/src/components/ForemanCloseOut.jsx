@@ -69,22 +69,7 @@ import api from '../api';
 import { openDirections } from '../utils/navigation';
 import { useOffline } from '../hooks/useOffline';
 import PDFFormEditor from './PDFFormEditor';
-
-// High-contrast field-ready colors
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  secondary: '#448aff',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-  success: '#00e676',
-};
+import { useAppColors } from './shared/themeUtils';
 
 // Tab panel wrapper
 function TabPanel({ children, value, index, ...other }) {
@@ -105,6 +90,7 @@ TabPanel.propTypes = {
  * Photo Section - Upload/capture job photos
  */
 const PhotoSection = ({ jobId, photos, onPhotoAdded, onPhotoDeleted }) => {
+  const COLORS = useAppColors();
   const [uploading, setUploading] = useState(false);
   const [previewPhoto, setPreviewPhoto] = useState(null);
   const fileInputRef = useRef(null);
@@ -335,7 +321,8 @@ PhotoSection.propTypes = {
 /**
  * Documents Section - View/edit PDFs
  */
-const DocumentsSection = ({ jobId, documents, onNavigatePDF }) => {
+const DocumentsSection = ({ jobId: _jobId, documents, onNavigatePDF }) => {
+  const COLORS = useAppColors();
   const editableDocs = documents.filter(d => 
     d.name?.endsWith('.pdf') || d.type === 'template'
   );
@@ -408,7 +395,8 @@ DocumentsSection.propTypes = {
 /**
  * Units Section - Submit bid units for approval
  */
-const UnitsSection = ({ jobId, units, onNavigateUnits }) => {
+const UnitsSection = ({ jobId: _jobId, units, onNavigateUnits }) => {
+  const COLORS = useAppColors();
   const pendingUnits = units.filter(u => u.status === 'pending');
   const approvedUnits = units.filter(u => u.status === 'approved');
   const totalValue = units.reduce((sum, u) => sum + (u.totalAmount || 0), 0);
@@ -536,7 +524,8 @@ UnitsSection.propTypes = {
 /**
  * Tailboard Section - Safety briefing access
  */
-const TailboardSection = ({ jobId, tailboard, onNavigateTailboard }) => {
+const TailboardSection = ({ jobId: _jobId, tailboard, onNavigateTailboard }) => {
+  const COLORS = useAppColors();
   const isComplete = tailboard?.status === 'completed';
   const crewCount = tailboard?.crewMembers?.length || 0;
 
@@ -614,7 +603,8 @@ TailboardSection.propTypes = {
 /**
  * LME Section - Daily Statement of Labor, Material, Equipment (PG&E format)
  */
-const TimesheetSection = ({ jobId, timesheet, onNavigateTimesheet }) => {
+const TimesheetSection = ({ jobId: _jobId, timesheet, onNavigateTimesheet }) => {
+  const COLORS = useAppColors();
   const todayEntries = timesheet?.entries?.filter(e => {
     const entryDate = new Date(e.date).toDateString();
     return entryDate === new Date().toDateString();
@@ -683,6 +673,7 @@ TimesheetSection.propTypes = {
  * Main Foreman Close Out Component
  */
 const ForemanCloseOut = () => {
+  const COLORS = useAppColors();
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { isOnline } = useOffline();

@@ -60,27 +60,13 @@ import { useOffline } from '../../hooks/useOffline';
 import GPSPhotoCapture from './GPSPhotoCapture';
 import offlineStorage from '../../utils/offlineStorage';
 import api from '../../api';
+import { useAppColors } from '../shared/themeUtils';
 
 // Helper to get submit button text (avoids nested ternary)
 const getSubmitButtonText = (submitting, isOnline) => {
   if (submitting) return 'Saving...';
   if (isOnline) return 'Submit';
   return 'Save Offline';
-};
-
-// High-contrast colors for field visibility
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-  success: '#00e676',
 };
 
 // Tier options
@@ -104,6 +90,7 @@ const WORK_CATEGORIES = [
  * Photo Thumbnail with GPS indicator
  */
 const PhotoThumbnail = ({ photo, onRemove }) => {
+  const COLORS = useAppColors();
   const hasGPS = photo.gpsCoordinates?.latitude;
   
   return (
@@ -163,6 +150,7 @@ PhotoThumbnail.propTypes = {
  * Quantity Stepper - Large touch targets
  */
 const QuantityStepper = ({ value, onChange, unit, min = 0, max = 9999 }) => {
+  const COLORS = useAppColors();
   const handleIncrement = () => onChange(Math.min(max, value + 1));
   const handleDecrement = () => onChange(Math.max(min, value - 1));
   
@@ -228,6 +216,7 @@ QuantityStepper.propTypes = {
  * Photo Waiver Dialog
  */
 const PhotoWaiverDialog = ({ open, onClose, onConfirm }) => {
+  const COLORS = useAppColors();
   const [reason, setReason] = useState('');
   
   const handleConfirm = () => {
@@ -317,6 +306,8 @@ const UnitEntryForm = ({
   onSuccess,
   onCancel,
 }) => {
+  const COLORS = useAppColors();
+  
   // Form state
   const [quantity, setQuantity] = useState(1);
   const [photos, setPhotos] = useState([]);

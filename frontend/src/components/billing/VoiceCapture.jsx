@@ -49,26 +49,12 @@ import BuildIcon from '@mui/icons-material/Build';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import InfoIcon from '@mui/icons-material/Info';
 import api from '../../api';
-
-// High-contrast colors
-const COLORS = {
-  bg: '#0a0a0f',
-  surface: '#16161f',
-  surfaceLight: '#1e1e2a',
-  primary: '#00e676',
-  primaryDark: '#00c853',
-  error: '#ff5252',
-  warning: '#ffab00',
-  text: '#ffffff',
-  textSecondary: '#9e9e9e',
-  border: '#333344',
-  recording: '#ff1744',
-};
+import { useAppColors } from '../shared/themeUtils';
 
 /**
  * Audio Visualizer Component - shows waveform during recording
  */
-const AudioVisualizer = ({ analyser, isRecording }) => {
+const AudioVisualizer = ({ analyser, isRecording, colors }) => {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
 
@@ -91,11 +77,11 @@ const AudioVisualizer = ({ analyser, isRecording }) => {
       animationRef.current = requestAnimationFrame(draw);
       analyser.getByteTimeDomainData(dataArray);
 
-      ctx.fillStyle = COLORS.surface;
+      ctx.fillStyle = colors.surface;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.lineWidth = 2;
-      ctx.strokeStyle = COLORS.recording;
+      ctx.strokeStyle = colors.recording;
       ctx.beginPath();
 
       const sliceWidth = canvas.width / bufferLength;
@@ -125,7 +111,7 @@ const AudioVisualizer = ({ analyser, isRecording }) => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isRecording, analyser]);
+  }, [isRecording, analyser, colors]);
 
   return (
     <canvas
@@ -136,7 +122,7 @@ const AudioVisualizer = ({ analyser, isRecording }) => {
         width: '100%',
         height: 60,
         borderRadius: 8,
-        border: `1px solid ${isRecording ? COLORS.recording : COLORS.border}`,
+        border: `1px solid ${isRecording ? colors.recording : colors.border}`,
       }}
     />
   );
@@ -145,12 +131,13 @@ const AudioVisualizer = ({ analyser, isRecording }) => {
 AudioVisualizer.propTypes = {
   analyser: PropTypes.object,
   isRecording: PropTypes.bool,
+  colors: PropTypes.object.isRequired,
 };
 
 /**
  * Parsed Result Display Component
  */
-const ParsedResultDisplay = ({ parsed, dataType }) => {
+const ParsedResultDisplay = ({ parsed, dataType, colors }) => {
   if (!parsed) return null;
 
   if (dataType === 'fieldticket') {
@@ -160,32 +147,32 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
           <Chip
             label={parsed.changeReason.replace('_', ' ').toUpperCase()}
             size="small"
-            sx={{ mb: 2, bgcolor: COLORS.warning, color: COLORS.bg }}
+            sx={{ mb: 2, bgcolor: colors.warning, color: colors.bg }}
           />
         )}
         
         {parsed.changeDescription && (
-          <Typography variant="body2" sx={{ color: COLORS.text, mb: 2 }}>
+          <Typography variant="body2" sx={{ color: colors.text, mb: 2 }}>
             {parsed.changeDescription}
           </Typography>
         )}
 
         {parsed.laborEntries?.length > 0 && (
           <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
               LABOR ({parsed.laborEntries.length})
             </Typography>
             <List dense>
               {parsed.laborEntries.map((entry) => (
                 <ListItem key={entry.workerName || entry.role || Math.random()} sx={{ py: 0 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <PersonIcon sx={{ color: COLORS.primary, fontSize: 18 }} />
+                    <PersonIcon sx={{ color: colors.primary, fontSize: 18 }} />
                   </ListItemIcon>
                   <ListItemText
                     primary={entry.workerName || entry.role}
                     secondary={`${entry.regularHours || 0}h reg, ${entry.overtimeHours || 0}h OT`}
-                    primaryTypographyProps={{ color: COLORS.text, fontSize: '0.875rem' }}
-                    secondaryTypographyProps={{ color: COLORS.textSecondary }}
+                    primaryTypographyProps={{ color: colors.text, fontSize: '0.875rem' }}
+                    secondaryTypographyProps={{ color: colors.textSecondary }}
                   />
                 </ListItem>
               ))}
@@ -195,20 +182,20 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 
         {parsed.equipmentEntries?.length > 0 && (
           <Box sx={{ mb: 2 }}>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
               EQUIPMENT ({parsed.equipmentEntries.length})
             </Typography>
             <List dense>
               {parsed.equipmentEntries.map((entry) => (
                 <ListItem key={entry.description || entry.equipmentType || Math.random()} sx={{ py: 0 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
-                    <BuildIcon sx={{ color: COLORS.warning, fontSize: 18 }} />
+                    <BuildIcon sx={{ color: colors.warning, fontSize: 18 }} />
                   </ListItemIcon>
                   <ListItemText
                     primary={entry.description || entry.equipmentType}
                     secondary={`${entry.hours || 0}h`}
-                    primaryTypographyProps={{ color: COLORS.text, fontSize: '0.875rem' }}
-                    secondaryTypographyProps={{ color: COLORS.textSecondary }}
+                    primaryTypographyProps={{ color: colors.text, fontSize: '0.875rem' }}
+                    secondaryTypographyProps={{ color: colors.textSecondary }}
                   />
                 </ListItem>
               ))}
@@ -218,7 +205,7 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 
         {parsed.materialEntries?.length > 0 && (
           <Box>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
               MATERIALS ({parsed.materialEntries.length})
             </Typography>
             <List dense>
@@ -230,8 +217,8 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
                   <ListItemText
                     primary={entry.description}
                     secondary={`${entry.quantity} ${entry.unit || 'EA'}`}
-                    primaryTypographyProps={{ color: COLORS.text, fontSize: '0.875rem' }}
-                    secondaryTypographyProps={{ color: COLORS.textSecondary }}
+                    primaryTypographyProps={{ color: colors.text, fontSize: '0.875rem' }}
+                    secondaryTypographyProps={{ color: colors.textSecondary }}
                   />
                 </ListItem>
               ))}
@@ -249,12 +236,12 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
         <Chip
           label={parsed.itemCode}
           size="small"
-          sx={{ mb: 2, bgcolor: COLORS.primary, color: COLORS.bg, fontFamily: 'monospace' }}
+          sx={{ mb: 2, bgcolor: colors.primary, color: colors.bg, fontFamily: 'monospace' }}
         />
       )}
       
       {parsed.itemDescription && (
-        <Typography variant="body2" sx={{ color: COLORS.text, mb: 2 }}>
+        <Typography variant="body2" sx={{ color: colors.text, mb: 2 }}>
           {parsed.itemDescription}
         </Typography>
       )}
@@ -262,10 +249,10 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         {parsed.quantity !== undefined && (
           <Box>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
               QUANTITY
             </Typography>
-            <Typography variant="h6" sx={{ color: COLORS.primary }}>
+            <Typography variant="h6" sx={{ color: colors.primary }}>
               {parsed.quantity} {parsed.unit || ''}
             </Typography>
           </Box>
@@ -273,10 +260,10 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 
         {parsed.equipmentType && (
           <Box>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
               EQUIPMENT
             </Typography>
-            <Typography variant="body1" sx={{ color: COLORS.text }}>
+            <Typography variant="body1" sx={{ color: colors.text }}>
               {parsed.equipmentType.replace('_', ' ')}
             </Typography>
           </Box>
@@ -284,10 +271,10 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 
         {parsed.equipmentHours !== undefined && (
           <Box>
-            <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+            <Typography variant="caption" sx={{ color: colors.textSecondary }}>
               EQUIP HOURS
             </Typography>
-            <Typography variant="body1" sx={{ color: COLORS.text }}>
+            <Typography variant="body1" sx={{ color: colors.text }}>
               {parsed.equipmentHours}h
             </Typography>
           </Box>
@@ -296,10 +283,10 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 
       {parsed.locationDescription && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+          <Typography variant="caption" sx={{ color: colors.textSecondary }}>
             LOCATION
           </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.text }}>
+          <Typography variant="body2" sx={{ color: colors.text }}>
             {parsed.locationDescription}
           </Typography>
         </Box>
@@ -307,10 +294,10 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 
       {parsed.notes && (
         <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+          <Typography variant="caption" sx={{ color: colors.textSecondary }}>
             NOTES
           </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.text }}>
+          <Typography variant="body2" sx={{ color: colors.text }}>
             {parsed.notes}
           </Typography>
         </Box>
@@ -322,6 +309,7 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
 ParsedResultDisplay.propTypes = {
   parsed: PropTypes.object,
   dataType: PropTypes.oneOf(['unit', 'fieldticket']),
+  colors: PropTypes.object.isRequired,
 };
 
 /**
@@ -337,9 +325,10 @@ const RecordingSection = ({
   startRecording,
   stopRecording,
   formatTime,
+  colors,
 }) => {
   const getRecordingIcon = () => {
-    if (processing) return <CircularProgress size={32} sx={{ color: COLORS.bg }} />;
+    if (processing) return <CircularProgress size={32} sx={{ color: colors.bg }} />;
     if (isRecording) return <StopIcon sx={{ fontSize: 40 }} />;
     return <MicIcon sx={{ fontSize: 40 }} />;
   };
@@ -355,7 +344,7 @@ const RecordingSection = ({
 
   return (
     <Box sx={{ textAlign: 'center' }}>
-      <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
+      <Typography variant="body2" sx={{ color: colors.textSecondary, mb: 2 }}>
         {dataType === 'fieldticket'
           ? 'Describe the extra work: labor, equipment, and materials used'
           : 'Describe the unit work: what you installed, quantity, and location'
@@ -364,7 +353,7 @@ const RecordingSection = ({
 
       {/* Visualizer */}
       <Box sx={{ mb: 3 }}>
-        <AudioVisualizer analyser={analyser} isRecording={isRecording} />
+        <AudioVisualizer analyser={analyser} isRecording={isRecording} colors={colors} />
       </Box>
 
       {/* Recording Time */}
@@ -372,7 +361,7 @@ const RecordingSection = ({
         <Typography
           variant="h4"
           sx={{
-            color: isRecording ? COLORS.recording : COLORS.text,
+            color: isRecording ? colors.recording : colors.text,
             fontFamily: 'monospace',
             mb: 2
           }}
@@ -388,19 +377,19 @@ const RecordingSection = ({
         sx={{
           width: 80,
           height: 80,
-          bgcolor: isRecording ? COLORS.recording : COLORS.primary,
-          color: COLORS.bg,
+          bgcolor: isRecording ? colors.recording : colors.primary,
+          color: colors.bg,
           '&:hover': {
-            bgcolor: isRecording ? '#d50000' : COLORS.primaryDark,
+            bgcolor: isRecording ? '#d50000' : colors.primaryDark,
           },
           '&:disabled': {
-            bgcolor: COLORS.border,
+            bgcolor: colors.border,
           },
           animation: isRecording ? 'pulse 1s infinite' : 'none',
           '@keyframes pulse': {
-            '0%': { boxShadow: `0 0 0 0 ${COLORS.recording}80` },
-            '70%': { boxShadow: `0 0 0 20px ${COLORS.recording}00` },
-            '100%': { boxShadow: `0 0 0 0 ${COLORS.recording}00` },
+            '0%': { boxShadow: `0 0 0 0 ${colors.recording}80` },
+            '70%': { boxShadow: `0 0 0 20px ${colors.recording}00` },
+            '100%': { boxShadow: `0 0 0 0 ${colors.recording}00` },
           },
         }}
       >
@@ -409,7 +398,7 @@ const RecordingSection = ({
 
       <Typography
         variant="body2"
-        sx={{ color: COLORS.textSecondary, mt: 2 }}
+        sx={{ color: colors.textSecondary, mt: 2 }}
       >
         {getRecordingStatusText()}
       </Typography>
@@ -421,19 +410,19 @@ const RecordingSection = ({
           label="English"
           size="small"
           variant="outlined"
-          sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
+          sx={{ color: colors.textSecondary, borderColor: colors.border }}
         />
         <Chip
           label="Español"
           size="small"
           variant="outlined"
-          sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
+          sx={{ color: colors.textSecondary, borderColor: colors.border }}
         />
         <Chip
           label="Português"
           size="small"
           variant="outlined"
-          sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
+          sx={{ color: colors.textSecondary, borderColor: colors.border }}
         />
       </Box>
     </Box>
@@ -449,6 +438,7 @@ RecordingSection.propTypes = {
   startRecording: PropTypes.func.isRequired,
   stopRecording: PropTypes.func.isRequired,
   formatTime: PropTypes.func.isRequired,
+  colors: PropTypes.object.isRequired,
 };
 
 /**
@@ -462,6 +452,8 @@ const VoiceCapture = ({
   utilityId = null,
   buttonOnly = false,
 }) => {
+  const COLORS = useAppColors();
+  
   // Recording state
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -727,6 +719,7 @@ const VoiceCapture = ({
             startRecording={startRecording}
             stopRecording={stopRecording}
             formatTime={formatTime}
+            colors={COLORS}
           />
         )}
 
@@ -780,7 +773,7 @@ const VoiceCapture = ({
                     />
                   )}
                 </Box>
-                <ParsedResultDisplay parsed={parsed} dataType={dataType} />
+                <ParsedResultDisplay parsed={parsed} dataType={dataType} colors={COLORS} />
               </CardContent>
             </Card>
 
