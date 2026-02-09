@@ -82,9 +82,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
-  // PDF page dimensions (actual PDF units, not screen pixels) and rotation
+  // PDF page dimensions (actual PDF units, not screen pixels)
   const [pdfPageDimensions, setPdfPageDimensions] = useState({ width: 612, height: 792 });
-  const [pdfPageRotation, setPdfPageRotation] = useState(0);
 
   // Tool state
   const [currentTool, setCurrentTool] = useState('check');
@@ -181,10 +180,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           if (pages.length > 0) {
             const firstPage = pages[0];
             const { width, height } = firstPage.getSize();
-            const rotation = firstPage.getRotation().angle;
             setPdfPageDimensions({ width, height });
-            setPdfPageRotation(rotation);
-            console.log(`PDF page dimensions: ${width}x${height}, rotation: ${rotation}°`);
+            console.log(`PDF page dimensions: ${width}x${height}`);
           }
         } catch (error_) {
           console.warn('Could not read PDF dimensions:', error_);
