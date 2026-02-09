@@ -112,20 +112,20 @@ function requireFeature(feature) {
       
       if (!features[feature]) {
         return res.status(403).json({
-          error: `This feature requires a higher subscription plan`,
+          error: 'This feature requires a higher subscription plan',
           code: 'UPGRADE_REQUIRED',
-          feature: feature,
+          feature,
           upgradeUrl: '/settings/billing'
         });
       }
       
       // Attach features to request for downstream use
       req.planFeatures = features;
-      next();
+      return next();
       
     } catch (error) {
       console.error('[SubscriptionGate] Error checking feature:', error);
-      next(error);
+      return next(error);
     }
   };
 }
@@ -157,7 +157,7 @@ function requirePlan(minPlan) {
         return res.status(403).json({
           error: 'Your subscription is not active',
           code: 'SUBSCRIPTION_INACTIVE',
-          status: status,
+          status,
           upgradeUrl: '/settings/billing'
         });
       }
@@ -166,20 +166,20 @@ function requirePlan(minPlan) {
       
       if (currentPlanIndex < minPlanIndex) {
         return res.status(403).json({
-          error: `This feature requires the ${minPlan} plan or higher`,
+          error: 'This feature requires the ' + minPlan + ' plan or higher',
           code: 'UPGRADE_REQUIRED',
-          currentPlan: currentPlan,
+          currentPlan,
           requiredPlan: minPlan,
           upgradeUrl: '/settings/billing'
         });
       }
       
       req.planFeatures = PLAN_FEATURES[currentPlan];
-      next();
+      return next();
       
     } catch (error) {
       console.error('[SubscriptionGate] Error checking plan:', error);
-      next(error);
+      return next(error);
     }
   };
 }
@@ -231,8 +231,8 @@ function requireAICredits(creditsRequired = 1) {
         return res.status(403).json({
           error: 'AI credits exhausted for this billing period',
           code: 'AI_CREDITS_EXHAUSTED',
-          creditsRemaining: creditsRemaining,
-          creditsRequired: creditsRequired,
+          creditsRemaining,
+          creditsRequired,
           resetsAt: subscription.aiCreditsResetDate,
           upgradeUrl: '/settings/billing'
         });
@@ -246,11 +246,11 @@ function requireAICredits(creditsRequired = 1) {
       res.setHeader('X-AI-Credits-Remaining', creditsRemaining - creditsRequired);
       
       req.planFeatures = planFeatures;
-      next();
+      return next();
       
     } catch (error) {
       console.error('[SubscriptionGate] Error checking AI credits:', error);
-      next(error);
+      return next(error);
     }
   };
 }
