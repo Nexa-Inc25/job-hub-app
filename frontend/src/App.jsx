@@ -47,6 +47,8 @@ const BillingDashboard = lazy(() => import('./components/billing/BillingDashboar
 const UnitEntryForm = lazy(() => import('./components/billing/UnitEntryForm'));
 const ForemanCapturePage = lazy(() => import('./components/billing/ForemanCapturePage'));
 const PriceBookAdmin = lazy(() => import('./components/billing/PriceBookAdmin'));
+const PricingPage = lazy(() => import('./components/billing/PricingPage'));
+const BillingSettings = lazy(() => import('./components/billing/BillingSettings'));
 const AsBuiltRouter = lazy(() => import('./components/asbuilt/AsBuiltRouter'));
 
 // SmartForms - PDF template field mapping and filling
@@ -171,6 +173,8 @@ function App() {
               <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
               <Route path="/billing" element={<ProtectedRoute><BillingDashboard /></ProtectedRoute>} />
               <Route path="/billing/pricebooks" element={<ProtectedRoute><PriceBookAdmin /></ProtectedRoute>} />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/settings/billing" element={<ProtectedRoute><BillingSettings /></ProtectedRoute>} />
               <Route path="/billing/capture" element={<ProtectedRoute><UnitEntryForm /></ProtectedRoute>} />
               <Route path="/billing/capture/:jobId" element={<ProtectedRoute><ForemanCapturePage /></ProtectedRoute>} />
               <Route path="/jobs/:jobId/log-unit" element={<ProtectedRoute><ForemanCapturePage /></ProtectedRoute>} />

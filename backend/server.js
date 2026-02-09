@@ -94,6 +94,7 @@ const lmeRoutes = require('./routes/lme.routes');
 const smartformsRoutes = require('./routes/smartforms.routes');
 const demoRoutes = require('./routes/demo.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const stripeRoutes = require('./routes/stripe.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -405,6 +406,10 @@ app.get('/', (req, res) => {
     docs: 'Coming soon'
   });
 });
+
+// Stripe webhook needs raw body for signature verification
+// Must be BEFORE express.json() middleware
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
 app.use(express.json({ limit: '150mb' }));
 app.use(express.urlencoded({ limit: '150mb', extended: true }));
@@ -1194,6 +1199,10 @@ app.use('/api/smartforms', authenticateUser, smartformsRoutes);
 
 // Mount Notification routes (real-time notifications)
 app.use('/api/notifications', authenticateUser, notificationRoutes);
+
+// Mount Stripe billing routes
+// Note: Webhook endpoint uses express.raw() internally for signature verification
+app.use('/api/stripe', stripeRoutes);
 
 // ==================== USER MANAGEMENT ENDPOINTS ====================
 

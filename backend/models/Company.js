@@ -7,12 +7,62 @@ const mongoose = require('mongoose');
 
 // Subscription/billing info
 const subscriptionSchema = new mongoose.Schema({
-  plan: { type: String, enum: ['free', 'starter', 'pro', 'enterprise'], default: 'free' },
+  // Plan tier
+  plan: { 
+    type: String, 
+    enum: ['free', 'starter', 'professional', 'enterprise'], 
+    default: 'free' 
+  },
+  
+  // Seat limits per plan
   seats: { type: Number, default: 5 },  // Number of users allowed
+  seatsUsed: { type: Number, default: 0 },  // Current active users
+  
+  // Billing contact
   billingEmail: String,
-  stripeCustomerId: String,  // For Stripe integration
+  billingName: String,
+  
+  // Stripe integration
+  stripeCustomerId: String,
+  stripeSubscriptionId: String,
+  stripePriceId: String,
+  
+  // Subscription lifecycle
+  status: { 
+    type: String, 
+    enum: ['active', 'past_due', 'canceled', 'trialing', 'incomplete', 'incomplete_expired', 'unpaid'], 
+    default: 'active' 
+  },
+  currentPeriodStart: Date,
   currentPeriodEnd: Date,
-  status: { type: String, enum: ['active', 'past_due', 'canceled', 'trialing'], default: 'active' }
+  cancelAtPeriodEnd: { type: Boolean, default: false },
+  canceledAt: Date,
+  
+  // Trial management
+  trialStart: Date,
+  trialEnd: Date,
+  
+  // Usage-based billing (for AI features)
+  aiCreditsIncluded: { type: Number, default: 100 },  // Per month
+  aiCreditsUsed: { type: Number, default: 0 },
+  aiCreditsResetDate: Date,
+  
+  // Feature flags by plan (overrides defaults)
+  features: {
+    smartForms: { type: Boolean, default: false },
+    oracleExport: { type: Boolean, default: false },
+    apiAccess: { type: Boolean, default: false },
+    ssoEnabled: { type: Boolean, default: false },
+    prioritySupport: { type: Boolean, default: false },
+    customBranding: { type: Boolean, default: false },
+    advancedAnalytics: { type: Boolean, default: false },
+    unlimitedStorage: { type: Boolean, default: false }
+  },
+  
+  // Billing history (last payment info)
+  lastPaymentAmount: Number,
+  lastPaymentDate: Date,
+  lastPaymentStatus: String
 });
 
 // Company settings
