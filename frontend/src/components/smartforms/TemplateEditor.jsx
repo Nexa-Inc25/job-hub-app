@@ -887,19 +887,24 @@ export default function TemplateEditor() {
 
       {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* PDF Canvas */}
+        {/* PDF Canvas - scrollable container */}
         <Box
           ref={containerRef}
           sx={{
             flex: 1,
             overflow: 'auto',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'flex-start',
             p: 2,
             bgcolor: isDark ? 'grey.900' : 'grey.300',
           }}
         >
+          {/* Inner centering wrapper - only centers when content fits */}
+          <Box
+            sx={{
+              display: 'flex',
+              justifyContent: 'center',
+              minWidth: 'fit-content',
+            }}
+          >
           {pdfBlobUrl ? (
             <Document
               file={pdfBlobUrl}
@@ -984,6 +989,7 @@ export default function TemplateEditor() {
               <Typography sx={{ ml: 2 }}>Loading PDF...</Typography>
             </Box>
           )}
+          </Box>
         </Box>
 
         {/* Fields Panel - extracted component */}
