@@ -25,6 +25,14 @@ export { default as DisputeDialog, CreateDisputeDialog, ResolveDisputeDialog, DI
 export { default as BillingAnalytics } from './BillingAnalytics';
 export { default as PriceBookAdmin } from './PriceBookAdmin';
 
+// Field Ticket (T&M / Change Order) Components
+export { default as FieldTicketForm } from './FieldTicketForm';
+export { default as SignatureCapture } from './SignatureCapture';
+export { default as AtRiskDashboard } from './AtRiskDashboard';
+
+// Voice AI Components
+export { default as VoiceCapture } from './VoiceCapture';
+
 // Subscription/Stripe Components
 export { default as PricingPage } from './PricingPage';
 export { default as BillingSettings } from './BillingSettings';

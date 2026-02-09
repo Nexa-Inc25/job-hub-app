@@ -303,6 +303,9 @@ const TailboardForm = () => {
   );
   const [crewMembers, setCrewMembers] = useState([]);
   const [weatherConditions, setWeatherConditions] = useState('');
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherData, setWeatherData] = useState(null);
+  const [weatherError, setWeatherError] = useState(null);
   const [emergencyContact, setEmergencyContact] = useState('911');
   const [emergencyPhone, setEmergencyPhone] = useState('');
   const [nearestHospital, setNearestHospital] = useState('');
@@ -354,6 +357,53 @@ const TailboardForm = () => {
   const [riskLevel, setRiskLevel] = useState('medium');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
+  // Auto-fetch weather function
+  const fetchWeather = useCallback(async () => {
+    if (!navigator.geolocation) {
+      setWeatherError('Geolocation not supported');
+      return;
+    }
+
+    setWeatherLoading(true);
+    setWeatherError(null);
+
+    try {
+      // Get current position
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      
+      // Fetch weather from API
+      const response = await api.get(`/api/weather/current?lat=${latitude}&lng=${longitude}`);
+      
+      setWeatherData(response.data);
+      setWeatherConditions(response.data.formatted || `${response.data.temperature}°F, ${response.data.conditions}`);
+      
+      if (response.data.workStatus?.blocked) {
+        setWeatherError(`Warning: ${response.data.workStatus.reason}`);
+      }
+    } catch (error) {
+      console.error('Weather fetch error:', error);
+      if (error.code === 1) {
+        setWeatherError('Location permission denied');
+      } else if (error.code === 2) {
+        setWeatherError('Location unavailable');
+      } else if (error.code === 3) {
+        setWeatherError('Location timeout');
+      } else {
+        setWeatherError(error.response?.data?.error || 'Failed to fetch weather');
+      }
+    } finally {
+      setWeatherLoading(false);
+    }
+  }, []);
+
   // Load job and existing tailboard
   useEffect(() => {
     const loadData = async () => {
@@ -403,6 +453,13 @@ const TailboardForm = () => {
     
     loadData();
   }, [jobId]);
+
+  // Auto-fetch weather on mount (if no existing weather)
+  useEffect(() => {
+    if (!weatherConditions && !isCompleted) {
+      fetchWeather();
+    }
+  }, [fetchWeather, weatherConditions, isCompleted]);
 
   // Build full data object for save/complete
   const buildTailboardData = () => ({
@@ -768,21 +825,40 @@ const TailboardForm = () => {
           </Grid>
         </Grid>
 
-        {/* Weather */}
+        {/* Weather - Auto-fetched */}
         <Grid container spacing={2}>
           <Grid item xs={12}>
-            <TextField
-              label="Weather Conditions"
-              value={weatherConditions}
-              onChange={(e) => setWeatherConditions(e.target.value)}
-              fullWidth
-              size="small"
-              disabled={isCompleted}
-              placeholder="e.g., Clear, 75°F, light wind"
-              InputProps={{
-                startAdornment: <WeatherIcon sx={{ mr: 1, color: 'text.secondary' }} />
-              }}
-            />
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <TextField
+                label="Weather Conditions (Auto)"
+                value={weatherConditions}
+                fullWidth
+                size="small"
+                disabled={true}
+                placeholder="Fetching weather..."
+                InputProps={{
+                  startAdornment: <WeatherIcon sx={{ mr: 1, color: weatherLoading ? 'text.secondary' : 'success.main' }} />,
+                  endAdornment: weatherLoading && <CircularProgress size={16} />
+                }}
+                helperText={weatherError || (weatherData?.source === 'api' ? 'Auto-fetched from weather service' : weatherData?.source === 'cache' ? 'Cached weather data' : '')}
+              />
+              <Button
+                size="small"
+                onClick={fetchWeather}
+                disabled={weatherLoading || isCompleted}
+                sx={{ minWidth: 80 }}
+              >
+                Refresh
+              </Button>
+            </Box>
+            {weatherData?.hazards?.hasHazards && (
+              <Alert 
+                severity={weatherData.hazards.maxSeverity === 'danger' ? 'error' : 'warning'}
+                sx={{ mt: 1 }}
+              >
+                {weatherData.hazards.hazards.map(h => h.message).join('; ')}
+              </Alert>
+            )}
           </Grid>
         </Grid>
       </Paper>

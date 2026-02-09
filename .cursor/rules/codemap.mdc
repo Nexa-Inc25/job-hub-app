@@ -1,0 +1,608 @@
+---
+description: High-level architectural map of FieldLedger - major systems, data flows, and module boundaries
+globs: **/*
+alwaysApply: true
+---
+
+# FieldLedger Code Map
+
+A comprehensive guide to the major systems, data flows, and module responsibilities in the FieldLedger codebase.
+
+---
+
+## Overview
+
+FieldLedger is a **unit-price billing platform for utility contractors** performing electric distribution construction work. The system provides end-to-end workflow management from field unit capture to Oracle ERP integration.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              FIELD OPERATIONS                                │
+│  Foreman (Mobile) → Crew (Mobile) → GF (Desktop) → PM (Desktop) → Admin    │
+└─────────────────────────────────────┬───────────────────────────────────────┘
+                                      │
+                        ┌─────────────▼─────────────┐
+                        │   PWA Frontend (React)    │
+                        │   Offline-First / Vite    │
+                        └─────────────┬─────────────┘
+                                      │ HTTPS/WSS
+                        ┌─────────────▼─────────────┐
+                        │   Express.js REST API     │
+                        │   Node.js 20 LTS          │
+                        └─────────────┬─────────────┘
+                                      │
+          ┌───────────────┬───────────┴───────────┬───────────────┐
+          ▼               ▼                       ▼               ▼
+   ┌─────────────┐ ┌─────────────┐       ┌─────────────┐ ┌─────────────┐
+   │  MongoDB    │ │Cloudflare R2│       │ Oracle ERP  │ │   OpenAI    │
+   │   Atlas     │ │  (Storage)  │       │ Integration │ │   GPT-4     │
+   └─────────────┘ └─────────────┘       └─────────────┘ └─────────────┘
+```
+
+---
+
+## Directory Structure
+
+```
+job-hub-app/
+├── backend/                    # Node.js/Express API server
+│   ├── controllers/            # Request handlers (auth, files, jobs, tailboard)
+│   ├── middleware/             # Auth, security, subscription, validation
+│   ├── models/                 # Mongoose schemas (20 models)
+│   ├── routes/                 # API route definitions (18 route files)
+│   ├── services/               # Business logic (As-Built, Oracle, Email, PDF)
+│   ├── utils/                  # Helpers (PDF, storage, MFA, AI capture)
+│   ├── templates/              # Master PDF templates
+│   ├── __tests__/              # Jest test suites
+│   └── server.js               # Main entry point (8374 lines)
+│
+├── frontend/                   # React SPA (PWA)
+│   ├── src/
+│   │   ├── components/         # React components (84 .jsx files)
+│   │   │   ├── billing/        # Unit entry, claims, price books
+│   │   │   ├── smartforms/     # PDF template editor/filler
+│   │   │   ├── layout/         # AppShell, Sidebar, Header
+│   │   │   ├── notifications/  # Real-time notification system
+│   │   │   └── shared/         # Reusable UI components
+│   │   ├── hooks/              # Custom React hooks (offline, sync, geolocation)
+│   │   ├── contexts/           # Socket.io, notifications, theme
+│   │   ├── services/           # Oracle export service
+│   │   └── utils/              # Offline storage, sync manager, crypto
+│   └── public/                 # Static assets, service worker
+│
+├── docs/                       # Architecture, Oracle integration docs
+└── sales/                      # Sales collateral, pilot proposals
+```
+
+---
+
+## Major Systems
+
+### 1. Job Lifecycle Management
+
+**Purpose:** Track utility work orders from intake through billing.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Job Model | `backend/models/Job.js` | Core schema with 500+ lines defining workflow states, folders, documents, audit history |
+| Jobs Controller | `backend/controllers/jobs.controller.js` | CRUD operations, status transitions |
+| Jobs Routes | `backend/routes/jobs.routes.js` | API endpoints for job operations |
+| WorkOrderDetails | `frontend/src/components/WorkOrderDetails.jsx` | Job details view |
+| JobFileSystem | `frontend/src/components/JobFileSystem.jsx` | Document management UI |
+
+**Workflow States:**
+```
+new → assigned_to_gf → pre_fielding → scheduled → in_progress → 
+pending_gf_review → pending_qa_review → pending_pm_approval → 
+ready_to_submit → submitted → billed → invoiced
+                          ↓
+              go_back ← utility rejects
+```
+
+**Key Inputs:**
+- PDF job packages uploaded from utilities
+- AI-extracted metadata (PM#, address, materials, scope)
+- Pre-field assessments from General Foreman
+
+**Key Outputs:**
+- Structured job records with document hierarchy
+- Status transitions with audit trail
+- Extracted construction sketches and crew materials
+
+---
+
+### 2. Unit-Price Billing Engine
+
+**Purpose:** Capture field work with GPS-verified "Digital Receipts" and generate invoices.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| UnitEntry Model | `backend/models/UnitEntry.js` | The "Digital Receipt" - quantity, GPS, photos, tier tracking |
+| Claim Model | `backend/models/Claim.js` | Invoice aggregating verified units with Oracle export |
+| PriceBook Model | `backend/models/PriceBook.js` | Rate tables with item codes, unit prices |
+| Billing Routes | `backend/routes/billing.routes.js` | Unit entry, claims, approval APIs |
+| UnitEntryForm | `frontend/src/components/billing/UnitEntryForm.jsx` | Field capture form |
+| GPSPhotoCapture | `frontend/src/components/billing/GPSPhotoCapture.jsx` | GPS-stamped photo capture |
+| BillingDashboard | `frontend/src/components/billing/BillingDashboard.jsx` | Claims overview |
+| ClaimsManagement | `frontend/src/components/billing/ClaimsManagement.jsx` | Claim lifecycle |
+
+**Data Flow:**
+```
+Foreman captures unit    →  GF/QA verifies  →  PM approves  →  Claim generated
+(photo + GPS + quantity)    (review photos)    (final sign-off)   (FBDI export)
+```
+
+**Key Inputs:**
+- Price book item selection (code, description, unit price)
+- GPS coordinates from device
+- Photo evidence (before/during/after)
+- Quantity and work date
+
+**Key Outputs:**
+- UnitEntry records with verification status
+- Claim documents with Oracle-compatible export (REST API or FBDI CSV)
+- Verification metrics (GPS compliance %, photo count)
+
+---
+
+### 3. As-Built Document Router
+
+**Purpose:** Split, classify, and route as-built packages to correct destinations.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| AsBuiltSubmission | `backend/models/AsBuiltSubmission.js` | Submission tracking with sections |
+| RoutingRule | `backend/models/RoutingRule.js` | Configurable routing rules per utility |
+| AsBuiltRouter | `backend/services/asbuilt/AsBuiltRouter.js` | Orchestration service |
+| Adapters | `backend/services/asbuilt/adapters/` | Destination adapters (Oracle, GIS, Email, SharePoint) |
+| AsBuilt Routes | `backend/routes/asbuilt.routes.js` | Submission APIs |
+| AsBuiltRouter UI | `frontend/src/components/asbuilt/AsBuiltRouter.jsx` | Routing dashboard |
+
+**PG&E Page Range Mapping:**
+```javascript
+{
+  face_sheet: { start: 1, end: 3 },
+  crew_instructions: { start: 4, end: 6 },
+  crew_materials: { start: 7, end: 7 },
+  equipment_info: { start: 8, end: 9 },
+  construction_sketch: { start: 11, end: 14 },
+  circuit_map: { start: 15, end: 15 },
+  permits: { start: 16, end: 21 },
+  tcp: { start: 22, end: 23 },
+  billing_form: { start: 27, end: 27 },
+  ccsc: { start: 32, end: 33 }
+}
+```
+
+**Destinations:**
+- `oracle_ppm` - Primavera Unifier (face sheet)
+- `oracle_eam` - Enterprise Asset Management (equipment info)
+- `oracle_payables` - AP invoice (billing form)
+- `gis_esri` - ESRI GIS (construction sketches)
+- `sharepoint_*` - Document archive (permits, TCPs)
+- `email_*` - Notification distribution
+
+---
+
+### 4. Oracle ERP Integration
+
+**Purpose:** Export billing data and as-built documents to Oracle Cloud systems.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| OracleIntegrationService | `backend/services/oracle/index.js` | Unified Oracle interface |
+| UnifierAdapter | `backend/services/oracle/UnifierAdapter.js` | Primavera Unifier API |
+| EAMAdapter | `backend/services/oracle/EAMAdapter.js` | Enterprise Asset Management |
+| P6Adapter | `backend/services/oracle/P6Adapter.js` | Primavera P6 scheduling |
+| Oracle Routes | `backend/routes/oracle.routes.js` | Integration endpoints |
+| OracleExportService | `frontend/src/services/OracleExportService.js` | Client-side export |
+| oracleMapper | `frontend/src/utils/oracleMapper.js` | Field mapping utility |
+
+**Export Formats:**
+- REST API payload (`toOraclePayload()`) - Direct API integration
+- FBDI CSV (`toOracleFBDI()`) - File-Based Data Import for bulk upload
+
+**Key Fields Mapped:**
+- `InvoiceNumber`, `VendorId`, `BusinessUnit`
+- `ProjectNumber` (PM#), `TaskNumber`, `ExpenditureType`
+- Custom DFFs: Contract#, GPS status, digital receipt hash
+
+---
+
+### 5. AI Document Processing
+
+**Purpose:** Extract structured data from job package PDFs using GPT-4 Vision.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| pdfUtils | `backend/utils/pdfUtils.js` | PDF text extraction, AI processing |
+| pdfImageExtractor | `backend/utils/pdfImageExtractor.js` | Page-to-image conversion, content analysis |
+| documentAutoFill | `backend/utils/documentAutoFill.js` | Form auto-population |
+| AI Routes | `backend/routes/api.js` | `/api/ai/extract`, `/api/jobs/:id/extract-assets` |
+| aiDataCapture | `backend/utils/aiDataCapture.js` | Training data collection |
+| AITrainingData | `backend/models/AITrainingData.js` | Store extraction examples |
+
+**Extraction Targets:**
+- PM Number, Notification Number, WO Number
+- Address, City, Client
+- Job Scope (summary, work type, equipment)
+- Crew Materials (M-Codes, quantities)
+- EC Tag info (priority, due dates, program type)
+- Pre-field labels (access, crane required, construction type)
+
+**Key Inputs:**
+- Uploaded PDF job packages
+- Custom extraction prompts
+
+**Key Outputs:**
+- Structured JSON with extracted fields
+- Separated asset images (sketches, maps, photos)
+- Populated job record fields
+
+---
+
+### 6. SmartForms (PDF Template System)
+
+**Purpose:** Map PDF form fields to job data for auto-fill.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| FormTemplate | `backend/models/FormTemplate.js` | Template schema with field mappings |
+| SmartForms Routes | `backend/routes/smartforms.routes.js` | Template CRUD, fill operations |
+| SmartFormsPage | `frontend/src/components/smartforms/SmartFormsPage.jsx` | Template list |
+| TemplateEditor | `frontend/src/components/smartforms/TemplateEditor.jsx` | Visual field mapper |
+| TemplateFill | `frontend/src/components/smartforms/TemplateFill.jsx` | Fill and generate PDF |
+
+**Flow:**
+1. Upload PDF template
+2. Map PDF field names to job data paths
+3. Select job → Auto-populate form
+4. Generate filled PDF for download/signing
+
+---
+
+### 7. Authentication & Authorization
+
+**Purpose:** Secure access with role-based permissions and MFA.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| User Model | `backend/models/User.js` | User schema with roles, MFA settings |
+| Auth Controller | `backend/controllers/auth.controller.js` | Login, signup, MFA |
+| Auth Routes | `backend/routes/auth.routes.js` | Authentication endpoints |
+| MFA Utils | `backend/utils/mfa.js` | TOTP generation/verification |
+| Security Middleware | `backend/middleware/security.js` | Rate limiting, sanitization |
+| Subscription Gate | `backend/middleware/subscriptionGate.js` | Feature gating by plan |
+
+**User Roles:**
+```
+crew → foreman → gf (General Foreman) → qa → pm (Project Manager) → admin
+                                                                      ↓
+                                                              superAdmin (platform owner)
+```
+
+**Plan Features Matrix:**
+| Feature | Free | Starter | Professional | Enterprise |
+|---------|------|---------|--------------|------------|
+| Max Users | 3 | 10 | 50 | Unlimited |
+| SmartForms | ❌ | ❌ | ✅ | ✅ |
+| Oracle Export | ❌ | ❌ | ✅ | ✅ |
+| API Access | ❌ | ❌ | ❌ | ✅ |
+| AI Credits | 10 | 100 | 500 | Unlimited |
+
+---
+
+### 8. Real-Time Notifications
+
+**Purpose:** Push updates via WebSocket for job status changes, approvals, etc.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Notification Model | `backend/models/Notification.js` | Notification storage |
+| Notification Service | `backend/services/notification.service.js` | Create/send notifications |
+| Socket Adapter | `backend/utils/socketAdapter.js` | Socket.io integration |
+| Notification Routes | `backend/routes/notification.routes.js` | Notification APIs |
+| SocketContext | `frontend/src/contexts/SocketContext.jsx` | Client socket connection |
+| NotificationContext | `frontend/src/contexts/NotificationContext.jsx` | Notification state |
+| NotificationBell | `frontend/src/components/notifications/NotificationBell.jsx` | UI indicator |
+
+---
+
+### 9. Offline-First PWA
+
+**Purpose:** Allow field workers to capture data without connectivity.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Service Worker | `frontend/public/service-worker.js` | Workbox caching strategies |
+| offlineStorage | `frontend/src/utils/offlineStorage.js` | IndexedDB wrapper |
+| syncManager | `frontend/src/utils/syncManager.js` | Offline-to-online sync |
+| useOffline | `frontend/src/hooks/useOffline.js` | Offline state hook |
+| useSyncQueue | `frontend/src/hooks/useSyncQueue.js` | Pending sync queue |
+| OfflineIndicator | `frontend/src/components/OfflineIndicator.jsx` | Connection status UI |
+
+**Sync Flow:**
+1. Unit entries saved to IndexedDB when offline
+2. Background sync on reconnection
+3. Conflict resolution (server wins with user notification)
+
+---
+
+### 10. File Storage (Cloudflare R2)
+
+**Purpose:** Store PDFs, photos, exports in S3-compatible object storage.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Storage Utils | `backend/utils/storage.js` | R2 upload/download/URL generation |
+| Files Controller | `backend/controllers/files.controller.js` | File operations |
+| Files Routes | `backend/routes/files.routes.js` | Upload, download, delete |
+
+**Key Functions:**
+- `uploadFile(localPath, r2Key, contentType)` - Upload to R2
+- `uploadJobFile(localPath, jobId, folder, filename)` - Job-scoped upload
+- `getFileStream(r2Key)` - Download file
+- `getPublicUrl(r2Key)` - Generate public URL
+- `deleteFile(r2Key)` - Remove file
+
+---
+
+## Revenue Defense & Intelligence Layers
+
+FieldLedger has three strategic layers that sit on top of the operational core:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Layer 3: EXECUTIVE BRAIN                             │
+│  Bidding Intelligence │ Historical Cost Analysis │ AI-Suggested Estimates  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                        Layer 2: REVENUE DEFENSE                             │
+│  Field Tickets (T&M)  │  Safety Gating  │  At-Risk Dashboard  │  Disputes  │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                       Layer 1: FIELD FRICTIONLESS                           │
+│  Voice AI Capture  │  Auto-Weather  │  Optimistic UI  │  Offline-First     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                        OPERATIONAL CORE                                      │
+│  Unit-Price Billing  │  Job Lifecycle  │  As-Built Router  │  Oracle ERP   │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### 11. Field Ticket Module (T&M / Change Orders)
+
+**Purpose:** Capture extra work (Time & Material) when scope changes - the #1 source of contractor revenue leakage.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| FieldTicket Model | `backend/models/FieldTicket.js` | T&M entries with labor/equipment/materials, inspector signature |
+| FieldTicket Routes | `backend/routes/fieldticket.routes.js` | CRUD, signature capture, at-risk aggregation |
+| FieldTicketForm | `frontend/src/components/billing/FieldTicketForm.jsx` | Mobile T&M capture form |
+| SignatureCapture | `frontend/src/components/billing/SignatureCapture.jsx` | Touch-friendly inspector signature pad |
+| AtRiskDashboard | `frontend/src/components/billing/AtRiskDashboard.jsx` | PM view of unapproved T&M value |
+
+**Workflow:**
+```
+Foreman creates → pending_signature → Inspector signs → signed → PM approves → billed
+                                              ↓
+                                        "At Risk" until signed
+```
+
+---
+
+### 12. Voice AI Capture
+
+**Purpose:** Hands-free field data entry using speech-to-structured-data.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| VoiceAI Service | `backend/services/voiceAI.service.js` | Whisper transcription + GPT-4 parsing |
+| Voice Routes | `backend/routes/voice.routes.js` | `/api/voice/transcribe`, `/api/voice/parse-unit` |
+| VoiceCapture | `frontend/src/components/billing/VoiceCapture.jsx` | Mic recording with waveform visualization |
+
+**Flow:**
+```
+Foreman speaks → Whisper transcribes → GPT-4 extracts JSON → Form auto-fills
+                      ↓
+          Multilingual (Spanish/Portuguese → English)
+```
+
+---
+
+### 13. Bidding Intelligence
+
+**Purpose:** Turn historical actual costs into future bid intelligence.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| BiddingIntelligence Service | `backend/services/biddingIntelligence.service.js` | Cost analysis, estimates, productivity rates |
+| Bidding Routes | `backend/routes/bidding.routes.js` | Analytics, estimation, bid suggestions |
+| BiddingDashboard | `frontend/src/components/bidding/BiddingDashboard.jsx` | Company-wide cost analytics |
+| CostAnalysisChart | `frontend/src/components/bidding/CostAnalysisChart.jsx` | Revenue trend visualization |
+| EstimateBuilder | `frontend/src/components/bidding/EstimateBuilder.jsx` | AI-assisted bid estimation tool |
+
+**Key Features:**
+- Historical cost analysis by item code with statistical analysis
+- AI-suggested bid prices (conservative/moderate/aggressive)
+- Productivity rates (units per labor hour)
+- Bid vs. actual comparison
+
+---
+
+### 14. Safety Gating
+
+**Purpose:** Prevent work from starting until Tailboard/JHA is completed and GPS-verified.
+
+**Implementation:**
+- Job cannot transition to `in_progress` until:
+  1. A completed Tailboard exists for today
+  2. Tailboard was signed within 500m of job site (geofence)
+- New fields on Job model: `safetyGateCleared`, `safetyGateClearedAt`, `safetyGateTailboardId`
+- Returns `SAFETY_GATE_TAILBOARD_REQUIRED` or `SAFETY_GATE_GEOFENCE_FAILED` errors
+
+---
+
+### 15. Auto-Weather Integration
+
+**Purpose:** Replace manual weather input with API-fetched conditions.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| Weather Service | `backend/services/weather.service.js` | OpenWeatherMap integration, caching, hazard assessment |
+| Weather Routes | `backend/routes/weather.routes.js` | Current weather, job weather, logging |
+| Job.weatherLog | `backend/models/Job.js` | Auto-logged weather conditions array |
+
+**Features:**
+- 15-minute caching to reduce API calls
+- Hazard assessment (wind, temperature, visibility, storms)
+- "Excusable Delay" record for job weather history
+- Auto-filled in TailboardForm (read-only)
+
+---
+
+### 16. Optimistic UI / Background Sync
+
+**Purpose:** Seamless offline-first data capture with silent synchronization.
+
+| Component | Path | Description |
+|-----------|------|-------------|
+| offlineStorage | `frontend/src/utils/offlineStorage.js` | IndexedDB wrapper with optimistic save |
+| useOptimisticSync | `frontend/src/hooks/useOptimisticSync.js` | Hook for optimistic save/sync pattern |
+
+**Pattern:**
+```
+User submits → Save to IndexedDB immediately → Return success
+                       ↓
+               Background sync when online
+                       ↓
+               Conflict resolution (server wins + notification)
+```
+
+---
+
+## Data Models Reference
+
+| Model | Purpose | Key Fields |
+|-------|---------|------------|
+| `Job` | Work order tracking | pmNumber, status, folders[], assignedTo, auditHistory[], safetyGateCleared, weatherLog[] |
+| `User` | Authentication/authorization | email, role, companyId, mfaEnabled |
+| `Company` | Multi-tenant organization | name, subscription, utilityAccess[] |
+| `UnitEntry` | Digital receipt | itemCode, quantity, photos[], location, performedBy |
+| `Claim` | Invoice/billing | claimNumber, lineItems[], oracle{}, status |
+| `PriceBook` | Rate tables | name, items[], effectiveDate, contractNumber |
+| `AsBuiltSubmission` | Document routing | sections[], routingSummary, auditLog[] |
+| `Notification` | Push notifications | type, message, userId, read |
+| `AuditLog` | Activity tracking | action, userId, resourceId, changes |
+| `FormTemplate` | SmartForms templates | name, pdfUrl, fieldMappings[] |
+| `SpecDocument` | Utility specifications | category, section, documentNumber |
+| `Tailboard` | Safety briefings | jobId, attendees[], topics[], weatherConditions |
+| `LME` | Labor/Material Estimate | jobId, laborItems[], materialItems[] |
+| `Timesheet` | Time tracking | jobId, entries[], totalHours |
+| `FieldTicket` | T&M / Change Orders | laborEntries[], equipmentEntries[], materialEntries[], inspectorSignature, status |
+
+---
+
+## API Route Groups
+
+| Route File | Base Path | Purpose |
+|------------|-----------|---------|
+| `auth.routes.js` | `/api/auth` | Login, signup, MFA, password reset |
+| `jobs.routes.js` | `/api/jobs` | Job CRUD, status updates, assignments |
+| `billing.routes.js` | `/api/billing` | Unit entries, claims, exports |
+| `fieldticket.routes.js` | `/api/fieldtickets` | T&M field tickets, signatures, at-risk |
+| `voice.routes.js` | `/api/voice` | Voice AI transcription and parsing |
+| `bidding.routes.js` | `/api/bidding` | Cost analytics, bid estimation |
+| `weather.routes.js` | `/api/weather` | Auto-weather for job sites |
+| `pricebook.routes.js` | `/api/pricebook` | Price book management |
+| `files.routes.js` | `/api/files` | File upload/download |
+| `asbuilt.routes.js` | `/api/asbuilt` | As-built submissions |
+| `oracle.routes.js` | `/api/oracle` | Oracle integration status/test |
+| `stripe.routes.js` | `/api/stripe` | Subscription billing |
+| `admin.routes.js` | `/api/admin` | User/company management |
+| `notification.routes.js` | `/api/notifications` | Push notifications |
+| `smartforms.routes.js` | `/api/smartforms` | PDF template management |
+| `tailboard.routes.js` | `/api/tailboard` | Safety briefings |
+| `lme.routes.js` | `/api/lme` | Labor/Material Estimates |
+| `timesheet.routes.js` | `/api/timesheet` | Time tracking |
+| `procedures.routes.js` | `/api/procedures` | Work procedures |
+
+---
+
+## External Integrations
+
+| System | Purpose | Adapter Location |
+|--------|---------|------------------|
+| Oracle Primavera Unifier | Document/Project Management | `backend/services/oracle/UnifierAdapter.js` |
+| Oracle EAM | Asset Management | `backend/services/oracle/EAMAdapter.js` |
+| Oracle P6 | Project Scheduling | `backend/services/oracle/P6Adapter.js` |
+| Oracle Fusion Cloud | FBDI Invoice Import | `backend/models/Claim.js` (export methods) |
+| ESRI GIS | Geospatial data | `backend/services/asbuilt/adapters/GISAdapter.js` |
+| SharePoint | Document archive | `backend/services/asbuilt/adapters/SharePointAdapter.js` |
+| OpenAI GPT-4 | Document extraction, Voice AI | `backend/utils/pdfUtils.js`, `backend/services/voiceAI.service.js` |
+| OpenAI Whisper | Voice transcription | `backend/services/voiceAI.service.js` |
+| OpenWeatherMap | Auto-weather conditions | `backend/services/weather.service.js` |
+| Stripe | Subscription billing | `backend/routes/stripe.routes.js` |
+| Cloudflare R2 | Object storage | `backend/utils/storage.js` |
+| MongoDB Atlas | Database | Mongoose models in `backend/models/` |
+
+---
+
+## Key Environment Variables
+
+```bash
+# Database
+MONGO_URI=mongodb+srv://...
+
+# Authentication
+JWT_SECRET=...
+MFA_ISSUER=FieldLedger
+
+# Storage (Cloudflare R2)
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=...
+R2_ENDPOINT=...
+R2_PUBLIC_URL=...
+
+# AI
+OPENAI_API_KEY=sk-...
+
+# Weather API
+OPENWEATHER_API_KEY=...
+
+# Oracle (optional)
+ORACLE_UNIFIER_URL=...
+ORACLE_EAM_URL=...
+ORACLE_P6_URL=...
+
+# Stripe
+STRIPE_SECRET_KEY=...
+STRIPE_WEBHOOK_SECRET=...
+
+# Email
+SMTP_HOST=...
+SMTP_USER=...
+SMTP_PASS=...
+
+# Frontend
+FRONTEND_URL=https://app.fieldledger.io
+```
+
+---
+
+## Testing
+
+| Type | Location | Command |
+|------|----------|---------|
+| Backend Unit Tests | `backend/__tests__/` | `cd backend && npm test` |
+| Frontend Unit Tests | `frontend/src/**/__tests__/` | `cd frontend && npm test` |
+| E2E Tests | `frontend/cypress/` | `cd frontend && npm run cypress:open` |
+| Load Tests | `backend/load-tests/` | `k6 run backend/load-tests/k6-load-test.js` |
+
+---
+
+## Deployment
+
+| Service | Platform | URL |
+|---------|----------|-----|
+| Frontend | Vercel | `https://app.fieldledger.io` |
+| Backend | Railway | `https://api.fieldledger.io` |
+| Database | MongoDB Atlas | M10 Cluster |
+| Storage | Cloudflare R2 | - |

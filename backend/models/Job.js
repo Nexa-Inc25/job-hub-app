@@ -257,6 +257,45 @@ const jobSchema = new mongoose.Schema({
   estimatedHours: Number,
   crewSize: Number,
   
+  // === SAFETY GATING (Layer 2: Revenue Defense) ===
+  // Job cannot transition to 'in_progress' until safety gate is cleared
+  // Requires: Tailboard signed today + signed within geofence of job site
+  safetyGateCleared: { type: Boolean, default: false },
+  safetyGateClearedAt: Date,
+  safetyGateClearedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  safetyGateTailboardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tailboard' },
+  safetyGateLocation: {
+    latitude: Number,
+    longitude: Number,
+    accuracy: Number,
+    distanceFromJob: Number,  // Meters from job site
+  },
+  
+  // === AUTO-WEATHER LOGGING (Layer 1: Field Frictionless) ===
+  // Weather conditions logged automatically every 4 hours at job site
+  // Creates irrefutable "Excusable Delay" record
+  weatherLog: [{
+    capturedAt: { type: Date, default: Date.now },
+    temperature: Number,              // Fahrenheit
+    conditions: String,               // "Clear", "Rain", "Snow", etc.
+    conditionCode: Number,            // OpenWeatherMap condition code
+    humidity: Number,                 // Percentage
+    windSpeed: Number,                // MPH
+    windDirection: Number,            // Degrees
+    precipitation: Number,            // Inches in last hour
+    visibility: Number,               // Miles
+    source: { type: String, enum: ['api', 'cache', 'stale_cache', 'manual', 'unavailable'], default: 'api' },
+    hazards: {
+      hasHazards: { type: Boolean, default: false },
+      maxSeverity: String,
+      hazards: [{
+        type: String,
+        severity: String,
+        message: String
+      }]
+    }
+  }],
+  
   // === REVIEW & APPROVAL WORKFLOW ===
   // Crew submission
   crewSubmittedDate: Date,

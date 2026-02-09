@@ -534,6 +534,85 @@ export async function getAllCachedPriceBooks() {
   });
 }
 
+// ==================== OPTIMISTIC SYNC HELPERS ====================
+
+/**
+ * Save data optimistically with immediate local persistence
+ * Returns immediately - sync happens in background
+ * @param {string} endpoint - API endpoint this will sync to
+ * @param {Object} data - Data to save
+ * @returns {Promise<Object>} Saved item with offlineId
+ */
+export async function saveOptimistically(endpoint, data) {
+  await initOfflineDB();
+  
+  // SECURITY NOTE: Math.random() for offline IDs is acceptable - not security-sensitive
+  const offlineId = `offline_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`; // NOSONAR
+  
+  const item = {
+    type: 'sync',
+    endpoint,
+    method: 'POST',
+    data: {
+      ...data,
+      offlineId,
+    },
+    offlineId,
+    createdAt: new Date().toISOString(),
+    status: 'pending',
+    retries: 0,
+  };
+
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.PENDING_OPS, 'readwrite');
+    const request = store.add(item);
+    request.onsuccess = () => resolve({ id: request.result, offlineId, ...item });
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Get pending sync items for a specific endpoint
+ */
+export async function getPendingSyncItems(endpoint) {
+  await initOfflineDB();
+  
+  const ops = await getPendingOperations();
+  return ops.filter(op => op.type === 'sync' && op.endpoint === endpoint && op.status !== 'synced');
+}
+
+/**
+ * Mark item as synced and remove from pending
+ */
+export async function markSynced(id) {
+  return removeOperation(id);
+}
+
+/**
+ * Get sync statistics
+ */
+export async function getSyncStats() {
+  await initOfflineDB();
+  
+  const [ops, photos, units] = await Promise.all([
+    getPendingOperations(),
+    getPendingPhotos(),
+    getPendingUnits(),
+  ]);
+
+  const pendingSync = ops.filter(op => op.status === 'pending');
+  const failedSync = ops.filter(op => op.status === 'failed');
+
+  return {
+    pendingOperations: pendingSync.length,
+    failedOperations: failedSync.length,
+    pendingPhotos: photos.length,
+    pendingUnits: units.filter(u => u.syncStatus === 'pending').length,
+    totalPending: pendingSync.length + photos.length + units.filter(u => u.syncStatus === 'pending').length,
+    lastUpdate: new Date().toISOString(),
+  };
+}
+
 const offlineStorageExports = {
   initOfflineDB,
   queueOperation,
@@ -559,6 +638,11 @@ const offlineStorageExports = {
   cachePriceBook,
   getCachedPriceBook,
   getAllCachedPriceBooks,
+  // Optimistic sync
+  saveOptimistically,
+  getPendingSyncItems,
+  markSynced,
+  getSyncStats,
 };
 
 export default offlineStorageExports;

@@ -95,6 +95,10 @@ const smartformsRoutes = require('./routes/smartforms.routes');
 const demoRoutes = require('./routes/demo.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const stripeRoutes = require('./routes/stripe.routes');
+const fieldTicketRoutes = require('./routes/fieldticket.routes');
+const voiceRoutes = require('./routes/voice.routes');
+const biddingRoutes = require('./routes/bidding.routes');
+const weatherRoutes = require('./routes/weather.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1181,6 +1185,18 @@ app.use('/api/pricebooks', authenticateUser, priceBookRoutes);
 
 // Mount billing routes (unit entries, claims, Oracle export)
 app.use('/api/billing', authenticateUser, billingRoutes);
+
+// Mount field ticket routes (T&M / Change Order management)
+app.use('/api/fieldtickets', authenticateUser, fieldTicketRoutes);
+
+// Mount voice AI routes (speech-to-data capture)
+app.use('/api/voice', authenticateUser, voiceRoutes);
+
+// Mount bidding intelligence routes (cost analytics & estimation)
+app.use('/api/bidding', authenticateUser, biddingRoutes);
+
+// Mount weather routes (auto-weather for field operations)
+app.use('/api/weather', authenticateUser, weatherRoutes);
 
 // Mount as-built document routing (intelligent document router)
 app.use('/api/asbuilt', authenticateUser, asbuiltRoutes);
@@ -6064,7 +6080,75 @@ app.put('/api/jobs/:id/status', authenticateUser, async (req, res) => {
         break;
         
       case 'in_progress':
-        // Crew started work
+        // Crew started work - SAFETY GATE CHECK
+        // Job cannot start until Tailboard is signed and GPS-verified
+        if (!job.safetyGateCleared) {
+          // Check for a valid Tailboard signed today at job site
+          const Tailboard = require('./models/Tailboard');
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+          
+          const validTailboard = await Tailboard.findOne({
+            jobId: job._id,
+            createdAt: { $gte: todayStart },
+            status: { $in: ['completed', 'signed'] },
+            'foremanSignature.signatureData': { $exists: true, $ne: null }
+          });
+          
+          if (!validTailboard) {
+            return res.status(400).json({
+              error: 'Safety Gate: Tailboard/JHA required',
+              code: 'SAFETY_GATE_TAILBOARD_REQUIRED',
+              message: 'A signed Tailboard/JHA is required before starting work. Please complete the daily safety briefing first.'
+            });
+          }
+          
+          // Verify tailboard was signed near job site (geofence check)
+          if (validTailboard.location && job.address) {
+            // Get job coordinates (if available) or skip GPS check
+            if (job.preFieldLabels?.gpsCoordinates?.latitude && job.preFieldLabels?.gpsCoordinates?.longitude) {
+              const jobLat = job.preFieldLabels.gpsCoordinates.latitude;
+              const jobLng = job.preFieldLabels.gpsCoordinates.longitude;
+              const tbLat = validTailboard.location.latitude;
+              const tbLng = validTailboard.location.longitude;
+              
+              // Calculate distance using Haversine formula
+              const R = 6371000; // Earth's radius in meters
+              const dLat = (tbLat - jobLat) * Math.PI / 180;
+              const dLng = (tbLng - jobLng) * Math.PI / 180;
+              const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                        Math.cos(jobLat * Math.PI / 180) * Math.cos(tbLat * Math.PI / 180) *
+                        Math.sin(dLng/2) * Math.sin(dLng/2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+              const distance = R * c;
+              
+              const GEOFENCE_RADIUS = 500; // 500 meters
+              if (distance > GEOFENCE_RADIUS) {
+                return res.status(400).json({
+                  error: 'Safety Gate: Tailboard location mismatch',
+                  code: 'SAFETY_GATE_GEOFENCE_FAILED',
+                  message: `Tailboard was signed ${Math.round(distance)}m from job site. Must be within ${GEOFENCE_RADIUS}m.`,
+                  distance: Math.round(distance),
+                  maxDistance: GEOFENCE_RADIUS
+                });
+              }
+              
+              // Update safety gate location info
+              job.safetyGateLocation = {
+                latitude: tbLat,
+                longitude: tbLng,
+                accuracy: validTailboard.location.accuracy,
+                distanceFromJob: Math.round(distance)
+              };
+            }
+          }
+          
+          // Safety gate cleared!
+          job.safetyGateCleared = true;
+          job.safetyGateClearedAt = new Date();
+          job.safetyGateClearedBy = req.userId;
+          job.safetyGateTailboardId = validTailboard._id;
+        }
         break;
         
       case 'pending_gf_review':
