@@ -18,7 +18,7 @@ const Company = require('../models/Company');
 const User = require('../models/User');
 const LME = require('../models/LME');
 const UnitEntry = require('../models/UnitEntry');
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const { PDFDocument, StandardFonts, rgb, degrees } = require('pdf-lib');
 const r2Storage = require('../utils/storage');
 const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
 const multer = require('multer');
@@ -242,27 +242,89 @@ function formatFieldValue(value, field) {
 }
 
 /**
- * Draw field text on PDF page
+ * Draw field text on PDF page, handling page rotation
+ * 
+ * IMPORTANT: Field bounds are stored in "visual" coordinates from the template editor.
+ * The template editor uses react-pdf which shows pages in their rotated orientation.
+ * 
+ * pdf-lib's drawText() uses the internal MediaBox coordinate system (unrotated).
+ * For rotated pages, we need to:
+ * 1. Transform visual coordinates to internal coordinates
+ * 2. Rotate the text itself so it appears upright in the final document
+ * 
+ * Coordinate transformations for rotation:
+ * - 0°: No change (visual = internal)
+ * - 90° CW: The page is rotated 90° clockwise
+ *   - Visual width = internal height, visual height = internal width
+ *   - Visual (x, y) → Internal (y, width - x)
+ * - 180°: Upside down
+ *   - Visual (x, y) → Internal (width - x, height - y)
+ * - 270° CW (90° CCW): The page is rotated 270° clockwise
+ *   - Visual (x, y) → Internal (height - y, x)
  */
-function drawFieldOnPage(page, field, value, font, debug) {
+function drawFieldOnPage(page, field, value, font, debug, pageDimension) {
   const color = hexToRgb(field.fontColor || '#000000');
   const fontSize = field.fontSize || 10;
   const padding = 2;
   
-  const pdfX = field.bounds.x + padding;
-  const pdfY = field.bounds.y + padding;
+  // Get page rotation (0, 90, 180, 270)
+  const rotation = pageDimension?.rotation || page.getRotation().angle;
   
-  if (debug) {
-    console.log(`[SmartForms] Field "${field.name}" coords: pdf(${pdfX}, ${pdfY})`);
+  // Field bounds are in visual (post-rotation) coordinates from the template editor
+  const visualX = field.bounds.x + padding;
+  const visualY = field.bounds.y + padding;
+  
+  // Get the internal (unrotated) page dimensions from MediaBox
+  const mediaBox = page.getMediaBox();
+  const internalWidth = mediaBox.width;
+  const internalHeight = mediaBox.height;
+  
+  // Transform visual coordinates to internal PDF coordinates based on rotation
+  let pdfX, pdfY;
+  
+  if (rotation === 90) {
+    // 90° CW: The page was rotated clockwise
+    // Visual X-axis corresponds to internal Y-axis
+    // Visual Y-axis corresponds to internal X-axis (inverted)
+    pdfX = visualY;
+    pdfY = internalHeight - visualX - fontSize; // Adjust for text baseline
+  } else if (rotation === 180) {
+    // 180°: Everything is flipped
+    pdfX = internalWidth - visualX;
+    pdfY = internalHeight - visualY;
+  } else if (rotation === 270) {
+    // 270° CW (90° CCW): The page was rotated counter-clockwise
+    pdfX = internalWidth - visualY;
+    pdfY = visualX;
+  } else {
+    // No rotation (0°): Visual = Internal
+    pdfX = visualX;
+    pdfY = visualY;
   }
   
-  page.drawText(String(value), {
+  if (debug) {
+    console.log(`[SmartForms] Field "${field.name}" rotation=${rotation}°`);
+    console.log(`  MediaBox: ${internalWidth} x ${internalHeight}`);
+    console.log(`  Visual(${field.bounds.x}, ${field.bounds.y}) -> Internal(${pdfX}, ${pdfY})`);
+  }
+  
+  // Draw text - the page rotation is applied automatically by the PDF renderer
+  // We need to counter-rotate the text so it appears upright
+  const drawOptions = {
     x: pdfX,
     y: pdfY,
     size: fontSize,
     font,
     color: rgb(color.r, color.g, color.b),
-  });
+  };
+  
+  // For rotated pages, we need to rotate the text to counter the page rotation
+  // This makes the text appear horizontal in the final rendered document
+  if (rotation !== 0) {
+    drawOptions.rotate = degrees(rotation); // Counter-rotate (positive angle)
+  }
+  
+  page.drawText(String(value), drawOptions);
 }
 
 /**
@@ -275,6 +337,9 @@ function drawFieldOnPage(page, field, value, font, debug) {
  * @param {boolean} params.debug - Enable debug logging
  */
 function fillPdfFields({ template, dataContext, pages, font, debug = false }) {
+  // Get stored page dimensions with rotation info
+  const pageDimensions = template.sourceFile?.pageDimensions || [];
+  
   for (const field of template.fields) {
     const pageIndex = field.page - 1;
     if (pageIndex < 0 || pageIndex >= pages.length) continue;
@@ -284,7 +349,9 @@ function fillPdfFields({ template, dataContext, pages, font, debug = false }) {
     
     if (!value) continue;
     
-    drawFieldOnPage(pages[pageIndex], field, value, font, debug);
+    // Pass page dimension with rotation info
+    const pageDim = pageDimensions[pageIndex];
+    drawFieldOnPage(pages[pageIndex], field, value, font, debug, pageDim);
   }
 }
 
@@ -420,15 +487,19 @@ router.post('/templates', upload.single('pdf'), async (req, res) => {
     }
     console.log('[SmartForms] Template metadata:', { name, description, category });
     
-    // Load the PDF to get page dimensions
+    // Load the PDF to get page dimensions and rotation
     console.log('[SmartForms] Loading PDF...');
     const pdfDoc = await PDFDocument.load(req.file.buffer);
     const pages = pdfDoc.getPages();
-    const pageDimensions = pages.map((page, index) => ({
-      page: index + 1,
-      width: page.getWidth(),
-      height: page.getHeight(),
-    }));
+    const pageDimensions = pages.map((page, index) => {
+      const rotation = page.getRotation().angle;
+      return {
+        page: index + 1,
+        width: page.getWidth(),
+        height: page.getHeight(),
+        rotation, // Store page rotation for correct text placement
+      };
+    });
     console.log('[SmartForms] PDF loaded:', { pageCount: pages.length, pageDimensions });
     
     // Upload to R2
