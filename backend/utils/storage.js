@@ -69,14 +69,14 @@ async function uploadFile(localFilePath, r2Key, contentType = 'application/octet
   });
 }
 
-// Upload a buffer directly to R2
+// Upload a buffer directly to R2 (protected by circuit breaker)
 async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stream') {
   if (!isR2Configured()) {
     console.log('R2 not configured, cannot upload buffer');
     return null;
   }
 
-  try {
+  return r2Breaker.execute(async () => {
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: r2Key,
@@ -88,10 +88,7 @@ async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stre
     console.log(`Uploaded buffer to R2: ${r2Key}`);
     
     return { key: r2Key };
-  } catch (error) {
-    console.error('R2 buffer upload error:', error);
-    throw error;
-  }
+  });
 }
 
 // Get a signed URL for private file access

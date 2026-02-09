@@ -5315,9 +5315,13 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
           // Fallback to local
           const newPath = path.join(__dirname, 'uploads', newFilename);
           fs.renameSync(fileToUpload, newPath);
-          // Still cleanup temp file
+          // Cleanup temp files - both original and any processed file that wasn't used
           if (tempProcessedFile && tempProcessedFile !== fileToUpload && fs.existsSync(tempProcessedFile)) {
             fs.unlinkSync(tempProcessedFile);
+          }
+          // Cleanup original file if we used a processed version
+          if (file.path !== fileToUpload && fs.existsSync(file.path)) {
+            fs.unlinkSync(file.path);
           }
         }
       } else {

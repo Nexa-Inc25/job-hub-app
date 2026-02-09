@@ -57,6 +57,22 @@ router.get('/unread/count',
 );
 
 /**
+ * PUT /api/notifications/read-all
+ * Mark all notifications as read for the current user
+ * NOTE: This route MUST be defined before /:id/read to avoid being caught by the param route
+ */
+router.put('/read-all',
+  asyncHandler(async (req, res) => {
+    const result = await notificationService.markAllAsRead(req.userId);
+    
+    res.json({ 
+      success: true, 
+      modifiedCount: result.modifiedCount 
+    });
+  })
+);
+
+/**
  * PUT /api/notifications/:id/read
  * Mark a specific notification as read
  */
@@ -73,21 +89,6 @@ router.put('/:id/read',
     }
     
     res.json({ success: true, notification });
-  })
-);
-
-/**
- * PUT /api/notifications/read-all
- * Mark all notifications as read for the current user
- */
-router.put('/read-all',
-  asyncHandler(async (req, res) => {
-    const result = await notificationService.markAllAsRead(req.userId);
-    
-    res.json({ 
-      success: true, 
-      modifiedCount: result.modifiedCount 
-    });
   })
 );
 

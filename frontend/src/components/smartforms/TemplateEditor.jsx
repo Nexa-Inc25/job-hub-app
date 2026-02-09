@@ -721,7 +721,7 @@ export default function TemplateEditor() {
     setSelectedField(newField.id);
     setEditingField(newField);
     setEditDialogOpen(true);
-  }, [setFields]);
+  }, [setFields, setSelectedField, setEditingField, setEditDialogOpen]);
 
   const {
     isDrawing,
