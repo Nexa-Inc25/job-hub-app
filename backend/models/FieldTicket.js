@@ -262,7 +262,32 @@ fieldTicketSchema.pre('save', async function(next) {
     this.ticketNumber = `FT-${year}-${String(count + 1).padStart(5, '0')}`;
   }
   
-  // Calculate totals
+  // Calculate entry totals (must be done here since sub-schema pre('save') hooks
+  // don't fire for embedded documents - middleware must be added before embedding)
+  
+  // Calculate labor entry totals
+  for (const entry of this.laborEntries) {
+    const regular = (entry.regularHours || 0) * (entry.regularRate || 0);
+    const overtime = (entry.overtimeHours || 0) * (entry.overtimeRate || entry.regularRate * 1.5);
+    const doubleTime = (entry.doubleTimeHours || 0) * (entry.doubleTimeRate || entry.regularRate * 2);
+    entry.totalAmount = regular + overtime + doubleTime;
+  }
+  
+  // Calculate equipment entry totals
+  for (const entry of this.equipmentEntries) {
+    const operating = (entry.hours || 0) * (entry.hourlyRate || 0);
+    const standby = (entry.standbyHours || 0) * (entry.standbyRate || entry.hourlyRate * 0.5);
+    entry.totalAmount = operating + standby;
+  }
+  
+  // Calculate material entry totals
+  for (const entry of this.materialEntries) {
+    const base = (entry.quantity || 0) * (entry.unitCost || 0);
+    const markupAmount = base * ((entry.markup || 0) / 100);
+    entry.totalAmount = base + markupAmount;
+  }
+  
+  // Calculate aggregate totals
   this.laborTotal = this.laborEntries.reduce((sum, e) => sum + (e.totalAmount || 0), 0);
   this.equipmentTotal = this.equipmentEntries.reduce((sum, e) => sum + (e.totalAmount || 0), 0);
   this.materialTotal = this.materialEntries.reduce((sum, e) => sum + (e.totalAmount || 0), 0);
@@ -271,31 +296,6 @@ fieldTicketSchema.pre('save', async function(next) {
   this.markup = this.subtotal * ((this.markupRate || 0) / 100);
   this.totalAmount = this.subtotal + this.markup;
   
-  next();
-});
-
-// Calculate labor entry total
-laborEntrySchema.pre('save', function(next) {
-  const regular = (this.regularHours || 0) * (this.regularRate || 0);
-  const overtime = (this.overtimeHours || 0) * (this.overtimeRate || this.regularRate * 1.5);
-  const doubleTime = (this.doubleTimeHours || 0) * (this.doubleTimeRate || this.regularRate * 2);
-  this.totalAmount = regular + overtime + doubleTime;
-  next();
-});
-
-// Calculate equipment entry total
-equipmentEntrySchema.pre('save', function(next) {
-  const operating = (this.hours || 0) * (this.hourlyRate || 0);
-  const standby = (this.standbyHours || 0) * (this.standbyRate || this.hourlyRate * 0.5);
-  this.totalAmount = operating + standby;
-  next();
-});
-
-// Calculate material entry total
-materialEntrySchema.pre('save', function(next) {
-  const base = (this.quantity || 0) * (this.unitCost || 0);
-  const markupAmount = base * ((this.markup || 0) / 100);
-  this.totalAmount = base + markupAmount;
   next();
 });
 

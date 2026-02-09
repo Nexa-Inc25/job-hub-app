@@ -159,22 +159,26 @@ async function getCurrentWeather(latitude, longitude) {
 function assessHazards(weather) {
   const hazards = [];
   
-  if (weather.temperature < 32) {
+  // Guard against null values - null < 32 is true in JS due to coercion to 0
+  const temp = weather.temperature;
+  const wind = weather.windSpeed;
+  
+  if (temp !== null && temp !== undefined && temp < 32) {
     hazards.push({ type: 'cold', severity: 'warning', message: 'Freezing temperatures' });
   }
-  if (weather.temperature > 100) {
+  if (temp !== null && temp !== undefined && temp > 100) {
     hazards.push({ type: 'heat', severity: 'warning', message: 'Extreme heat' });
   }
-  if (weather.windSpeed > 25) {
+  if (wind !== null && wind !== undefined && wind > 25) {
     hazards.push({ type: 'wind', severity: 'warning', message: 'High winds' });
   }
-  if (weather.windSpeed > 40) {
+  if (wind !== null && wind !== undefined && wind > 40) {
     hazards.push({ type: 'wind', severity: 'danger', message: 'Dangerous wind speeds' });
   }
-  if (weather.visibility && weather.visibility < 0.5) {
+  if (weather.visibility !== null && weather.visibility !== undefined && weather.visibility < 0.5) {
     hazards.push({ type: 'visibility', severity: 'warning', message: 'Low visibility' });
   }
-  if (weather.precipitation > 0.1) {
+  if (weather.precipitation !== null && weather.precipitation !== undefined && weather.precipitation > 0.1) {
     hazards.push({ type: 'precipitation', severity: 'info', message: 'Active precipitation' });
   }
   
