@@ -104,6 +104,16 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
   const pdfHeight = drawRect.height * scaleY;
   const pdfY = pageDim.height - (drawRect.top + drawRect.height) * scaleY;
 
+  // Debug logging for field creation
+  console.log('[TemplateEditor] Creating field:', {
+    drawRect,
+    pageDim,
+    pageRect: { width: pageRect.width, height: pageRect.height, left: pageRect.left, top: pageRect.top },
+    scaleX,
+    scaleY,
+    calculatedBounds: { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight }
+  });
+
   return {
     id: generateFieldId(),
     name: `field_${fieldsCount + 1}`,
