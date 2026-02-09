@@ -335,6 +335,10 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
+    // Debug: Log received body keys (sanitized)
+    const bodyKeys = Object.keys(req.body || {}).join(', ');
+    console.log('[FieldTicket:Create] Received fields:', bodyKeys);
+
     const {
       jobId: rawJobId,
       changeReason,
@@ -355,9 +359,19 @@ router.post('/', async (req, res) => {
 
     // Validate required fields
     const jobId = sanitizeObjectId(rawJobId);
-    if (!jobId || !changeReason || !changeDescription || !workDate || !location) {
+    const missingFields = [];
+    if (!jobId) missingFields.push('jobId');
+    if (!changeReason) missingFields.push('changeReason');
+    if (!changeDescription) missingFields.push('changeDescription');
+    if (!workDate) missingFields.push('workDate');
+    if (!location || typeof location !== 'object') missingFields.push('location');
+    else if (location.latitude === undefined || location.longitude === undefined) {
+      missingFields.push('location.latitude/longitude');
+    }
+    
+    if (missingFields.length > 0) {
       return res.status(400).json({ 
-        error: 'Missing required fields: jobId, changeReason, changeDescription, workDate, location' 
+        error: `Missing required fields: ${missingFields.join(', ')}` 
       });
     }
 
