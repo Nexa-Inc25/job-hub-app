@@ -17,6 +17,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import {
   Box,
   Typography,
@@ -108,6 +109,10 @@ const StatusChip = ({ status }) => {
       }}
     />
   );
+};
+
+StatusChip.propTypes = {
+  status: PropTypes.oneOf(['draft', 'pending_signature', 'signed', 'approved']).isRequired,
 };
 
 const AtRiskDashboard = () => {
@@ -218,7 +223,7 @@ const AtRiskDashboard = () => {
               fontWeight: 500
             }}
           >
-            in {data.ticketCount} unapproved field ticket{data.ticketCount !== 1 ? 's' : ''}
+            in {data.ticketCount} unapproved field ticket{data.ticketCount === 1 ? '' : 's'}
           </Typography>
         </CardContent>
       </Card>

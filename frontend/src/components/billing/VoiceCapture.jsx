@@ -325,6 +325,138 @@ ParsedResultDisplay.propTypes = {
 };
 
 /**
+ * RecordingSection - Extracted sub-component for recording UI
+ * Reduces cognitive complexity of main VoiceCapture component
+ */
+const RecordingSection = ({
+  dataType,
+  analyser,
+  isRecording,
+  recordingTime,
+  processing,
+  startRecording,
+  stopRecording,
+  formatTime,
+}) => {
+  const getRecordingIcon = () => {
+    if (processing) return <CircularProgress size={32} sx={{ color: COLORS.bg }} />;
+    if (isRecording) return <StopIcon sx={{ fontSize: 40 }} />;
+    return <MicIcon sx={{ fontSize: 40 }} />;
+  };
+
+  const getRecordingStatusText = () => {
+    if (processing) return 'Processing...';
+    if (isRecording) return 'Tap to stop recording';
+    return 'Tap to start recording';
+  };
+
+  const handleToggle = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
+  return (
+    <Box sx={{ textAlign: 'center' }}>
+      <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
+        {dataType === 'fieldticket'
+          ? 'Describe the extra work: labor, equipment, and materials used'
+          : 'Describe the unit work: what you installed, quantity, and location'
+        }
+      </Typography>
+
+      {/* Visualizer */}
+      <Box sx={{ mb: 3 }}>
+        <AudioVisualizer analyser={analyser} isRecording={isRecording} />
+      </Box>
+
+      {/* Recording Time */}
+      {(isRecording || recordingTime > 0) && (
+        <Typography
+          variant="h4"
+          sx={{
+            color: isRecording ? COLORS.recording : COLORS.text,
+            fontFamily: 'monospace',
+            mb: 2
+          }}
+        >
+          {formatTime(recordingTime)}
+        </Typography>
+      )}
+
+      {/* Record Button */}
+      <IconButton
+        onClick={handleToggle}
+        disabled={processing}
+        sx={{
+          width: 80,
+          height: 80,
+          bgcolor: isRecording ? COLORS.recording : COLORS.primary,
+          color: COLORS.bg,
+          '&:hover': {
+            bgcolor: isRecording ? '#d50000' : COLORS.primaryDark,
+          },
+          '&:disabled': {
+            bgcolor: COLORS.border,
+          },
+          animation: isRecording ? 'pulse 1s infinite' : 'none',
+          '@keyframes pulse': {
+            '0%': { boxShadow: `0 0 0 0 ${COLORS.recording}80` },
+            '70%': { boxShadow: `0 0 0 20px ${COLORS.recording}00` },
+            '100%': { boxShadow: `0 0 0 0 ${COLORS.recording}00` },
+          },
+        }}
+      >
+        {getRecordingIcon()}
+      </IconButton>
+
+      <Typography
+        variant="body2"
+        sx={{ color: COLORS.textSecondary, mt: 2 }}
+      >
+        {getRecordingStatusText()}
+      </Typography>
+
+      {/* Multilingual hint */}
+      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 1 }}>
+        <Chip
+          icon={<TranslateIcon />}
+          label="English"
+          size="small"
+          variant="outlined"
+          sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
+        />
+        <Chip
+          label="Español"
+          size="small"
+          variant="outlined"
+          sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
+        />
+        <Chip
+          label="Português"
+          size="small"
+          variant="outlined"
+          sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
+        />
+      </Box>
+    </Box>
+  );
+};
+
+RecordingSection.propTypes = {
+  dataType: PropTypes.oneOf(['unit', 'fieldticket']).isRequired,
+  analyser: PropTypes.object,
+  isRecording: PropTypes.bool.isRequired,
+  recordingTime: PropTypes.number.isRequired,
+  processing: PropTypes.bool.isRequired,
+  startRecording: PropTypes.func.isRequired,
+  stopRecording: PropTypes.func.isRequired,
+  formatTime: PropTypes.func.isRequired,
+};
+
+/**
  * Main Voice Capture Component
  */
 const VoiceCapture = ({
@@ -525,20 +657,6 @@ const VoiceCapture = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Get the recording button icon based on state
-  const getRecordingIcon = () => {
-    if (processing) return <CircularProgress size={32} sx={{ color: COLORS.bg }} />;
-    if (isRecording) return <StopIcon sx={{ fontSize: 40 }} />;
-    return <MicIcon sx={{ fontSize: 40 }} />;
-  };
-
-  // Get the recording status text based on state
-  const getRecordingStatusText = () => {
-    if (processing) return 'Processing...';
-    if (isRecording) return 'Tap to stop recording';
-    return 'Tap to start recording';
-  };
-
   // Handle recording toggle
   const handleRecordingToggle = () => {
     if (isRecording) {
@@ -611,89 +729,16 @@ const VoiceCapture = ({
 
         {/* Recording Section */}
         {!showResult && (
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
-              {dataType === 'fieldticket'
-                ? 'Describe the extra work: labor, equipment, and materials used'
-                : 'Describe the unit work: what you installed, quantity, and location'
-              }
-            </Typography>
-
-            {/* Visualizer */}
-            <Box sx={{ mb: 3 }}>
-              <AudioVisualizer analyser={analyser} isRecording={isRecording} />
-            </Box>
-
-            {/* Recording Time */}
-            {(isRecording || recordingTime > 0) && (
-              <Typography
-                variant="h4"
-                sx={{
-                  color: isRecording ? COLORS.recording : COLORS.text,
-                  fontFamily: 'monospace',
-                  mb: 2
-                }}
-              >
-                {formatTime(recordingTime)}
-              </Typography>
-            )}
-
-            {/* Record Button */}
-            <IconButton
-              onClick={() => isRecording ? stopRecording() : startRecording()}
-              disabled={processing}
-              sx={{
-                width: 80,
-                height: 80,
-                bgcolor: isRecording ? COLORS.recording : COLORS.primary,
-                color: COLORS.bg,
-                '&:hover': {
-                  bgcolor: isRecording ? '#d50000' : COLORS.primaryDark,
-                },
-                '&:disabled': {
-                  bgcolor: COLORS.border,
-                },
-                animation: isRecording ? 'pulse 1s infinite' : 'none',
-                '@keyframes pulse': {
-                  '0%': { boxShadow: `0 0 0 0 ${COLORS.recording}80` },
-                  '70%': { boxShadow: `0 0 0 20px ${COLORS.recording}00` },
-                  '100%': { boxShadow: `0 0 0 0 ${COLORS.recording}00` },
-                },
-              }}
-            >
-              {getRecordingIcon()}
-            </IconButton>
-
-            <Typography
-              variant="body2"
-              sx={{ color: COLORS.textSecondary, mt: 2 }}
-            >
-              {getRecordingStatusText()}
-            </Typography>
-
-            {/* Multilingual hint */}
-            <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center', gap: 1 }}>
-              <Chip
-                icon={<TranslateIcon />}
-                label="English"
-                size="small"
-                variant="outlined"
-                sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
-              />
-              <Chip
-                label="Español"
-                size="small"
-                variant="outlined"
-                sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
-              />
-              <Chip
-                label="Português"
-                size="small"
-                variant="outlined"
-                sx={{ color: COLORS.textSecondary, borderColor: COLORS.border }}
-              />
-            </Box>
-          </Box>
+          <RecordingSection
+            dataType={dataType}
+            analyser={analyser}
+            isRecording={isRecording}
+            recordingTime={recordingTime}
+            processing={processing}
+            startRecording={startRecording}
+            stopRecording={stopRecording}
+            formatTime={formatTime}
+          />
         )}
 
         {/* Result Section */}

@@ -486,8 +486,6 @@ async function handleSubscriptionUpdate(subscription) {
 }
 
 async function updateCompanySubscription(company, subscription) {
-  const plan = subscription.metadata?.plan || company.subscription?.plan || 'starter';
-  
   company.subscription = {
     ...company.subscription,
     stripeSubscriptionId: subscription.id,

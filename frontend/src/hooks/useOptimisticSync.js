@@ -53,7 +53,7 @@ function generateOfflineId() {
  */
 function getRetryDelay(attempt, config = DEFAULT_CONFIG) {
   const delay = Math.min(
-    config.baseDelay * Math.pow(config.backoffMultiplier, attempt),
+    config.baseDelay * config.backoffMultiplier ** attempt,
     config.maxDelay
   );
   // Add jitter (±20%) to prevent thundering herd
@@ -133,6 +133,70 @@ export function useOptimisticSync(options = {}) {
   }, [endpoint, isOnline]);
 
   /**
+   * Handle a single sync operation - extracted for reduced complexity
+   */
+  const handleSingleSyncOp = async (op, onConflictHandler) => {
+    const response = await api({
+      method: op.method || 'POST',
+      url: op.endpoint,
+      data: op.data,
+    });
+
+    if (response.data?.conflict) {
+      if (onConflictHandler) {
+        await onConflictHandler(op.data, response.data.serverData);
+      }
+      await offlineStorage.removeOperation(op.id);
+      return { status: 'conflict' };
+    }
+    
+    await offlineStorage.removeOperation(op.id);
+    return { status: 'synced' };
+  };
+
+  /**
+   * Handle sync error for a single operation - extracted for reduced complexity
+   */
+  const handleSyncError = async (op, err, syncPendingFn) => {
+    console.error('[OptimisticSync] Sync failed for item:', op.offlineId, err);
+    
+    const newRetries = (op.retries || 0) + 1;
+    
+    if (newRetries >= config.maxRetries) {
+      await offlineStorage.updateOperationStatus(op.id, 'failed', err.message);
+      return { failed: true };
+    }
+    
+    await offlineStorage.updateOperationStatus(op.id, 'pending', err.message);
+    const delay = getRetryDelay(newRetries, config);
+    
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+    }
+    retryTimeoutRef.current = setTimeout(() => syncPendingFn(), delay);
+    return { failed: false };
+  };
+
+  /**
+   * Update sync state after processing all operations
+   */
+  const updateSyncState = (syncOps, syncedCount, failedCount) => {
+    const remaining = syncOps.length - syncedCount;
+    setPendingCount(remaining);
+    
+    if (remaining === 0) {
+      setSyncStatus(SYNC_STATUS.SYNCED);
+      setLastSyncTime(new Date());
+      if (onSyncComplete) {
+        onSyncComplete({ synced: syncedCount, failed: failedCount });
+      }
+    } else if (failedCount > 0) {
+      setSyncStatus(SYNC_STATUS.ERROR);
+      setError(`${failedCount} items failed to sync`);
+    }
+  };
+
+  /**
    * Sync pending items to server
    */
   const syncPending = useCallback(async () => {
@@ -163,63 +227,21 @@ export function useOptimisticSync(options = {}) {
 
       for (const op of syncOps) {
         try {
-          // Attempt to sync
-          const response = await api({
-            method: op.method || 'POST',
-            url: op.endpoint,
-            data: op.data,
-          });
-
-          // Check for conflicts
-          if (response.data?.conflict) {
-            if (onConflict) {
-              await onConflict(op.data, response.data.serverData);
-            }
-            // Server wins - remove local version
-            await offlineStorage.removeOperation(op.id);
+          const result = await handleSingleSyncOp(op, onConflict);
+          if (result.status === 'conflict') {
             setSyncStatus(SYNC_STATUS.CONFLICT);
           } else {
-            // Success - remove from pending
-            await offlineStorage.removeOperation(op.id);
             syncedCount++;
           }
         } catch (err) {
-          console.error('[OptimisticSync] Sync failed for item:', op.offlineId, err);
-          
-          // Update retry count
-          const newRetries = (op.retries || 0) + 1;
-          
-          if (newRetries >= config.maxRetries) {
-            // Max retries exceeded - mark as failed
-            await offlineStorage.updateOperationStatus(op.id, 'failed', err.message);
+          const errorResult = await handleSyncError(op, err, syncPending);
+          if (errorResult.failed) {
             failedCount++;
-          } else {
-            // Schedule retry
-            await offlineStorage.updateOperationStatus(op.id, 'pending', err.message);
-            const delay = getRetryDelay(newRetries, config);
-            
-            if (retryTimeoutRef.current) {
-              clearTimeout(retryTimeoutRef.current);
-            }
-            retryTimeoutRef.current = setTimeout(() => syncPending(), delay);
           }
         }
       }
 
-      // Update state
-      const remaining = syncOps.length - syncedCount;
-      setPendingCount(remaining);
-      
-      if (remaining === 0) {
-        setSyncStatus(SYNC_STATUS.SYNCED);
-        setLastSyncTime(new Date());
-        if (onSyncComplete) {
-          onSyncComplete({ synced: syncedCount, failed: failedCount });
-        }
-      } else if (failedCount > 0) {
-        setSyncStatus(SYNC_STATUS.ERROR);
-        setError(`${failedCount} items failed to sync`);
-      }
+      updateSyncState(syncOps, syncedCount, failedCount);
     } catch (err) {
       console.error('[OptimisticSync] Sync error:', err);
       setSyncStatus(SYNC_STATUS.ERROR);
