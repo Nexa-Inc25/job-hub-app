@@ -705,6 +705,7 @@ export default function TemplateEditor() {
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
+  const [pageRendered, setPageRendered] = useState(0); // Triggers re-render when PDF page finishes rendering
   const containerRef = useRef(null);
   const containerWidth = useContainerWidth(containerRef);
 
@@ -833,6 +834,7 @@ export default function TemplateEditor() {
   }, []);
 
   // Render field overlays - uses extracted helper function
+  // pageRendered dependency ensures re-render after PDF page finishes loading
   const renderFieldOverlays = useCallback((pageElement) => {
     if (!pageElement) return null;
     
@@ -855,7 +857,7 @@ export default function TemplateEditor() {
           />
         );
       });
-  }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField]);
+  }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField, pageRendered]);
 
   // Callback for navigating back - must be before early returns (React hooks rule)
   const handleBack = useCallback(() => navigate('/smartforms'), [navigate]);
@@ -943,6 +945,8 @@ export default function TemplateEditor() {
                   width={containerWidth ? Math.min(containerWidth - 64, 800) : undefined}
                   onRenderSuccess={() => {
                     // Force re-render of overlays when page renders
+                    // This ensures field positions are calculated after PDF dimensions are known
+                    setPageRendered(prev => prev + 1);
                   }}
                   onRenderError={(err) => {
                     console.error('Page render error:', err);
