@@ -12,11 +12,28 @@ const Company = require('../models/Company');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 
-// Initialize Stripe with secret key
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe with secret key (conditionally - may not be configured)
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  console.log('[Stripe] Initialized with API key');
+} else {
+  console.warn('[Stripe] STRIPE_SECRET_KEY not configured - billing features disabled');
+}
 
 // Webhook endpoint secret for signature verification
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+// Middleware to check if Stripe is configured
+function requireStripe(req, res, next) {
+  if (!stripe) {
+    return res.status(503).json({ 
+      error: 'Billing is not configured. Please contact support.',
+      code: 'STRIPE_NOT_CONFIGURED'
+    });
+  }
+  next();
+}
 
 /**
  * Subscription Plans Configuration
@@ -124,7 +141,7 @@ router.get('/plans', (req, res) => {
  *       200:
  *         description: Checkout session URL
  */
-router.post('/create-checkout-session', authenticateToken, async (req, res) => {
+router.post('/create-checkout-session', authenticateToken, requireStripe, async (req, res) => {
   try {
     const { plan, billingInterval = 'monthly' } = req.body;
     const userId = req.userId;
@@ -225,7 +242,7 @@ router.post('/create-checkout-session', authenticateToken, async (req, res) => {
  *       200:
  *         description: Portal session URL
  */
-router.post('/create-portal-session', authenticateToken, async (req, res) => {
+router.post('/create-portal-session', authenticateToken, requireStripe, async (req, res) => {
   try {
     const userId = req.userId;
     
@@ -317,6 +334,11 @@ router.get('/subscription', authenticateToken, async (req, res) => {
  *     description: Handles Stripe events (subscription updates, payments, etc.)
  */
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  // Early return if Stripe not configured
+  if (!stripe) {
+    return res.status(503).json({ error: 'Stripe not configured' });
+  }
+  
   const sig = req.headers['stripe-signature'];
   
   let event;
