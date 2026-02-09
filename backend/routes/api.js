@@ -99,7 +99,29 @@ function setupAssetFolders(job) {
 function resolvePdfPath(req) {
   if (req.file?.path) return req.file.path;
   if (req.body.documentUrl) {
-    return path.join(__dirname, '..', req.body.documentUrl.replace(/^\//, ''));
+    // Sanitize to prevent path traversal attacks
+    const sanitizedUrl = req.body.documentUrl
+      .replace(/^\//, '')  // Remove leading slash
+      .replaceAll('..', '') // Remove path traversal attempts
+      .replaceAll(/[\\]/g, '/'); // Normalize path separators
+    
+    // Only allow paths within uploads directory
+    if (!sanitizedUrl.startsWith('uploads/')) {
+      console.warn('[Security] Blocked path traversal attempt:', req.body.documentUrl);
+      return null;
+    }
+    
+    const resolvedPath = path.join(__dirname, '..', sanitizedUrl);
+    
+    // Ensure resolved path is still within backend directory (belt and suspenders)
+    const backendDir = path.resolve(__dirname, '..');
+    const normalizedPath = path.resolve(resolvedPath);
+    if (!normalizedPath.startsWith(backendDir)) {
+      console.warn('[Security] Blocked path escape attempt:', req.body.documentUrl);
+      return null;
+    }
+    
+    return resolvedPath;
   }
   return null;
 }

@@ -109,6 +109,7 @@ const aiDataCapture = require('./utils/aiDataCapture');
 const documentAutoFill = require('./utils/documentAutoFill');
 const archiver = require('archiver');
 const { sendInvitation } = require('./services/email.service');
+const { validateUrl, isUrlSafeSync } = require('./utils/urlValidator');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
 
@@ -256,7 +257,33 @@ app.set('trust proxy', 1);
 // Helmet - sets various HTTP security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },  // Allow R2 resources
-  contentSecurityPolicy: false  // Disable CSP for now (can be strict later)
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],  // TODO: Remove unsafe-inline with nonce-based CSP
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://*.r2.cloudflarestorage.com", "https://*.cloudflare.com"],
+      connectSrc: [
+        "'self'",
+        "https://api.openweathermap.org",
+        "https://api.openai.com",
+        "https://*.r2.cloudflarestorage.com",
+        "wss://*",  // WebSocket connections
+      ],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  // Prevent clickjacking
+  frameguard: { action: 'deny' },
+  // Disable MIME sniffing
+  noSniff: true,
+  // Enable XSS filter
+  xssFilter: true,
 }));
 
 // ============================================
@@ -5493,11 +5520,21 @@ app.get('/api/jobs/:id/folders/:folderName/export', authenticateUser, async (req
         } else if (doc.url) {
           // Try to get from URL (could be external or local)
           if (doc.url.startsWith('http://') || doc.url.startsWith('https://')) {
-            // External URL - fetch it
-            const fetch = (await import('node-fetch')).default;
-            const response = await fetch(doc.url);
-            if (response.ok) {
-              fileBuffer = Buffer.from(await response.arrayBuffer());
+            // External URL - validate before fetching (SSRF protection)
+            const urlValidation = await validateUrl(doc.url, { 
+              allowHttp: false,  // Only HTTPS
+              requireAllowlist: true,  // Only trusted domains
+              resolveDNS: true  // Check resolved IPs
+            });
+            
+            if (urlValidation.valid) {
+              const fetch = (await import('node-fetch')).default;
+              const response = await fetch(urlValidation.url.href);
+              if (response.ok) {
+                fileBuffer = Buffer.from(await response.arrayBuffer());
+              }
+            } else {
+              console.warn(`[SSRF Protection] Blocked fetch to: ${doc.url} - ${urlValidation.error}`);
             }
           } else if (doc.url.startsWith('/uploads/')) {
             // Local file
