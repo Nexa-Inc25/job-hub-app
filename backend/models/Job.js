@@ -72,7 +72,7 @@ const jobSchema = new mongoose.Schema({
   projectName: String,
   orderType: String,
   division: { type: String, default: 'DA' },
-  matCode: String,
+  matCode: String,              // MAT Code - unit pricing code defining billable work type (e.g., "161", "2AA")
   sapId: String,                // SAP Equipment ID (e.g., "101272791")
   sapFuncLocation: String,      // SAP Functional Location (e.g., "ED.95-N300000000.STRU.POLE")
   // Job scope extracted from PG&E Face Sheet for quick reference

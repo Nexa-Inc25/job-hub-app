@@ -289,7 +289,7 @@ REQUIRED EXTRACTION (return as JSON object):
 - client: Company name (e.g., "PG&E")
 - projectName: Project name
 - orderType: Order type code (e.g., "E460")
-- matCode: MAT Codes value (e.g., "161")
+- matCode: MAT Code - unit pricing code for billable work items (e.g., "161", "2AA")
 - sapId: SAP Equipment ID (e.g., "101272791")
 - sapFuncLocation: SAP Functional Location (e.g., "ED.95-N300000000.STRU.POLE")
 

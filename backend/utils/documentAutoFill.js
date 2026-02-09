@@ -11,7 +11,7 @@
  * 1. FROM JOB PACKAGE (100% accurate - just copy from source):
  *    - PM Number, WO Number, Notification Number
  *    - Address, City
- *    - Order Type, Material Code
+ *    - Order Type, MAT Code (unit pricing)
  *    - Service Type, Pipe Size/Type
  * 
  * 2. FROM CONTEXT (90%+ accurate - derived from job data):

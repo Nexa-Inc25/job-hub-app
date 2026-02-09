@@ -48,7 +48,7 @@ const aiTrainingDataSchema = new mongoose.Schema({
   jobType: String,  // e.g., "new_service", "repair", "upgrade", "emergency"
   orderType: String,  // From job package
   division: String,  // DA, etc.
-  matCode: String,  // Material code
+  matCode: String,  // MAT code - unit pricing code for billable work
   
   // Location context
   address: String,

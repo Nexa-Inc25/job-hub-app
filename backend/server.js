@@ -1744,7 +1744,7 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
       pmNumber: /(?:PM|PM#|PM Number|Project)[:\s#]*(\d{7,8})/i,
       woNumber: /(?:WO|WO#|Work Order)[:\s#]*([A-Z0-9-]+)/i,
       notificationNumber: /(?:Notification|Notif|NOTIF)[:\s#]*(\d+)/i,
-      matCode: /(?:MAT|MAT Code|Material Code|Mat\.?\s*Code)[:\s#]*([A-Z0-9-]+)/i,
+      matCode: /(?:MAT|MAT Code|MAT Codes|Mat\.?\s*Code)[:\s#]*([A-Z0-9-]+)/i,
       address: /(\d+\s+[A-Za-z0-9\s]+(?:St|Street|Ave|Avenue|Blvd|Boulevard|Dr|Drive|Rd|Road|Way|Lane|Ln|Ct|Court)\.?)/i,
       city: /(?:City)[:\s]*([A-Za-z\s]+?)(?:,|\s+CA|\s+California|\n)/i,
       client: /(PG&E|Pacific Gas|SCE|Southern California Edison|SDG&E)/i,
@@ -1835,7 +1835,7 @@ Required fields:
 
 Key identifiers to look for:
 - notificationNumber: The notification number (often labeled "Notification", "Notif #", or similar, usually 9-10 digits)
-- matCode: The MAT code or Material Code (often labeled "MAT", "MAT Code", "Material Code")
+- matCode: The MAT code (unit pricing code for billable work, often labeled "MAT", "MAT Code", "MAT Codes")
 
 Job Scope (extract from Face Sheet "Scope" or "Description" sections):
 - jobScope.summary: 1-2 sentence work description (e.g., "Install new transformer and 150ft underground primary")
