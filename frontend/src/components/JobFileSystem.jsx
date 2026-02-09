@@ -1613,6 +1613,7 @@ const JobFileSystem = () => {
                         minHeight: '600px'
                       }}
                       title={viewingDoc.name}
+                      sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
                     />
                   )}
                 </Box>

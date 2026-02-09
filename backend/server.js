@@ -1355,7 +1355,9 @@ app.put('/api/jobs/:id/assign-gf', authenticateUser, async (req, res) => {
 // Allow Admin, PM, or GF to assign crews
 app.put('/api/jobs/:id/assign', authenticateUser, async (req, res) => {
   try {
-    console.log('Assignment request:', req.params.id, req.body);
+    // Sanitize user input before logging to prevent log injection
+    const safeJobId = String(req.params.id || '').slice(0, 50).replace(/[\n\r\t]/g, '');
+    console.log('Assignment request:', safeJobId, 'userId:', req.userId);
     console.log('User:', req.userId, 'isAdmin:', req.isAdmin, 'role:', req.userRole);
     
     // Check permissions - Admin, PM, or GF can assign
@@ -1376,7 +1378,7 @@ app.put('/api/jobs/:id/assign', authenticateUser, async (req, res) => {
     
     const job = await Job.findOne(query);
     if (!job) {
-      console.log('Job not found or not in user company:', req.params.id);
+      console.log('Job not found or not in user company:', safeJobId);
       return res.status(404).json({ error: 'Job not found' });
     }
     
@@ -1732,7 +1734,9 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
   try {
     const user = await User.findById(req.userId).select('companyId');
     userCompanyId = user?.companyId;
-  } catch (e) {}
+  } catch {
+    // Silently ignore - userCompanyId will remain null for anonymous/failed lookups
+  }
   
   // Quick regex extraction function - used as fallback
   const quickExtract = (text) => {
@@ -1769,7 +1773,7 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
         address: '', city: '', client: '', projectName: '', orderType: '',
         jobScope: null
       };
-      try { fs.unlinkSync(pdfPath); } catch (e) {}
+      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
       return res.json({ 
         success: true, 
         structured, 
@@ -1778,7 +1782,7 @@ app.post('/api/ai/extract', authenticateUser, upload.single('pdf'), async (req, 
     }
     
     if (!process.env.OPENAI_API_KEY) {
-      try { fs.unlinkSync(pdfPath); } catch (e) {}
+      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
       return res.json({ success: false, error: 'AI extraction not configured' });
     }
     
@@ -1911,7 +1915,9 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
     // Clean up the uploaded file
     try {
       fs.unlinkSync(pdfPath);
-    } catch (e) {}
+    } catch {
+      // Ignore cleanup errors - file may already be deleted
+    }
     
     res.json({ success: true, structured });
   } catch (err) {
@@ -1919,7 +1925,7 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
     
     // Clean up uploaded file
     if (pdfPath) {
-      try { fs.unlinkSync(pdfPath); } catch (e) {}
+      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
     }
     
     // Return empty results - let user fill manually
@@ -2646,7 +2652,9 @@ app.get('/api/jobs/search/:pmNumber', authenticateUser, async (req, res) => {
 
 app.get('/api/jobs/:id', authenticateUser, async (req, res) => {
   try {
-    console.log('Getting job by ID:', req.params.id);
+    // Sanitize user input before logging to prevent log injection
+    const safeJobId = String(req.params.id || '').slice(0, 50).replace(/[\n\r\t]/g, '');
+    console.log('Getting job by ID:', safeJobId);
     console.log('User ID from token:', req.userId, 'isAdmin:', req.isAdmin);
 
     // ============================================
@@ -4389,7 +4397,9 @@ app.post('/api/company/invite', authenticateUser, async (req, res) => {
 // R2 files and AI training data remain intact
 app.delete('/api/jobs/:id', authenticateUser, async (req, res) => {
   try {
-    console.log('Soft-deleting job by ID:', req.params.id);
+    // Sanitize user input before logging to prevent log injection
+    const safeJobId = String(req.params.id || '').slice(0, 50).replace(/[\n\r\t]/g, '');
+    console.log('Soft-deleting job by ID:', safeJobId);
     console.log('User ID from token:', req.userId, 'isAdmin:', req.isAdmin, 'role:', req.userRole);
     
     const { reason } = req.body || {};
@@ -6913,7 +6923,7 @@ app.post('/api/qa/extract-audit', authenticateUser, upload.single('pdf'), async 
     
     // Only QA can upload failed audits
     if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
-      if (req.file) try { fs.unlinkSync(req.file.path); } catch (e) {}
+      if (req.file) try { fs.unlinkSync(req.file.path); } catch { /* Ignore cleanup errors */ }
       return res.status(403).json({ error: 'QA access required' });
     }
     
@@ -6937,7 +6947,7 @@ app.post('/api/qa/extract-audit', authenticateUser, upload.single('pdf'), async 
     
     // STEP 2: AI extraction with audit-specific prompt
     if (!process.env.OPENAI_API_KEY) {
-      try { fs.unlinkSync(pdfPath); } catch (e) {}
+      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
       return res.status(500).json({ error: 'AI extraction not configured' });
     }
     
@@ -7165,7 +7175,7 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     console.error('Audit extraction error:', err);
     // Clean up file on error
     if (pdfPath && fs.existsSync(pdfPath)) {
-      try { fs.unlinkSync(pdfPath); } catch (e) {}
+      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
     }
     res.status(500).json({ error: 'Failed to extract audit', details: err.message });
   }
