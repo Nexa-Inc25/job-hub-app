@@ -657,21 +657,15 @@ const VoiceCapture = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Handle recording toggle
-  const handleRecordingToggle = () => {
-    if (isRecording) {
-      stopRecording();
-    } else {
-      startRecording();
-    }
-  };
-
   // Button-only mode (inline mic button)
   if (buttonOnly) {
+    // Inline toggle handler for button-only mode
+    const toggleRecording = () => isRecording ? stopRecording() : startRecording();
+    
     return (
       <Tooltip title="Voice Input">
         <IconButton
-          onClick={handleRecordingToggle}
+          onClick={toggleRecording}
           sx={{
             bgcolor: isRecording ? COLORS.recording : COLORS.surface,
             color: isRecording ? COLORS.text : COLORS.primary,
