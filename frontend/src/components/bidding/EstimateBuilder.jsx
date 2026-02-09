@@ -37,19 +37,13 @@ import {
   Chip,
   Divider,
   Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CalculateIcon from '@mui/icons-material/Calculate';
 import LightbulbIcon from '@mui/icons-material/Lightbulb';
 import WarningIcon from '@mui/icons-material/Warning';
-import CheckIcon from '@mui/icons-material/Check';
 import InfoIcon from '@mui/icons-material/Info';
-import SaveIcon from '@mui/icons-material/Save';
 import api from '../../api';
 
 const COLORS = {
@@ -86,7 +80,7 @@ const CONFIDENCE_LABELS = {
 const EstimateBuilder = () => {
   // State
   const [items, setItems] = useState([
-    { itemCode: '', quantity: 0 }
+    { id: `item-${Date.now()}`, itemCode: '', quantity: 0 }
   ]);
   const [confidence, setConfidence] = useState('moderate');
   const [contingencyRate, setContingencyRate] = useState(10);
@@ -94,24 +88,20 @@ const EstimateBuilder = () => {
   const [estimate, setEstimate] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [bidName, setBidName] = useState('');
-  const [showSaveDialog, setShowSaveDialog] = useState(false);
 
   // Add item
   const addItem = () => {
-    setItems([...items, { itemCode: '', quantity: 0 }]);
+    setItems([...items, { id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, itemCode: '', quantity: 0 }]);
   };
 
   // Remove item
-  const removeItem = (index) => {
-    setItems(items.filter((_, i) => i !== index));
+  const removeItem = (id) => {
+    setItems(items.filter(item => item.id !== id));
   };
 
   // Update item
-  const updateItem = (index, field, value) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setItems(newItems);
+  const updateItem = (id, field, value) => {
+    setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
   };
 
   // Generate estimate
@@ -131,7 +121,7 @@ const EstimateBuilder = () => {
       const response = await api.post('/api/bidding/estimate', {
         scopeItems: validItems.map(i => ({
           itemCode: i.itemCode.trim(),
-          quantity: parseFloat(i.quantity),
+          quantity: Number.parseFloat(i.quantity),
         })),
         contingencyRate,
         markupRate,
@@ -210,12 +200,12 @@ const EstimateBuilder = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {items.map((item, idx) => (
-                      <TableRow key={idx}>
+                    {items.map((item) => (
+                      <TableRow key={item.id}>
                         <TableCell sx={{ borderColor: COLORS.border }}>
                           <TextField
                             value={item.itemCode}
-                            onChange={(e) => updateItem(idx, 'itemCode', e.target.value)}
+                            onChange={(e) => updateItem(item.id, 'itemCode', e.target.value)}
                             placeholder="e.g., 123456"
                             size="small"
                             fullWidth
@@ -232,7 +222,7 @@ const EstimateBuilder = () => {
                           <TextField
                             type="number"
                             value={item.quantity}
-                            onChange={(e) => updateItem(idx, 'quantity', e.target.value)}
+                            onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                             size="small"
                             inputProps={{ min: 0 }}
                             sx={{ width: 100 }}
@@ -244,7 +234,7 @@ const EstimateBuilder = () => {
                         <TableCell sx={{ borderColor: COLORS.border }}>
                           <IconButton
                             size="small"
-                            onClick={() => removeItem(idx)}
+                            onClick={() => removeItem(item.id)}
                             disabled={items.length === 1}
                             sx={{ color: COLORS.error }}
                           >
@@ -305,7 +295,7 @@ const EstimateBuilder = () => {
                   <TextField
                     type="number"
                     value={contingencyRate}
-                    onChange={(e) => setContingencyRate(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setContingencyRate(Number.parseFloat(e.target.value) || 0)}
                     size="small"
                     fullWidth
                     inputProps={{ min: 0, max: 50 }}
@@ -322,7 +312,7 @@ const EstimateBuilder = () => {
                   <TextField
                     type="number"
                     value={markupRate}
-                    onChange={(e) => setMarkupRate(parseFloat(e.target.value) || 0)}
+                    onChange={(e) => setMarkupRate(Number.parseFloat(e.target.value) || 0)}
                     size="small"
                     fullWidth
                     inputProps={{ min: 0, max: 100 }}
@@ -410,8 +400,8 @@ const EstimateBuilder = () => {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {estimate.lineItems.map((item, idx) => (
-                          <TableRow key={idx}>
+                        {estimate.lineItems.map((item) => (
+                          <TableRow key={item.itemCode}>
                             <TableCell sx={{ borderColor: COLORS.border }}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                 <Typography 

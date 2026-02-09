@@ -16,6 +16,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import PropTypes from 'prop-types';
 import {
   Box,
   Typography,
@@ -110,6 +111,14 @@ const MetricCard = ({ title, value, subtitle, icon: Icon, color = COLORS.primary
     </CardContent>
   </Card>
 );
+
+MetricCard.propTypes = {
+  title: PropTypes.string.isRequired,
+  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  subtitle: PropTypes.string,
+  icon: PropTypes.elementType.isRequired,
+  color: PropTypes.string,
+};
 
 const BiddingDashboard = () => {
   const [loading, setLoading] = useState(true);

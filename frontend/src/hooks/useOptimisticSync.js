@@ -73,7 +73,6 @@ function getRetryDelay(attempt, config = DEFAULT_CONFIG) {
 export function useOptimisticSync(options = {}) {
   const {
     endpoint = '/api/data',
-    storeName = 'pendingOperations',
     onConflict = null,
     onSyncComplete = null,
     config = DEFAULT_CONFIG,

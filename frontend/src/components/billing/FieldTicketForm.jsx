@@ -19,7 +19,7 @@
  * @module components/billing/FieldTicketForm
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import {
   Box,
@@ -31,10 +31,6 @@ import {
   CardContent,
   Chip,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   CircularProgress,
   Select,
   MenuItem,
@@ -44,10 +40,6 @@ import {
   AccordionSummary,
   AccordionDetails,
   Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -57,11 +49,8 @@ import BuildIcon from '@mui/icons-material/Build';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import CheckIcon from '@mui/icons-material/Check';
-import GPSIcon from '@mui/icons-material/MyLocation';
-import SignatureIcon from '@mui/icons-material/Draw';
 import WarningIcon from '@mui/icons-material/Warning';
 import { useGeolocation } from '../../hooks/useGeolocation';
-import { useOffline } from '../../hooks/useOffline';
 import GPSPhotoCapture from './GPSPhotoCapture';
 import SignatureCapture from './SignatureCapture';
 import api from '../../api';
@@ -128,7 +117,6 @@ const EQUIPMENT_TYPES = [
  * Labor Entry Row Component
  */
 const LaborEntry = ({ entry, onChange, onRemove }) => {
-  const role = WORKER_ROLES.find(r => r.value === entry.role) || WORKER_ROLES[1];
   const total = (entry.regularHours * entry.regularRate) + 
                 (entry.overtimeHours * (entry.overtimeRate || entry.regularRate * 1.5)) +
                 (entry.doubleTimeHours * (entry.doubleTimeRate || entry.regularRate * 2));
@@ -185,7 +173,7 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
             label="Regular Hrs"
             type="number"
             value={entry.regularHours}
-            onChange={(e) => onChange({ ...entry, regularHours: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, regularHours: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0, step: 0.5 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -195,7 +183,7 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
             label="OT Hrs"
             type="number"
             value={entry.overtimeHours}
-            onChange={(e) => onChange({ ...entry, overtimeHours: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, overtimeHours: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0, step: 0.5 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -205,7 +193,7 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
             label="DT Hrs"
             type="number"
             value={entry.doubleTimeHours}
-            onChange={(e) => onChange({ ...entry, doubleTimeHours: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, doubleTimeHours: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0, step: 0.5 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -224,6 +212,21 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
       </CardContent>
     </Card>
   );
+};
+
+LaborEntry.propTypes = {
+  entry: PropTypes.shape({
+    workerName: PropTypes.string,
+    role: PropTypes.string,
+    regularHours: PropTypes.number,
+    regularRate: PropTypes.number,
+    overtimeHours: PropTypes.number,
+    overtimeRate: PropTypes.number,
+    doubleTimeHours: PropTypes.number,
+    doubleTimeRate: PropTypes.number,
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
 };
 
 /**
@@ -287,7 +290,7 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
             label="Operating Hrs"
             type="number"
             value={entry.hours}
-            onChange={(e) => onChange({ ...entry, hours: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, hours: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0, step: 0.5 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -297,7 +300,7 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
             label="Standby Hrs"
             type="number"
             value={entry.standbyHours}
-            onChange={(e) => onChange({ ...entry, standbyHours: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, standbyHours: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0, step: 0.5 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -307,7 +310,7 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
             label="$/Hour"
             type="number"
             value={entry.hourlyRate}
-            onChange={(e) => onChange({ ...entry, hourlyRate: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, hourlyRate: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -323,6 +326,19 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
       </CardContent>
     </Card>
   );
+};
+
+EquipmentEntry.propTypes = {
+  entry: PropTypes.shape({
+    equipmentType: PropTypes.string,
+    description: PropTypes.string,
+    hours: PropTypes.number,
+    hourlyRate: PropTypes.number,
+    standbyHours: PropTypes.number,
+    standbyRate: PropTypes.number,
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
 };
 
 /**
@@ -375,7 +391,7 @@ const MaterialEntry = ({ entry, onChange, onRemove }) => {
             label="Qty"
             type="number"
             value={entry.quantity}
-            onChange={(e) => onChange({ ...entry, quantity: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, quantity: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -396,7 +412,7 @@ const MaterialEntry = ({ entry, onChange, onRemove }) => {
             label="Unit Cost"
             type="number"
             value={entry.unitCost}
-            onChange={(e) => onChange({ ...entry, unitCost: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, unitCost: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0, step: 0.01 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -406,7 +422,7 @@ const MaterialEntry = ({ entry, onChange, onRemove }) => {
             label="Markup %"
             type="number"
             value={entry.markup}
-            onChange={(e) => onChange({ ...entry, markup: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => onChange({ ...entry, markup: Number.parseFloat(e.target.value) || 0 })}
             size="small"
             inputProps={{ min: 0 }}
             InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }}
@@ -425,12 +441,24 @@ const MaterialEntry = ({ entry, onChange, onRemove }) => {
   );
 };
 
+MaterialEntry.propTypes = {
+  entry: PropTypes.shape({
+    materialCode: PropTypes.string,
+    description: PropTypes.string,
+    quantity: PropTypes.number,
+    unit: PropTypes.string,
+    unitCost: PropTypes.number,
+    markup: PropTypes.number,
+  }).isRequired,
+  onChange: PropTypes.func.isRequired,
+  onRemove: PropTypes.func.isRequired,
+};
+
 /**
  * Main Field Ticket Form Component
  */
 const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
-  const { isOnline } = useOffline();
-  const { position, getCurrentPosition } = useGeolocation();
+  const { position } = useGeolocation();
   
   // Form state
   const [changeReason, setChangeReason] = useState('');
@@ -477,6 +505,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
   // Add labor entry
   const addLaborEntry = () => {
     setLaborEntries([...laborEntries, {
+      id: `labor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       workerName: '',
       role: 'journeyman',
       regularHours: 0,
@@ -489,6 +518,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
   // Add equipment entry
   const addEquipmentEntry = () => {
     setEquipmentEntries([...equipmentEntries, {
+      id: `equip-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       equipmentType: 'bucket_truck',
       description: 'Bucket Truck',
       hours: 0,
@@ -500,6 +530,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
   // Add material entry
   const addMaterialEntry = () => {
     setMaterialEntries([...materialEntries, {
+      id: `mat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       materialCode: '',
       description: '',
       quantity: 1,
@@ -767,16 +798,14 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
             </Box>
           </AccordionSummary>
           <AccordionDetails>
-            {laborEntries.map((entry, idx) => (
+            {laborEntries.map((entry) => (
               <LaborEntry
-                key={idx}
+                key={entry.id}
                 entry={entry}
                 onChange={(updated) => {
-                  const newEntries = [...laborEntries];
-                  newEntries[idx] = updated;
-                  setLaborEntries(newEntries);
+                  setLaborEntries(laborEntries.map(e => e.id === entry.id ? updated : e));
                 }}
-                onRemove={() => setLaborEntries(laborEntries.filter((_, i) => i !== idx))}
+                onRemove={() => setLaborEntries(laborEntries.filter(e => e.id !== entry.id))}
               />
             ))}
             <Button
@@ -809,16 +838,14 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
             </Box>
           </AccordionSummary>
           <AccordionDetails>
-            {equipmentEntries.map((entry, idx) => (
+            {equipmentEntries.map((entry) => (
               <EquipmentEntry
-                key={idx}
+                key={entry.id}
                 entry={entry}
                 onChange={(updated) => {
-                  const newEntries = [...equipmentEntries];
-                  newEntries[idx] = updated;
-                  setEquipmentEntries(newEntries);
+                  setEquipmentEntries(equipmentEntries.map(e => e.id === entry.id ? updated : e));
                 }}
-                onRemove={() => setEquipmentEntries(equipmentEntries.filter((_, i) => i !== idx))}
+                onRemove={() => setEquipmentEntries(equipmentEntries.filter(e => e.id !== entry.id))}
               />
             ))}
             <Button
@@ -851,16 +878,14 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
             </Box>
           </AccordionSummary>
           <AccordionDetails>
-            {materialEntries.map((entry, idx) => (
+            {materialEntries.map((entry) => (
               <MaterialEntry
-                key={idx}
+                key={entry.id}
                 entry={entry}
                 onChange={(updated) => {
-                  const newEntries = [...materialEntries];
-                  newEntries[idx] = updated;
-                  setMaterialEntries(newEntries);
+                  setMaterialEntries(materialEntries.map(e => e.id === entry.id ? updated : e));
                 }}
-                onRemove={() => setMaterialEntries(materialEntries.filter((_, i) => i !== idx))}
+                onRemove={() => setMaterialEntries(materialEntries.filter(e => e.id !== entry.id))}
               />
             ))}
             <Button
@@ -894,9 +919,9 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
             </Box>
             {photos.length > 0 ? (
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                {photos.map((photo, idx) => (
+                {photos.map((photo) => (
                   <Box
-                    key={idx}
+                    key={photo.id || photo.url || photo.dataUrl}
                     sx={{
                       width: 80,
                       height: 80,
@@ -907,12 +932,12 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
                   >
                     <img
                       src={photo.dataUrl || photo.url}
-                      alt={`Photo ${idx + 1}`}
+                      alt={photo.description || 'Field ticket documentation'}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                     <IconButton
                       size="small"
-                      onClick={() => setPhotos(photos.filter((_, i) => i !== idx))}
+                      onClick={() => setPhotos(photos.filter(p => (p.id || p.url || p.dataUrl) !== (photo.id || photo.url || photo.dataUrl)))}
                       sx={{
                         position: 'absolute',
                         top: 2,
@@ -964,7 +989,7 @@ const FieldTicketForm = ({ jobId, job, onSuccess, onCancel }) => {
               <TextField
                 type="number"
                 value={markupRate}
-                onChange={(e) => setMarkupRate(parseFloat(e.target.value) || 0)}
+                onChange={(e) => setMarkupRate(Number.parseFloat(e.target.value) || 0)}
                 size="small"
                 inputProps={{ min: 0, max: 100 }}
                 sx={{ width: 80 }}

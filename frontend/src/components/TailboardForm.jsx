@@ -840,7 +840,12 @@ const TailboardForm = () => {
                   startAdornment: <WeatherIcon sx={{ mr: 1, color: weatherLoading ? 'text.secondary' : 'success.main' }} />,
                   endAdornment: weatherLoading && <CircularProgress size={16} />
                 }}
-                helperText={weatherError || (weatherData?.source === 'api' ? 'Auto-fetched from weather service' : weatherData?.source === 'cache' ? 'Cached weather data' : '')}
+                helperText={(() => {
+                  if (weatherError) return weatherError;
+                  if (weatherData?.source === 'api') return 'Auto-fetched from weather service';
+                  if (weatherData?.source === 'cache') return 'Cached weather data';
+                  return '';
+                })()}
               />
               <Button
                 size="small"

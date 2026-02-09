@@ -39,7 +39,6 @@ import {
   Tooltip,
 } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
-import MicOffIcon from '@mui/icons-material/MicOff';
 import StopIcon from '@mui/icons-material/Stop';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -103,7 +102,7 @@ const AudioVisualizer = ({ analyser, isRecording }) => {
       let x = 0;
 
       for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
+        const v = dataArray[i] / 128;
         const y = (v * canvas.height) / 2;
 
         if (i === 0) {
@@ -143,6 +142,11 @@ const AudioVisualizer = ({ analyser, isRecording }) => {
   );
 };
 
+AudioVisualizer.propTypes = {
+  analyser: PropTypes.object,
+  isRecording: PropTypes.bool,
+};
+
 /**
  * Parsed Result Display Component
  */
@@ -172,8 +176,8 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
               LABOR ({parsed.laborEntries.length})
             </Typography>
             <List dense>
-              {parsed.laborEntries.map((entry, idx) => (
-                <ListItem key={idx} sx={{ py: 0 }}>
+              {parsed.laborEntries.map((entry) => (
+                <ListItem key={entry.workerName || entry.role || Math.random()} sx={{ py: 0 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <PersonIcon sx={{ color: COLORS.primary, fontSize: 18 }} />
                   </ListItemIcon>
@@ -195,8 +199,8 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
               EQUIPMENT ({parsed.equipmentEntries.length})
             </Typography>
             <List dense>
-              {parsed.equipmentEntries.map((entry, idx) => (
-                <ListItem key={idx} sx={{ py: 0 }}>
+              {parsed.equipmentEntries.map((entry) => (
+                <ListItem key={entry.description || entry.equipmentType || Math.random()} sx={{ py: 0 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <BuildIcon sx={{ color: COLORS.warning, fontSize: 18 }} />
                   </ListItemIcon>
@@ -218,8 +222,8 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
               MATERIALS ({parsed.materialEntries.length})
             </Typography>
             <List dense>
-              {parsed.materialEntries.map((entry, idx) => (
-                <ListItem key={idx} sx={{ py: 0 }}>
+              {parsed.materialEntries.map((entry) => (
+                <ListItem key={entry.description || entry.materialCode || Math.random()} sx={{ py: 0 }}>
                   <ListItemIcon sx={{ minWidth: 32 }}>
                     <InventoryIcon sx={{ color: '#64b5f6', fontSize: 18 }} />
                   </ListItemIcon>
@@ -315,6 +319,11 @@ const ParsedResultDisplay = ({ parsed, dataType }) => {
   );
 };
 
+ParsedResultDisplay.propTypes = {
+  parsed: PropTypes.object,
+  dataType: PropTypes.oneOf(['unit', 'fieldticket']),
+};
+
 /**
  * Main Voice Capture Component
  */
@@ -369,7 +378,8 @@ const VoiceCapture = ({
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       // Set up audio context for visualization
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
+      const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
       const source = audioContext.createMediaStreamSource(stream);
       const analyserNode = audioContext.createAnalyser();
@@ -515,12 +525,35 @@ const VoiceCapture = ({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Get the recording button icon based on state
+  const getRecordingIcon = () => {
+    if (processing) return <CircularProgress size={32} sx={{ color: COLORS.bg }} />;
+    if (isRecording) return <StopIcon sx={{ fontSize: 40 }} />;
+    return <MicIcon sx={{ fontSize: 40 }} />;
+  };
+
+  // Get the recording status text based on state
+  const getRecordingStatusText = () => {
+    if (processing) return 'Processing...';
+    if (isRecording) return 'Tap to stop recording';
+    return 'Tap to start recording';
+  };
+
+  // Handle recording toggle
+  const handleRecordingToggle = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
+  };
+
   // Button-only mode (inline mic button)
   if (buttonOnly) {
     return (
       <Tooltip title="Voice Input">
         <IconButton
-          onClick={() => !isRecording ? startRecording() : stopRecording()}
+          onClick={handleRecordingToggle}
           sx={{
             bgcolor: isRecording ? COLORS.recording : COLORS.surface,
             color: isRecording ? COLORS.text : COLORS.primary,
@@ -628,25 +661,14 @@ const VoiceCapture = ({
                 },
               }}
             >
-              {processing ? (
-                <CircularProgress size={32} sx={{ color: COLORS.bg }} />
-              ) : isRecording ? (
-                <StopIcon sx={{ fontSize: 40 }} />
-              ) : (
-                <MicIcon sx={{ fontSize: 40 }} />
-              )}
+              {getRecordingIcon()}
             </IconButton>
 
             <Typography
               variant="body2"
               sx={{ color: COLORS.textSecondary, mt: 2 }}
             >
-              {processing
-                ? 'Processing...'
-                : isRecording
-                  ? 'Tap to stop recording'
-                  : 'Tap to start recording'
-              }
+              {getRecordingStatusText()}
             </Typography>
 
             {/* Multilingual hint */}

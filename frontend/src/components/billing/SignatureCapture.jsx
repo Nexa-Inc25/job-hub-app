@@ -445,12 +445,12 @@ const SignatureCapture = ({
                 fontSize: 20 
               }} />
               <Typography variant="body2" sx={{ color: COLORS.text }}>
-                {position 
-                  ? `GPS: ${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`
-                  : gpsError 
-                    ? 'GPS unavailable'
-                    : 'Acquiring GPS...'
-                }
+                {(() => {
+                  if (position) {
+                    return `GPS: ${position.coords.latitude.toFixed(5)}, ${position.coords.longitude.toFixed(5)}`;
+                  }
+                  return gpsError ? 'GPS unavailable' : 'Acquiring GPS...';
+                })()}
               </Typography>
             </Box>
             <Button

@@ -15,8 +15,6 @@ import {
   Alert,
   Divider,
   CircularProgress,
-  Card,
-  CardContent,
   Grid,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -62,7 +60,7 @@ export default function BillingSettings() {
     setPortalLoading(true);
     try {
       const response = await api.post('/api/stripe/create-portal-session');
-      window.location.href = response.data.url;
+      globalThis.location.href = response.data.url;
     } catch (err) {
       console.error('Failed to open billing portal:', err);
       setError(err.response?.data?.error || 'Failed to open billing portal');
@@ -250,7 +248,11 @@ export default function BillingSettings() {
               <LinearProgress
                 variant="determinate"
                 value={subscription?.aiCreditsIncluded === -1 ? 0 : Math.min(aiCreditsPercent, 100)}
-                color={aiCreditsPercent > 90 ? 'error' : aiCreditsPercent > 70 ? 'warning' : 'primary'}
+                color={(() => {
+                  if (aiCreditsPercent > 90) return 'error';
+                  if (aiCreditsPercent > 70) return 'warning';
+                  return 'primary';
+                })()}
                 sx={{ height: 8, borderRadius: 4 }}
               />
               {aiCreditsPercent > 80 && subscription?.aiCreditsIncluded !== -1 && (
@@ -273,7 +275,11 @@ export default function BillingSettings() {
               <LinearProgress
                 variant="determinate"
                 value={subscription?.seats === -1 ? 0 : Math.min(seatsPercent, 100)}
-                color={seatsPercent > 90 ? 'error' : seatsPercent > 70 ? 'warning' : 'primary'}
+                color={(() => {
+                  if (seatsPercent > 90) return 'error';
+                  if (seatsPercent > 70) return 'warning';
+                  return 'primary';
+                })()}
                 sx={{ height: 8, borderRadius: 4 }}
               />
             </Box>
@@ -290,7 +296,7 @@ export default function BillingSettings() {
               {subscription?.features && Object.entries(subscription.features).map(([key, enabled]) => (
                 <Chip
                   key={key}
-                  label={key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                  label={key.replaceAll(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                   color={enabled ? 'success' : 'default'}
                   variant={enabled ? 'filled' : 'outlined'}
                   size="small"

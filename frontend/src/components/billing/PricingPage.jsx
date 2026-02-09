@@ -96,7 +96,7 @@ export default function PricingPage() {
 
   const handleSubscribe = async (planId) => {
     if (planId === 'enterprise') {
-      window.location.href = 'mailto:sales@fieldledger.io?subject=Enterprise%20Inquiry';
+      globalThis.location.href = 'mailto:sales@fieldledger.io?subject=Enterprise%20Inquiry';
       return;
     }
 
@@ -110,7 +110,7 @@ export default function PricingPage() {
       });
 
       // Redirect to Stripe Checkout
-      window.location.href = response.data.url;
+      globalThis.location.href = response.data.url;
     } catch (err) {
       console.error('Checkout error:', err);
       setError(err.response?.data?.error || 'Failed to start checkout');
@@ -232,8 +232,8 @@ export default function PricingPage() {
 
               {/* Features */}
               <List dense disablePadding>
-                {plan.features.map((feature, idx) => (
-                  <ListItem key={idx} disableGutters sx={{ py: 0.5 }}>
+                {plan.features.map((feature) => (
+                  <ListItem key={feature.name} disableGutters sx={{ py: 0.5 }}>
                     <ListItemIcon sx={{ minWidth: 32 }}>
                       {feature.included ? (
                         <CheckCircleIcon color="success" fontSize="small" />
@@ -262,13 +262,11 @@ export default function PricingPage() {
                 disabled={loading === plan.id}
                 sx={{ py: 1.5, fontWeight: 600 }}
               >
-                {loading === plan.id ? (
-                  <CircularProgress size={24} />
-                ) : plan.id === 'enterprise' ? (
-                  'Contact Sales'
-                ) : (
-                  'Start Free Trial'
-                )}
+                {(() => {
+                  if (loading === plan.id) return <CircularProgress size={24} />;
+                  if (plan.id === 'enterprise') return 'Contact Sales';
+                  return 'Start Free Trial';
+                })()}
               </Button>
             </CardActions>
           </Card>

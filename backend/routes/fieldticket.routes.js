@@ -52,14 +52,14 @@ function sanitizeLaborEntries(entries) {
  */
 function sanitizeEquipmentEntries(entries) {
   if (!Array.isArray(entries)) return [];
-  const validTypes = [
+  const validTypes = new Set([
     'bucket_truck', 'digger_derrick', 'crane', 'excavator', 'backhoe',
     'trencher', 'dump_truck', 'flatbed', 'trailer', 'generator',
     'compressor', 'pump', 'welder', 'tensioner', 'puller', 'other'
-  ];
+  ]);
   return entries.map(entry => ({
     equipmentId: sanitizeString(entry.equipmentId),
-    equipmentType: validTypes.includes(entry.equipmentType) ? entry.equipmentType : 'other',
+    equipmentType: validTypes.has(entry.equipmentType) ? entry.equipmentType : 'other',
     description: sanitizeString(entry.description),
     hours: typeof entry.hours === 'number' ? entry.hours : 0,
     hourlyRate: typeof entry.hourlyRate === 'number' ? entry.hourlyRate : 0,
@@ -109,7 +109,7 @@ function sanitizeLocation(location) {
  */
 function sanitizePhotos(photos) {
   if (!Array.isArray(photos)) return [];
-  const validTypes = ['condition', 'obstruction', 'work_in_progress', 'completed', 'damage', 'other'];
+  const validTypes = new Set(['condition', 'obstruction', 'work_in_progress', 'completed', 'damage', 'other']);
   return photos.map(photo => {
     if (!photo || typeof photo !== 'object') return null;
     return {
@@ -119,7 +119,7 @@ function sanitizePhotos(photos) {
       mimeType: sanitizeString(photo.mimeType) || 'image/jpeg',
       gpsCoordinates: photo.gpsCoordinates ? sanitizeLocation(photo.gpsCoordinates) : undefined,
       capturedAt: photo.capturedAt ? new Date(photo.capturedAt) : new Date(),
-      photoType: validTypes.includes(photo.photoType) ? photo.photoType : 'work_in_progress',
+      photoType: validTypes.has(photo.photoType) ? photo.photoType : 'work_in_progress',
       description: sanitizeString(photo.description)
     };
   }).filter(Boolean);
@@ -685,8 +685,8 @@ router.post('/:id/sign', async (req, res) => {
           link: `/billing/field-tickets/${ticket._id}`
         });
       }
-    } catch (notifErr) {
-      console.error('[FieldTicket:Sign] Notification error:', notifErr.message);
+    } catch (error_) {
+      console.error('[FieldTicket:Sign] Notification error:', error_.message);
     }
 
     res.json(ticket);

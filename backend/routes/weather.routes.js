@@ -46,10 +46,10 @@ router.get('/current', async (req, res) => {
   try {
     const { lat, lng } = req.query;
     
-    const latitude = parseFloat(lat);
-    const longitude = parseFloat(lng);
+    const latitude = Number.parseFloat(lat);
+    const longitude = Number.parseFloat(lng);
     
-    if (isNaN(latitude) || isNaN(longitude)) {
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
       return res.status(400).json({ error: 'Valid lat and lng are required' });
     }
     

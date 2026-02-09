@@ -16,8 +16,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const voiceAIService = require('../services/voiceAI.service');
 const PriceBook = require('../models/PriceBook');
 const User = require('../models/User');
@@ -153,7 +153,7 @@ router.post('/parse-unit', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
-    const { text, jobId, utilityId } = req.body;
+    const { text, utilityId } = req.body;
     
     if (!text || typeof text !== 'string' || text.trim().length === 0) {
       return res.status(400).json({ error: 'Text is required' });
@@ -165,7 +165,7 @@ router.post('/parse-unit', async (req, res) => {
     
     if (safeUtilityId) {
       const priceBook = await PriceBook.getActive(user.companyId, safeUtilityId);
-      if (priceBook && priceBook.items) {
+      if (priceBook?.items) {
         priceBookItems = priceBook.items.map(item => ({
           itemCode: item.itemCode,
           description: item.description,
@@ -275,7 +275,7 @@ router.post('/process', audioUpload.single('audio'), async (req, res) => {
     let priceBookItems = [];
     if (dataType === 'unit' && safeUtilityId) {
       const priceBook = await PriceBook.getActive(user.companyId, safeUtilityId);
-      if (priceBook && priceBook.items) {
+      if (priceBook?.items) {
         priceBookItems = priceBook.items.map(item => ({
           itemCode: item.itemCode,
           description: item.description,

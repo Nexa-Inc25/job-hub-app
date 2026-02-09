@@ -37,7 +37,7 @@ const formatCurrency = (amount) => {
 // Format month for display
 const formatMonth = (monthStr) => {
   const [year, month] = monthStr.split('-');
-  const date = new Date(year, parseInt(month) - 1);
+  const date = new Date(year, Number.parseInt(month, 10) - 1);
   return date.toLocaleDateString('en-US', { month: 'short' });
 };
 

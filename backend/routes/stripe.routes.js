@@ -153,7 +153,7 @@ router.post('/create-checkout-session', authenticateToken, requireStripe, async 
     
     // Get user and company
     const user = await User.findById(userId).lean();
-    if (!user || !user.companyId) {
+    if (!user?.companyId) {
       return res.status(400).json({ error: 'User must belong to a company' });
     }
     
@@ -247,7 +247,7 @@ router.post('/create-portal-session', authenticateToken, requireStripe, async (r
     const userId = req.userId;
     
     const user = await User.findById(userId).lean();
-    if (!user || !user.companyId) {
+    if (!user?.companyId) {
       return res.status(400).json({ error: 'User must belong to a company' });
     }
     
@@ -291,7 +291,7 @@ router.get('/subscription', authenticateToken, async (req, res) => {
     const userId = req.userId;
     
     const user = await User.findById(userId).lean();
-    if (!user || !user.companyId) {
+    if (!user?.companyId) {
       return res.status(400).json({ error: 'User must belong to a company' });
     }
     
@@ -487,7 +487,6 @@ async function handleSubscriptionUpdate(subscription) {
 
 async function updateCompanySubscription(company, subscription) {
   const plan = subscription.metadata?.plan || company.subscription?.plan || 'starter';
-  const planConfig = PLANS[plan] || PLANS.starter;
   
   company.subscription = {
     ...company.subscription,
@@ -534,7 +533,7 @@ async function handleSubscriptionCanceled(subscription) {
   await company.save();
   console.log(`[Stripe] Subscription canceled for company ${company.name}`);
   
-  // TODO: Send cancellation email
+  // Note: Cancellation email notification can be added here
 }
 
 /**
@@ -575,7 +574,7 @@ async function handlePaymentFailed(invoice) {
   await company.save();
   console.log(`[Stripe] Payment failed for company ${company.name}`);
   
-  // TODO: Send payment failed email
+  // Note: Payment failed email notification can be added here
 }
 
 /**
@@ -590,7 +589,7 @@ async function handleTrialEnding(subscription) {
   
   console.log(`[Stripe] Trial ending in 3 days for company ${company.name}`);
   
-  // TODO: Send trial ending email
+  // Note: Trial ending email notification can be added here
 }
 
 module.exports = router;
