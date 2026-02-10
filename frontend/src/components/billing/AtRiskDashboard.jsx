@@ -36,6 +36,12 @@ import {
   IconButton,
   Tooltip,
   LinearProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import WarningIcon from '@mui/icons-material/Warning';
@@ -44,6 +50,7 @@ import CheckIcon from '@mui/icons-material/Check';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api';
 import { useAppColors } from '../shared/themeUtils';
@@ -114,6 +121,12 @@ const AtRiskDashboard = () => {
     byStatus: { draft: [], pending_signature: [] },
     tickets: []
   });
+  
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   // Fetch at-risk data
   const fetchData = useCallback(async () => {
@@ -133,6 +146,43 @@ const AtRiskDashboard = () => {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Handle delete ticket
+  const handleDeleteClick = useCallback((ticket) => {
+    setTicketToDelete(ticket);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!ticketToDelete) return;
+    
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/api/fieldtickets/${ticketToDelete._id}`);
+      setSnackbar({ 
+        open: true, 
+        message: `Field ticket ${ticketToDelete.ticketNumber} deleted`, 
+        severity: 'success' 
+      });
+      setDeleteDialogOpen(false);
+      setTicketToDelete(null);
+      fetchData(); // Refresh the list
+    } catch (err) {
+      console.error('Error deleting field ticket:', err);
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.error || 'Failed to delete field ticket', 
+        severity: 'error' 
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [ticketToDelete, fetchData]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setTicketToDelete(null);
+  }, []);
 
   // Calculate aging metrics
   const agingMetrics = data.tickets.reduce((acc, ticket) => {
@@ -433,6 +483,17 @@ const AtRiskDashboard = () => {
                               </IconButton>
                             </Tooltip>
                           )}
+                          {ticket.status === 'draft' && (
+                            <Tooltip title="Delete">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteClick(ticket)}
+                                sx={{ color: COLORS.error }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -455,6 +516,62 @@ const AtRiskDashboard = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        PaperProps={{ sx: { bgcolor: COLORS.surface } }}
+      >
+        <DialogTitle sx={{ color: COLORS.text }}>
+          Delete Field Ticket?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: COLORS.textSecondary }}>
+            Are you sure you want to delete field ticket{' '}
+            <strong>{ticketToDelete?.ticketNumber}</strong>?
+            {ticketToDelete?.totalAmount > 0 && (
+              <>
+                {' '}This will remove {formatCurrency(ticketToDelete.totalAmount)} from your records.
+              </>
+            )}
+            {' '}This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={handleDeleteCancel} 
+            sx={{ color: COLORS.textSecondary }}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            variant="contained"
+            color="error"
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

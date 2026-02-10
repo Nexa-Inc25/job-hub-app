@@ -29,7 +29,13 @@ import {
   Chip,
   CircularProgress,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
 import UnitsIcon from '@mui/icons-material/Assignment';
 import ClaimsIcon from '@mui/icons-material/Receipt';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -97,6 +103,11 @@ const BillingDashboard = ({ jobId }) => {
   // Dispute dialog state
   const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
   const [disputeUnit, setDisputeUnit] = useState(null);
+  
+  // Delete dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Fetch units
   const fetchUnits = useCallback(async () => {
@@ -195,20 +206,35 @@ const BillingDashboard = ({ jobId }) => {
     setDisputeDialogOpen(true);
   }, []);
 
-  // Delete unit (draft only)
-  const handleDeleteUnit = useCallback(async (unit) => {
-    if (!confirm(`Are you sure you want to delete this unit entry?\n\nItem: ${unit.itemCode || unit.priceBookItemCode}\nQuantity: ${unit.quantity}`)) {
-      return;
-    }
+  // Delete unit (draft only) - open dialog
+  const handleDeleteUnit = useCallback((unit) => {
+    setUnitToDelete(unit);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  // Confirm delete unit
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!unitToDelete) return;
     
+    setDeleteLoading(true);
     try {
-      await api.delete(`/api/billing/units/${unit._id}`);
+      await api.delete(`/api/billing/units/${unitToDelete._id}`);
       showSnackbar('Unit deleted successfully');
+      setDeleteDialogOpen(false);
+      setUnitToDelete(null);
       fetchUnits();
     } catch (err) {
       showSnackbar(err.response?.data?.error || 'Failed to delete unit', 'error');
+    } finally {
+      setDeleteLoading(false);
     }
-  }, [fetchUnits]);
+  }, [unitToDelete, fetchUnits]);
+
+  // Cancel delete
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setUnitToDelete(null);
+  }, []);
   
   // Handle dispute success (both create and resolve)
   const handleDisputeSuccess = useCallback(() => {
@@ -488,6 +514,51 @@ const BillingDashboard = ({ jobId }) => {
         unit={disputeUnit}
         onSuccess={handleDisputeSuccess}
       />
+
+      {/* Delete Unit Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+      >
+        <DialogTitle>
+          Delete Unit Entry?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this unit entry?
+            {unitToDelete && (
+              <>
+                <br /><br />
+                <strong>Item:</strong> {unitToDelete.priceBookItemCode || unitToDelete.itemCode}<br />
+                <strong>Description:</strong> {unitToDelete.itemDescription || unitToDelete.description}<br />
+                <strong>Quantity:</strong> {unitToDelete.quantity}<br />
+                {unitToDelete.totalAmount > 0 && (
+                  <>
+                    <strong>Value:</strong> ${unitToDelete.totalAmount?.toFixed(2)}
+                  </>
+                )}
+              </>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={handleDeleteCancel}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            variant="contained"
+            color="error"
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

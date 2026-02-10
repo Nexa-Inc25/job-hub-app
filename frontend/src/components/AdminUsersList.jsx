@@ -22,6 +22,17 @@ import {
   Collapse,
   TextField,
   InputAdornment,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Button,
+  Snackbar,
+  Alert,
+  CircularProgress,
 } from '@mui/material';
 import PeopleIcon from '@mui/icons-material/People';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -30,6 +41,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import SearchIcon from '@mui/icons-material/Search';
 import AdminIcon from '@mui/icons-material/AdminPanelSettings';
 import PersonIcon from '@mui/icons-material/Person';
+import DeleteIcon from '@mui/icons-material/Delete';
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors, LoadingState, ErrorState, ROLE_COLORS, ROLE_LABELS, AdminPageHeader } from './shared';
 
@@ -42,6 +54,12 @@ const AdminUsersList = () => {
   const [stats, setStats] = useState({ totalUsers: 0, totalCompanies: 0 });
   const { mode } = useThemeMode();
   const { cardBg, textPrimary, textSecondary, borderColor, pageBg, rowHoverBg, tableHeaderBg, sectionHeaderBg, sectionHeaderHoverBg } = getThemeColors(mode);
+  
+  // Delete state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const fetchData = useCallback(async () => {
     try {
@@ -106,6 +124,44 @@ const AdminUsersList = () => {
       u.role?.toLowerCase().includes(searchLower)
     );
   };
+
+  // Handle delete user
+  const handleDeleteClick = useCallback((user, e) => {
+    e.stopPropagation();
+    setUserToDelete(user);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDeleteConfirm = useCallback(async () => {
+    if (!userToDelete) return;
+    
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/api/admin/users/${userToDelete._id}`);
+      setSnackbar({ 
+        open: true, 
+        message: `User ${userToDelete.name} has been deactivated`, 
+        severity: 'success' 
+      });
+      setDeleteDialogOpen(false);
+      setUserToDelete(null);
+      fetchData(); // Refresh the list
+    } catch (err) {
+      console.error('Error deactivating user:', err);
+      setSnackbar({ 
+        open: true, 
+        message: err.response?.data?.error || 'Failed to deactivate user', 
+        severity: 'error' 
+      });
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [userToDelete, fetchData]);
+
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteDialogOpen(false);
+    setUserToDelete(null);
+  }, []);
 
   if (loading) {
     return <LoadingState bgcolor={pageBg} />;
@@ -186,22 +242,23 @@ const AdminUsersList = () => {
               <Collapse in={expandedCompanies[company._id]}>
                 <TableContainer>
                   <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: tableHeaderBg }}>
-                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Name</TableCell>
-                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Email</TableCell>
-                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Role</TableCell>
-                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Status</TableCell>
-                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Created</TableCell>
-                      </TableRow>
-                    </TableHead>
+<TableHead>
+                                      <TableRow sx={{ bgcolor: tableHeaderBg }}>
+                                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Name</TableCell>
+                                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Email</TableCell>
+                                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Role</TableCell>
+                                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Status</TableCell>
+                                        <TableCell sx={{ color: textSecondary, fontWeight: 600 }}>Created</TableCell>
+                                        <TableCell sx={{ color: textSecondary, fontWeight: 600, width: 80 }} align="center">Actions</TableCell>
+                                      </TableRow>
+                                    </TableHead>
                     <TableBody>
                       {filteredUsers.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} sx={{ textAlign: 'center', color: textSecondary, py: 4 }}>
-                            No users in this company
-                          </TableCell>
-                        </TableRow>
+<TableRow>
+                                          <TableCell colSpan={6} sx={{ textAlign: 'center', color: textSecondary, py: 4 }}>
+                                            No users in this company
+                                          </TableCell>
+                                        </TableRow>
                       ) : (
                         filteredUsers.map((user) => (
                           <TableRow key={user._id} sx={{ '&:hover': { bgcolor: rowHoverBg } }}>
@@ -244,12 +301,25 @@ const AdminUsersList = () => {
                                 }}
                               />
                             </TableCell>
-                            <TableCell sx={{ color: textSecondary, fontSize: '0.85rem' }}>
-                              {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
+<TableCell sx={{ color: textSecondary, fontSize: '0.85rem' }}>
+                                              {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                                            </TableCell>
+                                            <TableCell align="center">
+                                              {!user.isSuperAdmin && (
+                                                <Tooltip title="Deactivate User">
+                                                  <IconButton
+                                                    size="small"
+                                                    onClick={(e) => handleDeleteClick(user, e)}
+                                                    sx={{ color: '#ef4444' }}
+                                                  >
+                                                    <DeleteIcon fontSize="small" />
+                                                  </IconButton>
+                                                </Tooltip>
+                                              )}
+                                            </TableCell>
+                                          </TableRow>
+                                        ))
+                                      )}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -258,6 +328,56 @@ const AdminUsersList = () => {
           );
         })}
       </Container>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        PaperProps={{ sx: { bgcolor: cardBg } }}
+      >
+        <DialogTitle sx={{ color: textPrimary }}>
+          Deactivate User?
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: textSecondary }}>
+            Are you sure you want to deactivate <strong>{userToDelete?.name}</strong> ({userToDelete?.email})?
+            They will no longer be able to log in. This action can be reversed by a Super Admin.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button 
+            onClick={handleDeleteCancel} 
+            sx={{ color: textSecondary }}
+            disabled={deleteLoading}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDeleteConfirm} 
+            variant="contained"
+            color="error"
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+          >
+            {deleteLoading ? 'Deactivating...' : 'Deactivate'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
