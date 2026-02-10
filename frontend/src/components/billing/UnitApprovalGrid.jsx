@@ -356,8 +356,8 @@ const UnitApprovalGrid = ({
           );
         }
 
-        // Draft units can be deleted
-        if (status === 'draft' && onDelete) {
+        // Draft and submitted units can be deleted (admin can delete any)
+        if ((status === 'draft' || status === 'submitted') && onDelete) {
           actions.push(
             <GridActionsCellItem
               key="delete"
@@ -609,7 +609,7 @@ const UnitApprovalGrid = ({
             <ListItemText>Add to Claim</ListItemText>
           </MenuItem>
         )}
-        {selectedUnit?.status === 'draft' && onDelete && (
+        {(selectedUnit?.status === 'draft' || selectedUnit?.status === 'submitted') && onDelete && (
           <>
             <Divider />
             <MenuItem 
