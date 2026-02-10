@@ -356,6 +356,19 @@ const UnitApprovalGrid = ({
           );
         }
 
+        // Draft units can be deleted
+        if (status === 'draft' && onDelete) {
+          actions.push(
+            <GridActionsCellItem
+              key="delete"
+              icon={<DeleteIcon />}
+              label="Delete"
+              onClick={() => onDelete(params.row)}
+              color="error"
+            />
+          );
+        }
+
         // PM/Admin can approve submitted units directly (simplified workflow)
         if (status === 'submitted' && onApprove) {
           actions.push(
@@ -396,7 +409,7 @@ const UnitApprovalGrid = ({
         return actions;
       },
     },
-  ], [expandedRows, handleToggleExpand, onSubmit, onVerify, onApprove, onDispute]);
+  ], [expandedRows, handleToggleExpand, onSubmit, onVerify, onApprove, onDispute, onDelete]);
 
   // Get selected unit for detail panel
   const expandedUnit = useMemo(() => {

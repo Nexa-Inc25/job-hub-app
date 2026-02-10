@@ -483,7 +483,7 @@ const AtRiskDashboard = () => {
                               </IconButton>
                             </Tooltip>
                           )}
-                          {ticket.status === 'draft' && (
+                          {(ticket.status === 'draft' || ticket.status === 'pending_signature') && (
                             <Tooltip title="Delete">
                               <IconButton
                                 size="small"
