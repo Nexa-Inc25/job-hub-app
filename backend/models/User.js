@@ -146,10 +146,15 @@ userSchema.methods.resetLoginAttempts = async function() {
 userSchema.index({ companyId: 1 });
 userSchema.index({ utilityId: 1, userType: 1 });
 
+// Bcrypt configuration
+// OWASP recommends minimum 10 rounds; 12 provides ~4x more resistance
+// against brute force while keeping hash time under 300ms
+const BCRYPT_SALT_ROUNDS = 12;
+
 // Password hashing middleware
 userSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 10);
+    this.password = await bcrypt.hash(this.password, BCRYPT_SALT_ROUNDS);
   }
   next();
 });

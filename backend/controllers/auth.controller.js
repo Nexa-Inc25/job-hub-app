@@ -72,6 +72,16 @@ async function handleFailedLogin(user, email, req) {
 }
 
 /**
+ * JWT Configuration
+ * Using HS256 (HMAC-SHA256) - symmetric algorithm suitable for single-service auth
+ * For microservices architecture, consider RS256 (asymmetric) instead
+ */
+const JWT_OPTIONS = {
+  algorithm: 'HS256',
+  expiresIn: '24h'
+};
+
+/**
  * Generate JWT token with user claims
  */
 function generateAuthToken(user) {
@@ -82,7 +92,7 @@ function generateAuthToken(user) {
     role: user.role,
     canApprove: user.canApprove || false,
     name: user.name
-  }, process.env.JWT_SECRET, { expiresIn: '24h' });
+  }, process.env.JWT_SECRET, JWT_OPTIONS);
 }
 
 /**
@@ -137,14 +147,7 @@ const signup = async (req, res) => {
     });
     await user.save();
     
-    const token = jwt.sign({ 
-      userId: user._id, 
-      isAdmin: user.isAdmin || false,
-      isSuperAdmin: user.isSuperAdmin || false,
-      role: user.role,
-      canApprove: user.canApprove || false,
-      name: user.name
-    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    const token = generateAuthToken(user);
     
     console.log('User created successfully:', user._id, 'role:', userRole);
     res.status(201).json({ 
@@ -197,10 +200,11 @@ const login = async (req, res) => {
     
     // Check if MFA is required
     if (user.mfaEnabled) {
+      // Short-lived token for MFA verification flow only
       const mfaToken = jwt.sign({ 
         userId: user._id, 
         mfaPending: true 
-      }, process.env.JWT_SECRET, { expiresIn: '5m' });
+      }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '5m' });
       
       logAuth.loginSuccess(req, user);
       return res.json({ mfaRequired: true, mfaToken, userId: user._id });
@@ -261,15 +265,8 @@ const verifyMfa = async (req, res) => {
       return res.status(401).json({ error: 'Invalid MFA code' });
     }
     
-    // Generate full session token
-    const token = jwt.sign({ 
-      userId: user._id, 
-      isAdmin: user.isAdmin,
-      isSuperAdmin: user.isSuperAdmin || false,
-      role: user.role,
-      canApprove: user.canApprove || false,
-      name: user.name
-    }, process.env.JWT_SECRET, { expiresIn: '24h' });
+    // Generate full session token using centralized function
+    const token = generateAuthToken(user);
     
     res.json({ 
       token, 
