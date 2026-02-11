@@ -111,12 +111,14 @@ blockedIPSchema.statics.blockIP = async function(ip, options = {}) {
   const block = await this.findOneAndUpdate(
     { ip },
     {
-      ip,
-      reason,
-      expiresAt,
-      permanent,
-      blockedBy,
-      blockCount,
+      $set: {
+        ip,
+        reason,
+        expiresAt,
+        permanent,
+        blockedBy,
+        blockCount
+      },
       $setOnInsert: { createdAt: new Date() }
     },
     { upsert: true, new: true }
