@@ -18,8 +18,12 @@ export default defineConfig({
       reporter: ['text', 'json', 'html', 'lcov'],
       include: [
         'src/components/billing/**',
+        'src/components/smartforms/**',
+        'src/components/ErrorBoundary.jsx',
+        'src/components/ForemanCloseOut.jsx',
         'src/hooks/**',
-        'src/utils/offlineStorage.js'
+        'src/utils/**',
+        'src/services/**'
       ],
       exclude: [
         'node_modules',
@@ -27,10 +31,10 @@ export default defineConfig({
         'src/**/__tests__/**'
       ],
       thresholds: {
-        statements: 28,
-        branches: 20,
-        functions: 20,
-        lines: 29
+        statements: 30,
+        branches: 22,
+        functions: 22,
+        lines: 30
       }
     }
   },

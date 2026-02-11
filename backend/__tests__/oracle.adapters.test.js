@@ -291,7 +291,7 @@ describe('Oracle Adapters', () => {
         expect(payload).toHaveProperty('InvoiceAmount', 5000);
         expect(payload).toHaveProperty('InvoiceCurrencyCode', 'USD');
         expect(payload).toHaveProperty('InvoiceType', 'Standard');
-        expect(payload).toHaveProperty('Source', 'FieldLedger');
+        expect(payload).toHaveProperty('InvoiceSource', 'FieldLedger');
       });
       
       it('should include all line items', () => {

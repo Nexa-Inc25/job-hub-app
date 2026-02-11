@@ -15,9 +15,11 @@ const { cleanupExpiredDemoSessions } = require('../utils/demoCleanup');
 const Company = require('../models/Company');
 const User = require('../models/User');
 
-// Check if demo mode is enabled
+// Demo sandbox is always available for prospective client demos.
+// Sessions auto-expire and are cleaned up by the scheduled cleanup job.
 const isDemoEnabled = () => {
-  return process.env.DEMO_ENABLED === 'true';
+  // Demo is always available — disable only by explicitly setting DEMO_DISABLED=true
+  return process.env.DEMO_DISABLED !== 'true';
 };
 
 // Demo session duration in hours (default 2)

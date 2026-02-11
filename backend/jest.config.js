@@ -30,15 +30,15 @@ module.exports = {
     '!**/__tests__/**'
   ],
   
-  // Coverage thresholds - will be enabled as we add more tests
-  // coverageThreshold: {
-  //   global: {
-  //     branches: 60,
-  //     functions: 60,
-  //     lines: 70,
-  //     statements: 70
-  //   }
-  // },
+  // Coverage thresholds - enforced for CI
+  coverageThreshold: {
+    global: {
+      branches: 40,
+      functions: 40,
+      lines: 45,
+      statements: 45
+    }
+  },
   
   // Setup files
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup.js'],

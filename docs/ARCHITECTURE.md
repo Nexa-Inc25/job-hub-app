@@ -310,6 +310,60 @@ Client                    API                      Database
 
 ---
 
+## Testing & Quality Assurance
+
+FieldLedger maintains comprehensive test coverage across all layers. Coverage thresholds are enforced in CI.
+
+### Backend Tests (Jest + mongodb-memory-server)
+
+| Category | Test Files | Tests | Status |
+|----------|-----------|-------|--------|
+| **Models** | `job.model`, `user.model`, `company.model`, `claim.model`, `unitentry.model`, `pricebook.model`, `auditLog.model`, `fieldticket.model`, `timesheet.model`, `formtemplate.model` | 200+ | ✅ |
+| **Controllers** | `jobs.controller`, `admin` | 70+ | ✅ |
+| **Middleware** | `security`, `auditLogger`, `subscriptionGate`, `validators`, `asyncHandler` | 90+ | ✅ |
+| **Services** | `email.service`, `pdf.service`, `notification`, `weather.service` | 50+ | ✅ |
+| **Utils** | `mfa`, `storage`, `circuitBreaker`, `sanitize`, `urlValidator`, `transaction` | 100+ | ✅ |
+| **Routes** | `auth`, `jobs`, `billing.integration`, `lme`, `smartforms`, `tailboard`, `files`, `oracle.routes`, `oracle.adapters` | 250+ | ✅ |
+| **Total** | 36 suites | 807 tests | ✅ All passing |
+
+### Frontend Tests (Vitest + React Testing Library)
+
+| Category | Test Files | Tests | Status |
+|----------|-----------|-------|--------|
+| **Components** | `GPSPhotoCapture`, `UnitEntryForm`, `PriceBookSelector`, `SmartFormsPage`, `ErrorBoundary`, `ForemanCloseOut` | 180+ | ✅ |
+| **Hooks** | `useOffline`, `useNotifications`, `useGeolocation`, `useSync`, `useSyncQueue` | 60+ | ✅ |
+| **Utils** | `offlineStorage`, `oracleMapper`, `apiWithRetry`, `syncManager`, `crypto.utils` | 80+ | ✅ |
+| **Services** | `OracleExportService` | 20+ | ✅ |
+| **Total** | 17 suites | 348 tests | ✅ All passing |
+
+### E2E Tests (Cypress)
+
+| Suite | Scope |
+|-------|-------|
+| `billing.cy.js` | Full unit-to-invoice workflow |
+| `auth.cy.js` | Login, signup, MFA flows |
+| `jobs.cy.js` | Job lifecycle management |
+| `pricebook.cy.js` | Price book CRUD |
+| `smartforms.cy.js` | PDF template fill workflow |
+| `offline.cy.js` | Offline capture and sync |
+
+### Coverage Thresholds
+
+```
+Backend (Jest):     Branches 40% | Functions 40% | Lines 45% | Statements 45%
+Frontend (Vitest):  Branches 22% | Functions 22% | Lines 30% | Statements 30%
+```
+
+### Resilience Patterns Tested
+
+- **Circuit Breaker** - OpenAI/R2 failure handling with CLOSED → OPEN → HALF_OPEN state machine
+- **Input Sanitization** - NoSQL injection, path traversal, SSRF prevention
+- **URL Validation** - Private IP blocking, DNS rebinding protection, domain allowlisting
+- **Subscription Gating** - Plan-based feature access, AI credit management, seat limits
+- **Transaction Safety** - Optional MongoDB transactions with retry logic
+
+---
+
 ## Scalability Considerations
 
 | Component | Current | Scale Path |
@@ -354,5 +408,5 @@ SSO is gated to the **Enterprise** subscription tier (configured in `subscriptio
 
 ---
 
-*Document Version: 1.3.0*  
+*Document Version: 1.4.0*  
 *Last Updated: February 2026*

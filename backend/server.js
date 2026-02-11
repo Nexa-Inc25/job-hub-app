@@ -357,22 +357,30 @@ app.use('/api/', apiLimiter);                           // General API
 
 // ============================================
 // CORS - whitelist allowed origins for security
+// Parse CORS_ORIGIN which may be a comma-separated list
+const envCorsOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean)
+  : [];
+
 const allowedOrigins = [
   'https://fieldledger.io',
   'https://www.fieldledger.io',
   'https://app.fieldledger.io',
   'https://fieldledger.vercel.app',
-  process.env.CORS_ORIGIN,
+  ...envCorsOrigins,
   process.env.FRONTEND_URL,
   'http://localhost:3000',
   'http://localhost:5173'
 ].filter(Boolean);
 
-console.log('Allowed CORS origins:', allowedOrigins);
+// Deduplicate origins
+const uniqueOrigins = [...new Set(allowedOrigins)];
+
+console.log('Allowed CORS origins:', uniqueOrigins);
 
 const io = socketIo(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: uniqueOrigins,
     methods: ["GET", "POST"],
     credentials: true
   },
@@ -404,7 +412,7 @@ app.use((req, res, next) => {
   // Only log non-GET requests or errors (reduce log noise in production)
   
   // Only allow whitelisted origins when using credentials
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && uniqueOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');
   } else if (!origin) {
@@ -581,11 +589,9 @@ connectWithRetry()
     }
     
     // === SCHEDULE DEMO SESSION CLEANUP ===
-    // Clean up expired demo sessions periodically
-    if (process.env.DEMO_ENABLED === 'true') {
-      scheduleDemoCleanup();
-      console.log('[DEMO] Demo mode enabled - scheduled hourly cleanup');
-    }
+    // Always clean up expired demo sessions to prevent stale data buildup.
+    // Demo sandbox routes (/api/demo/*) are always available for client demos.
+    scheduleDemoCleanup();
     
     // ============================================
     // START SERVER (after MongoDB connection established)
@@ -596,9 +602,7 @@ connectWithRetry()
       console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`   Health endpoint: /api/health`);
       console.log(`   API docs: /api-docs`);
-      if (process.env.DEMO_ENABLED === 'true') {
-        console.log(`   Demo sandbox: /api/demo/start-session`);
-      }
+      console.log(`   Demo sandbox: /api/demo/start-session`);
       
       // Oracle integration status check
       const { oracleService } = require('./services/oracle');
