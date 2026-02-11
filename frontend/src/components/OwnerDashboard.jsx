@@ -134,7 +134,14 @@ const OwnerDashboard = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [updatingFeedback, setUpdatingFeedback] = useState(null);
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
+  
+  // Helper to get feedback item background color (avoids nested ternary)
+  const getFeedbackBgColor = (status) => {
+    if (status !== 'new') return 'transparent';
+    return darkMode ? '#1a1a2e' : '#fefce8';
+  };
 
   // Update feedback status
   const handleUpdateFeedbackStatus = async (feedbackId, newStatus) => {
@@ -814,7 +821,7 @@ const OwnerDashboard = () => {
                     borderLeft: `4px solid ${
                       { bug: '#ef4444', feature_request: '#f59e0b', question: '#3b82f6' }[item.type] || '#6b7280'
                     }`,
-                    bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'
+                    bgcolor: getFeedbackBgColor(item.status)
                   }}
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>

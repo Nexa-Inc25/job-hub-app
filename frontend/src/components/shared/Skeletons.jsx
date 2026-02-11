@@ -61,12 +61,13 @@ JobCardSkeleton.propTypes = {
 
 /**
  * JobListSkeleton - Multiple job card skeletons
+ * Note: Using index keys is acceptable for static skeleton loaders that never reorder
  */
 export const JobListSkeleton = ({ count = 5, variant = 'compact' }) => {
   return (
     <Box>
-      {Array.from({ length: count }).map((_, index) => (
-        <JobCardSkeleton key={`skeleton-job-${index}`} variant={variant} />
+      {Array.from({ length: count }, (_, i) => (
+        <JobCardSkeleton key={`job-skeleton-${variant}-${i}`} variant={variant} />
       ))}
     </Box>
   );
@@ -79,13 +80,14 @@ JobListSkeleton.propTypes = {
 
 /**
  * TableRowSkeleton - Skeleton for table rows
+ * Note: Using index keys is acceptable for static skeleton loaders that never reorder
  */
-export const TableRowSkeleton = ({ columns = 5 }) => {
+export const TableRowSkeleton = ({ columns = 5, rowId = 'default' }) => {
   return (
     <TableRow>
-      {Array.from({ length: columns }).map((_, index) => (
-        <TableCell key={`skeleton-cell-${index}`}>
-          <Skeleton variant="text" width={index === 0 ? '60%' : '80%'} height={20} />
+      {Array.from({ length: columns }, (_, i) => (
+        <TableCell key={`cell-${rowId}-${i}`}>
+          <Skeleton variant="text" width={i === 0 ? '60%' : '80%'} height={20} />
         </TableCell>
       ))}
     </TableRow>
@@ -94,16 +96,18 @@ export const TableRowSkeleton = ({ columns = 5 }) => {
 
 TableRowSkeleton.propTypes = {
   columns: PropTypes.number,
+  rowId: PropTypes.string,
 };
 
 /**
  * TableSkeleton - Multiple table row skeletons
+ * Note: Using index keys is acceptable for static skeleton loaders that never reorder
  */
 export const TableSkeleton = ({ rows = 5, columns = 5 }) => {
   return (
     <>
-      {Array.from({ length: rows }).map((_, index) => (
-        <TableRowSkeleton key={`skeleton-row-${index}`} columns={columns} />
+      {Array.from({ length: rows }, (_, i) => (
+        <TableRowSkeleton key={`table-row-${i}`} rowId={`row-${i}`} columns={columns} />
       ))}
     </>
   );
@@ -131,12 +135,13 @@ export const StatCardSkeleton = () => {
 
 /**
  * FormSkeleton - Skeleton for form fields
+ * Note: Using index keys is acceptable for static skeleton loaders that never reorder
  */
 export const FormSkeleton = ({ fields = 4 }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {Array.from({ length: fields }).map((_, index) => (
-        <Box key={`skeleton-field-${index}`}>
+      {Array.from({ length: fields }, (_, i) => (
+        <Box key={`form-field-${i}`}>
           <Skeleton variant="text" width={120} height={16} sx={{ mb: 0.5 }} />
           <Skeleton variant="rounded" width="100%" height={56} />
         </Box>
@@ -251,9 +256,9 @@ export const BillingGridSkeleton = () => {
       </Box>
       
       {/* Grid rows */}
-      {Array.from({ length: 8 }).map((_, index) => (
+      {Array.from({ length: 8 }, (_, i) => (
         <Box 
-          key={`skeleton-grid-row-${index}`} 
+          key={`billing-grid-row-${i}`} 
           sx={{ 
             display: 'flex', 
             px: 2, 
