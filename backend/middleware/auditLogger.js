@@ -78,23 +78,43 @@ const logAudit = async (req, action, options = {}) => {
 
 /**
  * Log authentication events
+ * Note: Auth events happen before user is set on req, so we pass user info explicitly
  */
 const logAuth = {
-  loginSuccess: (req, user) => logAudit(req, 'LOGIN_SUCCESS', {
-    resourceType: 'user',
-    resourceId: user._id,
-    resourceName: user.email,
-    details: { role: user.role, isAdmin: user.isAdmin }
-  }),
+  loginSuccess: (req, user) => {
+    const requestMeta = getRequestMetadata(req);
+    return AuditLog.log({
+      ...requestMeta,
+      userId: user._id,
+      userEmail: user.email,
+      userName: user.name,
+      userRole: user.role,
+      companyId: user.companyId,
+      action: 'LOGIN_SUCCESS',
+      resourceType: 'user',
+      resourceId: user._id,
+      resourceName: user.email,
+      category: 'authentication',
+      severity: 'info',
+      details: { role: user.role, isAdmin: user.isAdmin }
+    });
+  },
 
-  loginFailed: (req, email, reason) => logAudit(req, 'LOGIN_FAILED', {
-    resourceType: 'user',
-    resourceName: email,
-    success: false,
-    errorMessage: reason,
-    severity: 'warning',
-    details: { email, reason }
-  }),
+  loginFailed: (req, email, reason) => {
+    const requestMeta = getRequestMetadata(req);
+    return AuditLog.log({
+      ...requestMeta,
+      userEmail: email,  // User not authenticated, but we know the attempted email
+      action: 'LOGIN_FAILED',
+      resourceType: 'user',
+      resourceName: email,
+      category: 'authentication',
+      severity: 'warning',
+      success: false,
+      errorMessage: reason,
+      details: { email, reason }
+    });
+  },
 
   logout: (req) => logAudit(req, 'LOGOUT'),
 
@@ -104,12 +124,19 @@ const logAuth = {
     severity: 'warning'
   }),
 
-  accountLocked: (req, email, attempts) => logAudit(req, 'ACCOUNT_LOCKED', {
-    resourceType: 'user',
-    resourceName: email,
-    severity: 'critical',
-    details: { failedAttempts: attempts }
-  })
+  accountLocked: (req, email, attempts) => {
+    const requestMeta = getRequestMetadata(req);
+    return AuditLog.log({
+      ...requestMeta,
+      userEmail: email,
+      action: 'ACCOUNT_LOCKED',
+      resourceType: 'user',
+      resourceName: email,
+      category: 'security',
+      severity: 'critical',
+      details: { failedAttempts: attempts }
+    });
+  }
 };
 
 /**
