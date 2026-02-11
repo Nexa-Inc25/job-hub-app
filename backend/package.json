@@ -7,7 +7,7 @@
   "private": true,
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "node --max-old-space-size=450 --expose-gc server.js",
     "lint": "eslint . --ext .js --max-warnings 0",
     "lint:fix": "eslint . --ext .js --fix",
     "test": "jest --coverage --detectOpenHandles --forceExit",

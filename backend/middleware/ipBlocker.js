@@ -239,19 +239,19 @@ async function blockIP(ip, durationMs, reason, permanent = false) {
   } catch (err) {
     // DB error - fall back to in-memory only
     console.error('[IP Blocker] Failed to persist block:', err.message);
-    
+  
     const until = permanent ? null : new Date(Date.now() + durationMs);
     blockedIPsCache.set(ip, {
-      until,
-      reason,
-      permanent,
+    until,
+    reason,
+    permanent,
       cached: Date.now()
-    });
-    
+  });
+  
     console.error(`[IP BLOCKED] ${ip} - ${reason} - Duration: ${permanent ? 'PERMANENT' : `${Math.ceil(durationMs / 60000)} minutes`} (in-memory only)`);
-    
-    return { ip, until, permanent, reason };
-  }
+  
+  return { ip, until, permanent, reason };
+}
 }
 
 /**
@@ -309,22 +309,22 @@ async function getBlockedIPs() {
     console.error('[IP Blocker] Failed to get blocked IPs from DB:', err.message);
     
     // Fall back to cache
-    const result = [];
-    const now = new Date();
-    
+  const result = [];
+  const now = new Date();
+  
     for (const [ip, block] of blockedIPsCache.entries()) {
-      if (block.permanent || (block.until && block.until > now)) {
-        result.push({
-          ip,
-          reason: block.reason,
-          until: block.until,
-          permanent: block.permanent,
-          remainingMinutes: block.permanent ? null : Math.ceil((block.until - now) / 60000)
-        });
-      }
+    if (block.permanent || (block.until && block.until > now)) {
+      result.push({
+        ip,
+        reason: block.reason,
+        until: block.until,
+        permanent: block.permanent,
+        remainingMinutes: block.permanent ? null : Math.ceil((block.until - now) / 60000)
+      });
     }
-    
-    return result;
+  }
+  
+  return result;
   }
 }
 
@@ -444,21 +444,21 @@ const loginAttemptTracker = (req, res, next) => {
     if (res.statusCode === 401) {
       try {
         const result = await recordFailedAttempt(ip);
-        
-        if (result.blocked) {
-          // Override response to indicate blocking with correct 429 status
-          res.status(429);
-          return originalJson({
-            error: 'Too many failed login attempts',
-            message: 'Your IP has been temporarily blocked due to excessive failed login attempts. Please try again in 1 hour.',
-            retryAfter: CONFIG.AUTO_BLOCK_DURATION_MS / 1000
-          });
-        }
-        
-        // Add warning header about remaining attempts
-        const remaining = CONFIG.FAILED_ATTEMPTS_THRESHOLD - result.count;
-        if (remaining <= 3) {
-          res.setHeader('X-Attempts-Remaining', remaining);
+      
+      if (result.blocked) {
+        // Override response to indicate blocking with correct 429 status
+        res.status(429);
+        return originalJson({
+          error: 'Too many failed login attempts',
+          message: 'Your IP has been temporarily blocked due to excessive failed login attempts. Please try again in 1 hour.',
+          retryAfter: CONFIG.AUTO_BLOCK_DURATION_MS / 1000
+        });
+      }
+      
+      // Add warning header about remaining attempts
+      const remaining = CONFIG.FAILED_ATTEMPTS_THRESHOLD - result.count;
+      if (remaining <= 3) {
+        res.setHeader('X-Attempts-Remaining', remaining);
         }
       } catch (err) {
         console.error('[IP Blocker] Failed to record attempt:', err.message);

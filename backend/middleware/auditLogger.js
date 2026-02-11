@@ -91,12 +91,12 @@ const logAuth = {
       userRole: user.role,
       companyId: user.companyId,
       action: 'LOGIN_SUCCESS',
-      resourceType: 'user',
-      resourceId: user._id,
-      resourceName: user.email,
+    resourceType: 'user',
+    resourceId: user._id,
+    resourceName: user.email,
       category: 'authentication',
       severity: 'info',
-      details: { role: user.role, isAdmin: user.isAdmin }
+    details: { role: user.role, isAdmin: user.isAdmin }
     });
   },
 
@@ -106,13 +106,13 @@ const logAuth = {
       ...requestMeta,
       userEmail: email,  // User not authenticated, but we know the attempted email
       action: 'LOGIN_FAILED',
-      resourceType: 'user',
-      resourceName: email,
+    resourceType: 'user',
+    resourceName: email,
       category: 'authentication',
       severity: 'warning',
-      success: false,
-      errorMessage: reason,
-      details: { email, reason }
+    success: false,
+    errorMessage: reason,
+    details: { email, reason }
     });
   },
 
@@ -130,11 +130,11 @@ const logAuth = {
       ...requestMeta,
       userEmail: email,
       action: 'ACCOUNT_LOCKED',
-      resourceType: 'user',
-      resourceName: email,
+    resourceType: 'user',
+    resourceName: email,
       category: 'security',
-      severity: 'critical',
-      details: { failedAttempts: attempts }
+    severity: 'critical',
+    details: { failedAttempts: attempts }
     });
   }
 };

@@ -186,12 +186,12 @@ const OwnerDashboard = () => {
   const handleTokenValidation = useCallback(() => {
     const tokenCheck = validateSuperAdminToken();
     if (tokenCheck.redirect) {
-      navigate('/login');
+        navigate('/login');
       return { shouldProceed: false };
-    }
+      }
     if (!tokenCheck.valid) {
-      setError('Super Admin access required. This dashboard is only for FieldLedger platform owners.');
-      setLoading(false);
+          setError('Super Admin access required. This dashboard is only for FieldLedger platform owners.');
+          setLoading(false);
       return { shouldProceed: false };
     }
     return { shouldProceed: true };

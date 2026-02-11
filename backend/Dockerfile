@@ -56,6 +56,8 @@ ENV PORT=5000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD node -e "const port = process.env.PORT || 5000; require('http').get('http://localhost:' + port + '/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
 
-# Start server
-CMD ["node", "server.js"]
+# Start server with memory management flags
+# --max-old-space-size: Set explicit heap limit (Railway default container is 512MB)
+# --expose-gc: Allow manual GC hints after heavy PDF processing
+CMD ["node", "--max-old-space-size=450", "--expose-gc", "server.js"]
 

@@ -749,6 +749,15 @@ router.get('/templates/:id/pdf', async (req, res) => {
  * Fill a template with job data and return the filled PDF
  */
 router.post('/templates/:id/fill', async (req, res) => {
+  // Memory guard: reject if heap is above 400MB to prevent OOM crashes
+  const memBefore = process.memoryUsage();
+  const heapUsedMB = Math.round(memBefore.heapUsed / 1024 / 1024);
+  if (heapUsedMB > 400) {
+    console.warn(`[SmartForms] Memory pressure: ${heapUsedMB}MB heap used, rejecting fill request`);
+    return res.status(503).json({ error: 'Server busy, please try again in a moment' });
+  }
+
+  let pdfDoc = null;
   try {
     const user = await User.findById(req.userId);
     if (!user?.companyId) {
@@ -782,8 +791,10 @@ router.post('/templates/:id/fill', async (req, res) => {
     }
     
     // Load and fill the PDF
-    const pdfBytes = await loadPdfFromR2(template.sourceFile.r2Key);
-    const pdfDoc = await PDFDocument.load(pdfBytes);
+    let pdfBytes = await loadPdfFromR2(template.sourceFile.r2Key);
+    pdfDoc = await PDFDocument.load(pdfBytes);
+    pdfBytes = null; // Release source buffer immediately
+    
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const pages = pdfDoc.getPages();
     
@@ -791,8 +802,9 @@ router.post('/templates/:id/fill', async (req, res) => {
     console.log(`[SmartForms] Filling ${template.fields.length} fields...`);
     fillPdfFields({ template, dataContext, pages, font, debug: true });
     
-    // Save the filled PDF
+    // Save the filled PDF and release the document
     const filledPdfBytes = await pdfDoc.save();
+    pdfDoc = null; // Release pdf-lib document (largest in-memory object)
     
     // Record the fill
     await template.recordFill();
@@ -805,6 +817,17 @@ router.post('/templates/:id/fill', async (req, res) => {
   } catch (error) {
     console.error('Error filling template:', error);
     res.status(500).json({ error: 'Failed to fill template' });
+  } finally {
+    // Ensure PDF document is released even on error
+    pdfDoc = null;
+    
+    // Hint to GC if memory is elevated after PDF processing
+    const memAfter = process.memoryUsage();
+    const heapAfterMB = Math.round(memAfter.heapUsed / 1024 / 1024);
+    if (heapAfterMB > 200 && global.gc) {
+      global.gc();
+      console.log(`[SmartForms] GC triggered after fill (${heapAfterMB}MB heap)`);
+    }
   }
 });
 
