@@ -155,7 +155,8 @@ StatCard.propTypes = {
 
 const SecurityDashboard = () => {
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
   const { cardBg, textPrimary, borderColor } = getThemeColors(mode);
   const SEVERITY_COLORS = getSeverityColors(mode);
 
