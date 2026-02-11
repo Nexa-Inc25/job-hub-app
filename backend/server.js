@@ -101,6 +101,8 @@ const biddingRoutes = require('./routes/bidding.routes');
 const weatherRoutes = require('./routes/weather.routes');
 const superadminRoutes = require('./routes/superadmin.routes');
 const specsRoutes = require('./routes/specs.routes');
+const companyRoutes = require('./routes/company.routes');
+const usersRoutes = require('./routes/users.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1273,62 +1275,13 @@ app.use('/api/superadmin', authenticateUser, requireSuperAdmin, superadminRoutes
 // Spec Library routes
 app.use('/api/specs', authenticateUser, specsRoutes);
 
-// ==================== USER MANAGEMENT ENDPOINTS ====================
+// Company self-management routes
+app.use('/api/company', authenticateUser, companyRoutes);
 
-// Get current user profile - Now using modular controller
-app.get('/api/users/me', authenticateUser, authController.getProfile);
+// User management routes
+app.use('/api/users', authenticateUser, usersRoutes);
 
-// Get all users (for assignment dropdown) - Admin, PM, or GF
-app.get('/api/users', authenticateUser, async (req, res) => {
-  try {
-    // Check permissions - Admin, PM, or GF can view users for assignment
-    if (!req.isAdmin && !['admin', 'pm', 'gf'].includes(req.userRole)) {
-      return res.status(403).json({ error: 'Only Admin, PM, or GF can view users' });
-    }
-    
-    // ============================================
-    // MULTI-TENANT SECURITY: Only show users from same company
-    // ============================================
-    const currentUser = await User.findById(req.userId).select('companyId');
-    
-    // CRITICAL: If user has no company, return empty array (fail-safe)
-    if (!currentUser?.companyId) {
-      return res.json([]);
-    }
-    
-    const users = await User.find({ companyId: currentUser.companyId }, 'name email role isAdmin companyId').sort({ name: 1 });
-    res.json(users);
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-// Get foremen only (for assignment)
-app.get('/api/users/foremen', authenticateUser, async (req, res) => {
-  try {
-    // ============================================
-    // MULTI-TENANT SECURITY: Only show foremen from same company
-    // ============================================
-    const currentUser = await User.findById(req.userId).select('companyId');
-    
-    // CRITICAL: If user has no company, return empty array (fail-safe)
-    if (!currentUser?.companyId) {
-      return res.json([]);
-    }
-    
-    const query = { 
-      companyId: currentUser.companyId,
-      $or: [{ role: 'foreman' }, { role: 'admin' }, { isAdmin: true }] 
-    };
-    
-    const foremen = await User.find(query, 'name email role companyId').sort({ name: 1 });
-    res.json(foremen);
-  } catch (err) {
-    console.error('Error fetching foremen:', err);
-    res.status(500).json({ error: 'Failed to fetch foremen' });
-  }
-});
+// === USER MANAGEMENT ROUTES moved to routes/users.routes.js ===
 
 // ==================== JOB ASSIGNMENT ENDPOINTS ====================
 
@@ -3931,194 +3884,7 @@ app.delete('/api/admin/cleanup-emergency-jobs', authenticateUser, async (req, re
   }
 });
 
-// Get current user's company
-app.get('/api/company', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    if (!user?.companyId) {
-      return res.status(404).json({ error: 'No company associated with this user' });
-    }
-    
-    const company = await Company.findById(user.companyId)
-      .populate('utilities', 'name slug shortName')
-      .populate('defaultUtility', 'name slug shortName');
-    
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
-    }
-    
-    res.json(company);
-  } catch (err) {
-    console.error('Error fetching company:', err);
-    res.status(500).json({ error: 'Failed to fetch company' });
-  }
-});
-
-// Update company settings (company admin only)
-app.put('/api/company', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    if (!user?.companyId) {
-      return res.status(404).json({ error: 'No company associated with this user' });
-    }
-    
-    // Check if user is company admin or system admin
-    if (!user.isAdmin && user.role !== 'pm' && user.role !== 'admin') {
-      return res.status(403).json({ error: 'Only company admins can update company settings' });
-    }
-    
-    const company = await Company.findById(user.companyId);
-    if (!company) {
-      return res.status(404).json({ error: 'Company not found' });
-    }
-    
-    // Update allowed fields
-    const allowedFields = ['name', 'phone', 'address', 'city', 'state', 'zip', 'settings', 'defaultUtility'];
-    allowedFields.forEach(field => {
-      if (req.body[field] !== undefined) {
-        company[field] = req.body[field];
-      }
-    });
-    
-    await company.save();
-    
-    console.log('Updated company:', company.name);
-    res.json(company);
-  } catch (err) {
-    console.error('Error updating company:', err);
-    res.status(500).json({ error: 'Failed to update company', details: err.message });
-  }
-});
-
-// Create new company (for new contractor signup)
-app.post('/api/companies', async (req, res) => {
-  try {
-    const { companyName, utilitySlug } = req.body;
-    
-    if (!companyName) {
-      return res.status(400).json({ error: 'Company name is required' });
-    }
-    
-    // Find the utility (default to PG&E if not specified)
-    const utility = await Utility.findOne({ slug: utilitySlug || 'pge' });
-    
-    const company = new Company({
-      name: companyName,
-      utilities: utility ? [utility._id] : [],
-      defaultUtility: utility?._id,
-      subscription: {
-        plan: 'free',
-        seats: 5,
-        status: 'trialing'
-      }
-    });
-    
-    await company.save();
-    
-    console.log('Created company:', company.name);
-    res.status(201).json(company);
-  } catch (err) {
-    console.error('Error creating company:', err);
-    res.status(500).json({ error: 'Failed to create company', details: err.message });
-  }
-});
-
-// Get company users (company admin only)
-app.get('/api/company/users', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    if (!user?.companyId) {
-      return res.status(404).json({ error: 'No company associated with this user' });
-    }
-    
-    // Check if user can view company users
-    if (!user.isAdmin && !['gf', 'pm', 'admin'].includes(user.role)) {
-      return res.status(403).json({ error: 'Permission denied' });
-    }
-    
-    const users = await User.find({ companyId: user.companyId })
-      .select('-password')
-      .sort({ createdAt: -1 });
-    
-    res.json(users);
-  } catch (err) {
-    console.error('Error fetching company users:', err);
-    res.status(500).json({ error: 'Failed to fetch users' });
-  }
-});
-
-// Invite user to company (company admin only)
-app.post('/api/company/invite', authenticateUser, async (req, res) => {
-  try {
-    const { email, name, role } = req.body;
-    
-    const inviter = await User.findById(req.userId);
-    if (!inviter?.companyId) {
-      return res.status(404).json({ error: 'No company associated with this user' });
-    }
-    
-    // Check if user can invite
-    if (!inviter.isAdmin && !['gf', 'pm', 'admin'].includes(inviter.role)) {
-      return res.status(403).json({ error: 'Permission denied' });
-    }
-    
-    // Check if user already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
-    }
-    
-    // Generate temporary password (user will reset on first login)
-    // Use crypto.randomBytes for cryptographically secure randomness
-    // Suffix ensures password meets complexity requirements: uppercase (A), lowercase (x), number (1), special (!)
-    const tempPassword = crypto.randomBytes(6).toString('base64url') + 'Ax1!';
-    
-    const validRoles = ['crew', 'foreman', 'gf', 'qa', 'pm'];
-    const userRole = validRoles.includes(role) ? role : 'crew';
-    
-    const newUser = new User({
-      email,
-      password: tempPassword,
-      name: name || email.split('@')[0],
-      role: userRole,
-      companyId: inviter.companyId,
-      isAdmin: ['gf', 'pm'].includes(userRole),
-      canApprove: ['gf', 'pm'].includes(userRole)
-    });
-    
-    await newUser.save();
-    
-    // Get company name for the invitation email
-    const company = await Company.findById(inviter.companyId);
-    const companyName = company?.name || 'Your Company';
-    
-    // Send invitation email with temp password
-    // tempPassword should ONLY be sent via secure email, never in API responses
-    try {
-      await sendInvitation({
-        email,
-        name: newUser.name,
-        tempPassword,
-        inviterName: inviter.name,
-        companyName,
-        role: userRole
-      });
-      console.log('Invitation email sent to:', email);
-    } catch (emailErr) {
-      // Log but don't fail the invite if email fails
-      console.error('Failed to send invitation email:', emailErr);
-    }
-    
-    console.log('Invited user:', email, 'to company:', inviter.companyId);
-    res.status(201).json({ 
-      message: 'User invited successfully. Temporary password sent via email.',
-      user: { email: newUser.email, name: newUser.name, role: newUser.role }
-    });
-  } catch (err) {
-    console.error('Error inviting user:', err);
-    res.status(500).json({ error: 'Failed to invite user', details: err.message });
-  }
-});
+// === COMPANY ROUTES moved to routes/company.routes.js ===
 
 // Delete a job
 // Admin/PM can delete any job, others can only delete their own
