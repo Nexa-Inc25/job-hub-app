@@ -261,14 +261,22 @@ const SecurityDashboard = () => {
           gap: 2,
         }}
       >
-        <IconButton onClick={() => navigate('/dashboard')}>
+        <IconButton onClick={() => navigate('/dashboard')} aria-label="Go back to dashboard">
           <ArrowBackIcon />
         </IconButton>
         <SecurityIcon sx={{ color: '#6366f1', fontSize: 28 }} />
         <Typography variant="h5" fontWeight={700} color={textPrimary}>
           Security & Compliance
         </Typography>
-        <Chip label="PG&E Exhibit 5" sx={{ ml: 'auto', bgcolor: '#6366f120', color: '#6366f1' }} />
+        <Chip 
+          label="PG&E Exhibit 5" 
+          sx={{ 
+            ml: 'auto', 
+            bgcolor: mode === 'dark' ? '#4338ca' : '#6366f1',
+            color: '#ffffff',
+            fontWeight: 600,
+          }} 
+        />
       </Paper>
 
       <Container maxWidth="xl">
@@ -403,7 +411,7 @@ const SecurityDashboard = () => {
               />
               <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
                 <Tooltip title="Refresh">
-                  <IconButton onClick={fetchLogs}>
+                  <IconButton onClick={fetchLogs} aria-label="Refresh audit logs">
                     <RefreshIcon />
                   </IconButton>
                 </Tooltip>
@@ -519,38 +527,33 @@ const SecurityDashboard = () => {
                 <TableBody>
                   {(stats?.recentSecurityEvents || []).map((event, idx) => {
                     const severityConfig = SEVERITY_COLORS[event.severity] || SEVERITY_COLORS.warning;
+                    const cellStyle = { color: severityConfig.cellText, backgroundColor: 'inherit' };
                     return (
                     <TableRow
                       key={event._id || idx}
-                      sx={{
-                        backgroundColor: `${severityConfig.bg} !important`,
-                        '& .MuiTableCell-root': {
-                          color: `${severityConfig.cellText} !important`,
-                          backgroundColor: 'transparent !important',
-                          borderBottomColor: severityConfig.border,
-                        },
-                      }}
+                      style={{ backgroundColor: severityConfig.bg }}
                     >
-                      <TableCell>{formatTime(event.timestamp)}</TableCell>
-                      <TableCell>
+                      <TableCell style={cellStyle}>{formatTime(event.timestamp)}</TableCell>
+                      <TableCell style={cellStyle}>
                         <Chip
                           icon={event.severity === 'critical' ? <ErrorIcon /> : <WarningIcon />}
                           label={event.severity}
                           size="small"
                           sx={{
-                            bgcolor: severityConfig.bg,
+                            bgcolor: mode === 'dark' ? severityConfig.border : severityConfig.bg,
                             color: severityConfig.text,
                             fontWeight: 600,
                             border: `1px solid ${severityConfig.border}`,
+                            '& .MuiChip-icon': { color: severityConfig.text },
                           }}
                         />
                       </TableCell>
-                      <TableCell>{event.action?.replaceAll('_', ' ')}</TableCell>
-                      <TableCell>{event.userEmail || '-'}</TableCell>
-                      <TableCell>
+                      <TableCell style={cellStyle}>{event.action?.replaceAll('_', ' ')}</TableCell>
+                      <TableCell style={cellStyle}>{event.userEmail || '-'}</TableCell>
+                      <TableCell style={cellStyle}>
                         {event.errorMessage || event.details?.reason || '-'}
                       </TableCell>
-                      <TableCell sx={{ fontFamily: 'monospace' }}>{event.ipAddress}</TableCell>
+                      <TableCell style={{ ...cellStyle, fontFamily: 'monospace' }}>{event.ipAddress}</TableCell>
                     </TableRow>
                     );
                   })}

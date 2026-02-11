@@ -79,6 +79,7 @@ const Breadcrumbs = () => {
       <Link
         to="/dashboard"
         className="flex items-center text-muted-foreground hover:text-foreground"
+        aria-label="Dashboard home"
       >
         <Home className="h-4 w-4" />
       </Link>
