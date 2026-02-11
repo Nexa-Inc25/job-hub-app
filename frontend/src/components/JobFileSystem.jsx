@@ -542,6 +542,7 @@ const JobFileSystem = () => {
     fetchJobDataHelper(id, navigate).then(result => 
       handleJobLoadResult(result, setters, cacheJob, getPendingPhotos, id)
     );
+    // Intentionally only re-fetch when job ID changes, not on every state setter reference
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -562,6 +563,7 @@ const JobFileSystem = () => {
       clearInterval(pollInterval);
       clearTimeout(timeout);
     };
+  // Polling dependencies are intentionally limited to extraction state changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?._id, job?.aiExtractionStarted, job?.aiExtractionComplete, updateJobInList]);
 

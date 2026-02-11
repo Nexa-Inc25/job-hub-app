@@ -39,11 +39,20 @@ const { oracleService } = require('../services/oracle');
 router.get('/status', async (req, res) => {
   try {
     const status = oracleService.getStatus();
+    
+    // Generate warnings for unconfigured integrations
+    const warnings = [];
+    if (!status.unifier.configured) warnings.push('Unifier: Using mock responses');
+    if (!status.eam.configured) warnings.push('EAM: Using mock responses');
+    if (!status.p6.configured) warnings.push('P6: Using mock responses');
+    
     res.json({
       success: true,
       integrations: status,
       configuredCount: Object.values(status).filter(s => s.configured).length,
-      totalCount: Object.keys(status).length
+      totalCount: Object.keys(status).length,
+      warnings,
+      mockMode: warnings.length > 0
     });
   } catch (error) {
     console.error('[Oracle Routes] Status error:', error);

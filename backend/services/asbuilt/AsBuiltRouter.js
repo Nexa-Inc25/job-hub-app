@@ -130,9 +130,16 @@ class AsBuiltRouter {
   
   /**
    * Actually extract PDF sections (placeholder for pdf-lib implementation)
+   * 
+   * WARNING: This is currently a placeholder implementation.
+   * Real PDF splitting is not yet implemented.
    */
   async extractPdfSections(submission) {
-    // In production, this would:
+    // Log warning that real PDF splitting is not yet implemented
+    console.warn('[AsBuiltRouter] PDF splitting is using PLACEHOLDER mode - actual extraction not yet implemented');
+    submission.addAuditEntry('warning', 'PDF section extraction using placeholder mode - actual file splitting not performed');
+    
+    // TODO: In production, this should:
     // 1. Load the original PDF from R2/S3
     // 2. Use pdf-lib to split into separate PDFs
     // 3. Upload each section to R2/S3
@@ -141,8 +148,9 @@ class AsBuiltRouter {
     for (let i = 0; i < submission.sections.length; i++) {
       const section = submission.sections[i];
       
-      // Generate placeholder file key
+      // Generate placeholder file key (not actual split file)
       section.fileKey = `asbuilt/${submission.submissionId}/${section.sectionType}.pdf`;
+      section.placeholder = true; // Mark as placeholder
       
       // Generate hash (in production, hash actual file content)
       section.fileHash = crypto

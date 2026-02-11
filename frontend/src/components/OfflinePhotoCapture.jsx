@@ -167,7 +167,9 @@ const OfflinePhotoCapture = ({
     return () => {
       stopCamera();
     };
-  }, [open, facingMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Camera lifecycle tied to open state and facing mode; startCamera/stopCamera are stable refs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, facingMode]);
 
   // Retake photo
   const handleRetake = () => {

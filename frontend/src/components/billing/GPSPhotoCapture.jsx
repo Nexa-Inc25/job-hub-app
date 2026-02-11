@@ -368,14 +368,18 @@ const GPSPhotoCapture = ({
     }
     
     return () => stopCamera();
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Camera lifecycle tied to dialog open state; startCamera/stopCamera are stable refs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   // Restart camera when facing mode changes
   useEffect(() => {
     if (open && !capturedImage) {
       startCamera();
     }
-  }, [facingMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Intentionally only restart camera on facingMode change when dialog is open
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [facingMode]);
 
   // Can confirm?
   const canConfirm = capturedImage && (!requireGPS || gpsValid || gpsError);

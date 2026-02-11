@@ -104,7 +104,8 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
   const pdfHeight = drawRect.height * scaleY;
   const pdfY = pageDim.height - (drawRect.top + drawRect.height) * scaleY;
 
-  // Debug logging for field creation
+  // Debug logging for field creation (dev only)
+  if (import.meta.env.DEV) {
   console.log('[TemplateEditor] Creating field:', {
     drawRect,
     pageDim,
@@ -113,6 +114,7 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
     scaleY,
     calculatedBounds: { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight }
   });
+  }
 
   return {
     id: generateFieldId(),
@@ -403,12 +405,14 @@ function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
       
   const screenPos = pdfToScreenCoords(x, y, width, height, pageElement);
   
-  // Debug: always log field positions for troubleshooting
+  // Debug: log field positions for troubleshooting (dev only)
+  if (import.meta.env.DEV) {
   console.log('[TemplateEditor] Field overlay:', field.name, { 
     pdfBounds: field.bounds, 
     screenPos,
     fieldId: field.id 
   });
+  }
       
   if (screenPos.width <= 0 || screenPos.height <= 0) return null;
 
@@ -745,7 +749,9 @@ export default function TemplateEditor() {
 
   const onDocumentLoadSuccess = ({ numPages: pages }) => {
     setNumPages(pages);
+    if (import.meta.env.DEV) {
     console.log('[TemplateEditor] PDF loaded, pages:', pages);
+    }
   };
 
   // Convert PDF coords to screen coords for display

@@ -61,8 +61,9 @@ const CreateWorkOrder = ({ token }) => {
     if (storedToken && !localToken) {
       setLocalToken(storedToken);
     }
+    // One-time initialization on mount - localToken is intentionally not a dependency
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Run only once on mount
+  }, []);
 
   const [extracting, setExtracting] = useState(false);
   

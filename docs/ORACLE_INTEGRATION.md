@@ -11,9 +11,11 @@ FieldLedger provides seamless integration with Oracle Cloud applications, enabli
 | Product | Integration Type | Status |
 |---------|------------------|--------|
 | **Oracle Fusion Cloud ERP** | FBDI Import | ✅ Production |
-| **Oracle Primavera Unifier** | REST API | 🔄 Roadmap |
-| **Oracle EAM** | REST API | 🔄 Roadmap |
-| **Oracle Primavera P6** | File Export | 🔄 Roadmap |
+| **Oracle Primavera Unifier** | REST API | 🧪 Beta |
+| **Oracle EAM** | REST API | 🧪 Beta |
+| **Oracle Primavera P6** | REST API | 🧪 Beta |
+
+> **Note:** Beta integrations are fully implemented but return mock responses when environment variables are not configured. See [Environment Configuration](#environment-configuration) below.
 
 ---
 
@@ -108,31 +110,177 @@ Authorization: Bearer <token>
 
 ---
 
-## Oracle Primavera Unifier Integration (Roadmap)
+## Oracle Primavera Unifier Integration (Beta)
 
-### Planned Capabilities
+The Unifier adapter is implemented and available at `/api/oracle/unifier/*`.
 
-1. **Project Sync**
-   - Sync work orders from Primavera to FieldLedger
-   - Update project status upon completion
+### Capabilities
 
-2. **Document Upload**
-   - Push as-built documents to project folders
-   - Link documents to WBS elements
+1. **Document Upload** - Push as-built documents to project shells
+2. **Business Process Records** - Create submittal records
+3. **Project Status Updates** - Update milestones on completion
 
-3. **Cost Data**
-   - Report actual costs back to Primavera
-   - Update forecasts based on unit billing
-
-### API Design (Draft)
+### API Endpoints
 
 ```
-POST /api/oracle/primavera/sync
+# Upload document to Unifier project
+POST /api/oracle/unifier/upload
 {
-  "projectId": "PRJ-55678",
-  "operation": "push_asbuilt",
-  "documents": ["doc_id_1", "doc_id_2"],
-  "targetFolder": "/As-Builts/Completed"
+  "projectNumber": "PM-12345",
+  "folderPath": "/As-Builts/Completed",
+  "fileName": "asbuilt_sketch.pdf",
+  "fileContent": "<base64>",
+  "metadata": { "documentType": "AS_BUILT" }
+}
+
+# Create business process record
+POST /api/oracle/unifier/bp-record
+{
+  "projectNumber": "PM-12345",
+  "bpName": "As-Built Submittal",
+  "recordData": { ... }
+}
+
+# Submit complete as-built package
+POST /api/oracle/unifier/submit-package
+{
+  "pmNumber": "PM-12345",
+  "sections": [ ... ]
+}
+```
+
+---
+
+## Oracle EAM Integration (Beta)
+
+The EAM adapter is implemented and available at `/api/oracle/eam/*`.
+
+### Capabilities
+
+1. **Work Order Completion** - Close out maintenance work orders
+2. **Asset Updates** - Update pole, transformer, and equipment records
+3. **Document Attachments** - Attach as-built documents to work orders
+
+### API Endpoints
+
+```
+# Complete a work order
+POST /api/oracle/eam/work-order/complete
+{
+  "workOrderNumber": "WO-12345",
+  "completionDate": "2026-02-11",
+  "completionData": { "foremanName": "John Smith" }
+}
+
+# Create or update asset
+POST /api/oracle/eam/asset
+{
+  "assetNumber": "POLE-12345",
+  "assetType": "POLE",
+  "assetData": { "poleClass": "45-5", "height": 45 },
+  "action": "update"
+}
+```
+
+---
+
+## Oracle Primavera P6 Integration (Beta)
+
+The P6 adapter is implemented and available at `/api/oracle/p6/*`.
+
+### Capabilities
+
+1. **Activity Progress** - Update activity completion percentage
+2. **Project Documents** - Attach as-built documents to projects
+3. **Resource Assignments** - Update labor hours
+
+### API Endpoints
+
+```
+# Get project details
+GET /api/oracle/p6/project/{projectCode}
+
+# Get project activities
+GET /api/oracle/p6/project/{projectCode}/activities
+
+# Update activity progress
+POST /api/oracle/p6/activity/progress
+{
+  "projectCode": "PRJ-12345",
+  "activityCode": "PRJ-12345-CONST",
+  "percentComplete": 100,
+  "actualFinishDate": "2026-02-11"
+}
+```
+
+---
+
+## Unified Oracle Push
+
+Push as-built data to all configured Oracle systems in one call:
+
+```
+POST /api/oracle/push-all
+{
+  "pmNumber": "PM-12345",
+  "sections": [ ... ],
+  "pushToUnifier": true,
+  "pushToEAM": true,
+  "pushToP6": true
+}
+```
+
+---
+
+## Environment Configuration
+
+Configure Oracle integrations by setting the following environment variables. See `.env.example` for a complete template.
+
+### Primavera Unifier
+
+```bash
+UNIFIER_BASE_URL=https://your-unifier.oracle.com
+UNIFIER_CLIENT_ID=your-client-id
+UNIFIER_CLIENT_SECRET=your-client-secret
+UNIFIER_COMPANY_ID=your-company-id
+```
+
+### Enterprise Asset Management (EAM)
+
+```bash
+ORACLE_EAM_BASE_URL=https://your-eam.oraclecloud.com
+ORACLE_EAM_CLIENT_ID=your-client-id
+ORACLE_EAM_CLIENT_SECRET=your-client-secret
+```
+
+### Primavera P6
+
+```bash
+P6_BASE_URL=https://your-p6.oracle.com
+P6_CLIENT_ID=your-client-id
+P6_CLIENT_SECRET=your-client-secret
+P6_DATABASE_ID=1
+```
+
+### Mock Mode Behavior
+
+When environment variables are not configured, the adapters return mock responses with `mock: true` in the response body. This allows development and testing without live Oracle connections.
+
+Check integration status:
+```
+GET /api/oracle/status
+
+Response:
+{
+  "success": true,
+  "integrations": {
+    "unifier": { "configured": false, "description": "Primavera Unifier" },
+    "eam": { "configured": false, "description": "Enterprise Asset Management" },
+    "p6": { "configured": false, "description": "Primavera P6" },
+    "fbdi": { "configured": true, "description": "Fusion Cloud FBDI Export" }
+  },
+  "warnings": ["Unifier: Using mock responses", "EAM: Using mock responses", "P6: Using mock responses"],
+  "mockMode": true
 }
 ```
 
@@ -140,24 +288,14 @@ POST /api/oracle/primavera/sync
 
 ## Authentication with Oracle Cloud
 
-### Option 1: FBDI File Upload (Current)
+### Option 1: FBDI File Upload (Production)
 
 No direct API connection required. Users download FBDI files from FieldLedger and upload to Oracle via:
 - Oracle Fusion Cloud > Navigator > Scheduled Processes > Load Interface File for Import
 
-### Option 2: Oracle REST API (Future)
+### Option 2: Oracle REST API (Beta)
 
-```
-POST /api/oracle/connect
-{
-  "tenantUrl": "https://your-tenant.oraclecloud.com",
-  "clientId": "your-oauth-client-id",
-  "clientSecret": "your-oauth-client-secret",
-  "scope": "urn:opc:resource:consumer::all"
-}
-```
-
-OAuth 2.0 client credentials flow for machine-to-machine integration.
+OAuth 2.0 client credentials flow for machine-to-machine integration. Configure credentials via environment variables as shown above.
 
 ---
 
@@ -258,7 +396,7 @@ For integration assistance:
 
 ---
 
-*Document Version: 1.0.0*  
+*Document Version: 2.0.0*  
 *Last Updated: February 2026*  
 *FieldLedger Oracle Integration Team*
 

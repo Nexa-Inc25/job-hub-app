@@ -321,8 +321,8 @@ const cancelJob = async (req, res) => {
     const { id } = req.params;
     const { reason, cancelType = 'canceled' } = req.body;
     
-    // Validate inputs
-    if (!reason?.trim()) {
+    // Validate inputs - explicit type check to handle non-string values properly
+    if (typeof reason !== 'string' || !reason.trim()) {
       return res.status(400).json({ error: 'Cancellation reason is required' });
     }
     

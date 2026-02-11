@@ -47,7 +47,7 @@ async function getCurrentWeather(latitude, longitude) {
   const apiKey = process.env.OPENWEATHER_API_KEY;
   
   if (!apiKey) {
-    console.warn('[Weather] No OPENWEATHER_API_KEY configured, returning placeholder');
+    console.warn('[Weather] No OPENWEATHER_API_KEY configured, returning placeholder data');
     return {
       temperature: null,
       conditions: 'unavailable',
@@ -58,8 +58,10 @@ async function getCurrentWeather(latitude, longitude) {
       precipitation: null,
       visibility: null,
       cloudCover: null,
-      source: 'unavailable',
-      error: 'API key not configured',
+      source: 'placeholder',
+      mock: true,
+      warning: 'OPENWEATHER_API_KEY not configured - weather data unavailable',
+      error: 'API key not configured. Set OPENWEATHER_API_KEY in environment.',
       capturedAt: new Date().toISOString()
     };
   }

@@ -527,33 +527,40 @@ const SecurityDashboard = () => {
                 <TableBody>
                   {(stats?.recentSecurityEvents || []).map((event, idx) => {
                     const severityConfig = SEVERITY_COLORS[event.severity] || SEVERITY_COLORS.warning;
-                    const cellStyle = { color: severityConfig.cellText, backgroundColor: 'inherit' };
+                    // Use sx prop with !important to override MUI dark mode CSS specificity
+                    const cellSx = { 
+                      color: `${severityConfig.cellText} !important`, 
+                      backgroundColor: 'inherit',
+                    };
                     return (
                     <TableRow
                       key={event._id || idx}
-                      style={{ backgroundColor: severityConfig.bg }}
+                      sx={{ 
+                        backgroundColor: `${severityConfig.bg} !important`,
+                        '&:hover': { backgroundColor: `${severityConfig.bg} !important` },
+                      }}
                     >
-                      <TableCell style={cellStyle}>{formatTime(event.timestamp)}</TableCell>
-                      <TableCell style={cellStyle}>
+                      <TableCell sx={cellSx}>{formatTime(event.timestamp)}</TableCell>
+                      <TableCell sx={cellSx}>
                         <Chip
                           icon={event.severity === 'critical' ? <ErrorIcon /> : <WarningIcon />}
                           label={event.severity}
                           size="small"
                           sx={{
                             bgcolor: mode === 'dark' ? severityConfig.border : severityConfig.bg,
-                            color: severityConfig.text,
+                            color: `${severityConfig.text} !important`,
                             fontWeight: 600,
                             border: `1px solid ${severityConfig.border}`,
-                            '& .MuiChip-icon': { color: severityConfig.text },
+                            '& .MuiChip-icon': { color: `${severityConfig.text} !important` },
                           }}
                         />
                       </TableCell>
-                      <TableCell style={cellStyle}>{event.action?.replaceAll('_', ' ')}</TableCell>
-                      <TableCell style={cellStyle}>{event.userEmail || '-'}</TableCell>
-                      <TableCell style={cellStyle}>
+                      <TableCell sx={cellSx}>{event.action?.replaceAll('_', ' ')}</TableCell>
+                      <TableCell sx={cellSx}>{event.userEmail || '-'}</TableCell>
+                      <TableCell sx={cellSx}>
                         {event.errorMessage || event.details?.reason || '-'}
                       </TableCell>
-                      <TableCell style={{ ...cellStyle, fontFamily: 'monospace' }}>{event.ipAddress}</TableCell>
+                      <TableCell sx={{ ...cellSx, fontFamily: 'monospace' }}>{event.ipAddress}</TableCell>
                     </TableRow>
                     );
                   })}

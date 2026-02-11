@@ -599,6 +599,20 @@ connectWithRetry()
       if (process.env.DEMO_ENABLED === 'true') {
         console.log(`   Demo sandbox: /api/demo/start-session`);
       }
+      
+      // Oracle integration status check
+      const { oracleService } = require('./services/oracle');
+      const oracleStatus = oracleService.getStatus();
+      const unconfigured = Object.entries(oracleStatus)
+        .filter(([, s]) => !s.configured)
+        .map(([name]) => name);
+      
+      if (unconfigured.length > 0) {
+        console.warn(`⚠️  Oracle integrations in MOCK MODE: ${unconfigured.join(', ')}`);
+        console.warn(`   Configure environment variables for production. See .env.example`);
+      } else {
+        console.log(`   Oracle integrations: All configured`);
+      }
     });
   })
   .catch(err => {

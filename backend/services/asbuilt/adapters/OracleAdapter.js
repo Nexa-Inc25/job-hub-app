@@ -11,12 +11,19 @@ class OracleAdapter {
     this.destination = destination;
     this.module = destination.replace('oracle_', '');
     
-    // Oracle endpoints (would come from config)
+    // Oracle endpoints from environment variables (no hardcoded defaults)
     this.endpoints = {
-      ppm: process.env.ORACLE_PPM_ENDPOINT || 'https://oracle.pge.com/fscmRestApi/resources/latest/projects',
-      eam: process.env.ORACLE_EAM_ENDPOINT || 'https://oracle.pge.com/fscmRestApi/resources/latest/maintenanceWorkOrders',
-      payables: process.env.ORACLE_PAYABLES_ENDPOINT || 'https://oracle.pge.com/fscmRestApi/resources/latest/invoices'
+      ppm: process.env.ORACLE_PPM_ENDPOINT || null,
+      eam: process.env.ORACLE_EAM_ENDPOINT || null,
+      payables: process.env.ORACLE_PAYABLES_ENDPOINT || null
     };
+  }
+  
+  /**
+   * Check if the endpoint for this module is configured
+   */
+  isConfigured() {
+    return !!this.endpoints[this.module];
   }
   
   /**
@@ -24,6 +31,12 @@ class OracleAdapter {
    */
   async deliver(submission, section, sectionIndex) {
     console.log(`[OracleAdapter] Delivering ${section.sectionType} to Oracle ${this.module}`);
+    
+    // Check if endpoint is configured
+    if (!this.isConfigured()) {
+      console.warn(`[OracleAdapter] ${this.module} endpoint not configured - using mock response`);
+      return this.simulateDelivery(this.buildPayload(submission, section));
+    }
     
     // Build payload based on module
     const payload = this.buildPayload(submission, section);
@@ -152,7 +165,10 @@ class OracleAdapter {
     return {
       // NOSONAR: Simulated document ID for dev/test, not security-sensitive
       documentId: `ORA-${Date.now()}-${Math.random().toString(36).substring(7)}`, // NOSONAR
+      referenceId: `MOCK-${Date.now()}`,
       status: 'RECEIVED',
+      mock: true,
+      warning: `${this.module} endpoint not configured - simulated delivery`,
       timestamp: new Date().toISOString()
     };
   }

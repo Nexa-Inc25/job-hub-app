@@ -814,7 +814,7 @@ const OwnerDashboard = () => {
                     borderLeft: `4px solid ${
                       { bug: '#ef4444', feature_request: '#f59e0b', question: '#3b82f6' }[item.type] || '#6b7280'
                     }`,
-                    bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'  // eslint-disable-line -- ternary acceptable for simple bg
+                    bgcolor: item.status === 'new' ? (mode === 'dark' ? '#1a1a2e' : '#fefce8') : 'transparent'
                   }}
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
