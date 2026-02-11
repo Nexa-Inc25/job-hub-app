@@ -322,7 +322,7 @@ const cancelJob = async (req, res) => {
     const { reason, cancelType = 'canceled' } = req.body;
     
     // Validate inputs
-    if (typeof reason !== 'string' || !reason.trim()) {
+    if (!reason?.trim()) {
       return res.status(400).json({ error: 'Cancellation reason is required' });
     }
     

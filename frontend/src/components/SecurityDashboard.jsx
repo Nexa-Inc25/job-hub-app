@@ -49,26 +49,29 @@ import { useThemeMode } from '../ThemeContext';
 import { getThemeColors } from './shared/themeUtils';
 
 // Severity colors - theme-aware with proper contrast
-const getSeverityColors = (mode) => ({
-  critical: { 
-    bg: mode === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#fef2f2', 
-    text: mode === 'dark' ? '#fca5a5' : '#dc2626',
-    cellText: mode === 'dark' ? '#fca5a5' : '#991b1b', // Darker red for table cells
-    border: mode === 'dark' ? 'rgba(220, 38, 38, 0.3)' : '#fecaca' 
-  },
-  warning: { 
-    bg: mode === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#fffbeb', 
-    text: mode === 'dark' ? '#fcd34d' : '#d97706',
-    cellText: mode === 'dark' ? '#fcd34d' : '#92400e', // Darker orange for table cells
-    border: mode === 'dark' ? 'rgba(217, 119, 6, 0.3)' : '#fde68a' 
-  },
-  info: { 
-    bg: mode === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff', 
-    text: mode === 'dark' ? '#93c5fd' : '#2563eb',
-    cellText: mode === 'dark' ? '#93c5fd' : '#1e40af', // Darker blue for table cells
-    border: mode === 'dark' ? 'rgba(37, 99, 235, 0.3)' : '#bfdbfe' 
-  },
-});
+const getSeverityColors = (mode) => {
+  const isDark = mode === 'dark';
+  return {
+    critical: { 
+      bg: isDark ? '#1f1315' : '#fef2f2',  // Dark: very dark red, Light: light pink
+      text: isDark ? '#f87171' : '#dc2626',
+      cellText: isDark ? '#fca5a5' : '#7f1d1d', // High contrast text
+      border: isDark ? '#7f1d1d' : '#fecaca' 
+    },
+    warning: { 
+      bg: isDark ? '#1a1814' : '#fffbeb',  // Dark: very dark amber, Light: light cream
+      text: isDark ? '#fbbf24' : '#d97706',
+      cellText: isDark ? '#fcd34d' : '#78350f', // High contrast text
+      border: isDark ? '#78350f' : '#fde68a' 
+    },
+    info: { 
+      bg: isDark ? '#0f172a' : '#eff6ff',  // Dark: dark blue, Light: light blue
+      text: isDark ? '#60a5fa' : '#2563eb',
+      cellText: isDark ? '#93c5fd' : '#1e3a8a', // High contrast text
+      border: isDark ? '#1e3a8a' : '#bfdbfe' 
+    },
+  };
+};
 
 // Action icons
 const getActionIcon = (action) => {
