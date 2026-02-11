@@ -14,6 +14,7 @@ import {
   CircularProgress,
   Alert,
   useTheme,
+  useMediaQuery,
   FormControlLabel,
   Switch
 } from '@mui/material';
@@ -44,6 +45,7 @@ const getUserInfoFromToken = () => {
 const Calendar = () => {
   const navigate = useNavigate();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [currentDate, setCurrentDate] = useState(new Date());
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,6 +132,7 @@ const Calendar = () => {
   ];
 
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dayNamesShort = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   const isDark = theme.palette.mode === 'dark';
 
   // Helper: Get day cell background color
@@ -143,7 +146,8 @@ const Calendar = () => {
     <Paper 
       key={key}
       sx={{ 
-        minHeight: 140, p: 1, 
+        minHeight: { xs: 60, sm: 100, md: 140 }, 
+        p: { xs: 0.5, sm: 1 }, 
         bgcolor: isDark ? 'grey.900' : 'grey.50',
         opacity: 0.4, borderRadius: 1
       }}
@@ -171,22 +175,37 @@ const Calendar = () => {
         </Box>
       }
       arrow
-      placement="right"
+      placement={isMobile ? 'top' : 'right'}
+      enterTouchDelay={0}
     >
       <Box
         onClick={() => handleJobClick(job._id)}
         sx={{
-          mb: 0.5, p: 0.5, cursor: 'pointer',
+          mb: 0.5, 
+          p: { xs: 0.25, sm: 0.5 }, 
+          cursor: 'pointer',
           borderLeft: `3px solid ${getPriorityColor(job.priority)}`,
           bgcolor: isDark ? 'grey.700' : 'grey.100',
           borderRadius: '0 4px 4px 0',
           '&:hover': { bgcolor: isDark ? 'grey.600' : 'grey.200' },
+          minHeight: { xs: 24, sm: 'auto' },
         }}
       >
-        <Typography variant="caption" sx={{ fontWeight: 'bold', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.7rem' }}>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            fontWeight: 'bold', 
+            display: 'block', 
+            overflow: 'hidden', 
+            textOverflow: 'ellipsis', 
+            whiteSpace: 'nowrap', 
+            fontSize: { xs: '0.6rem', sm: '0.7rem' },
+            lineHeight: 1.2,
+          }}
+        >
           {job.pmNumber || job.woNumber || 'Job'}
         </Typography>
-        {job.assignedTo && (
+        {!isMobile && job.assignedTo && (
           <Typography variant="caption" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'text.secondary', fontSize: '0.65rem' }}>
             {job.assignedTo.name || job.assignedTo.email?.split('@')[0]}
           </Typography>
@@ -200,7 +219,9 @@ const Calendar = () => {
     <Paper
       key={day}
       sx={{
-        minHeight: 140, p: 1, overflow: 'hidden',
+        minHeight: { xs: 60, sm: 100, md: 140 }, 
+        p: { xs: 0.5, sm: 1 }, 
+        overflow: 'hidden',
         border: isToday ? `2px solid ${theme.palette.primary.main}` : '1px solid',
         borderColor: isToday ? 'primary.main' : 'divider',
         bgcolor: getDayBgColor(isToday),
@@ -208,10 +229,18 @@ const Calendar = () => {
         '&:hover': { bgcolor: isDark ? 'grey.700' : 'grey.50' }
       }}
     >
-      <Typography variant="body2" sx={{ fontWeight: isToday ? 'bold' : 'medium', color: isToday ? 'primary.main' : 'text.primary', mb: 0.5 }}>
+      <Typography 
+        variant="body2" 
+        sx={{ 
+          fontWeight: isToday ? 'bold' : 'medium', 
+          color: isToday ? 'primary.main' : 'text.primary', 
+          mb: 0.5,
+          fontSize: { xs: '0.7rem', sm: '0.875rem' },
+        }}
+      >
         {day}
       </Typography>
-      <Box sx={{ overflow: 'auto', maxHeight: 110 }}>
+      <Box sx={{ overflow: 'auto', maxHeight: { xs: 40, sm: 70, md: 110 } }}>
         {dayJobs.map(renderJobItem)}
       </Box>
     </Paper>
@@ -249,34 +278,65 @@ const Calendar = () => {
   };
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* Header */}
-      <Paper sx={{ p: 2, mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <WorkIcon color="primary" sx={{ fontSize: 32 }} />
-          <Typography variant="h5" fontWeight="bold">
+      <Paper sx={{ 
+        p: { xs: 1.5, sm: 2 }, 
+        mb: { xs: 2, sm: 3 }, 
+        display: 'flex', 
+        flexDirection: { xs: 'column', md: 'row' },
+        alignItems: { xs: 'stretch', md: 'center' }, 
+        justifyContent: 'space-between',
+        gap: { xs: 1.5, md: 2 },
+      }}>
+        {/* Title - Hidden on mobile, month nav takes priority */}
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 2 }}>
+          <WorkIcon color="primary" sx={{ fontSize: { sm: 28, md: 32 } }} />
+          <Typography variant="h5" fontWeight="bold" sx={{ fontSize: { sm: '1.25rem', md: '1.5rem' } }}>
             My Schedule
           </Typography>
         </Box>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={previousMonth} aria-label="Previous month">
+        {/* Month Navigation - Primary on mobile */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          gap: { xs: 0.5, sm: 1 },
+          order: { xs: -1, md: 0 },
+        }}>
+          <IconButton onClick={previousMonth} aria-label="Previous month" size={isMobile ? 'small' : 'medium'}>
             <ChevronLeftIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ minWidth: 180, textAlign: 'center' }}>
-            {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              minWidth: { xs: 120, sm: 160, md: 180 }, 
+              textAlign: 'center',
+              fontSize: { xs: '0.95rem', sm: '1.1rem', md: '1.25rem' },
+              fontWeight: 600,
+            }}
+          >
+            {isMobile ? `${monthNames[currentDate.getMonth()].slice(0, 3)} ${currentDate.getFullYear()}` : `${monthNames[currentDate.getMonth()]} ${currentDate.getFullYear()}`}
           </Typography>
-          <IconButton onClick={nextMonth} aria-label="Next month">
+          <IconButton onClick={nextMonth} aria-label="Next month" size={isMobile ? 'small' : 'medium'}>
             <ChevronRightIcon />
           </IconButton>
           <Tooltip title="Go to Today">
-            <IconButton onClick={goToToday} color="primary" aria-label="Go to today">
+            <IconButton onClick={goToToday} color="primary" aria-label="Go to today" size={isMobile ? 'small' : 'medium'}>
               <TodayIcon />
             </IconButton>
           </Tooltip>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        {/* Controls */}
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: { xs: 'space-between', md: 'flex-end' },
+          gap: { xs: 1, md: 2 },
+          flexWrap: 'wrap',
+        }}>
           {isAdmin && (
             <FormControlLabel
               control={
@@ -284,16 +344,24 @@ const Calendar = () => {
                   checked={viewAll}
                   onChange={(e) => setViewAll(e.target.checked)}
                   color="primary"
+                  size={isMobile ? 'small' : 'medium'}
                 />
               }
-              label="View All Crews"
+              label={isMobile ? 'All Crews' : 'View All Crews'}
+              sx={{ 
+                mr: 0,
+                '& .MuiFormControlLabel-label': { 
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' } 
+                } 
+              }}
             />
           )}
           <Chip 
-            icon={<WorkIcon />} 
-            label={`${jobs.length} Jobs This Month`} 
+            icon={<WorkIcon sx={{ fontSize: { xs: 14, sm: 18 } }} />} 
+            label={isMobile ? `${jobs.length} Jobs` : `${jobs.length} Jobs This Month`} 
             color="primary" 
             variant="outlined"
+            size={isMobile ? 'small' : 'medium'}
           />
         </Box>
       </Paper>
@@ -307,23 +375,24 @@ const Calendar = () => {
           <CircularProgress />
         </Box>
       ) : (
-        <Paper sx={{ p: 2 }}>
-          {/* Day Headers - Fixed width columns */}
+        <Paper sx={{ p: { xs: 0.5, sm: 1, md: 2 }, overflow: 'hidden' }}>
+          {/* Day Headers - Responsive columns */}
           <Box sx={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(7, 1fr)', 
-            gap: 1, 
-            mb: 1 
+            gap: { xs: 0.25, sm: 0.5, md: 1 }, 
+            mb: { xs: 0.5, sm: 1 } 
           }}>
-            {dayNames.map((day) => (
+            {(isMobile ? dayNamesShort : dayNames).map((day, index) => (
               <Typography
-                key={day}
+                key={`${day}-${index}`}
                 variant="subtitle2"
                 align="center"
                 sx={{ 
                   fontWeight: 'bold', 
                   color: 'text.secondary',
-                  py: 1,
+                  py: { xs: 0.5, sm: 1 },
+                  fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.875rem' },
                   borderBottom: '2px solid',
                   borderColor: 'divider'
                 }}
@@ -333,11 +402,11 @@ const Calendar = () => {
             ))}
           </Box>
 
-          {/* Calendar Grid - Same fixed width columns */}
+          {/* Calendar Grid - Responsive columns */}
           <Box sx={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(7, 1fr)', 
-            gap: 1 
+            gap: { xs: 0.25, sm: 0.5, md: 1 } 
           }}>
             {renderCalendarDays()}
           </Box>
@@ -345,13 +414,17 @@ const Calendar = () => {
       )}
 
       {/* Legend */}
-      <Paper sx={{ p: 2, mt: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>Priority Legend:</Typography>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      <Paper sx={{ p: { xs: 1, sm: 2 }, mt: { xs: 1, sm: 2 } }}>
+        <Typography variant="subtitle2" gutterBottom sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+          Priority Legend:
+        </Typography>
+        <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap' }}>
           {['emergency', 'high', 'medium', 'low'].map((priority) => (
             <Box key={priority} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 12, height: 12, bgcolor: getPriorityColor(priority), borderRadius: 0.5 }} />
-              <Typography variant="caption" sx={{ textTransform: 'capitalize' }}>{priority}</Typography>
+              <Box sx={{ width: { xs: 10, sm: 12 }, height: { xs: 10, sm: 12 }, bgcolor: getPriorityColor(priority), borderRadius: 0.5 }} />
+              <Typography variant="caption" sx={{ textTransform: 'capitalize', fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
+                {priority}
+              </Typography>
             </Box>
           ))}
         </Box>
