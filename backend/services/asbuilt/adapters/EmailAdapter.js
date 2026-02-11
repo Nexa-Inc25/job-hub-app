@@ -74,7 +74,7 @@ class EmailAdapter {
    */
   buildEmail(submission, section, config) {
     // Replace placeholders in subject
-    let subject = config.subject
+    const subject = config.subject
       .replace('{{pmNumber}}', submission.pmNumber || 'N/A')
       .replace('{{circuitId}}', submission.circuitId || 'N/A')
       .replace('{{sectionType}}', section.sectionType);

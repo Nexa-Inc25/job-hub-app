@@ -41,11 +41,22 @@ export default [
     },
   },
   {
+    // Load test files use k6 globals
+    files: ['load-tests/**/*.js'],
+    languageOptions: {
+      globals: {
+        __ENV: 'readonly',
+      },
+    },
+  },
+  {
     ignores: [
       'node_modules/**',
       'coverage/**',
       'uploads/**',
       'temp/**',
+      'scripts/**',      // CLI scripts with shebangs
+      'tests/smoke.test.js', // Standalone script
     ],
   },
 ];

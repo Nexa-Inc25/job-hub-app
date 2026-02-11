@@ -104,7 +104,7 @@ export function useGeolocation(options = {}) {
     if (!isMountedRef.current) return;
     
     let errorMessage;
-    let errorCode = geoError.code;
+    const errorCode = geoError.code;
     
     switch (geoError.code) {
       case 1: // PERMISSION_DENIED

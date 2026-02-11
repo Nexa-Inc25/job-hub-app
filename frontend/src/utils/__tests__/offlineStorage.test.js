@@ -78,7 +78,7 @@ const createMockTransaction = (storeNames) => {
       index: (indexName) => ({
         getAll: (query) => {
           mockStores[name] = mockStores[name] || [];
-          let items = mockStores[name].filter(item => item[indexName] === query);
+          const items = mockStores[name].filter(item => item[indexName] === query);
           return createMockRequest(items);
         },
       }),

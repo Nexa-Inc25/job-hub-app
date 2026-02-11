@@ -45,7 +45,7 @@ const createTestApp = () => {
   app.get('/api/jobs', authenticateUser, async (req, res) => {
     try {
       const user = await User.findById(req.userId).select('companyId');
-      let query = { isDeleted: { $ne: true } };
+      const query = { isDeleted: { $ne: true } };
       
       if (user?.companyId) {
         query.companyId = user.companyId;
@@ -104,7 +104,7 @@ const createTestApp = () => {
         return res.status(404).json({ error: 'Job not found' });
       }
       
-      let query = { _id: req.params.id, companyId: user.companyId };
+      const query = { _id: req.params.id, companyId: user.companyId };
       
       if (!req.isAdmin) {
         query.$or = [
@@ -131,7 +131,7 @@ const createTestApp = () => {
       const { status } = req.body;
       const user = await User.findById(req.userId).select('companyId');
       
-      let query = { _id: req.params.id };
+      const query = { _id: req.params.id };
       
       if (user?.companyId) {
         query.companyId = user.companyId;
@@ -167,7 +167,7 @@ const createTestApp = () => {
       const { reason } = req.body || {};
       const user = await User.findById(req.userId).select('companyId');
       
-      let query = { _id: req.params.id };
+      const query = { _id: req.params.id };
       
       if (user?.companyId) {
         query.companyId = user.companyId;

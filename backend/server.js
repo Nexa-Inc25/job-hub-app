@@ -1453,7 +1453,7 @@ app.get('/api/calendar', authenticateUser, async (req, res) => {
     console.log('Date range:', startDate.toISOString(), 'to', endDate.toISOString());
     
     // Build query - ALWAYS filter by company first
-    let query = {
+    const query = {
       crewScheduledDate: { $gte: startDate, $lte: endDate }
     };
     
@@ -2252,7 +2252,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
   console.log('PDF exists:', fs.existsSync(pdfPath));
   
   try {
-    const job = await Job.findById(jobId);
+    let job = await Job.findById(jobId);
     if (!job) {
       console.log('Job not found for asset extraction:', jobId);
       return;
@@ -2689,7 +2689,7 @@ app.get('/api/jobs/:id', authenticateUser, async (req, res) => {
     }
     
     // Build query - ALWAYS filter by company
-    let query = { _id: req.params.id, companyId: userCompanyId };
+    const query = { _id: req.params.id, companyId: userCompanyId };
     
     // Non-admins also need ownership/assignment check within their company
     if (!req.isAdmin) {
@@ -3382,7 +3382,7 @@ app.get('/api/admin/owner-stats', authenticateUser, requireSuperAdmin, async (re
     ]);
     
     // === API USAGE & COSTS ===
-    let apiUsageStats = { openai: null, r2_storage: null };
+    const apiUsageStats = { openai: null, r2_storage: null };
     let dailyApiCosts = [];
     let totalApiCostThisMonth = 0;
     
@@ -3401,7 +3401,7 @@ app.get('/api/admin/owner-stats', authenticateUser, requireSuperAdmin, async (re
     }
     
     // === AI TRAINING DATA METRICS ===
-    let aiTrainingStats = { total: 0, complete: 0, validated: 0 };
+    const aiTrainingStats = { total: 0, complete: 0, validated: 0 };
     try {
       aiTrainingStats.total = await AITrainingData.countDocuments();
       aiTrainingStats.complete = await AITrainingData.countDocuments({ isComplete: true });
@@ -3465,7 +3465,7 @@ app.get('/api/admin/owner-stats', authenticateUser, requireSuperAdmin, async (re
     ]);
     
     // === STORAGE METRICS (R2) ===
-    let storageStats = { configured: r2Storage.isR2Configured() };
+    const storageStats = { configured: r2Storage.isR2Configured() };
     
     res.json({
       timestamp: now.toISOString(),
@@ -4428,7 +4428,7 @@ app.delete('/api/jobs/:id', authenticateUser, async (req, res) => {
     const currentUser = await User.findById(req.userId).select('companyId');
     const userCompanyId = currentUser?.companyId;
 
-    let query = { _id: req.params.id };
+    const query = { _id: req.params.id };
     
     // CRITICAL: Always filter by company
     if (userCompanyId) {
@@ -4583,7 +4583,7 @@ app.get('/api/jobs/archived', authenticateUser, async (req, res) => {
     
     const { search, page = 1, limit = 50 } = req.query;
     
-    let query = { isArchived: true, companyId: currentUser.companyId };
+    const query = { isArchived: true, companyId: currentUser.companyId };
     
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -4642,7 +4642,7 @@ app.get('/api/jobs/deleted', authenticateUser, async (req, res) => {
     
     const { search, page = 1, limit = 50 } = req.query;
     
-    let query = { isDeleted: true, companyId: currentUser.companyId };
+    const query = { isDeleted: true, companyId: currentUser.companyId };
     
     if (search) {
       const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
@@ -4696,7 +4696,7 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
     const currentUser = await User.findById(req.userId).select('companyId');
 
     // Allow file upload if user has access to this job (IN THEIR COMPANY)
-    let query = { _id: id };
+    const query = { _id: id };
     if (currentUser?.companyId) {
       query.companyId = currentUser.companyId;
     }
@@ -4858,7 +4858,7 @@ app.post('/api/jobs/:id/folders/:folderName/upload', authenticateUser, upload.ar
           
           // Build the path to the target array
           let arrayPath = `folders.$[folder].documents`;
-          let arrayFilters = [{ 'folder.name': folderName }];
+          const arrayFilters = [{ 'folder.name': folderName }];
           
           if (subfolder) {
             const parts = subfolder.split('/');
@@ -4902,7 +4902,7 @@ app.post('/api/jobs/:id/upload', authenticateUser, upload.single('file'), async 
     const currentUser = await User.findById(req.userId).select('companyId');
     
     // Build query with company filter
-    let query = { _id: id };
+    const query = { _id: id };
     if (currentUser?.companyId) {
       query.companyId = currentUser.companyId;
     }
@@ -5019,7 +5019,7 @@ app.post('/api/jobs/:id/files', authenticateUser, upload.single('file'), async (
     
     const currentUser = await User.findById(req.userId).select('companyId');
     
-    let query = { _id: id };
+    const query = { _id: id };
     if (currentUser?.companyId) {
       query.companyId = currentUser.companyId;
     }
@@ -5124,7 +5124,7 @@ app.post('/api/jobs/:id/documents', authenticateUser, upload.single('document'),
     const currentUser = await User.findById(req.userId).select('companyId');
     
     // Build query with company filter
-    let query = { _id: id };
+    const query = { _id: id };
     if (currentUser?.companyId) {
       query.companyId = currentUser.companyId;
     }
@@ -5254,7 +5254,7 @@ app.post('/api/jobs/:id/photos', authenticateUser, upload.array('photos', 20), a
     });
     
     // Build base query with company filter
-    let query = { _id: id };
+    const query = { _id: id };
     if (currentUser?.companyId) {
       query.companyId = currentUser.companyId;
     }
@@ -6828,7 +6828,7 @@ app.post('/api/jobs/:id/audit/:auditId/correction', authenticateUser, upload.arr
     // Upload photos to R2
     const correctionPhotos = [];
     for (const file of req.files) {
-      let photoData = {
+      const photoData = {
         name: file.originalname,
         uploadDate: new Date(),
         uploadedBy: req.userId

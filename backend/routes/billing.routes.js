@@ -1898,8 +1898,8 @@ router.post('/claims/bulk-export-fbdi', async (req, res) => {
     }
 
     // Collect all FBDI data
-    let allHeaders = [];
-    let allLines = [];
+    const allHeaders = [];
+    const allLines = [];
     let headerColumns = null;
     let lineColumns = null;
 

@@ -158,7 +158,7 @@ function buildCrewSummary(lme) {
  * @returns {Promise<Object>} Data context for template filling
  */
 async function buildDataContext({ jobId, companyId, user, customData = {} }) {
-  let dataContext = { ...customData };
+  const dataContext = { ...customData };
   
   if (jobId) {
     const job = await Job.findOne({ 

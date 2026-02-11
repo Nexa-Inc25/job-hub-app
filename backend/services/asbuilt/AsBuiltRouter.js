@@ -354,41 +354,42 @@ class AsBuiltRouter {
       switch (destination) {
         case 'oracle_ppm':
         case 'oracle_eam':
-        case 'oracle_payables':
+        case 'oracle_payables': {
           const OracleAdapter = require('./adapters/OracleAdapter');
           this.adapters[destination] = new OracleAdapter(destination);
           break;
-          
-        case 'gis_esri':
+        }
+        case 'gis_esri': {
           const GISAdapter = require('./adapters/GISAdapter');
           this.adapters[destination] = new GISAdapter();
           break;
-          
+        }
         case 'email_mapping':
         case 'email_do':
         case 'email_permits':
         case 'email_compliance':
-        case 'email_estimating':
+        case 'email_estimating': {
           const EmailAdapter = require('./adapters/EmailAdapter');
           this.adapters[destination] = new EmailAdapter(destination);
           break;
-          
+        }
         case 'sharepoint_do':
         case 'sharepoint_permits':
-        case 'sharepoint_utcs':
+        case 'sharepoint_utcs': {
           const SharePointAdapter = require('./adapters/SharePointAdapter');
           this.adapters[destination] = new SharePointAdapter(destination);
           break;
-          
-        case 'regulatory_portal':
+        }
+        case 'regulatory_portal': {
           const RegulatoryAdapter = require('./adapters/RegulatoryAdapter');
           this.adapters[destination] = new RegulatoryAdapter();
           break;
-          
-        default:
+        }
+        default: {
           // Fallback to archive adapter
           const ArchiveAdapter = require('./adapters/ArchiveAdapter');
           this.adapters[destination] = new ArchiveAdapter();
+        }
       }
     }
     
