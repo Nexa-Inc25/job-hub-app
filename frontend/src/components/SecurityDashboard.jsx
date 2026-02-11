@@ -49,26 +49,49 @@ import { useThemeMode } from '../ThemeContext';
 import { getThemeColors } from './shared/themeUtils';
 
 // Severity colors - theme-aware with proper contrast
+// Uses explicit dark backgrounds for dark mode, light tints for light mode
 const getSeverityColors = (mode) => {
-  const isDark = mode === 'dark';
+  if (mode === 'dark') {
+    return {
+      critical: { 
+        bg: '#2d1f1f',      // Dark red-tinted background
+        text: '#f87171',    // Light red for chip
+        cellText: '#ffffff', // White text for cells
+        border: '#991b1b'   // Dark red border
+      },
+      warning: { 
+        bg: '#2d2a1f',      // Dark amber-tinted background
+        text: '#fbbf24',    // Light amber for chip
+        cellText: '#ffffff', // White text for cells
+        border: '#92400e'   // Dark amber border
+      },
+      info: { 
+        bg: '#1e293b',      // Dark blue background
+        text: '#60a5fa',    // Light blue for chip
+        cellText: '#ffffff', // White text for cells
+        border: '#1e40af'   // Dark blue border
+      },
+    };
+  }
+  // Light mode
   return {
     critical: { 
-      bg: isDark ? '#1f1315' : '#fef2f2',  // Dark: very dark red, Light: light pink
-      text: isDark ? '#f87171' : '#dc2626',
-      cellText: isDark ? '#fca5a5' : '#7f1d1d', // High contrast text
-      border: isDark ? '#7f1d1d' : '#fecaca' 
+      bg: '#fef2f2',      // Light pink background
+      text: '#dc2626',    // Red for chip
+      cellText: '#450a0a', // Very dark red text
+      border: '#fecaca'   // Light red border
     },
     warning: { 
-      bg: isDark ? '#1a1814' : '#fffbeb',  // Dark: very dark amber, Light: light cream
-      text: isDark ? '#fbbf24' : '#d97706',
-      cellText: isDark ? '#fcd34d' : '#78350f', // High contrast text
-      border: isDark ? '#78350f' : '#fde68a' 
+      bg: '#fffbeb',      // Light cream background
+      text: '#d97706',    // Amber for chip
+      cellText: '#451a03', // Very dark amber text
+      border: '#fde68a'   // Light amber border
     },
     info: { 
-      bg: isDark ? '#0f172a' : '#eff6ff',  // Dark: dark blue, Light: light blue
-      text: isDark ? '#60a5fa' : '#2563eb',
-      cellText: isDark ? '#93c5fd' : '#1e3a8a', // High contrast text
-      border: isDark ? '#1e3a8a' : '#bfdbfe' 
+      bg: '#eff6ff',      // Light blue background
+      text: '#2563eb',    // Blue for chip
+      cellText: '#1e3a8a', // Dark blue text
+      border: '#bfdbfe'   // Light blue border
     },
   };
 };
@@ -500,9 +523,10 @@ const SecurityDashboard = () => {
                     <TableRow
                       key={event._id || idx}
                       sx={{
-                        bgcolor: severityConfig.bg,
+                        backgroundColor: `${severityConfig.bg} !important`,
                         '& .MuiTableCell-root': {
-                          color: severityConfig.cellText,
+                          color: `${severityConfig.cellText} !important`,
+                          backgroundColor: 'transparent !important',
                           borderBottomColor: severityConfig.border,
                         },
                       }}
