@@ -13,7 +13,7 @@
  * - Quick access to start work
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate, Link } from 'react-router-dom';
 import {
@@ -25,10 +25,7 @@ import {
   Chip,
   IconButton,
   Tooltip,
-  Divider,
   Avatar,
-  AvatarGroup,
-  LinearProgress,
   Skeleton,
   useTheme,
   alpha,
@@ -43,10 +40,8 @@ import WbSunnyIcon from '@mui/icons-material/WbSunny';
 import CloudIcon from '@mui/icons-material/Cloud';
 import UmbrellaIcon from '@mui/icons-material/Umbrella';
 import AcUnitIcon from '@mui/icons-material/AcUnit';
-import WarningIcon from '@mui/icons-material/Warning';
 import ThunderstormIcon from '@mui/icons-material/Thunderstorm';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import api from '../api';
 import { openDirections } from '../utils/navigation';
 
 // Weather icon mapping
@@ -68,7 +63,7 @@ const formatTime = (dateString) => {
 };
 
 // Single job card within the widget
-const TodayJobCard = ({ job, onStartWork, onStartTailboard }) => {
+const TodayJobCard = ({ job, onStartWork: _onStartWork, onStartTailboard }) => {
   const navigate = useNavigate();
   const theme = useTheme();
   
@@ -185,20 +180,18 @@ const TodayJobCard = ({ job, onStartWork, onStartTailboard }) => {
         </Tooltip>
         
         {job.status === 'scheduled' && (
-          <>
-            <Tooltip title="Start Tailboard">
-              <Button
-                size="small"
-                variant="outlined"
-                color="success"
-                startIcon={<ChecklistIcon />}
-                onClick={() => onStartTailboard?.(job)}
-                sx={{ minWidth: 0, px: 1.5 }}
-              >
-                Tailboard
-              </Button>
-            </Tooltip>
-          </>
+          <Tooltip title="Start Tailboard">
+            <Button
+              size="small"
+              variant="outlined"
+              color="success"
+              startIcon={<ChecklistIcon />}
+              onClick={() => onStartTailboard?.(job)}
+              sx={{ minWidth: 0, px: 1.5 }}
+            >
+              Tailboard
+            </Button>
+          </Tooltip>
         )}
         
         {job.status === 'in_progress' || job.status === 'in-progress' ? (
@@ -267,7 +260,7 @@ const TodayWidget = ({ jobs = [], weather, loading, onStartTailboard }) => {
               </Typography>
               {todaysJobs.length > 0 && (
                 <Chip 
-                  label={`${todaysJobs.length} job${todaysJobs.length !== 1 ? 's' : ''}`}
+                  label={`${todaysJobs.length} job${todaysJobs.length === 1 ? '' : 's'}`}
                   size="small"
                   color="primary"
                   variant="outlined"

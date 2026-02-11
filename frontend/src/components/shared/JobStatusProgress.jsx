@@ -13,7 +13,6 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Box, Typography, Tooltip, useTheme, useMediaQuery } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
 import BlockIcon from '@mui/icons-material/Block';
 
 // Define workflow steps in order
@@ -57,6 +56,23 @@ const COLORS = {
   stuck: '#ef4444',      // Red
 };
 
+// Size configuration lookup
+const SIZE_CONFIG = {
+  small: { dotSize: 16, fontSize: '0.65rem', lineHeight: 2 },
+  medium: { dotSize: 22, fontSize: '0.7rem', lineHeight: 3 },
+  large: { dotSize: 28, fontSize: '0.8rem', lineHeight: 4 },
+};
+
+/**
+ * Get the color for a step based on its state
+ */
+const getStepColor = (isStuck, isCurrent, isCompleted) => {
+  if (isStuck && isCurrent) return COLORS.stuck;
+  if (isCompleted) return COLORS.completed;
+  if (isCurrent) return COLORS.current;
+  return COLORS.upcoming;
+};
+
 const JobStatusProgress = ({ 
   status, 
   variant = 'default',
@@ -71,9 +87,7 @@ const JobStatusProgress = ({
   const isStuck = status === 'stuck';
   
   // Sizing
-  const dotSize = size === 'small' ? 16 : size === 'large' ? 28 : 22;
-  const fontSize = size === 'small' ? '0.65rem' : size === 'large' ? '0.8rem' : '0.7rem';
-  const lineHeight = size === 'small' ? 2 : size === 'large' ? 4 : 3;
+  const { dotSize, fontSize, lineHeight } = SIZE_CONFIG[size] || SIZE_CONFIG.medium;
   
   // Compact variant for cards
   if (variant === 'compact') {
@@ -134,13 +148,7 @@ const JobStatusProgress = ({
                   width: 8,
                   height: 8,
                   borderRadius: '50%',
-                  bgcolor: isStuck && isCurrent 
-                    ? COLORS.stuck 
-                    : isCompleted 
-                      ? COLORS.completed 
-                      : isCurrent 
-                        ? COLORS.current 
-                        : COLORS.upcoming,
+                  bgcolor: getStepColor(isStuck, isCurrent, isCompleted),
                   transition: 'background-color 0.2s ease-in-out',
                 }}
               />
@@ -158,7 +166,6 @@ const JobStatusProgress = ({
         {WORKFLOW_STEPS.map((step, index) => {
           const isCompleted = index < currentIndex;
           const isCurrent = index === currentIndex;
-          const isUpcoming = index > currentIndex;
           
           // Determine color
           let color = COLORS.upcoming;

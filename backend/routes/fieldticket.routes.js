@@ -29,10 +29,10 @@ const notificationService = require('../services/notification.service');
 /**
  * Valid change reasons for field tickets
  */
-const VALID_CHANGE_REASONS = [
+const VALID_CHANGE_REASONS = new Set([
   'scope_change', 'unforeseen_condition', 'utility_request', 'safety_requirement',
   'permit_requirement', 'design_error', 'weather_damage', 'third_party_damage', 'other'
-];
+]);
 
 /**
  * Validate required fields for field ticket creation
@@ -403,7 +403,7 @@ router.post('/', async (req, res) => {
     const jobId = sanitizeObjectId(rawJobId);
 
     // Validate change reason
-    if (!VALID_CHANGE_REASONS.includes(changeReason)) {
+    if (!VALID_CHANGE_REASONS.has(changeReason)) {
       return res.status(400).json({ error: 'Invalid change reason' });
     }
 

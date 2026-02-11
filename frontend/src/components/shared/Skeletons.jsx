@@ -66,7 +66,7 @@ export const JobListSkeleton = ({ count = 5, variant = 'compact' }) => {
   return (
     <Box>
       {Array.from({ length: count }).map((_, index) => (
-        <JobCardSkeleton key={index} variant={variant} />
+        <JobCardSkeleton key={`skeleton-job-${index}`} variant={variant} />
       ))}
     </Box>
   );
@@ -84,7 +84,7 @@ export const TableRowSkeleton = ({ columns = 5 }) => {
   return (
     <TableRow>
       {Array.from({ length: columns }).map((_, index) => (
-        <TableCell key={index}>
+        <TableCell key={`skeleton-cell-${index}`}>
           <Skeleton variant="text" width={index === 0 ? '60%' : '80%'} height={20} />
         </TableCell>
       ))}
@@ -103,7 +103,7 @@ export const TableSkeleton = ({ rows = 5, columns = 5 }) => {
   return (
     <>
       {Array.from({ length: rows }).map((_, index) => (
-        <TableRowSkeleton key={index} columns={columns} />
+        <TableRowSkeleton key={`skeleton-row-${index}`} columns={columns} />
       ))}
     </>
   );
@@ -136,7 +136,7 @@ export const FormSkeleton = ({ fields = 4 }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
       {Array.from({ length: fields }).map((_, index) => (
-        <Box key={index}>
+        <Box key={`skeleton-field-${index}`}>
           <Skeleton variant="text" width={120} height={16} sx={{ mb: 0.5 }} />
           <Skeleton variant="rounded" width="100%" height={56} />
         </Box>
@@ -253,7 +253,7 @@ export const BillingGridSkeleton = () => {
       {/* Grid rows */}
       {Array.from({ length: 8 }).map((_, index) => (
         <Box 
-          key={index} 
+          key={`skeleton-grid-row-${index}`} 
           sx={{ 
             display: 'flex', 
             px: 2, 
