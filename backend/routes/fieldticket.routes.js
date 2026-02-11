@@ -27,6 +27,40 @@ const notificationService = require('../services/notification.service');
 // ============================================================================
 
 /**
+ * Valid change reasons for field tickets
+ */
+const VALID_CHANGE_REASONS = [
+  'scope_change', 'unforeseen_condition', 'utility_request', 'safety_requirement',
+  'permit_requirement', 'design_error', 'weather_damage', 'third_party_damage', 'other'
+];
+
+/**
+ * Validate required fields for field ticket creation
+ * @param {Object} body - Request body
+ * @returns {string[]} - Array of missing field names
+ */
+function validateRequiredFields(body) {
+  const missingFields = [];
+  const jobId = sanitizeObjectId(body.jobId);
+  
+  if (!jobId) missingFields.push('jobId');
+  if (!body.changeReason) missingFields.push('changeReason');
+  if (!body.changeDescription) missingFields.push('changeDescription');
+  if (!body.workDate) missingFields.push('workDate');
+  
+  const hasValidLocation = body.location && 
+    typeof body.location === 'object' &&
+    body.location.latitude !== undefined && 
+    body.location.longitude !== undefined;
+  
+  if (!hasValidLocation) {
+    missingFields.push('location (latitude/longitude)');
+  }
+  
+  return missingFields;
+}
+
+/**
  * Validate and sanitize labor entries
  */
 function sanitizeLaborEntries(entries) {
@@ -357,22 +391,20 @@ router.post('/', async (req, res) => {
       offlineId
     } = req.body;
 
-    // Validate required fields
-    const jobId = sanitizeObjectId(rawJobId);
-    const missingFields = [];
-    if (!jobId) missingFields.push('jobId');
-    if (!changeReason) missingFields.push('changeReason');
-    if (!changeDescription) missingFields.push('changeDescription');
-    if (!workDate) missingFields.push('workDate');
-    if (!location || typeof location !== 'object') missingFields.push('location');
-    else if (location.latitude === undefined || location.longitude === undefined) {
-      missingFields.push('location.latitude/longitude');
-    }
-    
+    // Validate required fields using helper
+    const missingFields = validateRequiredFields(req.body);
     if (missingFields.length > 0) {
       return res.status(400).json({ 
         error: `Missing required fields: ${missingFields.join(', ')}` 
       });
+    }
+
+    // Sanitize jobId after validation
+    const jobId = sanitizeObjectId(rawJobId);
+
+    // Validate change reason
+    if (!VALID_CHANGE_REASONS.includes(changeReason)) {
+      return res.status(400).json({ error: 'Invalid change reason' });
     }
 
     // Validate job exists and user has access
@@ -383,15 +415,6 @@ router.post('/', async (req, res) => {
     });
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
-    }
-
-    // Validate change reason
-    const validReasons = [
-      'scope_change', 'unforeseen_condition', 'utility_request', 'safety_requirement',
-      'permit_requirement', 'design_error', 'weather_damage', 'third_party_damage', 'other'
-    ];
-    if (!validReasons.includes(changeReason)) {
-      return res.status(400).json({ error: 'Invalid change reason' });
     }
 
     // Create the field ticket

@@ -1915,7 +1915,13 @@ const Dashboard = () => {
                         )}
                       </Box>
                       <Typography variant="caption" color="text.secondary" noWrap>
-                        {job.cancelReason ? `${job.cancelReason.substring(0, 50)}${job.cancelReason.length > 50 ? '...' : ''}` : job.address}
+                        {(() => {
+                          if (job.cancelReason) {
+                            const truncated = job.cancelReason.substring(0, 50);
+                            return job.cancelReason.length > 50 ? `${truncated}...` : truncated;
+                          }
+                          return job.address;
+                        })()}
                         {!job.cancelReason && job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
                       </Typography>
                     </Box>
