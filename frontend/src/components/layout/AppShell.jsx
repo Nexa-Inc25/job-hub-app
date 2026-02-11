@@ -15,6 +15,8 @@ import Breadcrumbs from './Breadcrumbs';
 
 // Lazy load CommandPalette for better initial load
 const CommandPalette = lazy(() => import('./CommandPalette'));
+// Lazy load QuickActionsFAB for mobile
+const QuickActionsFAB = lazy(() => import('../shared/QuickActionsFAB'));
 
 const AppShell = ({ children }) => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -99,6 +101,11 @@ const AppShell = ({ children }) => {
           open={commandOpen} 
           onOpenChange={setCommandOpen} 
         />
+      </Suspense>
+
+      {/* Quick Actions FAB for mobile */}
+      <Suspense fallback={null}>
+        <QuickActionsFAB />
       </Suspense>
 
       {/* Mobile sidebar overlay */}
