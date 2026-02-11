@@ -124,7 +124,8 @@ blockedIPSchema.statics.blockIP = async function(ip, options = {}) {
     { upsert: true, new: true }
   );
   
-  console.error(`[IP BLOCKED] ${ip} - ${reason} - Duration: ${permanent ? 'PERMANENT' : `${Math.ceil(finalDuration / 60000)} minutes`} - Block #${blockCount}`);
+  const durationText = permanent ? 'PERMANENT' : `${Math.ceil(finalDuration / 60000)} minutes`;
+  console.error(`[IP BLOCKED] ${ip} - ${reason} - Duration: ${durationText} - Block #${blockCount}`);
   
   return block;
 };
@@ -160,7 +161,7 @@ blockedIPSchema.statics.getBlockInfo = async function(ip) {
     return null;
   }
   
-  const remainingMs = block.permanent ? Infinity : block.expiresAt - new Date();
+  const remainingMs = block.permanent ? Infinity : block.expiresAt - Date.now();
   
   return {
     ip: block.ip,

@@ -182,20 +182,27 @@ const OwnerDashboard = () => {
     }
   };
 
-  const fetchData = useCallback(async () => {
-      setLoading(true);
-      setError('');
-      
+  // Handle token validation separately to reduce cognitive complexity
+  const handleTokenValidation = useCallback(() => {
     const tokenCheck = validateSuperAdminToken();
     if (tokenCheck.redirect) {
-        navigate('/login');
-        return;
-      }
+      navigate('/login');
+      return { shouldProceed: false };
+    }
     if (!tokenCheck.valid) {
-          setError('Super Admin access required. This dashboard is only for FieldLedger platform owners.');
-          setLoading(false);
-        return;
-      }
+      setError('Super Admin access required. This dashboard is only for FieldLedger platform owners.');
+      setLoading(false);
+      return { shouldProceed: false };
+    }
+    return { shouldProceed: true };
+  }, [navigate]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    
+    const { shouldProceed } = handleTokenValidation();
+    if (!shouldProceed) return;
 
     try {
       const [statsRes, healthRes, feedbackRes] = await Promise.all([
@@ -215,7 +222,7 @@ const OwnerDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, handleTokenValidation]);
 
   useEffect(() => {
     fetchData();
