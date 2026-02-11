@@ -44,13 +44,15 @@ import WarningIcon from '@mui/icons-material/Warning';
 import { useGeolocation, GPS_THRESHOLDS } from '../../hooks/useGeolocation';
 import { useAppColors } from '../shared/themeUtils';
 
-// Get GPS color based on quality
+// Get GPS color based on quality - fallback to hardcoded colors if theme colors unavailable
 const getGPSColor = (quality, colors) => {
+  const fallback = { gpsHigh: '#00e676', gpsGood: '#69f0ae', gpsAcceptable: '#ffab00', gpsPoor: '#ff5252' };
+  const c = colors || fallback;
   switch (quality) {
-    case 'high': return colors.gpsHigh;
-    case 'good': return colors.gpsGood;
-    case 'acceptable': return colors.gpsAcceptable;
-    default: return colors.gpsPoor;
+    case 'high': return c.gpsHigh;
+    case 'good': return c.gpsGood;
+    case 'acceptable': return c.gpsAcceptable;
+    default: return c.gpsPoor;
   }
 };
 
@@ -123,7 +125,7 @@ const GPSBadge = ({ position, loading, error, onRetry }) => {
   }
 
   const quality = position.quality;
-  const color = getGPSColor(quality);
+  const color = getGPSColor(quality, COLORS);
   const accuracy = Math.round(position.accuracy);
 
   return (
@@ -493,7 +495,7 @@ const GPSPhotoCapture = ({
                   borderRadius: 2,
                   p: 1.5,
                 }}>
-                  <Typography sx={{ color: getGPSColor(gpsQuality), fontSize: '0.75rem', fontWeight: 600 }}>
+                  <Typography sx={{ color: getGPSColor(gpsQuality, COLORS), fontSize: '0.75rem', fontWeight: 600 }}>
                     📍 {position.latitude.toFixed(6)}, {position.longitude.toFixed(6)}
                   </Typography>
                   <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.7rem' }}>
