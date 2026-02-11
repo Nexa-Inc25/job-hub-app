@@ -3794,7 +3794,7 @@ app.get('/api/admin/audit-logs/export', authenticateUser, requireAdmin, async (r
 // Get all blocked IPs
 app.get('/api/admin/security/blocked-ips', authenticateUser, requireSuperAdmin, async (req, res) => {
   try {
-    const blockedIPs = getBlockedIPs();
+    const blockedIPs = await getBlockedIPs();
     res.json({
       count: blockedIPs.length,
       blockedIPs
@@ -3862,7 +3862,7 @@ app.delete('/api/admin/security/unblock-ip/:ip', authenticateUser, requireSuperA
       return res.status(400).json({ error: 'IP address is required' });
     }
     
-    const wasBlocked = unblockIP(ip);
+    const wasBlocked = await unblockIP(ip);
     
     if (!wasBlocked) {
       return res.status(404).json({ error: 'IP was not blocked' });
