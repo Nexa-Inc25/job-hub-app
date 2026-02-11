@@ -696,7 +696,7 @@ const VoiceCapture = ({
           <MicIcon sx={{ color: COLORS.primary }} />
           <Typography variant="h6">Voice Input</Typography>
         </Box>
-        <IconButton onClick={onClose} sx={{ color: COLORS.textSecondary }}>
+        <IconButton onClick={onClose} sx={{ color: COLORS.textSecondary }} aria-label="Close">
           <CloseIcon />
         </IconButton>
       </DialogTitle>

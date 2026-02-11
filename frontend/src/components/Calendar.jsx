@@ -260,17 +260,17 @@ const Calendar = () => {
         </Box>
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={previousMonth}>
+          <IconButton onClick={previousMonth} aria-label="Previous month">
             <ChevronLeftIcon />
           </IconButton>
           <Typography variant="h6" sx={{ minWidth: 180, textAlign: 'center' }}>
             {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
           </Typography>
-          <IconButton onClick={nextMonth}>
+          <IconButton onClick={nextMonth} aria-label="Next month">
             <ChevronRightIcon />
           </IconButton>
           <Tooltip title="Go to Today">
-            <IconButton onClick={goToToday} color="primary">
+            <IconButton onClick={goToToday} color="primary" aria-label="Go to today">
               <TodayIcon />
             </IconButton>
           </Tooltip>

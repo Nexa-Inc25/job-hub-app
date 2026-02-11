@@ -119,7 +119,7 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
               {entry.workerName || 'Worker'}
             </Typography>
           </Box>
-          <IconButton size="small" onClick={onRemove} sx={{ color: COLORS.error }}>
+          <IconButton size="small" onClick={onRemove} sx={{ color: COLORS.error }} aria-label="Remove entry">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -235,7 +235,7 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
               {entry.description || 'Equipment'}
             </Typography>
           </Box>
-          <IconButton size="small" onClick={onRemove} sx={{ color: COLORS.error }}>
+          <IconButton size="small" onClick={onRemove} sx={{ color: COLORS.error }} aria-label="Remove entry">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -349,7 +349,7 @@ const MaterialEntry = ({ entry, onChange, onRemove }) => {
               {entry.description || 'Material'}
             </Typography>
           </Box>
-          <IconButton size="small" onClick={onRemove} sx={{ color: COLORS.error }}>
+          <IconButton size="small" onClick={onRemove} sx={{ color: COLORS.error }} aria-label="Remove entry">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>

@@ -212,7 +212,7 @@ const ChatSidebar = ({ chatHistory, chatMessage, chatLoading, chatEndRef, onMess
         onKeyPress={(e) => e.key === 'Enter' && onSend()}
         disabled={chatLoading}
       />
-      <IconButton color="primary" onClick={onSend} disabled={chatLoading || !chatMessage.trim()}>
+      <IconButton color="primary" onClick={onSend} disabled={chatLoading || !chatMessage.trim()} aria-label="Send message">
         <SendIcon />
       </IconButton>
     </Box>

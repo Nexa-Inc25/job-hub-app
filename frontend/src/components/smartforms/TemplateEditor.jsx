@@ -501,7 +501,7 @@ function EditorToolbar({
 
   return (
       <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-      <IconButton onClick={onBack}>
+      <IconButton onClick={onBack} aria-label="Go back">
           <ArrowBackIcon />
         </IconButton>
 
@@ -541,13 +541,13 @@ function EditorToolbar({
 
         <Divider orientation="vertical" flexItem />
 
-      <IconButton onClick={zoomOut}>
+      <IconButton onClick={zoomOut} aria-label="Zoom out">
           <ZoomOutIcon />
         </IconButton>
         <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>
           {Math.round(zoom * 100)}%
         </Typography>
-      <IconButton onClick={zoomIn}>
+      <IconButton onClick={zoomIn} aria-label="Zoom in">
           <ZoomInIcon />
         </IconButton>
 

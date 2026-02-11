@@ -524,13 +524,13 @@ const UnitApprovalGrid = ({
 
           {/* Actions */}
           <Tooltip title="Refresh">
-            <IconButton onClick={onRefresh} disabled={loading}>
+            <IconButton onClick={onRefresh} disabled={loading} aria-label="Refresh">
               {loading ? <CircularProgress size={20} /> : <RefreshIcon />}
             </IconButton>
           </Tooltip>
 
           <Tooltip title="Export">
-            <IconButton onClick={onExport}>
+            <IconButton onClick={onExport} aria-label="Export">
               <ExportIcon />
             </IconButton>
           </Tooltip>

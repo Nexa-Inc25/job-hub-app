@@ -144,7 +144,7 @@ export const SyncBadgeMinimal = ({ onClick }) => {
     return (
       <Tooltip title={isLocked ? 'Session Locked' : 'Sync Errors'}>
         <Badge color="error" badgeContent="!">
-          <IconButton onClick={handleClick} size="small">
+          <IconButton onClick={handleClick} size="small" aria-label={isLocked ? 'Session locked' : 'Sync errors'}>
             {isLocked ? <LockIcon sx={{ color: STATUS_COLORS.locked }} /> : <ErrorIcon sx={{ color: STATUS_COLORS.error }} />}
           </IconButton>
         </Badge>
@@ -156,7 +156,7 @@ export const SyncBadgeMinimal = ({ onClick }) => {
   if (isSyncing) {
     return (
       <Tooltip title="Syncing...">
-        <IconButton size="small" disabled>
+        <IconButton size="small" disabled aria-label="Syncing">
           <CircularProgress size={20} />
         </IconButton>
       </Tooltip>
@@ -168,7 +168,7 @@ export const SyncBadgeMinimal = ({ onClick }) => {
     return (
       <Tooltip title={isOnline ? 'Tap to Upload' : 'Offline - Will sync when connected'}>
         <Badge color="warning" badgeContent={pendingCount} max={99}>
-          <IconButton onClick={handleClick} size="small" disabled={!isOnline}>
+          <IconButton onClick={handleClick} size="small" disabled={!isOnline} aria-label={`Upload ${pendingCount} pending items`}>
             <CloudUploadIcon sx={{ color: isOnline ? STATUS_COLORS.pending : STATUS_COLORS.offline }} />
           </IconButton>
         </Badge>
@@ -179,7 +179,7 @@ export const SyncBadgeMinimal = ({ onClick }) => {
   // All clear
   return (
     <Tooltip title="All Synced">
-      <IconButton size="small" onClick={handleClick}>
+      <IconButton size="small" onClick={handleClick} aria-label="All synced">
         <CloudDoneIcon sx={{ color: STATUS_COLORS.synced }} />
       </IconButton>
     </Tooltip>

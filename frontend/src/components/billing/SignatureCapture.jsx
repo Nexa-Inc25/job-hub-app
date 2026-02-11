@@ -293,7 +293,7 @@ const SignatureCapture = ({
         <Typography variant="h6" sx={{ fontWeight: 600 }}>
           {title}
         </Typography>
-        <IconButton onClick={onClose} sx={{ color: COLORS.textSecondary }}>
+        <IconButton onClick={onClose} sx={{ color: COLORS.textSecondary }} aria-label="Close">
           <CloseIcon />
         </IconButton>
       </DialogTitle>

@@ -108,7 +108,7 @@ const SignaturePad = ({
     >
       <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="h6">{title}</Typography>
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose} size="small" aria-label="Close">
           <CloseIcon />
         </IconButton>
       </DialogTitle>

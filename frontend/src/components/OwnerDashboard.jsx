@@ -319,7 +319,7 @@ const OwnerDashboard = () => {
             Add Customer
           </Button>
           <Tooltip title="Refresh Data">
-            <IconButton onClick={fetchData} disabled={loading} sx={{ color: textSecondary }}>
+            <IconButton onClick={fetchData} disabled={loading} sx={{ color: textSecondary }} aria-label="Refresh data">
               <RefreshIcon />
             </IconButton>
           </Tooltip>

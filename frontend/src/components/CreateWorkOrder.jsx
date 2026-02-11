@@ -230,7 +230,7 @@ const CreateWorkOrder = ({ token }) => {
             Create Work Order
           </Typography>
           <Tooltip title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}>
-            <IconButton color="inherit" onClick={toggleDarkMode}>
+            <IconButton color="inherit" onClick={toggleDarkMode} aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}>
               {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
           </Tooltip>

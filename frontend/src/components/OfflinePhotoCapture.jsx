@@ -261,7 +261,7 @@ const OfflinePhotoCapture = ({
             label={isOnline ? 'Online' : 'Offline'}
             color={isOnline ? 'success' : 'warning'}
           />
-          <IconButton onClick={handleClose} size="small">
+          <IconButton onClick={handleClose} size="small" aria-label="Close">
             <Close />
           </IconButton>
         </Box>
