@@ -103,6 +103,8 @@ const superadminRoutes = require('./routes/superadmin.routes');
 const specsRoutes = require('./routes/specs.routes');
 const companyRoutes = require('./routes/company.routes');
 const usersRoutes = require('./routes/users.routes');
+const qaRoutes = require('./routes/qa.routes');
+const feedbackRoutes = require('./routes/feedback.routes');
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
@@ -1280,6 +1282,12 @@ app.use('/api/company', authenticateUser, companyRoutes);
 
 // User management routes
 app.use('/api/users', authenticateUser, usersRoutes);
+
+// QA dashboard routes
+app.use('/api/qa', authenticateUser, qaRoutes);
+
+// Feedback routes  
+app.use('/api/feedback', authenticateUser, feedbackRoutes);
 
 // === USER MANAGEMENT ROUTES moved to routes/users.routes.js ===
 
@@ -5996,119 +6004,7 @@ app.post('/api/jobs/:id/notes', authenticateUser, async (req, res) => {
   }
 });
 
-// === QA DASHBOARD ENDPOINTS ===
-
-// Get jobs pending QA review
-app.get('/api/qa/pending-review', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    
-    // QA and Admin can access QA dashboard (PM not involved in go-back workflow)
-    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
-      return res.status(403).json({ error: 'QA access required' });
-    }
-    
-    const query = { 
-      status: 'pending_qa_review',
-      isDeleted: { $ne: true }
-    };
-    
-    // Multi-tenant: filter by company unless super admin
-    if (user?.companyId && !user.isSuperAdmin) {
-      query.companyId = user.companyId;
-    }
-    
-    const jobs = await Job.find(query)
-      .populate('userId', 'name email')
-      .populate('assignedToGF', 'name email')
-      .populate('assignedTo', 'name email')
-      .sort({ crewSubmittedDate: -1 })
-      .lean();
-    
-    res.json(jobs);
-  } catch (err) {
-    console.error('QA pending review error:', err);
-    res.status(500).json({ error: 'Failed to get pending QA jobs' });
-  }
-});
-
-// Get jobs with failed audits (utility inspector found infractions)
-app.get('/api/qa/failed-audits', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    
-    // QA owns the failed audit workflow
-    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
-      return res.status(403).json({ error: 'QA access required' });
-    }
-    
-    const query = { 
-      hasFailedAudit: true,
-      isDeleted: { $ne: true }
-    };
-    
-    if (user?.companyId && !user.isSuperAdmin) {
-      query.companyId = user.companyId;
-    }
-    
-    const jobs = await Job.find(query)
-      .populate('userId', 'name email')
-      .populate('assignedToGF', 'name email')
-      .populate('auditHistory.correctionAssignedTo', 'name email')
-      .sort({ 'auditHistory.receivedDate': -1 })
-      .lean();
-    
-    res.json(jobs);
-  } catch (err) {
-    console.error('QA failed audits error:', err);
-    res.status(500).json({ error: 'Failed to get failed audit jobs' });
-  }
-});
-
-// Get QA dashboard stats
-app.get('/api/qa/stats', authenticateUser, async (req, res) => {
-  try {
-    const user = await User.findById(req.userId);
-    
-    // QA dashboard is for QA role
-    if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
-      return res.status(403).json({ error: 'QA access required' });
-    }
-    
-    const baseQuery = { isDeleted: { $ne: true } };
-    if (user?.companyId && !user.isSuperAdmin) {
-      baseQuery.companyId = user.companyId;
-    }
-    
-    const [pendingReview, failedAudits, resolvedThisMonth, avgReviewTime] = await Promise.all([
-      Job.countDocuments({ ...baseQuery, status: 'pending_qa_review' }),
-      Job.countDocuments({ ...baseQuery, hasFailedAudit: true }),
-      Job.countDocuments({ 
-        ...baseQuery, 
-        qaReviewDate: { 
-          $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1) 
-        }
-      }),
-      Job.aggregate([
-        { $match: { ...baseQuery, qaReviewDate: { $exists: true }, gfReviewDate: { $exists: true } } },
-        { $project: { 
-          reviewTime: { $subtract: ['$qaReviewDate', '$gfReviewDate'] } 
-        }},
-        { $group: { _id: null, avg: { $avg: '$reviewTime' } } }
-      ])
-    ]);
-    
-    res.json({
-      pendingReview,
-      failedAudits,
-      resolvedThisMonth,
-      avgReviewTimeHours: avgReviewTime[0]?.avg ? Math.round(avgReviewTime[0].avg / (1000 * 60 * 60)) : null
-    });
-  } catch (err) {
-    console.error('QA stats error:', err);
-    res.status(500).json({ error: 'Failed to get QA stats' });
-  }
-});
+// === QA DASHBOARD ROUTES moved to routes/qa.routes.js ===
 
 // Record a utility field audit result (pass or fail)
 // Utility sends failed audits directly to QA - QA records them here
@@ -7153,119 +7049,7 @@ app.get('/api/jobs/:id/full-details', authenticateUser, async (req, res) => {
 // Note: API routes for /api/ai/* are mounted earlier via apiRoutes
 // This line is kept for any additional routes in apiRoutes that need auth
 
-// ==================== PILOT FEEDBACK SYSTEM ====================
-// Critical for pilot success - allows users to report issues from the field
-
-const Feedback = require('./models/Feedback');
-
-// Submit feedback (any authenticated user)
-app.post('/api/feedback', authenticateUser, async (req, res) => {
-  try {
-    const { type, priority, subject, description, currentPage, screenSize, jobId } = req.body;
-    
-    // Validate required fields
-    if (!subject || !description) {
-      return res.status(400).json({ error: 'Subject and description are required' });
-    }
-    
-    // Get user info for denormalization
-    const user = await User.findById(req.userId).select('name email role companyId');
-    
-    const feedback = new Feedback({
-      userId: req.userId,
-      userName: user?.name || 'Unknown',
-      userEmail: user?.email,
-      userRole: user?.role,
-      companyId: user?.companyId,
-      type: type || 'bug',
-      priority: priority || 'medium',
-      subject,
-      description,
-      currentPage,
-      userAgent: req.headers['user-agent'],
-      screenSize,
-      jobId: jobId || null,
-      status: 'new'
-    });
-    
-    await feedback.save();
-    
-    console.log(`[FEEDBACK] New ${type} from ${user?.email}: ${subject}`);
-    
-    res.status(201).json({ 
-      success: true, 
-      message: 'Thank you for your feedback! Our team will review it shortly.',
-      feedbackId: feedback._id 
-    });
-  } catch (err) {
-    console.error('Submit feedback error:', err);
-    res.status(500).json({ error: 'Failed to submit feedback' });
-  }
-});
-
-// Get all feedback (Super Admin only)
-app.get('/api/admin/feedback', authenticateUser, async (req, res) => {
-  try {
-    if (!req.isSuperAdmin) {
-      return res.status(403).json({ error: 'Super Admin access required' });
-    }
-    
-    const { status, type, limit = 50 } = req.query;
-    
-    const query = {};
-    if (status) query.status = status;
-    if (type) query.type = type;
-    
-    const feedback = await Feedback.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .populate('jobId', 'pmNumber woNumber title');
-    
-    // Get counts by status
-    const counts = await Feedback.aggregate([
-      { $group: { _id: '$status', count: { $sum: 1 } } }
-    ]);
-    
-    res.json({ 
-      feedback,
-      counts: counts.reduce((acc, c) => ({ ...acc, [c._id]: c.count }), {})
-    });
-  } catch (err) {
-    console.error('Get feedback error:', err);
-    res.status(500).json({ error: 'Failed to get feedback' });
-  }
-});
-
-// Update feedback status (Super Admin only)
-app.put('/api/admin/feedback/:id', authenticateUser, async (req, res) => {
-  try {
-    if (!req.isSuperAdmin) {
-      return res.status(403).json({ error: 'Super Admin access required' });
-    }
-    
-    const { status, adminNotes } = req.body;
-    
-    const update = {};
-    if (status) update.status = status;
-    if (adminNotes !== undefined) update.adminNotes = adminNotes;
-    if (status === 'resolved') update.resolvedAt = new Date();
-    
-    const feedback = await Feedback.findByIdAndUpdate(
-      req.params.id,
-      update,
-      { new: true }
-    );
-    
-    if (!feedback) {
-      return res.status(404).json({ error: 'Feedback not found' });
-    }
-    
-    res.json(feedback);
-  } catch (err) {
-    console.error('Update feedback error:', err);
-    res.status(500).json({ error: 'Failed to update feedback' });
-  }
-});
+// === FEEDBACK ROUTES moved to routes/feedback.routes.js ===
 
 // ==================== CSV EXPORT FOR JOBS ====================
 // Essential for contractors to share data outside the system
