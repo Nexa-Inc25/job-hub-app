@@ -309,6 +309,89 @@ const assignJob = async (req, res) => {
   }
 };
 
+/**
+ * Cancel or reschedule job
+ * POST /api/jobs/:id/cancel
+ * 
+ * Moves job back to pre_fielding status with reason tracking.
+ * Used when a scheduled job needs to be unscheduled.
+ */
+const cancelJob = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason, cancelType = 'canceled' } = req.body;
+    
+    // Validate inputs
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ error: 'Cancellation reason is required' });
+    }
+    
+    const validTypes = ['canceled', 'rescheduled'];
+    if (!validTypes.includes(cancelType)) {
+      return res.status(400).json({ error: 'Invalid cancel type. Must be "canceled" or "rescheduled"' });
+    }
+    
+    const safeReason = sanitizeString(reason);
+    
+    const job = await Job.findById(id);
+    
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+    
+    // Only allow canceling jobs that are scheduled or in_progress
+    const cancelableStatuses = ['scheduled', 'in_progress', 'assigned_to_gf'];
+    if (!cancelableStatuses.includes(job.status)) {
+      return res.status(400).json({ 
+        error: `Cannot cancel job with status "${job.status}". Job must be scheduled or in progress.` 
+      });
+    }
+    
+    // Store the previous state in history
+    job.cancelHistory = job.cancelHistory || [];
+    job.cancelHistory.push({
+      type: cancelType,
+      reason: safeReason,
+      previousStatus: job.status,
+      previousScheduledDate: job.crewScheduledDate,
+      canceledAt: new Date(),
+      canceledBy: req.userId
+    });
+    
+    // Update current cancel fields
+    job.cancelReason = safeReason;
+    job.canceledAt = new Date();
+    job.canceledBy = req.userId;
+    job.cancelType = cancelType;
+    
+    // Move to pre_fielding (unscheduled) - GF needs to reschedule
+    const oldStatus = job.status;
+    job.status = 'pre_fielding';
+    
+    // Clear scheduling fields
+    job.crewScheduledDate = null;
+    job.crewScheduledEndDate = null;
+    
+    job.updatedAt = new Date();
+    
+    await job.save();
+    
+    // Log the action
+    await logJob.statusChange(req, job, oldStatus, 'pre_fielding', 
+      `${cancelType === 'rescheduled' ? 'Rescheduled' : 'Canceled'}: ${safeReason}`);
+    
+    res.json({
+      success: true,
+      message: `Job ${cancelType === 'rescheduled' ? 'rescheduled' : 'canceled'} successfully`,
+      job
+    });
+    
+  } catch (error) {
+    console.error('Cancel job error:', error);
+    res.status(500).json({ error: 'Failed to cancel job' });
+  }
+};
+
 module.exports = {
   listJobs,
   getJob,
@@ -316,6 +399,7 @@ module.exports = {
   updateJob,
   deleteJob,
   updateStatus,
-  assignJob
+  assignJob,
+  cancelJob
 };
 

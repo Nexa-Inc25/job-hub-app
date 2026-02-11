@@ -159,5 +159,49 @@ router.patch('/:id/status', jobsController.updateStatus);
  */
 router.patch('/:id/assign', jobsController.assignJob);
 
+/**
+ * @swagger
+ * /api/jobs/{id}/cancel:
+ *   post:
+ *     summary: Cancel or reschedule a job
+ *     description: Moves job back to pre_fielding status with reason tracking. Used when a scheduled job needs to be unscheduled.
+ *     tags: [Jobs]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Job ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: Reason for cancellation or reschedule
+ *                 example: "Customer not available, needs to reschedule"
+ *               cancelType:
+ *                 type: string
+ *                 enum: [canceled, rescheduled]
+ *                 default: canceled
+ *                 description: Type of cancellation
+ *     responses:
+ *       200:
+ *         description: Job canceled/rescheduled successfully
+ *       400:
+ *         description: Invalid request or job status
+ *       404:
+ *         description: Job not found
+ */
+router.post('/:id/cancel', jobsController.cancelJob);
+
 module.exports = router;
 

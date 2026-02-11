@@ -211,6 +211,25 @@ const jobSchema = new mongoose.Schema({
   stuckDate: Date,
   stuckBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
+  // Cancel/Reschedule tracking - when a scheduled job needs to be moved back to unscheduled
+  cancelReason: String,                                           // Why the job was canceled/rescheduled
+  canceledAt: Date,                                               // When it was canceled
+  canceledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Who canceled it
+  cancelType: { 
+    type: String, 
+    enum: ['canceled', 'rescheduled', null],                      // Type of cancellation
+    default: null 
+  },
+  // History of cancellations/reschedules for this job
+  cancelHistory: [{
+    type: { type: String, enum: ['canceled', 'rescheduled'] },
+    reason: String,
+    previousStatus: String,                                       // Status before cancel
+    previousScheduledDate: Date,                                  // Scheduled date before cancel
+    canceledAt: { type: Date, default: Date.now },
+    canceledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }],
+  
   // Dependencies tracking (GF manages)
   dependencies: [{
     type: { type: String, enum: ['usa', 'vegetation', 'traffic_control', 'no_parks', 'cwc', 'afw_type', 'special_equipment', 'civil'] },

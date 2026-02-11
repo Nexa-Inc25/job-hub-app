@@ -53,6 +53,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import TodayIcon from '@mui/icons-material/Today';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import BlockIcon from '@mui/icons-material/Block';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 import DownloadIcon from '@mui/icons-material/Download';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import DirectionsIcon from '@mui/icons-material/Directions';
@@ -596,6 +597,11 @@ const Dashboard = () => {
   const [stuckJobId, setStuckJobId] = useState(null);
   const [depScheduleDialogOpen, setDepScheduleDialogOpen] = useState(false);
   const [depScheduleData, setDepScheduleData] = useState({ jobId: null, depId: null, date: '' });
+  // Cancel/Reschedule state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelType, setCancelType] = useState('rescheduled'); // 'canceled' or 'rescheduled'
+  const [cancelJobId, setCancelJobId] = useState(null);
   const navigate = useNavigate();
 
   // Check user role from token and fetch name if needed
@@ -729,6 +735,44 @@ const Dashboard = () => {
     } catch (err) {
       console.error('Mark as stuck error:', err);
       setSnackbar({ open: true, message: 'Failed to update job status', severity: 'error' });
+    }
+  };
+
+  // Handle opening cancel/reschedule dialog
+  const handleOpenCancelDialog = (jobId, e) => {
+    if (e) e.stopPropagation();
+    setCancelJobId(jobId);
+    setCancelReason('');
+    setCancelType('rescheduled');
+    setCancelDialogOpen(true);
+    handleJobMenuClose();
+  };
+
+  // Handle cancel/reschedule job
+  const handleCancelJob = async () => {
+    if (!cancelJobId || !cancelReason.trim()) return;
+    
+    try {
+      await api.post(`/api/jobs/${cancelJobId}/cancel`, {
+        reason: cancelReason.trim(),
+        cancelType: cancelType
+      });
+      
+      // Refresh jobs
+      const response = await api.get('/api/jobs');
+      setJobs(response.data);
+      
+      setSnackbar({ 
+        open: true, 
+        message: cancelType === 'rescheduled' ? 'Job moved to needs scheduling' : 'Job canceled', 
+        severity: 'info' 
+      });
+      setCancelDialogOpen(false);
+      setCancelJobId(null);
+      setCancelReason('');
+    } catch (err) {
+      console.error('Cancel job error:', err);
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to cancel job', severity: 'error' });
     }
   };
 
@@ -1857,16 +1901,26 @@ const Dashboard = () => {
                     }}
                   >
                     <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight="medium" noWrap>
-                        {job.pmNumber || job.woNumber || job.title}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" fontWeight="medium" noWrap>
+                          {job.pmNumber || job.woNumber || job.title}
+                        </Typography>
+                        {job.cancelType && (
+                          <Chip 
+                            size="small" 
+                            label={job.cancelType === 'rescheduled' ? 'Rescheduled' : 'Canceled'}
+                            color={job.cancelType === 'rescheduled' ? 'warning' : 'error'}
+                            sx={{ height: 18, fontSize: '0.65rem' }}
+                          />
+                        )}
+                      </Box>
                       <Typography variant="caption" color="text.secondary" noWrap>
-                        {job.address}
-                        {job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
+                        {job.cancelReason ? `${job.cancelReason.substring(0, 50)}${job.cancelReason.length > 50 ? '...' : ''}` : job.address}
+                        {!job.cancelReason && job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Button size="small" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>Assign</Button>
+                      <Button size="small" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>Schedule</Button>
                       <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
                       <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
                     </Box>
@@ -2525,6 +2579,19 @@ const Dashboard = () => {
             </MenuItem>
         )}
         
+        {/* Cancel/Reschedule option for scheduled/in_progress jobs */}
+        {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && (() => {
+          const job = jobs.find(j => j._id === selectedJobId);
+          const canCancel = ['scheduled', 'in_progress', 'assigned_to_gf'].includes(job?.status);
+          if (!canCancel) return null;
+          return (
+            <MenuItem onClick={(e) => handleOpenCancelDialog(selectedJobId, e)} sx={{ color: 'warning.main' }}>
+              <EventBusyIcon fontSize="small" sx={{ mr: 1 }} />
+              Cancel / Reschedule
+            </MenuItem>
+          );
+        })()}
+        
         {/* Unstick option for stuck jobs */}
         {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && jobs.find(j => j._id === selectedJobId)?.status === 'stuck' && (
             <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
@@ -2700,6 +2767,74 @@ const Dashboard = () => {
             disabled={!stuckReason.trim()}
           >
             Mark as Stuck
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel/Reschedule Dialog */}
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <EventBusyIcon color="warning" />
+            Cancel or Reschedule Job
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            This will move the job back to &quot;Needs Scheduling&quot; status. The crew schedule will be cleared
+            and the GF will need to reschedule when ready.
+          </Typography>
+          
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel id="cancel-type-label">Action Type</InputLabel>
+            <Select
+              labelId="cancel-type-label"
+              id="cancelType"
+              value={cancelType}
+              label="Action Type"
+              onChange={(e) => setCancelType(e.target.value)}
+            >
+              <MenuItem value="rescheduled">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ScheduleIcon fontSize="small" color="info" />
+                  Reschedule - Move to a different date
+                </Box>
+              </MenuItem>
+              <MenuItem value="canceled">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <BlockIcon fontSize="small" color="error" />
+                  Cancel - Customer/utility canceled work
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
+          
+          <TextField
+            id="cancelReason"
+            name="cancelReason"
+            label="Reason"
+            multiline
+            rows={3}
+            value={cancelReason}
+            onChange={(e) => setCancelReason(e.target.value)}
+            placeholder={cancelType === 'rescheduled' 
+              ? "Why does this job need to be rescheduled? (e.g., customer not available, equipment issue, weather)"
+              : "Why was this job canceled? (e.g., customer canceled, utility hold, no longer needed)"
+            }
+            fullWidth
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)}>Back</Button>
+          <Button 
+            onClick={handleCancelJob} 
+            variant="contained" 
+            color={cancelType === 'canceled' ? 'error' : 'warning'}
+            startIcon={cancelType === 'canceled' ? <BlockIcon /> : <EventBusyIcon />}
+            disabled={!cancelReason.trim()}
+          >
+            {cancelType === 'rescheduled' ? 'Reschedule Job' : 'Cancel Job'}
           </Button>
         </DialogActions>
       </Dialog>
