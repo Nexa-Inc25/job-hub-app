@@ -8,6 +8,8 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 
 ## High-Level Architecture
 
+The system utilizes a multi-tier architecture consisting of a Mobile/Desktop PWA Frontend, an API Gateway/Express.js Layer, a Business Logic Layer, and a Data Layer with various External Integrations.
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                              FIELD OPERATIONS                                │
@@ -41,7 +43,7 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 │  └──────────────────────────────────────────────────────────────────────┘  │
 │                                                                             │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐        │
-│  │  /api/jobs  │  │/api/billing │  │/api/asbuilt │  │/api/pricebk │        │
+│  │  /api/jobs  │  │/api/billing │  │/api/asbuilt │  │/api/oracle  │        │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘        │
 └───────────────────────────────────┬─────────────────────────────────────────┘
                                     │
@@ -81,20 +83,29 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │
-│  │   Oracle Fusion    │  │   Oracle Primavera │  │     ESRI GIS       │    │
-│  │   Cloud ERP        │  │      Unifier       │  │                    │    │
+│  │   Oracle Fusion    │  │   Oracle Primavera │  │   Oracle EAM       │    │
+│  │   Cloud ERP ✅     │  │   Unifier 🧪       │  │   + P6 🧪          │    │
 │  │                    │  │                    │  │                    │    │
-│  │ • FBDI Import      │  │ • Project Sync     │  │ • Asset Updates    │    │
-│  │ • AP Invoices      │  │ • Document Upload  │  │ • Map Integration  │    │
-│  │ • Supplier Portal  │  │ • WBS Mapping      │  │ • Spatial Data     │    │
+│  │ • FBDI CSV Export  │  │ • Project Sync     │  │ • Work Orders      │    │
+│  │ • AP Invoices      │  │ • Document Upload  │  │ • Asset Updates    │    │
+│  │ • REST + FBDI      │  │ • BP Records       │  │ • Scheduling       │    │
 │  └────────────────────┘  └────────────────────┘  └────────────────────┘    │
 │                                                                             │
 │  ┌────────────────────┐  ┌────────────────────┐  ┌────────────────────┐    │
-│  │    SharePoint      │  │   Email (SMTP)     │  │    OpenAI API      │    │
+│  │     ESRI GIS       │  │    SharePoint      │  │   Email (SMTP)     │    │
 │  │                    │  │                    │  │                    │    │
-│  │ • Document Archive │  │ • Notifications    │  │ • Doc Classification│   │
-│  │ • Compliance Docs  │  │ • Alerts           │  │ • Data Extraction  │    │
+│  │ • Asset Updates    │  │ • Document Archive │  │ • Notifications    │    │
+│  │ • Map Integration  │  │ • Compliance Docs  │  │ • Alerts           │    │
+│  │ • Spatial Data     │  │                    │  │                    │    │
 │  └────────────────────┘  └────────────────────┘  └────────────────────┘    │
+│                                                                             │
+│  ┌────────────────────┐  ┌────────────────────┐                            │
+│  │    OpenAI API      │  │  OpenWeatherMap    │  ✅ = Production           │
+│  │                    │  │                    │  🧪 = Beta (mock mode if   │
+│  │ • Doc Classification│ │ • Auto-weather     │       not configured)      │
+│  │ • Data Extraction  │  │ • Hazard Detection │                            │
+│  │ • Voice AI         │  │                    │                            │
+│  └────────────────────┘  └────────────────────┘                            │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -104,6 +115,7 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 ## Technology Stack
 
 ### Frontend
+
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | Framework | React 18 | UI components |
@@ -114,6 +126,7 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 | Data Grid | MUI X Data Grid | Large dataset handling |
 
 ### Backend
+
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | Runtime | Node.js 20 LTS | Server runtime |
@@ -126,6 +139,7 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 | Docs | Swagger/OpenAPI | API documentation |
 
 ### Infrastructure
+
 | Component | Technology | Purpose |
 |-----------|------------|---------|
 | Frontend Hosting | Vercel | CDN, edge deployment |
@@ -137,38 +151,58 @@ FieldLedger is an enterprise-grade field operations platform designed for utilit
 
 ---
 
-## Data Flow: Unit-to-Invoice
+## Synchronization & Offline Strategy
 
-```
-┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│   FOREMAN    │      │     GF       │      │     PM       │      │    ORACLE    │
-│   (Field)    │      │  (Review)    │      │  (Approve)   │      │    (AP)      │
-└──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
-       │                     │                     │                     │
-       │ 1. Capture Unit     │                     │                     │
-       │    + GPS + Photo    │                     │                     │
-       │────────────────────>│                     │                     │
-       │                     │                     │                     │
-       │                     │ 2. Review & Approve │                     │
-       │                     │────────────────────>│                     │
-       │                     │                     │                     │
-       │                     │                     │ 3. Generate Claim   │
-       │                     │                     │    FBDI Export      │
-       │                     │                     │────────────────────>│
-       │                     │                     │                     │
-       │                     │                     │                     │ 4. Import to
-       │                     │                     │                     │    AP Invoice
-       │                     │                     │                     │
-       │<────────────────────┴─────────────────────┴─────────────────────┤
-       │                    5. Payment Notification                       │
-       │                                                                  │
-```
+FieldLedger utilizes a **Store-and-Forward** architecture to ensure data integrity in low-connectivity environments. The PWA caches all mutations (unit capture, photos, logs) locally in IndexedDB and flushes them to the API Gateway via a persistent background sync queue when connectivity is restored.
+
+### Conflict Resolution Logic
+
+To handle concurrent edits (e.g., a Foreman and PM editing the same Job simultaneously), the system employs **Optimistic Concurrency Control**:
+
+1. **Versioning:** Every document includes a strictly monotonic version number (utilizing the Mongoose `__v` key).
+
+2. **Detection:** Upon sync, the backend compares the incoming payload's version against the database version.
+
+3. **Resolution Strategy:**
+   - **Non-Conflicting Fields:** Patches are merged automatically (e.g., Foreman adds a photo, PM updates a description).
+   - **Field Collisions:** The system applies a **"Server-Side Trust"** policy where the PM/Admin (office) state generally takes precedence over stale field data, but creates an **Audit Alert** for manual review if significant quantity variances are detected.
+   - **Photo/File Duplication:** All binary assets are treated as additive (append-only) to prevent accidental data loss.
+
+### Sync Queue Reliability
+
+- **Retry Mechanism:** Exponential backoff for failed sync attempts (up to 24 hours).
+- **Idempotency:** All `POST` mutations utilize unique `transactionId` keys to prevent duplicate records during network jitter.
+
+---
+
+## Observability & System Health
+
+To ensure the reliability of the **Unit-to-Invoice** flow, FieldLedger employs a multi-layered monitoring strategy.
+
+### Monitoring Stack
+
+- **Application Performance Monitoring (APM):** Tracks API latency, error rates, and Node.js v20 LTS runtime health.
+
+- **Error Tracking:** Captures front-end (React/Vite) crashes and back-end exceptions in real-time to prevent data loss during unit capture.
+
+- **Integration Logging:** Dedicated monitoring for the **As-Built Router** and **Oracle FBDI Exports** to alert administrators of failed record imports or spatial data mismatches.
+
+- **Database Insights:** MongoDB Atlas monitoring for replica set health, disk utilization, and auto-scaling events.
+
+### Alerting & Incident Response
+
+- **Notification Channels:** Critical system alerts are routed via SMTP/Email and future Webhook integrations to the Admin (Desktop) interface.
+
+- **Audit Trail:** Every mutation, including AI-driven document classifications and claim generations, is logged for compliance and troubleshooting.
+
+- **Health Checks:** Automated `/health` endpoints are monitored by Railway to trigger container restarts if the Express.js API becomes unresponsive.
 
 ---
 
 ## Security Architecture
 
 ### Authentication Flow
+
 ```
 Client                    API                      Database
   │                        │                          │
@@ -208,6 +242,41 @@ Client                    API                      Database
 
 ---
 
+## Data Flow: Unit-to-Invoice
+
+```
+┌──────────────┐      ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
+│   FOREMAN    │      │     GF       │      │     PM       │      │    ORACLE    │
+│   (Field)    │      │  (Review)    │      │  (Approve)   │      │    (AP)      │
+└──────┬───────┘      └──────┬───────┘      └──────┬───────┘      └──────┬───────┘
+       │                     │                     │                     │
+       │ 1. Capture Unit     │                     │                     │
+       │    + GPS + Photo    │                     │                     │
+       │────────────────────>│                     │                     │
+       │                     │                     │                     │
+       │                     │ 2. Review & Approve │                     │
+       │                     │────────────────────>│                     │
+       │                     │                     │                     │
+       │                     │                     │ 3. Generate Claim   │
+       │                     │                     │    FBDI Export      │
+       │                     │                     │────────────────────>│
+       │                     │                     │                     │
+       │                     │                     │                     │ 4. Import to
+       │                     │                     │                     │    AP Invoice
+       │                     │                     │                     │
+       │<────────────────────┴─────────────────────┴─────────────────────┤
+       │                    5. Payment Notification                       │
+       │                                                                  │
+```
+
+1. **Capture:** Foreman captures unit data, GPS coordinates, and photos in the field.
+2. **Review:** General Foreman reviews and approves the field data.
+3. **Approval:** Project Manager approves the record and generates a claim.
+4. **Export:** System generates an FBDI CSV file via `/api/billing/claims/:id/export-fbdi` for manual upload to Oracle Fusion Cloud ERP. Automated UCM Web Services upload is planned for Q3 2026.
+5. **Payment:** Oracle imports the AP Invoice and triggers a payment notification back to FieldLedger.
+
+---
+
 ## Deployment Architecture
 
 ```
@@ -241,20 +310,11 @@ Client                    API                      Database
 
 ---
 
-## API Versioning Strategy
-
-Current: `/api/` (v1 implicit)  
-Future: `/api/v2/` for breaking changes
-
-All endpoints maintain backward compatibility within major versions.
-
----
-
 ## Scalability Considerations
 
 | Component | Current | Scale Path |
 |-----------|---------|------------|
-| API | Single container | Horizontal pod scaling |
+| API | Single Docker container (Railway) | Horizontal pod scaling |
 | Database | M10 cluster | Sharding by companyId |
 | Storage | R2 single region | Multi-region replication |
 | Cache | In-memory | Redis cluster |
@@ -273,6 +333,26 @@ All endpoints maintain backward compatibility within major versions.
 
 ---
 
-*Document Version: 1.0.0*  
-*Last Updated: February 2026*
+## Roadmap
 
+| Feature | Target | Status |
+|---------|--------|--------|
+| SSO/SAML Integration | Q3 2026 | Planned |
+| API v2 (GraphQL) | Q4 2026 | Design |
+| Redis Cache Layer | Q2 2026 | In Progress |
+| Automated UCM Upload | Q3 2026 | Planned |
+
+### Enterprise SSO
+
+Large utility contractors require SSO integration for centralized IT access management. The roadmap includes:
+
+- **Azure AD / Entra ID** - Primary target for Microsoft-centric utilities
+- **Okta** - Secondary IdP support
+- **SAML 2.0** - Protocol support for custom IdP configurations
+
+SSO is gated to the **Enterprise** subscription tier (configured in `subscriptionGate.js`).
+
+---
+
+*Document Version: 1.3.0*  
+*Last Updated: February 2026*
