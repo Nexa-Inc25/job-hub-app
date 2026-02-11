@@ -48,12 +48,27 @@ import FilterIcon from '@mui/icons-material/FilterList';
 import { useThemeMode } from '../ThemeContext';
 import { getThemeColors } from './shared/themeUtils';
 
-// Severity colors
-const SEVERITY_COLORS = {
-  critical: { bg: '#fef2f2', text: '#dc2626', border: '#fecaca' },
-  warning: { bg: '#fffbeb', text: '#d97706', border: '#fde68a' },
-  info: { bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' },
-};
+// Severity colors - theme-aware with proper contrast
+const getSeverityColors = (mode) => ({
+  critical: { 
+    bg: mode === 'dark' ? 'rgba(220, 38, 38, 0.15)' : '#fef2f2', 
+    text: mode === 'dark' ? '#fca5a5' : '#dc2626',
+    cellText: mode === 'dark' ? '#fca5a5' : '#991b1b', // Darker red for table cells
+    border: mode === 'dark' ? 'rgba(220, 38, 38, 0.3)' : '#fecaca' 
+  },
+  warning: { 
+    bg: mode === 'dark' ? 'rgba(217, 119, 6, 0.15)' : '#fffbeb', 
+    text: mode === 'dark' ? '#fcd34d' : '#d97706',
+    cellText: mode === 'dark' ? '#fcd34d' : '#92400e', // Darker orange for table cells
+    border: mode === 'dark' ? 'rgba(217, 119, 6, 0.3)' : '#fde68a' 
+  },
+  info: { 
+    bg: mode === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#eff6ff', 
+    text: mode === 'dark' ? '#93c5fd' : '#2563eb',
+    cellText: mode === 'dark' ? '#93c5fd' : '#1e40af', // Darker blue for table cells
+    border: mode === 'dark' ? 'rgba(37, 99, 235, 0.3)' : '#bfdbfe' 
+  },
+});
 
 // Action icons
 const getActionIcon = (action) => {
@@ -116,6 +131,7 @@ const SecurityDashboard = () => {
   const navigate = useNavigate();
   const { mode } = useThemeMode();
   const { cardBg, textPrimary, borderColor } = getThemeColors(mode);
+  const SEVERITY_COLORS = getSeverityColors(mode);
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -475,14 +491,17 @@ const SecurityDashboard = () => {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(stats?.recentSecurityEvents || []).map((event, idx) => (
+                  {(stats?.recentSecurityEvents || []).map((event, idx) => {
+                    const severityConfig = SEVERITY_COLORS[event.severity] || SEVERITY_COLORS.warning;
+                    return (
                     <TableRow
                       key={event._id || idx}
                       sx={{
-                        bgcolor:
-                          event.severity === 'critical'
-                            ? SEVERITY_COLORS.critical.bg
-                            : SEVERITY_COLORS.warning.bg,
+                        bgcolor: severityConfig.bg,
+                        '& .MuiTableCell-root': {
+                          color: severityConfig.cellText,
+                          borderBottomColor: severityConfig.border,
+                        },
                       }}
                     >
                       <TableCell>{formatTime(event.timestamp)}</TableCell>
@@ -492,9 +511,10 @@ const SecurityDashboard = () => {
                           label={event.severity}
                           size="small"
                           sx={{
-                            bgcolor: SEVERITY_COLORS[event.severity]?.bg,
-                            color: SEVERITY_COLORS[event.severity]?.text,
+                            bgcolor: severityConfig.bg,
+                            color: severityConfig.text,
                             fontWeight: 600,
+                            border: `1px solid ${severityConfig.border}`,
                           }}
                         />
                       </TableCell>
@@ -505,7 +525,8 @@ const SecurityDashboard = () => {
                       </TableCell>
                       <TableCell sx={{ fontFamily: 'monospace' }}>{event.ipAddress}</TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                   {(!stats?.recentSecurityEvents || stats.recentSecurityEvents.length === 0) && (
                     <TableRow>
                       <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
