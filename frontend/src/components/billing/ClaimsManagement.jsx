@@ -375,7 +375,7 @@ const ClaimCard = ({
 
       <CardActions sx={{ justifyContent: 'space-between' }}>
         <Box>
-          <IconButton size="small" onClick={() => onToggleExpand(claim._id)}>
+          <IconButton size="small" onClick={() => onToggleExpand(claim._id)} aria-label={expanded ? 'Collapse details' : 'Expand details'}>
             {expanded ? <CollapseIcon /> : <ExpandIcon />}
           </IconButton>
           <Button 

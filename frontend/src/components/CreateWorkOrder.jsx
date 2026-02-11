@@ -222,7 +222,7 @@ const CreateWorkOrder = ({ token }) => {
       <AppBar position="static" elevation={0}>
         <Toolbar>
           <Tooltip title="Back to Dashboard">
-            <IconButton color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }}>
+            <IconButton color="inherit" onClick={() => navigate('/dashboard')} sx={{ mr: 2 }} aria-label="Back to dashboard">
               <ArrowBackIcon />
             </IconButton>
           </Tooltip>

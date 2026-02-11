@@ -224,7 +224,7 @@ const LaborRow = ({ entry, index, onUpdate, onRemove, defaultHours }) => {
           ${(entry.stAmount || 0).toFixed(2)}
         </TableCell>
         <TableCell rowSpan={3} sx={{ verticalAlign: 'top', width: 40 }}>
-          <IconButton size="small" color="error" onClick={() => onRemove(index)}>
+          <IconButton size="small" color="error" onClick={() => onRemove(index)} aria-label="Remove item">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </TableCell>
@@ -694,7 +694,7 @@ const LMEForm = () => {
       {/* Header */}
       <Paper sx={{ p: 2, mb: 2, borderRadius: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <IconButton onClick={() => navigate(-1)}>
+          <IconButton onClick={() => navigate(-1)} aria-label="Go back">
             <BackIcon />
           </IconButton>
           <Box sx={{ flex: 1 }}>

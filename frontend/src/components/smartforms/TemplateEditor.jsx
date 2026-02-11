@@ -652,7 +652,7 @@ function FieldsPanel({
                 }
               />
               <ListItemSecondaryAction>
-                <IconButton size="small" onClick={() => onEditField(field)}>
+                <IconButton size="small" onClick={() => onEditField(field)} aria-label="Edit field">
                   <EditIcon fontSize="small" />
                 </IconButton>
               </ListItemSecondaryAction>

@@ -139,10 +139,10 @@ const CrewMemberCard = ({ member, onEdit, onDelete }) => {
 
         {/* Actions */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 1 }}>
-          <IconButton size="small" onClick={() => onEdit(member)} sx={{ color: COLORS.secondary }}>
+          <IconButton size="small" onClick={() => onEdit(member)} sx={{ color: COLORS.secondary }} aria-label="Edit member">
             <EditIcon fontSize="small" />
           </IconButton>
-          <IconButton size="small" onClick={() => onDelete(member)} sx={{ color: COLORS.error }}>
+          <IconButton size="small" onClick={() => onDelete(member)} sx={{ color: COLORS.error }} aria-label="Delete member">
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Box>
@@ -542,7 +542,7 @@ const TimesheetEntry = () => {
         zIndex: 10,
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <IconButton onClick={() => navigate(-1)} sx={{ color: COLORS.text, p: 0.5 }}>
+          <IconButton onClick={() => navigate(-1)} sx={{ color: COLORS.text, p: 0.5 }} aria-label="Go back">
             <BackIcon />
           </IconButton>
           <Box sx={{ flex: 1 }}>

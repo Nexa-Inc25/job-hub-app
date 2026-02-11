@@ -161,6 +161,7 @@ const CompanyOnboarding = () => {
                 size="small" 
                 onClick={() => openResetPasswordDialog(user)}
                 sx={{ color: textSecondary }}
+                aria-label="Reset password"
               >
                 <KeyIcon fontSize="small" />
               </IconButton>
@@ -414,6 +415,7 @@ const CompanyOnboarding = () => {
           <IconButton 
             onClick={() => navigate('/admin/owner-dashboard')} 
             sx={{ mr: 2, color: textPrimary }}
+            aria-label="Back to owner dashboard"
           >
             <ArrowBackIcon />
           </IconButton>
@@ -864,6 +866,7 @@ const CompanyOnboarding = () => {
                         size="small" 
                         onClick={() => removeFolder(folderIndex)}
                         sx={{ color: '#ef4444' }}
+                        aria-label="Remove folder"
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -896,6 +899,7 @@ const CompanyOnboarding = () => {
                                 size="small" 
                                 onClick={() => removeSubfolder(folderIndex, folder.subfolders.indexOf(subfolder))}
                                 sx={{ color: '#ef4444' }}
+                                aria-label="Remove subfolder"
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>

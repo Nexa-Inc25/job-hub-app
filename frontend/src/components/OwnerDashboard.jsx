@@ -296,6 +296,7 @@ const OwnerDashboard = () => {
           <IconButton 
             onClick={() => navigate('/dashboard')} 
             sx={{ mr: 2, color: textPrimary }}
+            aria-label="Back to dashboard"
           >
             <ArrowBackIcon />
           </IconButton>

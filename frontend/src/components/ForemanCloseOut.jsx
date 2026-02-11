@@ -368,7 +368,7 @@ const DocumentsSection = ({ jobId: _jobId, documents, onNavigatePDF }) => {
                   }
                 />
                 <ListItemSecondaryAction>
-                  <IconButton onClick={() => onNavigatePDF(doc)}>
+                  <IconButton onClick={() => onNavigatePDF(doc)} aria-label="Edit document">
                     <EditIcon sx={{ color: COLORS.secondary }} />
                   </IconButton>
                 </ListItemSecondaryAction>
