@@ -2541,13 +2541,17 @@ const Dashboard = () => {
       {/* Floating Action Button for Quick Create */}
       <Fab
         color="primary"
-        aria-label="add"
+        aria-label="Create new work order"
+        size="large"
         onClick={handleCreateWorkOrder}
         sx={{
           position: 'fixed',
           bottom: 24,
           right: 24,
-          boxShadow: 3
+          boxShadow: 3,
+          // Ensure minimum 48x48 touch target (large = 56x56)
+          minWidth: 56,
+          minHeight: 56
         }}
       >
         <AddIcon />

@@ -128,7 +128,12 @@ const FeedbackButton = ({ variant = 'icon', color = 'inherit', jobId = null }) =
             color={color} 
             onClick={handleOpen} 
             aria-label="Report issue or feedback"
-            sx={{ minWidth: 44, minHeight: 44 }}
+            sx={{ 
+              minWidth: 48, 
+              minHeight: 48,
+              // Ensure adequate touch target spacing
+              margin: '4px'
+            }}
           >
             <FeedbackIcon />
           </IconButton>
