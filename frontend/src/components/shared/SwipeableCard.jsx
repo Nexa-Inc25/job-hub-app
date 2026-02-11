@@ -6,8 +6,11 @@
  * SwipeableCard - Card with swipe gesture actions for mobile
  * 
  * Provides swipe-to-action functionality for mobile users:
- * - Swipe right: Primary action (e.g., quick status update)
- * - Swipe left: Secondary actions (e.g., menu options)
+ * - Swipe right: Primary action (triggers immediately on threshold)
+ * - Swipe left: Reveals action buttons that can be tapped
+ * 
+ * The left swipe uses a "reveal and lock" pattern where swiping past
+ * threshold keeps the buttons visible for the user to tap.
  */
 
 import React, { useState, useRef, useCallback } from 'react';
@@ -17,16 +20,14 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
-import BlockIcon from '@mui/icons-material/Block';
 
 // Swipe thresholds
-const SWIPE_THRESHOLD = 80;
-const MAX_SWIPE = 120;
+const SWIPE_THRESHOLD = 60;
+const REVEAL_DISTANCE = 100; // How far the card stays open when revealing buttons
 
 const SwipeableCard = ({ 
   children, 
   onSwipeRight, 
-  onSwipeLeft,
   onDelete,
   onEdit,
   onMoreOptions,
@@ -41,8 +42,15 @@ const SwipeableCard = ({
   
   const [swipeX, setSwipeX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [isRevealed, setIsRevealed] = useState(false); // Left buttons are revealed and locked
   const startXRef = useRef(0);
   const currentXRef = useRef(0);
+  
+  // Close the revealed actions
+  const closeActions = useCallback(() => {
+    setIsRevealed(false);
+    setSwipeX(0);
+  }, []);
   
   // Touch handlers
   const handleTouchStart = useCallback((e) => {
@@ -56,34 +64,68 @@ const SwipeableCard = ({
     if (!isSwiping || disabled) return;
     
     currentXRef.current = e.touches[0].clientX;
-    const diff = currentXRef.current - startXRef.current;
+    let diff = currentXRef.current - startXRef.current;
     
-    // Limit swipe distance
-    const clampedDiff = Math.max(-MAX_SWIPE, Math.min(MAX_SWIPE, diff));
+    // If already revealed, start from the revealed position
+    if (isRevealed) {
+      diff = diff - REVEAL_DISTANCE;
+    }
     
-    // Apply rubber band effect at edges
-    const rubberBand = clampedDiff * 0.8;
-    setSwipeX(rubberBand);
-  }, [isSwiping, disabled]);
+    // Limit swipe distance with rubber band effect
+    const maxRight = REVEAL_DISTANCE;
+    const maxLeft = -REVEAL_DISTANCE - 20;
+    
+    if (diff > 0) {
+      // Swiping right - apply resistance
+      diff = diff * 0.5;
+    }
+    
+    const clampedDiff = Math.max(maxLeft, Math.min(maxRight, diff));
+    setSwipeX(clampedDiff);
+  }, [isSwiping, disabled, isRevealed]);
   
   const handleTouchEnd = useCallback(() => {
     if (!isSwiping) return;
     setIsSwiping(false);
     
-    const diff = currentXRef.current - startXRef.current;
+    const rawDiff = currentXRef.current - startXRef.current;
     
-    // Check if swipe threshold was reached
-    if (diff > SWIPE_THRESHOLD && onSwipeRight) {
-      // Trigger right swipe action
+    // Check for right swipe action (immediate trigger)
+    if (rawDiff > SWIPE_THRESHOLD && onSwipeRight && !isRevealed) {
       onSwipeRight();
-    } else if (diff < -SWIPE_THRESHOLD && onSwipeLeft) {
-      // Trigger left swipe action
-      onSwipeLeft();
+      setSwipeX(0);
+      return;
     }
     
-    // Reset position
-    setSwipeX(0);
-  }, [isSwiping, onSwipeRight, onSwipeLeft]);
+    // Check for left swipe to reveal buttons
+    if (rawDiff < -SWIPE_THRESHOLD && !isRevealed) {
+      // Lock in revealed position
+      setIsRevealed(true);
+      setSwipeX(-REVEAL_DISTANCE);
+      return;
+    }
+    
+    // If already revealed and swiping right, close
+    if (isRevealed && rawDiff > SWIPE_THRESHOLD / 2) {
+      closeActions();
+      return;
+    }
+    
+    // Otherwise snap back to current state
+    if (isRevealed) {
+      setSwipeX(-REVEAL_DISTANCE);
+    } else {
+      setSwipeX(0);
+    }
+  }, [isSwiping, onSwipeRight, isRevealed, closeActions]);
+  
+  // Handle action button clicks
+  const handleActionClick = useCallback((action) => {
+    closeActions();
+    if (action) {
+      action();
+    }
+  }, [closeActions]);
   
   // Don't render swipe functionality on desktop
   if (!isMobile) {
@@ -91,19 +133,19 @@ const SwipeableCard = ({
   }
   
   const isSwipingRight = swipeX > 20;
-  const isSwipingLeft = swipeX < -20;
   const swipeProgress = Math.min(Math.abs(swipeX) / SWIPE_THRESHOLD, 1);
+  const showLeftActions = isRevealed || swipeX < -20;
   
   return (
     <Box sx={{ position: 'relative', overflow: 'hidden' }}>
-      {/* Right swipe action background */}
+      {/* Right swipe action background (immediate action) */}
       <Box
         sx={{
           position: 'absolute',
           left: 0,
           top: 0,
           bottom: 0,
-          width: MAX_SWIPE,
+          width: REVEAL_DISTANCE,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'flex-start',
@@ -128,62 +170,65 @@ const SwipeableCard = ({
         </Box>
       </Box>
       
-      {/* Left swipe action background */}
+      {/* Left swipe action buttons (tappable) */}
       <Box
         sx={{
           position: 'absolute',
           right: 0,
           top: 0,
           bottom: 0,
-          width: MAX_SWIPE,
+          width: REVEAL_DISTANCE,
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'flex-end',
-          pr: 2,
+          justifyContent: 'center',
           gap: 1,
-          bgcolor: alpha(theme.palette.grey[800], 0.9),
+          bgcolor: alpha(theme.palette.grey[800], 0.95),
           color: '#fff',
-          opacity: isSwipingLeft ? swipeProgress : 0,
+          opacity: showLeftActions ? 1 : 0,
           transition: isSwiping ? 'none' : 'opacity 0.2s ease-out',
+          pointerEvents: showLeftActions ? 'auto' : 'none',
         }}
       >
         {leftActions.includes('edit') && onEdit && (
           <IconButton 
-            size="small" 
-            onClick={onEdit}
+            size="medium" 
+            onClick={() => handleActionClick(onEdit)}
             sx={{ 
               color: '#fff', 
               bgcolor: alpha('#fff', 0.2),
-              transform: `scale(${0.8 + swipeProgress * 0.2})`,
+              '&:hover': { bgcolor: alpha('#fff', 0.3) },
+              '&:active': { bgcolor: alpha('#fff', 0.4) },
             }}
           >
-            <EditIcon fontSize="small" />
+            <EditIcon />
           </IconButton>
         )}
         {leftActions.includes('delete') && onDelete && (
           <IconButton 
-            size="small" 
-            onClick={onDelete}
+            size="medium" 
+            onClick={() => handleActionClick(onDelete)}
             sx={{ 
               color: '#fff', 
               bgcolor: alpha(theme.palette.error.main, 0.8),
-              transform: `scale(${0.8 + swipeProgress * 0.2})`,
+              '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.9) },
+              '&:active': { bgcolor: theme.palette.error.main },
             }}
           >
-            <DeleteIcon fontSize="small" />
+            <DeleteIcon />
           </IconButton>
         )}
         {leftActions.includes('more') && onMoreOptions && (
           <IconButton 
-            size="small" 
-            onClick={onMoreOptions}
+            size="medium" 
+            onClick={() => handleActionClick(onMoreOptions)}
             sx={{ 
               color: '#fff', 
               bgcolor: alpha('#fff', 0.2),
-              transform: `scale(${0.8 + swipeProgress * 0.2})`,
+              '&:hover': { bgcolor: alpha('#fff', 0.3) },
+              '&:active': { bgcolor: alpha('#fff', 0.4) },
             }}
           >
-            <MoreHorizIcon fontSize="small" />
+            <MoreHorizIcon />
           </IconButton>
         )}
       </Box>
@@ -193,6 +238,7 @@ const SwipeableCard = ({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={isRevealed ? closeActions : undefined}
         sx={{
           position: 'relative',
           zIndex: 1,
@@ -211,7 +257,6 @@ const SwipeableCard = ({
 SwipeableCard.propTypes = {
   children: PropTypes.node.isRequired,
   onSwipeRight: PropTypes.func,
-  onSwipeLeft: PropTypes.func,
   onDelete: PropTypes.func,
   onEdit: PropTypes.func,
   onMoreOptions: PropTypes.func,
@@ -223,4 +268,3 @@ SwipeableCard.propTypes = {
 };
 
 export default SwipeableCard;
-

@@ -228,12 +228,14 @@ const TodayWidget = ({ jobs = [], weather, loading, onStartTailboard }) => {
   const navigate = useNavigate();
   const theme = useTheme();
   
-  // Filter jobs for today
-  const today = new Date().toISOString().split('T')[0];
+  // Filter jobs for today (using local timezone, not UTC)
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const todaysJobs = jobs.filter(job => {
     if (!job.crewScheduledDate) return false;
-    const schedDate = new Date(job.crewScheduledDate).toISOString().split('T')[0];
-    return schedDate === today && ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
+    const schedDate = new Date(job.crewScheduledDate);
+    const schedLocal = `${schedDate.getFullYear()}-${String(schedDate.getMonth() + 1).padStart(2, '0')}-${String(schedDate.getDate()).padStart(2, '0')}`;
+    return schedLocal === todayLocal && ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
   });
   
   const inProgressCount = todaysJobs.filter(j => 

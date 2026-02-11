@@ -160,16 +160,13 @@ const JobStatusProgress = ({
           const isCurrent = index === currentIndex;
           const isUpcoming = index > currentIndex;
           
-          // Determine color and icon
+          // Determine color
           let color = COLORS.upcoming;
-          let Icon = RadioButtonUncheckedIcon;
           
           if (isCompleted) {
             color = COLORS.completed;
-            Icon = CheckCircleIcon;
           } else if (isCurrent) {
             color = isStuck ? COLORS.stuck : COLORS.current;
-            Icon = isStuck ? BlockIcon : RadioButtonUncheckedIcon;
           }
           
           return (
@@ -193,6 +190,9 @@ const JobStatusProgress = ({
                   >
                     {isCompleted && (
                       <CheckCircleIcon sx={{ fontSize: dotSize - 4 }} />
+                    )}
+                    {isCurrent && isStuck && (
+                      <BlockIcon sx={{ fontSize: dotSize - 4 }} />
                     )}
                   </Box>
                 </Tooltip>
