@@ -65,7 +65,7 @@ const Calendar = () => {
       // If admin and viewAll is true, fetch all scheduled jobs
       const viewAllParam = isAdmin && viewAll ? '&viewAll=true' : '';
       
-      const response = await api.get(`/api/calendar?month=${month}&year=${year}${viewAllParam}`, {
+      const response = await api.get(`/api/jobs/calendar?month=${month}&year=${year}${viewAllParam}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
