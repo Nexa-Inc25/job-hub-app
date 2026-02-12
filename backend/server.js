@@ -1064,7 +1064,7 @@ app.use('/api/utilities', utilitiesRoutes);
 
 // Authenticated routes - authenticateUser applied at mount level
 app.use('/api/billing', authenticateUser, billingRoutes);
-app.use('/api/pricebook', authenticateUser, priceBookRoutes);
+app.use('/api/pricebooks', authenticateUser, priceBookRoutes);
 app.use('/api/fieldtickets', authenticateUser, fieldTicketRoutes);
 app.use('/api/voice', authenticateUser, voiceRoutes);
 app.use('/api/bidding', authenticateUser, biddingRoutes);
