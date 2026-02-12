@@ -40,9 +40,21 @@ const AsBuiltWizardPage = () => {
         const jobData = jobRes.data;
         setJob(jobData);
 
-        // Fetch current user
-        const userRes = await api.get('/api/auth/me');
-        setUser(userRes.data);
+        // Fetch current user profile
+        try {
+          const userRes = await api.get('/api/users/me');
+          setUser(userRes.data);
+        } catch (userErr) {
+          // Fallback: build minimal user from token
+          console.warn('Could not fetch user profile:', userErr.message);
+          const token = localStorage.getItem('token');
+          if (token) {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              setUser({ _id: payload.userId, role: payload.role, username: payload.email });
+            } catch { /* ignore */ }
+          }
+        }
 
         // Fetch utility config — default to PGE for now
         // TODO: derive utility code from job.utilityId when multi-utility is active
