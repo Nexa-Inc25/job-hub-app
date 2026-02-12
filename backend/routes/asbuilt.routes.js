@@ -960,5 +960,185 @@ router.get('/config/:utilityCode/work-types', async (req, res) => {
   }
 });
 
+// ============================================================================
+// AS-BUILT WIZARD SUBMISSION ENDPOINTS
+// ============================================================================
+
+const utvacValidator = require('../services/asbuilt/UTVACValidator');
+const namingConvention = require('../services/asbuilt/NamingConvention');
+
+/**
+ * POST /wizard/validate
+ * Pre-flight validation of wizard submission (called from Review step).
+ * Returns UTVAC score, errors, and warnings without creating a submission.
+ */
+router.post('/wizard/validate', async (req, res) => {
+  try {
+    const { submission } = req.body;
+    if (!submission) {
+      return res.status(400).json({ error: 'Submission data required' });
+    }
+
+    // Load job for context
+    let job = null;
+    if (submission.jobId) {
+      job = await Job.findById(sanitizeObjectId(submission.jobId));
+    }
+
+    // Get photos for the job
+    const photos = job?.folders
+      ?.flatMap(f => f.documents || [])
+      ?.filter(d => d.type === 'photo' || d.type === 'image') || [];
+
+    const result = await utvacValidator.validate(submission, { job, photos });
+
+    res.json(result);
+  } catch (err) {
+    console.error('Error validating submission:', err);
+    res.status(500).json({ error: 'Validation failed' });
+  }
+});
+
+/**
+ * POST /wizard/submit
+ * Submit a completed as-built package from the wizard.
+ * 1. Validates via UTVAC
+ * 2. Generates SAP-compliant file names
+ * 3. Creates an AsBuiltSubmission record
+ * 4. Queues for processing by the AsBuiltRouter
+ */
+router.post('/wizard/submit', async (req, res) => {
+  try {
+    const { submission } = req.body;
+    if (!submission) {
+      return res.status(400).json({ error: 'Submission data required' });
+    }
+
+    // Load job
+    const job = submission.jobId
+      ? await Job.findById(sanitizeObjectId(submission.jobId))
+      : null;
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Load utility config for naming conventions
+    const config = await UtilityAsBuiltConfig.findByUtilityCode(
+      sanitizeString(submission.utilityCode)?.toUpperCase() || 'PGE'
+    );
+
+    // ---- Step 1: Validate ----
+    const photos = job.folders
+      ?.flatMap(f => f.documents || [])
+      ?.filter(d => d.type === 'photo' || d.type === 'image') || [];
+
+    const validation = await utvacValidator.validate(submission, { job, photos });
+
+    if (!validation.valid) {
+      return res.status(422).json({
+        error: 'Submission failed UTVAC validation',
+        validation,
+      });
+    }
+
+    // ---- Step 2: Generate SAP names ----
+    const fileNames = config
+      ? namingConvention.generatePackageNames(config.namingConventions, {
+          pmNumber: job.pmNumber,
+          notificationNumber: job.notificationNumber,
+        })
+      : {};
+
+    // ---- Step 3: Create AsBuiltSubmission ----
+    const asBuiltSubmission = new AsBuiltSubmission({
+      jobId: job._id,
+      pmNumber: job.pmNumber,
+      notificationNumber: job.notificationNumber,
+      utilityCode: submission.utilityCode || 'PGE',
+      workType: submission.workType,
+      status: 'uploaded',
+      submittedBy: req.user?._id || submission.submittedBy,
+      submittedAt: new Date(),
+      wizardData: submission.stepData,
+      validationScore: validation.score,
+      validationChecks: validation.checks,
+      fileNames,
+    });
+
+    await asBuiltSubmission.save();
+
+    // ---- Step 4: Update job status ----
+    job.auditHistory = job.auditHistory || [];
+    job.auditHistory.push({
+      action: 'asbuilt_submitted',
+      performedBy: req.user?._id,
+      date: new Date(),
+      details: `As-built package submitted via wizard (UTVAC score: ${validation.score}%)`,
+    });
+    await job.save();
+
+    // ---- Step 5: Queue for AsBuiltRouter processing ----
+    // The router will split, classify, and route sections to destinations
+    try {
+      const router = new AsBuiltRouter();
+      // Fire-and-forget — processing happens async
+      router.processSubmission(asBuiltSubmission._id).catch(err => {
+        console.error('AsBuiltRouter processing error:', err);
+      });
+    } catch (routerErr) {
+      console.error('Failed to start AsBuiltRouter:', routerErr);
+      // Non-fatal — submission is saved, routing can be retried
+    }
+
+    res.status(201).json({
+      success: true,
+      submissionId: asBuiltSubmission._id,
+      validation: {
+        score: validation.score,
+        passedChecks: validation.passedChecks,
+        totalChecks: validation.totalChecks,
+        warnings: validation.warnings,
+      },
+      fileNames,
+    });
+  } catch (err) {
+    console.error('Error submitting as-built:', err);
+    res.status(500).json({ error: 'Failed to submit as-built package' });
+  }
+});
+
+/**
+ * GET /wizard/status/:submissionId
+ * Check the processing status of a submitted as-built package.
+ */
+router.get('/wizard/status/:submissionId', async (req, res) => {
+  try {
+    const id = sanitizeObjectId(req.params.submissionId);
+    if (!id) {
+      return res.status(400).json({ error: 'Invalid submission ID' });
+    }
+
+    const submission = await AsBuiltSubmission.findById(id).select(
+      'status routingSummary processingStartedAt processingCompletedAt validationScore'
+    );
+
+    if (!submission) {
+      return res.status(404).json({ error: 'Submission not found' });
+    }
+
+    res.json({
+      status: submission.status,
+      routingSummary: submission.routingSummary,
+      validationScore: submission.validationScore,
+      processingStartedAt: submission.processingStartedAt,
+      processingCompletedAt: submission.processingCompletedAt,
+    });
+  } catch (err) {
+    console.error('Error fetching status:', err);
+    res.status(500).json({ error: 'Failed to fetch status' });
+  }
+});
+
 module.exports = router;
 
