@@ -38,6 +38,34 @@ import ErrorIcon from '@mui/icons-material/Error';
 
 import ECTagCompletion from './ECTagCompletion';
 import CCSCChecklist from './CCSCChecklist';
+import FDAAttributeForm from './FDAAttributeForm';
+
+/**
+ * Detect which equipment types are in scope based on job/EC tag data.
+ * Used to show only relevant FDA attribute sections.
+ */
+function detectEquipmentInScope(job) {
+  const scope = ['pole']; // Pole is almost always relevant
+  
+  if (!job) return scope;
+  
+  const desc = (job.description || '').toLowerCase() + ' ' + (job.ecTagItemType || '').toLowerCase();
+  
+  if (desc.includes('xfmr') || desc.includes('transformer') || desc.includes('trans')) {
+    scope.push('transformer');
+  }
+  if (desc.includes('conductor') || desc.includes('reconductor') || desc.includes('wire') || desc.includes('cable')) {
+    scope.push('conductor');
+  }
+  if (desc.includes('switch') || desc.includes('fuse') || desc.includes('recloser') || desc.includes('sectionalizer')) {
+    scope.push('switchgear');
+  }
+  if (desc.includes('capacitor') || desc.includes('regulator') || desc.includes('streetlight') || desc.includes('riser')) {
+    scope.push('other_equipment');
+  }
+  
+  return scope;
+}
 
 /**
  * As-Built Wizard Component
@@ -135,6 +163,15 @@ const AsBuiltWizard = ({
       });
     }
 
+    // FDA attributes for EC corrective and estimated work (pole/conductor/transformer data)
+    if (requiredDocs.includes('ec_tag') || selectedWorkType.code === 'estimated') {
+      result.push({
+        key: 'fda',
+        label: 'Equipment Attributes',
+        description: 'Record equipment details for the Asset Registry (GIS/SAP)',
+      });
+    }
+
     // Always end with review
     result.push({
       key: 'review',
@@ -169,6 +206,10 @@ const AsBuiltWizard = ({
 
   const handleCCSCComplete = (data) => {
     markStepComplete('ccsc', data);
+  };
+
+  const handleFDAComplete = (data) => {
+    markStepComplete('fda', data);
   };
 
   // ---- Validation for final review ----
@@ -323,6 +364,15 @@ const AsBuiltWizard = ({
             address={job?.address || ''}
             jobScope={job?.jobScope || null}
             onComplete={handleCCSCComplete}
+          />
+        );
+
+      case 'fda':
+        return (
+          <FDAAttributeForm
+            jobData={job || {}}
+            equipmentInScope={detectEquipmentInScope(job)}
+            onComplete={handleFDAComplete}
           />
         );
 

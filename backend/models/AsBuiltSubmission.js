@@ -203,6 +203,109 @@ const asBuiltSubmissionSchema = new mongoose.Schema({
   utilityAcknowledgedAt: Date,
   utilityReferenceId: String,
   
+  // Wizard data (from AsBuiltWizard steps)
+  wizardData: { type: mongoose.Schema.Types.Mixed },
+  validationScore: { type: Number },
+  validationChecks: [{ type: mongoose.Schema.Types.Mixed }],
+  fileNames: { type: mongoose.Schema.Types.Mixed },
+  
+  // EC FDA Attributes — structured equipment data for Asset Registry
+  // Config-driven: attribute categories come from UtilityAsBuiltConfig
+  fdaAttributes: {
+    // Work performed summary
+    workPerformed: {
+      type: String, // e.g., 'POLE_DECA_REPL'
+      description: String,
+      action: { type: String, enum: ['install', 'replace', 'relocate', 'remove', 'repair', 'deactivate', 'idle'] },
+    },
+    
+    // Pole attributes (when pole work is in scope)
+    pole: {
+      action: { type: String, enum: ['install', 'replace', 'remove', 'transfer', 'no_change'] },
+      oldPole: {
+        class: String,        // e.g., '4', '5', '2'
+        height: Number,       // feet (e.g., 45, 55, 65)
+        species: String,      // e.g., 'DF' (Douglas Fir), 'WRC' (Western Red Cedar), 'SP' (Southern Pine)
+        treatment: String,    // e.g., 'CCA', 'PENTA', 'CU-NAP'
+        yearSet: Number,      // Year pole was originally set
+        sapEquipment: String, // SAP Equipment ID
+        groundLineCirc: Number, // Ground line circumference in inches
+      },
+      newPole: {
+        class: String,
+        height: Number,
+        species: String,
+        treatment: String,
+        yearSet: Number,      // Current year
+        sapEquipment: String,
+        manufacturer: String,
+        serialNumber: String,
+      },
+    },
+    
+    // Conductor attributes
+    conductors: [{
+      action: { type: String, enum: ['install', 'replace', 'remove', 'transfer', 'no_change'] },
+      type: { type: String }, // e.g., 'primary', 'secondary', 'neutral', 'service'
+      size: String,           // e.g., '#4 ACSR', '1/0 AAC', '#2 CU'
+      material: String,       // e.g., 'ACSR', 'AAC', 'CU', 'AAAC'
+      spanLength: Number,     // feet
+      fromPole: String,       // Pole ID or description
+      toPole: String,
+      phaseCount: Number,     // 1, 2, or 3
+    }],
+    
+    // Transformer attributes
+    transformer: {
+      action: { type: String, enum: ['install', 'replace', 'remove', 'transfer', 'no_change'] },
+      old: {
+        kva: Number,
+        voltage: String,       // e.g., '12470/7200 - 120/240'
+        phase: { type: Number, enum: [1, 3] },
+        serialNumber: String,
+        manufacturer: String,
+        sapEquipment: String,
+      },
+      new: {
+        kva: Number,
+        voltage: String,
+        phase: { type: Number, enum: [1, 3] },
+        serialNumber: String,
+        manufacturer: String,
+        sapEquipment: String,
+        yearInstalled: Number,
+      },
+    },
+    
+    // Switch/Fuse/Recloser attributes
+    switchgear: [{
+      action: { type: String, enum: ['install', 'replace', 'remove', 'transfer', 'no_change'] },
+      type: { type: String }, // e.g., 'fuse_cutout', 'gang_switch', 'recloser', 'sectionalizer'
+      rating: String,         // e.g., '100A', '65K'
+      manufacturer: String,
+      serialNumber: String,
+      sapEquipment: String,
+    }],
+    
+    // Miscellaneous equipment
+    otherEquipment: [{
+      type: { type: String }, // e.g., 'capacitor', 'regulator', 'streetlight', 'riser', 'meter'
+      action: { type: String, enum: ['install', 'replace', 'remove', 'transfer', 'no_change'] },
+      description: String,
+      attributes: { type: mongoose.Schema.Types.Mixed }, // Flexible key-value pairs
+    }],
+    
+    // Notes for Mapping team
+    mappingNotes: String,
+  },
+  
+  // Notification number (for EC tag work)
+  notificationNumber: String,
+  // Utility code (for config lookup)
+  utilityCode: String,
+  // Work type (from wizard)
+  workType: String,
+
   // Audit trail
   auditLog: [{
     action: {

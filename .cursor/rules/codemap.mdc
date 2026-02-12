@@ -173,18 +173,34 @@ Foreman captures unit    →  GF/QA verifies  →  PM approves  →  Claim gener
 
 ---
 
-### 3. As-Built Document Router
+### 3. As-Built Document Router & Wizard
 
-**Purpose:** Split, classify, and route as-built packages to correct destinations.
+**Purpose:** Guided as-built package completion with utility-specific redline/blueline markup, checklists, UTVAC validation, and document routing.
 
 | Component | Path | Description |
 |-----------|------|-------------|
-| AsBuiltSubmission | `backend/models/AsBuiltSubmission.js` | Submission tracking with sections |
+| UtilityAsBuiltConfig | `backend/models/UtilityAsBuiltConfig.js` | Per-utility config (page ranges, work types, checklists, symbols, validation rules) |
+| AsBuiltSubmission | `backend/models/AsBuiltSubmission.js` | Submission tracking with sections + FDA attributes |
 | RoutingRule | `backend/models/RoutingRule.js` | Configurable routing rules per utility |
-| AsBuiltRouter | `backend/services/asbuilt/AsBuiltRouter.js` | Orchestration service |
+| AsBuiltRouter | `backend/services/asbuilt/AsBuiltRouter.js` | Orchestration: split, classify, route |
+| UTVACValidator | `backend/services/asbuilt/UTVACValidator.js` | UTVAC validation (completeness, traceability, signatures, accuracy) |
+| NamingConvention | `backend/services/asbuilt/NamingConvention.js` | SAP-compliant file naming from config patterns |
+| PG&E Config Seed | `backend/seeds/pge-asbuilt-config.js` | PG&E TD-2051P-10 config (first utility) |
 | Adapters | `backend/services/asbuilt/adapters/` | Destination adapters (Oracle, GIS, Email, SharePoint) |
-| AsBuilt Routes | `backend/routes/asbuilt.routes.js` | Submission APIs |
+| AsBuilt Routes | `backend/routes/asbuilt.routes.js` | Config, wizard, validation, submission APIs |
+| AsBuiltWizard | `frontend/src/components/asbuilt/AsBuiltWizard.jsx` | Step-by-step guided flow (work type → EC tag → sketch → checklist → FDA → review) |
+| SketchMarkupEditor | `frontend/src/components/asbuilt/SketchMarkupEditor.jsx` | Freehand draw, line, arrow, symbol stamps, RED/BLUE/BLACK modes |
+| SymbolPalette | `frontend/src/components/asbuilt/SymbolPalette.jsx` | Config-driven symbol library (PG&E TD-9213S) |
+| CCSCChecklist | `frontend/src/components/asbuilt/CCSCChecklist.jsx` | Native mobile checklist (replaces PDF checkbox annotation) |
+| ECTagCompletion | `frontend/src/components/asbuilt/ECTagCompletion.jsx` | Auto-fill EC tag completion with signature |
+| FDAAttributeForm | `frontend/src/components/asbuilt/FDAAttributeForm.jsx` | Structured equipment data entry for Asset Registry |
+| UTVACScoreCard | `frontend/src/components/asbuilt/UTVACScoreCard.jsx` | Visual validation score with check details |
 | AsBuiltRouter UI | `frontend/src/components/asbuilt/AsBuiltRouter.jsx` | Routing dashboard |
+
+**Key Architecture: Utility-Config-Driven**
+- Zero hardcoded utility logic — PG&E is config #1 via `UtilityAsBuiltConfig`
+- Other utilities (SCE, SDG&E, etc.) plug in as new config documents
+- Page ranges, work types, checklists, symbols, naming, and validation rules all come from config
 
 **PG&E Page Range Mapping:**
 ```javascript
