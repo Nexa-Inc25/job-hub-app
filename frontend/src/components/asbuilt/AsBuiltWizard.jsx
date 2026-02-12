@@ -258,14 +258,8 @@ const AsBuiltWizard = ({
     });
   }, [markStepComplete]);
 
-  // Get the page range label for a section type (for display)
-  const getPageRangeLabel = (sectionType) => {
-    const range = utilityConfig?.pageRanges?.find(pr => pr.sectionType === sectionType);
-    if (!range) return '';
-    return range.start === range.end
-      ? `Page ${range.start}`
-      : `Pages ${range.start}–${range.end}`;
-  };
+  // getPageRangeLabel kept for future use when page classification is wired in
+  // const getPageRangeLabel = (sectionType) => { ... };
 
   // ---- Validation for final review ----
   const reviewValidation = useMemo(() => {
@@ -372,11 +366,15 @@ const AsBuiltWizard = ({
       case 'billing_form':
         return (
           <Box>
+            {/* Auto-fill info banner */}
+            <Alert severity="success" sx={{ mb: 1 }}>
+              <strong>Auto-filled:</strong> PM# {job?.pmNumber || '—'} | {job?.address || '—'} | {new Date().toLocaleDateString()} | {user?.name || user?.email || '—'}
+            </Alert>
             {jobPackagePdfUrl ? (
-              <Box sx={{ minHeight: 400 }}>
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <strong>{step.label}</strong> — {getPageRangeLabel(step.sectionType)} of the job package.
-                  Fill in any blank fields, then tap <strong>Save</strong>.
+              <Box sx={{ minHeight: 500 }}>
+                <Alert severity="info" sx={{ mb: 1 }} variant="outlined">
+                  <strong>{step.label}</strong> — Scroll to find this form in the job package.
+                  Use the toolbar tools to fill in fields, check boxes, and sign. Tap <strong>Save</strong> when done.
                 </Alert>
                 <React.Suspense fallback={<CircularProgress />}>
                   <PDFFormEditor
@@ -384,7 +382,12 @@ const AsBuiltWizard = ({
                     jobInfo={{
                       pmNumber: job?.pmNumber,
                       woNumber: job?.woNumber,
+                      notificationNumber: job?.notificationNumber,
                       address: job?.address,
+                      city: job?.city,
+                      userName: user?.name,
+                      userEmail: user?.email,
+                      userLanId: user?.lanId || user?.username || (user?.email ? user.email.split('@')[0] : ''),
                     }}
                     documentName={step.label}
                     onSave={(base64, name) => handlePdfFormSave(step.key, base64, name)}

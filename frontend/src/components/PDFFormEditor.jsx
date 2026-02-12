@@ -75,12 +75,12 @@ const STORAGE_KEYS = {
   initials: 'pdfEditor_initials',
 };
 
-const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
+const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotations = [] }) => {
   // Core state
   const [pdfBytes, setPdfBytes] = useState(null);
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [annotations, setAnnotations] = useState([]);
+  const [annotations, setAnnotations] = useState(initialAnnotations);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -622,11 +622,11 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden', bgcolor: '#e0e0e0' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'auto', bgcolor: '#e0e0e0' }}>
       
-      {/* ===== COMPACT TOOLBAR ===== */}
+      {/* ===== STICKY TOOLBAR ===== */}
       <Paper 
-        elevation={2}
+        elevation={4}
         sx={{ 
           px: 1,
           py: 0.75,
@@ -636,6 +636,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
           borderRadius: 0,
           bgcolor: 'background.paper',
           flexShrink: 0,
+          position: 'sticky',
+          top: 0,
+          zIndex: 50,
         }}
       >
         {/* Single Row: Tools + Colors + Zoom + Actions */}
@@ -1209,6 +1212,7 @@ PDFFormEditor.propTypes = {
   }),
   onSave: PropTypes.func,
   documentName: PropTypes.string,
+  initialAnnotations: PropTypes.array,
 };
 
 export default PDFFormEditor;
