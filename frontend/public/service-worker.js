@@ -205,43 +205,49 @@ async function handleNavigationRequest(request) {
 
 /**
  * Handle static assets
- * - JS/CSS with hashes: network-first (prevents stale chunk errors)
+ * - JS/CSS with content hashes: cache-first (immutable — filename changes when content changes)
  * - Other static: stale-while-revalidate
  */
 async function handleStaticRequest(request) {
   const url = new URL(request.url);
   const cache = await caches.open(STATIC_CACHE);
   
-  // JS/CSS assets with content hashes should be network-first
-  // to prevent serving stale chunks after deployments
+  // Hashed assets (e.g. /assets/vendor-react-Ch7kLwPn.js) are immutable:
+  // the hash in the filename changes whenever the content changes, so a
+  // cached copy is always valid. Cache-first saves bandwidth for field
+  // workers on cellular connections.
   const isHashedAsset = /\.(js|css)$/.test(url.pathname) && 
                         /assets\//.test(url.pathname);
   
   if (isHashedAsset) {
+    // Cache-first: serve from cache if available
+    const cachedResponse = await cache.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Not cached yet — fetch from network
     try {
       const networkResponse = await fetch(request);
-      // Only cache if we got a valid JS/CSS response (not HTML fallback)
       const contentType = networkResponse.headers.get('content-type') || '';
+      
       if (networkResponse.ok && (contentType.includes('javascript') || contentType.includes('css'))) {
         cache.put(request, networkResponse.clone());
         return networkResponse;
       }
+      
       // Server returned HTML for a JS file = chunk doesn't exist (version mismatch)
-      // Force page reload to get new index.html
+      // This happens after a deployment when the old chunk hashes are gone.
+      // Signal the client to reload and pick up the new index.html.
       if (contentType.includes('text/html')) {
-        console.log('[SW] Detected stale chunk request, triggering reload');
+        console.warn('[SW] Detected stale chunk request, triggering reload');
         const clients = await self.clients.matchAll({ type: 'window' });
         clients.forEach(client => {
           client.postMessage({ type: 'STALE_CHUNK_DETECTED' });
         });
       }
       return networkResponse;
-    } catch (error) {
-      // Network failed, try cache
-      const cachedResponse = await cache.match(request);
-      if (cachedResponse) {
-        return cachedResponse;
-      }
+    } catch (_error) {
       return new Response('Offline', { status: 503 });
     }
   }
