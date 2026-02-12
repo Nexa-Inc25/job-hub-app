@@ -837,11 +837,14 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                       bgcolor: 'white',
                       boxShadow: 3,
                       borderRadius: 1,
-                      overflow: 'hidden',
+                      overflow: 'visible',
                       cursor: currentTool === 'text' ? 'text' : 'crosshair',
                     }}
                     onClick={(e) => {
-                      if (e.target === e.currentTarget || e.target.tagName === 'CANVAS') {
+                      // Accept clicks on the Box wrapper, the canvas, or any child
+                      // element of the Page component (react-pdf v9 wraps canvas in divs)
+                      const isAnnotation = e.target.closest('[data-annotation]');
+                      if (!isAnnotation) {
                         setCurrentPage(pageNum);
                         handlePageClick(e);
                       }
@@ -883,6 +886,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                       return (
                       <Box
                         key={annotation.id}
+                        data-annotation="true"
                         sx={{
                           position: 'absolute',
                           left: displayX,
@@ -890,8 +894,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
                           cursor: isDragging && dragAnnotationId === annotation.id ? 'grabbing' : 'grab',
                           padding: '4px',
                           borderRadius: 1,
-                          border: selectedAnnotation === annotation.id ? '3px solid #1976d2' : '2px dashed transparent',
-                          bgcolor: selectedAnnotation === annotation.id ? 'rgba(25, 118, 210, 0.15)' : 'transparent',
+                          border: selectedAnnotation === annotation.id ? '3px solid #1976d2' : '2px dashed rgba(0,0,0,0.3)',
+                          bgcolor: selectedAnnotation === annotation.id ? 'rgba(25, 118, 210, 0.15)' : 'rgba(255,255,255,0.7)',
                           '&:hover': {
                             bgcolor: 'rgba(255, 235, 59, 0.4)',
                             border: '2px dashed #ffc107',
