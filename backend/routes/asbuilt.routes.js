@@ -826,5 +826,139 @@ router.post('/rules/seed-pge', async (req, res) => {
   }
 });
 
+// ============================================================================
+// UTILITY AS-BUILT CONFIGURATION ENDPOINTS
+// ============================================================================
+
+const UtilityAsBuiltConfig = require('../models/UtilityAsBuiltConfig');
+const { getPGEConfig } = require('../seeds/pge-asbuilt-config');
+
+/**
+ * GET /config/:utilityCode
+ * Fetch the active As-Built configuration for a utility.
+ * The frontend uses this to drive the As-Built wizard, symbol palette,
+ * checklist, and validation rules — all without hardcoding any utility logic.
+ */
+router.get('/config/:utilityCode', async (req, res) => {
+  try {
+    const utilityCode = sanitizeString(req.params.utilityCode)?.toUpperCase();
+    if (!utilityCode) {
+      return res.status(400).json({ error: 'Utility code is required' });
+    }
+
+    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+
+    // Auto-seed PG&E config on first request
+    if (!config && utilityCode === 'PGE') {
+      config = new UtilityAsBuiltConfig(getPGEConfig());
+      await config.save();
+    }
+
+    if (!config) {
+      return res.status(404).json({ error: `No As-Built configuration found for utility: ${utilityCode}` });
+    }
+
+    res.json(config);
+  } catch (err) {
+    console.error('Error fetching utility config:', err);
+    res.status(500).json({ error: 'Failed to fetch utility configuration' });
+  }
+});
+
+/**
+ * GET /config/:utilityCode/symbols
+ * Fetch just the symbol library for a utility (lightweight endpoint for the sketch markup editor).
+ */
+router.get('/config/:utilityCode/symbols', async (req, res) => {
+  try {
+    const utilityCode = sanitizeString(req.params.utilityCode)?.toUpperCase();
+    if (!utilityCode) {
+      return res.status(400).json({ error: 'Utility code is required' });
+    }
+
+    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    
+    if (!config && utilityCode === 'PGE') {
+      config = new UtilityAsBuiltConfig(getPGEConfig());
+      await config.save();
+    }
+
+    if (!config?.symbolLibrary) {
+      return res.status(404).json({ error: `No symbol library found for utility: ${utilityCode}` });
+    }
+
+    res.json({
+      standardId: config.symbolLibrary.standardId,
+      standardName: config.symbolLibrary.standardName,
+      symbols: config.symbolLibrary.symbols,
+      colorConventions: config.colorConventions,
+    });
+  } catch (err) {
+    console.error('Error fetching symbols:', err);
+    res.status(500).json({ error: 'Failed to fetch symbol library' });
+  }
+});
+
+/**
+ * GET /config/:utilityCode/checklist
+ * Fetch just the completion checklist for a utility (for the CCSC native checklist UI).
+ */
+router.get('/config/:utilityCode/checklist', async (req, res) => {
+  try {
+    const utilityCode = sanitizeString(req.params.utilityCode)?.toUpperCase();
+    if (!utilityCode) {
+      return res.status(400).json({ error: 'Utility code is required' });
+    }
+
+    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    
+    if (!config && utilityCode === 'PGE') {
+      config = new UtilityAsBuiltConfig(getPGEConfig());
+      await config.save();
+    }
+
+    if (!config?.checklist) {
+      return res.status(404).json({ error: `No checklist found for utility: ${utilityCode}` });
+    }
+
+    res.json(config.checklist);
+  } catch (err) {
+    console.error('Error fetching checklist:', err);
+    res.status(500).json({ error: 'Failed to fetch checklist' });
+  }
+});
+
+/**
+ * GET /config/:utilityCode/work-types
+ * Fetch work types and their required documents.
+ */
+router.get('/config/:utilityCode/work-types', async (req, res) => {
+  try {
+    const utilityCode = sanitizeString(req.params.utilityCode)?.toUpperCase();
+    if (!utilityCode) {
+      return res.status(400).json({ error: 'Utility code is required' });
+    }
+
+    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    
+    if (!config && utilityCode === 'PGE') {
+      config = new UtilityAsBuiltConfig(getPGEConfig());
+      await config.save();
+    }
+
+    if (!config) {
+      return res.status(404).json({ error: `No configuration found for utility: ${utilityCode}` });
+    }
+
+    res.json({
+      workTypes: config.workTypes,
+      pageRanges: config.pageRanges,
+    });
+  } catch (err) {
+    console.error('Error fetching work types:', err);
+    res.status(500).json({ error: 'Failed to fetch work types' });
+  }
+});
+
 module.exports = router;
 
