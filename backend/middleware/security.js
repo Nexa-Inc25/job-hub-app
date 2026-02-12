@@ -6,6 +6,7 @@
  */
 
 const crypto = require('node:crypto');
+const log = require('../utils/logger');
 
 /**
  * Generate unique request ID for audit correlation
@@ -53,11 +54,25 @@ const sanitizeInput = (req, res, next) => {
   if (req.body && typeof req.body === 'object') {
     req.body = sanitizeObject(req.body);
   }
+  // Express 5: req.query is a getter that recomputes on each access.
+  // We use Object.defineProperty to replace the getter with a sanitized data property.
   if (req.query && typeof req.query === 'object') {
-    req.query = sanitizeObject(req.query);
+    const sanitizedQuery = sanitizeObject(req.query);
+    Object.defineProperty(req, 'query', {
+      value: sanitizedQuery,
+      writable: true,
+      configurable: true,
+      enumerable: true
+    });
   }
+  // Express 5: req.params is a null-prototype object set by the router.
+  // Mutate in place rather than reassigning to ensure compatibility.
   if (req.params && typeof req.params === 'object') {
-    req.params = sanitizeObject(req.params);
+    const sanitizedParams = sanitizeObject(req.params);
+    for (const key of Object.keys(req.params)) {
+      delete req.params[key];
+    }
+    Object.assign(req.params, sanitizedParams);
     // Validate common ID parameters to ensure they're valid ObjectId strings
     // This prevents NoSQL injection via type confusion attacks
     for (const [key, value] of Object.entries(req.params)) {
@@ -118,13 +133,13 @@ function sanitizeObject(obj) {
   for (const key of Object.keys(obj)) {
     // Block MongoDB operators ($where, $gt, $ne, etc.)
     if (key.startsWith('$')) {
-      console.warn(`[SECURITY] Blocked MongoDB operator in input: ${key}`);
+      log.warn({ blockedKey: key }, 'Blocked MongoDB operator in input');
       continue;
     }
     
     // Block prototype pollution attempts
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') {
-      console.warn(`[SECURITY] Blocked prototype pollution attempt: ${key}`);
+      log.warn({ blockedKey: key }, 'Blocked prototype pollution attempt');
       continue;
     }
     
@@ -150,7 +165,7 @@ const validateContentType = (req, res, next) => {
     if (req.path.startsWith('/api/') && !contentType.includes('application/json') && !contentType.includes('application/x-www-form-urlencoded')) {
       // Allow if no body
       if (req.body && Object.keys(req.body).length > 0) {
-        console.warn(`Invalid content type for ${req.method} ${req.path}: ${contentType}`);
+        log.warn({ method: req.method, path: req.path, contentType }, 'Invalid content type');
       }
     }
   }
@@ -161,12 +176,24 @@ const validateContentType = (req, res, next) => {
  * Prevent parameter pollution
  */
 const preventParamPollution = (req, res, next) => {
-  // If query params are arrays, take only the first value
+  // If query params are arrays, take only the first value.
+  // Express 5: req.query is a getter, so we must snapshot, modify, and re-define.
   if (req.query) {
-    for (const key of Object.keys(req.query)) {
-      if (Array.isArray(req.query[key])) {
-        req.query[key] = req.query[key][0];
+    const query = { ...req.query };
+    let modified = false;
+    for (const key of Object.keys(query)) {
+      if (Array.isArray(query[key])) {
+        query[key] = query[key][0];
+        modified = true;
       }
+    }
+    if (modified) {
+      Object.defineProperty(req, 'query', {
+        value: query,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
     }
   }
   next();
@@ -181,7 +208,7 @@ const slowRequestLogger = (threshold = 10000) => (req, res, next) => {
   res.on('finish', () => {
     const duration = Date.now() - start;
     if (duration > threshold) {
-      console.warn(`[SLOW REQUEST] ${req.method} ${req.path} took ${duration}ms`);
+      log.warn({ method: req.method, path: req.path, durationMs: duration }, 'Slow request');
     }
   });
   
@@ -196,7 +223,7 @@ const blockSuspiciousAgents = (req, res, next) => {
   
   // Block empty user agents on API endpoints
   if (!ua && req.path.startsWith('/api/') && req.path !== '/api/health') {
-    console.warn(`Blocked request with no user-agent: ${req.method} ${req.path} from ${req.ip}`);
+    log.warn({ method: req.method, path: req.path, ip: req.ip }, 'Blocked request with no user-agent');
     return res.status(403).json({ error: 'Forbidden' });
   }
   
@@ -212,7 +239,7 @@ const blockSuspiciousAgents = (req, res, next) => {
   
   for (const pattern of suspiciousPatterns) {
     if (pattern.test(ua)) {
-      console.warn(`Blocked suspicious user-agent: ${ua} from ${req.ip}`);
+      log.warn({ userAgent: ua, ip: req.ip }, 'Blocked suspicious user-agent');
       return res.status(403).json({ error: 'Forbidden' });
     }
   }
@@ -225,7 +252,7 @@ const blockSuspiciousAgents = (req, res, next) => {
  */
 const secureErrorHandler = (err, req, res, _next) => {
   // Log full error internally
-  console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  log.error({ err, method: req.method, path: req.path, requestId: req.requestId }, 'Express error');
   
   // Never expose internal errors to client
   const statusCode = err.statusCode || err.status || 500;

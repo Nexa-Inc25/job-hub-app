@@ -1,102 +1,101 @@
 /**
- * FieldLedger - Logger Utility
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
- * 
- * Environment-aware logging utility.
- * Suppresses debug logs in production while keeping info/warn/error.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
+ * Structured Logger (pino)
+ *
+ * Replaces console.log/warn/error across the backend with JSON-structured
+ * log output suitable for Railway, Datadog, Grafana Loki, etc.
+ *
+ * Usage (direct — preferred for new code):
+ *   const log = require('../utils/logger');
+ *   log.info('Server started');
+ *   log.info({ port: 5000 }, 'Listening');
+ *   log.warn({ userId, durationMs: 1200 }, 'Slow request');
+ *   log.error({ err }, 'Unhandled exception');
+ *
+ * Legacy console.* calls are automatically redirected through pino via
+ * `redirectConsole()`, so existing code gets structured output with zero
+ * refactoring.  New code should use the logger directly for structured data.
+ *
+ * In development, pino-pretty renders human-friendly coloured output.
+ * In production, raw JSON lines are emitted (one object per line).
+ *
+ * Environment variables:
+ *   LOG_LEVEL  – pino level name (default: "info" in prod, "debug" otherwise)
  */
 
-const isDev = process.env.NODE_ENV !== 'production';
+const pino = require('pino');
+
+const isProduction = process.env.NODE_ENV === 'production';
 const isTest = process.env.NODE_ENV === 'test';
 
+const logger = pino({
+  level: process.env.LOG_LEVEL || (isTest ? 'silent' : isProduction ? 'info' : 'debug'),
+
+  // In production emit raw JSON; in dev use pino-pretty for readability
+  ...(isProduction || isTest
+    ? {}
+    : {
+        transport: {
+          target: 'pino-pretty',
+          options: {
+            colorize: true,
+            translateTime: 'HH:MM:ss.l',
+            ignore: 'pid,hostname'
+          }
+        }
+      }),
+
+  // Serialise Error objects properly
+  serializers: {
+    err: pino.stdSerializers.err,
+    error: pino.stdSerializers.err
+  },
+
+  // Add service name so log aggregators can filter
+  base: isProduction ? { service: 'fieldledger-api' } : undefined
+});
+
 /**
- * Format log prefix with timestamp and level
+ * Format a single argument for message concatenation.
+ * Errors keep their stack, objects become JSON, everything else → String.
  */
-function formatPrefix(level) {
-  const timestamp = new Date().toISOString();
-  return `[${timestamp}] [${level.toUpperCase()}]`;
+function formatArg(arg) {
+  if (arg instanceof Error) return arg.stack || arg.message;
+  if (typeof arg === 'object' && arg !== null) {
+    try { return JSON.stringify(arg); } catch { return String(arg); }
+  }
+  return String(arg);
 }
 
 /**
- * Logger with environment-aware log levels
+ * Redirect global console methods through pino.
+ * Call once at the top of server.js so ALL logging (including
+ * third-party libs) is captured as structured JSON in production.
+ *
+ * After calling this, `console.log('msg', value)` produces:
+ *   {"level":30,"time":1707600000000,"msg":"msg value"}
  */
-const logger = {
-  /**
-   * Debug logs - only shown in development
-   * Use for verbose debugging information
-   */
-  debug: (...args) => {
-    if (isDev && !isTest) {
-      console.log(formatPrefix('debug'), ...args);
-    }
-  },
-  
-  /**
-   * Info logs - shown in all environments
-   * Use for important operational information
-   */
-  info: (...args) => {
-    if (!isTest) {
-      console.log(formatPrefix('info'), ...args);
-    }
-  },
-  
-  /**
-   * Warning logs - shown in all environments
-   * Use for potential issues that don't break functionality
-   */
-  warn: (...args) => {
-    console.warn(formatPrefix('warn'), ...args);
-  },
-  
-  /**
-   * Error logs - shown in all environments
-   * Use for errors and exceptions
-   */
-  error: (...args) => {
-    console.error(formatPrefix('error'), ...args);
-  },
-  
-  /**
-   * Oracle-specific logger for integration debugging
-   */
-  oracle: {
-    debug: (...args) => logger.debug('[Oracle]', ...args),
-    info: (...args) => logger.info('[Oracle]', ...args),
-    warn: (...args) => logger.warn('[Oracle]', ...args),
-    error: (...args) => logger.error('[Oracle]', ...args),
-  },
-  
-  /**
-   * AsBuilt-specific logger
-   */
-  asbuilt: {
-    debug: (...args) => logger.debug('[AsBuilt]', ...args),
-    info: (...args) => logger.info('[AsBuilt]', ...args),
-    warn: (...args) => logger.warn('[AsBuilt]', ...args),
-    error: (...args) => logger.error('[AsBuilt]', ...args),
-  },
-  
-  /**
-   * Billing-specific logger
-   */
-  billing: {
-    debug: (...args) => logger.debug('[Billing]', ...args),
-    info: (...args) => logger.info('[Billing]', ...args),
-    warn: (...args) => logger.warn('[Billing]', ...args),
-    error: (...args) => logger.error('[Billing]', ...args),
-  },
-  
-  /**
-   * Check if debug logging is enabled
-   */
-  isDebugEnabled: () => isDev && !isTest,
-  
-  /**
-   * Check if running in production
-   */
-  isProduction: () => !isDev,
-};
+function redirectConsole() {
+  const original = {
+    log: console.log.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    info: console.info.bind(console),
+    debug: console.debug.bind(console)
+  };
+
+  console.log   = (...args) => logger.info(args.map(formatArg).join(' '));
+  console.info  = (...args) => logger.info(args.map(formatArg).join(' '));
+  console.warn  = (...args) => logger.warn(args.map(formatArg).join(' '));
+  console.error = (...args) => logger.error(args.map(formatArg).join(' '));
+  console.debug = (...args) => logger.debug(args.map(formatArg).join(' '));
+
+  // Expose originals for rare cases where raw console is needed (e.g. tests)
+  console._original = original;
+}
 
 module.exports = logger;
-
+module.exports.redirectConsole = redirectConsole;

@@ -8,8 +8,11 @@
  * Wraps async route handlers to catch unhandled promise rejections
  * and forward them to Express error handling middleware.
  * 
- * This prevents unhandled rejections from crashing the process
- * and ensures all errors are properly handled by secureErrorHandler.
+ * NOTE: Express 5 natively catches rejected promises in async handlers
+ * and forwards them to error middleware, making this wrapper technically
+ * optional. However, keeping it is harmless and ensures backward
+ * compatibility with Express 4 patterns. It can be safely removed
+ * once all code has been audited against Express 5 error handling.
  * 
  * @example
  * router.get('/users', asyncHandler(async (req, res) => {

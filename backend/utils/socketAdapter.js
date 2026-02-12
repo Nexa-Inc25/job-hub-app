@@ -9,6 +9,7 @@
 
 const { createAdapter } = require('@socket.io/redis-adapter');
 const { createClient } = require('redis');
+const log = require('./logger');
 
 let pubClient = null;
 let subClient = null;
@@ -21,7 +22,7 @@ async function createRedisAdapter() {
   const redisUrl = process.env.REDIS_URL;
   
   if (!redisUrl) {
-    console.log('[SocketAdapter] REDIS_URL not set, using in-memory adapter');
+    log.info('REDIS_URL not set, using in-memory Socket.IO adapter');
     return null;
   }
 
@@ -31,22 +32,21 @@ async function createRedisAdapter() {
 
     // Error handlers
     pubClient.on('error', (err) => {
-      console.error('[SocketAdapter] Redis Pub Client Error:', err.message);
+      log.error({ err }, 'Redis Pub Client error');
     });
     
     subClient.on('error', (err) => {
-      console.error('[SocketAdapter] Redis Sub Client Error:', err.message);
+      log.error({ err }, 'Redis Sub Client error');
     });
 
     // Connect both clients
     await Promise.all([pubClient.connect(), subClient.connect()]);
     
-    console.log('[SocketAdapter] Redis adapter connected successfully');
+    log.info('Redis adapter connected successfully');
     
     return createAdapter(pubClient, subClient);
   } catch (error) {
-    console.error('[SocketAdapter] Failed to connect to Redis:', error.message);
-    console.log('[SocketAdapter] Falling back to in-memory adapter');
+    log.error({ err: error }, 'Failed to connect to Redis, falling back to in-memory adapter');
     return null;
   }
 }
@@ -58,9 +58,9 @@ async function closeRedisConnections() {
   try {
     if (pubClient) await pubClient.quit();
     if (subClient) await subClient.quit();
-    console.log('[SocketAdapter] Redis connections closed');
+    log.info('Redis connections closed');
   } catch (error) {
-    console.error('[SocketAdapter] Error closing Redis connections:', error.message);
+    log.error({ err: error }, 'Error closing Redis connections');
   }
 }
 
@@ -75,9 +75,32 @@ function getIO() {
   return ioInstance;
 }
 
+/**
+ * Get Redis connection health for deep health check.
+ * @returns {{ configured: boolean, connected: boolean, latencyMs: number, error?: string }}
+ */
+async function getRedisHealth() {
+  if (!process.env.REDIS_URL) {
+    return { configured: false, connected: false, latencyMs: 0 };
+  }
+
+  if (!pubClient) {
+    return { configured: true, connected: false, latencyMs: 0, error: 'client_not_initialized' };
+  }
+
+  const start = Date.now();
+  try {
+    await pubClient.ping();
+    return { configured: true, connected: true, latencyMs: Date.now() - start };
+  } catch (error) {
+    return { configured: true, connected: false, latencyMs: Date.now() - start, error: error.message };
+  }
+}
+
 module.exports = {
   createRedisAdapter,
   closeRedisConnections,
+  getRedisHealth,
   setIO,
   getIO
 };

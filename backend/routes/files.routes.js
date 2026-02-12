@@ -61,7 +61,7 @@ const initRoutes = (authMiddleware) => {
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-router.get('/signed/:key(*)', (req, res, _next) => {
+router.get('/signed/*key', (req, res, _next) => {
   if (authenticateUser) {
     return authenticateUser(req, res, () => filesController.getSignedUrl(req, res));
   }
@@ -95,7 +95,7 @@ router.get('/signed/:key(*)', (req, res, _next) => {
  *       404:
  *         description: File not found
  */
-router.get('/:key(*)', filesController.streamFile);
+router.get('/*key', filesController.streamFile);
 
 module.exports = { router, initRoutes };
 

@@ -33,8 +33,8 @@ const createTestApp = () => {
     next();
   };
   
-  app.get('/api/files/signed/:key(*)', mockAuth, filesController.getSignedUrl);
-  app.get('/api/files/:key(*)', filesController.streamFile);
+  app.get('/api/files/signed/*key', mockAuth, filesController.getSignedUrl);
+  app.get('/api/files/*key', filesController.streamFile);
   
   return app;
 };

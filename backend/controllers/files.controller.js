@@ -21,7 +21,8 @@ const { sanitizePath } = require('../utils/sanitize');
  */
 const getSignedUrl = async (req, res) => {
   try {
-    const fileKey = req.params.key;
+    // Express 5 wildcard params may be arrays — normalize to slash-joined string
+    const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
     
     // Sanitize file key to prevent path traversal
     const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -56,7 +57,8 @@ const getSignedUrl = async (req, res) => {
  */
 const streamFile = async (req, res) => {
   try {
-    const fileKey = req.params.key;
+    // Express 5 wildcard params may be arrays — normalize to slash-joined string
+    const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
     
     // Sanitize file key to prevent path traversal
     const uploadsDir = path.join(__dirname, '..', 'uploads');

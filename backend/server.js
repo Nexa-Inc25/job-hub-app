@@ -6,9 +6,16 @@
 
 require('dotenv').config();
 
-console.log('=== Server starting ===');
-console.log('Node version:', process.version);
-console.log('Memory usage:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
+// ============================================
+// STRUCTURED LOGGING — must be first after dotenv
+// Redirects all console.log/warn/error through pino for JSON output in production
+// ============================================
+const log = require('./utils/logger');
+const { redirectConsole } = require('./utils/logger');
+redirectConsole();
+
+log.info('=== Server starting ===');
+log.info({ nodeVersion: process.version, heapMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) }, 'Process info');
 
 // ============================================
 // ENVIRONMENT VALIDATION - Fail fast on missing config
@@ -105,7 +112,7 @@ const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
 
-console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
+log.info({ heapMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) }, 'All modules loaded');
 
 // Log R2 configuration status
 console.log('R2 Storage configured:', r2Storage.isR2Configured());
@@ -212,12 +219,101 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+/**
+ * @swagger
+ * /api/health/deep:
+ *   get:
+ *     summary: Deep health check with live service pings
+ *     description: |
+ *       Pings MongoDB, Cloudflare R2, and Redis to verify actual connectivity.
+ *       Use /api/health for fast load-balancer checks; use this endpoint for
+ *       monitoring dashboards and incident triage.
+ *     tags: [Health]
+ *     security: []
+ *     responses:
+ *       200:
+ *         description: All critical services healthy (or degraded but functional)
+ *       503:
+ *         description: One or more critical services unreachable
+ */
+app.get('/api/health/deep', async (_req, res) => {
+  const checks = {};
+  const TIMEOUT_MS = 5000;
+
+  // Helper: race a promise against a timeout
+  const withTimeout = (promise, label) =>
+    Promise.race([
+      promise,
+      new Promise((_resolve, reject) =>
+        setTimeout(() => reject(new Error(`${label} health check timed out`)), TIMEOUT_MS)
+      )
+    ]);
+
+  // --- MongoDB ping ---
+  const mongoStart = Date.now();
+  try {
+    await withTimeout(
+      mongoose.connection.db.admin().ping(),
+      'MongoDB'
+    );
+    checks.mongodb = { ok: true, latencyMs: Date.now() - mongoStart };
+  } catch (err) {
+    checks.mongodb = { ok: false, latencyMs: Date.now() - mongoStart, error: err.message };
+  }
+
+  // --- R2 Storage ping ---
+  try {
+    checks.storage = await withTimeout(r2Storage.pingStorage(), 'R2');
+  } catch (err) {
+    checks.storage = { ok: false, latencyMs: 0, error: err.message };
+  }
+
+  // --- Redis ping (optional — only when REDIS_URL is set) ---
+  const { getRedisHealth } = require('./utils/socketAdapter');
+  try {
+    checks.redis = await withTimeout(getRedisHealth(), 'Redis');
+  } catch (err) {
+    checks.redis = { configured: Boolean(process.env.REDIS_URL), connected: false, latencyMs: 0, error: err.message };
+  }
+
+  // --- Circuit breaker snapshot ---
+  const { getCircuitBreakerHealth } = require('./utils/circuitBreaker');
+  checks.circuitBreakers = getCircuitBreakerHealth();
+
+  // --- Overall status ---
+  const criticalOk = checks.mongodb.ok; // MongoDB is the only hard requirement
+  const storageOk  = checks.storage.ok || checks.storage.error === 'not_configured';
+  const redisOk    = !checks.redis.configured || checks.redis.connected;
+  const allOk      = criticalOk && storageOk && redisOk;
+
+  const status = criticalOk
+    ? (allOk ? 'ok' : 'degraded')
+    : 'unhealthy';
+
+  res.status(criticalOk ? 200 : 503).json({
+    status,
+    timestamp: new Date().toISOString(),
+    version: process.env.npm_package_version || '1.0.0',
+    checks,
+    system: {
+      uptime: Math.floor(process.uptime()),
+      memory: {
+        heapUsed: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
+        heapTotal: Math.round(process.memoryUsage().heapTotal / 1024 / 1024),
+        rss: Math.round(process.memoryUsage().rss / 1024 / 1024),
+        unit: 'MB'
+      },
+      nodeVersion: process.version
+    }
+  });
+});
+
 // ============================================
 // PORT CONFIGURATION (server starts at end of file after all routes registered)
 // ============================================
 const PORT = process.env.PORT || 5000;
 
-console.log('Health endpoint registered');
+console.log('Health endpoints registered');
 
 // ============================================
 // API DOCUMENTATION (Swagger/OpenAPI)
@@ -275,6 +371,21 @@ app.use(preventParamPollution);        // Prevent parameter pollution attacks
 app.use(sanitizeInput);                // Sanitize all input
 app.use(slowRequestLogger(15000));     // Log requests taking > 15 seconds
 
+// Express 5 compatibility shim: req.query is a getter that returns a new
+// object on every access. Middleware that assigns to req.query (like
+// express-mongo-sanitize) will throw "Cannot set property query … which
+// has only a getter".  Materialize it once into a writable data property.
+app.use((req, _res, next) => {
+  const q = req.query;
+  Object.defineProperty(req, 'query', {
+    value: q,
+    writable: true,
+    configurable: true,
+    enumerable: true
+  });
+  next();
+});
+
 // MongoDB query sanitization - prevents NoSQL injection
 app.use(mongoSanitize());
 
@@ -308,7 +419,7 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => {
     // Don't rate limit health checks
-    return req.path === '/api/health';
+    return req.path === '/api/health' || req.path === '/api/health/deep';
   }
 });
 
@@ -327,7 +438,7 @@ const heavyLimiter = rateLimit({
 // Apply rate limiters (order matters - more specific first)
 app.use('/api/login', authLimiter, loginAttemptTracker);   // Auth with auto-blocking
 app.use('/api/signup', authLimiter);
-app.use('/api/billing/claims/*/export', heavyLimiter);  // Export endpoints
+app.use('/api/billing/claims/:claimId/export', heavyLimiter);  // Export endpoints
 app.use('/api/billing/export', heavyLimiter);           // Bulk exports
 app.use('/api/files/upload', heavyLimiter);             // File uploads
 app.use('/api/asbuilt/submit', heavyLimiter);           // As-built submissions
@@ -577,11 +688,14 @@ connectWithRetry()
     // This ensures health checks pass immediately since DB is already connected
     // ============================================
     server.listen(PORT, '0.0.0.0', () => {
-      console.log(`✅ Server listening on port ${PORT}`);
-      console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`   Health endpoint: /api/health`);
-      console.log(`   API docs: /api-docs`);
-      console.log(`   Demo sandbox: /api/demo/start-session`);
+      log.info({
+        port: PORT,
+        env: process.env.NODE_ENV || 'development',
+        health: '/api/health',
+        deepHealth: '/api/health/deep',
+        docs: '/api-docs',
+        demo: '/api/demo/start-session'
+      }, 'Server listening');
       
       // Oracle integration status check
       const { oracleService } = require('./services/oracle');
@@ -768,9 +882,10 @@ app.post('/api/admin/templates', authenticateUser, requireAdmin, upload.array('t
 });
 
 // Get signed URL for a file (authenticated endpoint - returns JSON with signed URL)
-app.get('/api/files/signed/:key(*)', authenticateUser, async (req, res) => {
+app.get('/api/files/signed/*key', authenticateUser, async (req, res) => {
   try {
-    const fileKey = req.params.key;
+    // Express 5 wildcard params may be arrays — normalize to slash-joined string
+    const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
     
     if (r2Storage.isR2Configured()) {
       const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
@@ -794,9 +909,10 @@ app.get('/api/files/signed/:key(*)', authenticateUser, async (req, res) => {
 
 // Get file from R2 - streams file directly (NO AUTH - for direct <img> loading)
 // Security: Files are only accessible if you know the exact path
-app.get('/api/files/:key(*)', async (req, res) => {
+app.get('/api/files/*key', async (req, res) => {
   try {
-    const fileKey = req.params.key;
+    // Express 5 wildcard params may be arrays — normalize to slash-joined string
+    const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
     console.log('File request - key:', fileKey);
     
     if (r2Storage.isR2Configured()) {
@@ -1072,14 +1188,13 @@ app.use((err, req, res, _next) => {
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err.message);
-  console.error(err.stack);
+  log.fatal({ err }, 'Uncaught Exception');
   // Give time for logs to flush, then exit
   setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, _promise) => {
-  console.error('❌ Unhandled Rejection:', reason);
+  log.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, 'Unhandled Rejection');
 });
 
 // ============================================
@@ -1097,32 +1212,32 @@ async function gracefulShutdown(signal) {
   if (isShuttingDown) return;
   isShuttingDown = true;
   
-  console.log(`\n${signal} received. Starting graceful shutdown...`);
+  log.info({ signal }, 'Graceful shutdown starting');
   
   // Stop accepting new connections
   server.close(async () => {
-    console.log('HTTP server closed');
+    log.info('HTTP server closed');
     
     try {
       // Close database connection
       await mongoose.connection.close();
-      console.log('MongoDB connection closed');
+      log.info('MongoDB connection closed');
       
       // Close Socket.io
       io.close();
-      console.log('Socket.io closed');
+      log.info('Socket.io closed');
       
-      console.log('✅ Graceful shutdown complete');
+      log.info('Graceful shutdown complete');
       process.exit(0);
     } catch (err) {
-      console.error('Error during shutdown:', err);
+      log.error({ err }, 'Error during shutdown');
       process.exit(1);
     }
   });
   
   // Force shutdown after 30 seconds
   setTimeout(() => {
-    console.error('⚠️ Forced shutdown after timeout');
+    log.error('Forced shutdown after 30s timeout');
     process.exit(1);
   }, 30000);
 }

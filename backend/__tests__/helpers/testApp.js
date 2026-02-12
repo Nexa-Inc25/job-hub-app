@@ -34,6 +34,19 @@ function createTestApp() {
   app.use(express.urlencoded({ extended: true }));
   app.use(cors());
   app.use(helmet({ contentSecurityPolicy: false }));
+  
+  // Express 5 compat: materialize req.query getter into a writable data property
+  // so that express-mongo-sanitize can assign to it without throwing
+  app.use((req, _res, next) => {
+    const q = req.query;
+    Object.defineProperty(req, 'query', {
+      value: q,
+      writable: true,
+      configurable: true,
+      enumerable: true
+    });
+    next();
+  });
   app.use(mongoSanitize());
   
   // Simple header-based auth for testing (no JWT required)

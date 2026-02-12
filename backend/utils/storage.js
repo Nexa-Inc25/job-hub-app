@@ -7,6 +7,7 @@ const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const fs = require('node:fs');
 const path = require('node:path');
 const { r2Breaker } = require('./circuitBreaker');
+const log = require('./logger');
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'fieldledger-uploads';
 // Cloudflare Worker URL for direct file serving (bypasses Railway for faster loads)
@@ -37,15 +38,15 @@ if (isR2Configured()) {
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     },
   });
-  console.log('R2 S3Client initialized successfully');
+  log.info('R2 S3Client initialized successfully');
 } else {
-  console.log('R2 not configured - using local storage fallback');
+  log.info('R2 not configured - using local storage fallback');
 }
 
 // Upload a file to R2 (protected by circuit breaker)
 async function uploadFile(localFilePath, r2Key, contentType = 'application/octet-stream') {
   if (!isR2Configured()) {
-    console.log('R2 not configured, using local storage');
+    log.info('R2 not configured, using local storage');
     return { url: localFilePath, key: r2Key, local: true };
   }
 
@@ -63,7 +64,7 @@ async function uploadFile(localFilePath, r2Key, contentType = 'application/octet
     
     // Return the public URL (if bucket is public) or the key for signed URLs
     const url = `https://${BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${r2Key}`;
-    console.log(`Uploaded to R2: ${r2Key}`);
+    log.info({ r2Key }, 'Uploaded to R2');
     
     return { url, key: r2Key, local: false };
   });
@@ -72,7 +73,7 @@ async function uploadFile(localFilePath, r2Key, contentType = 'application/octet
 // Upload a buffer directly to R2 (protected by circuit breaker)
 async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stream') {
   if (!isR2Configured()) {
-    console.log('R2 not configured, cannot upload buffer');
+    log.info('R2 not configured, cannot upload buffer');
     return null;
   }
 
@@ -85,7 +86,7 @@ async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stre
     });
 
     await s3Client.send(command);
-    console.log(`Uploaded buffer to R2: ${r2Key}`);
+    log.info({ r2Key }, 'Uploaded buffer to R2');
     
     return { key: r2Key };
   });
@@ -106,7 +107,7 @@ async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
     return signedUrl;
   } catch (error) {
-    console.error('R2 signed URL error:', error);
+    log.error({ err: error }, 'R2 signed URL error');
     throw error;
   }
 }
@@ -134,10 +135,10 @@ async function getFileStream(r2Key) {
       return null;
     }
     if (error.code === 'CIRCUIT_OPEN') {
-      console.warn('R2 circuit breaker open, cannot fetch file');
+      log.warn('R2 circuit breaker open, cannot fetch file');
       return null;
     }
-    console.error('R2 get file error:', error);
+    log.error({ err: error }, 'R2 get file error');
     throw error;
   });
 }
@@ -155,10 +156,10 @@ async function deleteFile(r2Key) {
     });
 
     await s3Client.send(command);
-    console.log(`Deleted from R2: ${r2Key}`);
+    log.info({ r2Key }, 'Deleted from R2');
     return true;
   } catch (error) {
-    console.error('R2 delete error:', error);
+    log.error({ err: error }, 'R2 delete error');
     throw error;
   }
 }
@@ -178,7 +179,7 @@ async function listFiles(prefix) {
     const response = await s3Client.send(command);
     return response.Contents || [];
   } catch (error) {
-    console.error('R2 list error:', error);
+    log.error({ err: error }, 'R2 list error');
     throw error;
   }
 }
@@ -250,8 +251,31 @@ async function copyFile(sourceKey, destKey) {
   
   await s3Client.send(putCommand);
   
-  console.log(`Copied R2 file: ${sourceKey} -> ${destKey}`);
+  log.info({ sourceKey, destKey }, 'Copied R2 file');
   return { sourceKey, destKey };
+}
+
+/**
+ * Lightweight R2 connectivity check for deep health endpoint.
+ * Lists 0 objects — minimal cost, proves auth + network path work.
+ * @returns {{ ok: boolean, latencyMs: number, error?: string }}
+ */
+async function pingStorage() {
+  if (!isR2Configured() || !s3Client) {
+    return { ok: false, latencyMs: 0, error: 'not_configured' };
+  }
+
+  const start = Date.now();
+  try {
+    await s3Client.send(new ListObjectsV2Command({
+      Bucket: BUCKET_NAME,
+      MaxKeys: 1,
+      Prefix: '__health__' // non-existent prefix — returns immediately
+    }));
+    return { ok: true, latencyMs: Date.now() - start };
+  } catch (error) {
+    return { ok: false, latencyMs: Date.now() - start, error: error.message };
+  }
 }
 
 module.exports = {
@@ -267,6 +291,7 @@ module.exports = {
   uploadJobFile,
   uploadExtractedImage,
   getPublicUrl,
+  pingStorage,
   BUCKET_NAME,
   R2_PUBLIC_URL,
 };

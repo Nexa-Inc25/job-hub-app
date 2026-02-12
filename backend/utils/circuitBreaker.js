@@ -15,6 +15,8 @@
  * @module utils/circuitBreaker
  */
 
+const log = require('./logger');
+
 // Circuit breaker states
 const STATES = {
   CLOSED: 'CLOSED',
@@ -56,7 +58,7 @@ class CircuitBreaker {
       if (Date.now() - this.lastFailure >= this.resetTimeout) {
         this.state = STATES.HALF_OPEN;
         this.halfOpenAttempts = 0;
-        console.log(`[CircuitBreaker:${this.name}] Transitioning to HALF_OPEN`);
+        log.info({ breaker: this.name }, 'Circuit breaker transitioning to HALF_OPEN');
         return false;
       }
       return true;
@@ -108,7 +110,7 @@ class CircuitBreaker {
     
     if (this.state === STATES.HALF_OPEN) {
       // Recovery confirmed, close the circuit
-      console.log(`[CircuitBreaker:${this.name}] Recovery confirmed, closing circuit`);
+      log.info({ breaker: this.name }, 'Circuit breaker recovery confirmed, closing');
       this.state = STATES.CLOSED;
       this.halfOpenAttempts = 0;
     }
@@ -125,12 +127,12 @@ class CircuitBreaker {
 
     if (this.state === STATES.HALF_OPEN) {
       // Failed during recovery test, reopen
-      console.warn(`[CircuitBreaker:${this.name}] Recovery failed, reopening circuit: ${error.message}`);
+      log.warn({ breaker: this.name, err: error }, 'Circuit breaker recovery failed, reopening');
       this.state = STATES.OPEN;
       this.halfOpenAttempts = 0;
     } else if (this.failures >= this.failureThreshold) {
       // Too many failures, open the circuit
-      console.warn(`[CircuitBreaker:${this.name}] Threshold reached (${this.failures}), opening circuit`);
+      log.warn({ breaker: this.name, failures: this.failures }, 'Circuit breaker threshold reached, opening');
       this.state = STATES.OPEN;
     }
   }
@@ -158,7 +160,7 @@ class CircuitBreaker {
     this.successes = 0;
     this.lastFailure = null;
     this.halfOpenAttempts = 0;
-    console.log(`[CircuitBreaker:${this.name}] Manually reset`);
+    log.info({ breaker: this.name }, 'Circuit breaker manually reset');
   }
 }
 
