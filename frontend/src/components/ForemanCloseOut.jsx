@@ -1017,6 +1017,27 @@ const ForemanCloseOut = () => {
         </Box>
       </Box>
 
+      {/* As-Built Wizard CTA */}
+      <Box sx={{ mx: 2, mt: 2 }}>
+        <Button
+          fullWidth
+          variant="contained"
+          size="large"
+          onClick={() => navigate(`/jobs/${jobId}/asbuilt-wizard`)}
+          sx={{
+            bgcolor: COLORS.success,
+            color: COLORS.bg,
+            fontWeight: 700,
+            fontSize: '1rem',
+            py: 1.5,
+            borderRadius: 2,
+            '&:hover': { bgcolor: COLORS.primaryDark },
+          }}
+        >
+          📋 Complete As-Built Package
+        </Button>
+      </Box>
+
       {/* Error display */}
       {error && (
         <Alert severity="error" sx={{ m: 2 }} onClose={() => setError(null)}>

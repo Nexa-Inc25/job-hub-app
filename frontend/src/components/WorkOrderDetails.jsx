@@ -707,6 +707,22 @@ const WorkOrderDetails = () => {
                     >
                       Close Out
                     </Button>
+                    <Button
+                      component={Link}
+                      to={`/jobs/${jobId}/asbuilt-wizard`}
+                      startIcon={<AssignmentIcon />}
+                      variant="contained"
+                      size="large"
+                      sx={{ 
+                        bgcolor: 'success.main',
+                        color: 'success.contrastText',
+                        fontWeight: 700,
+                        px: 3,
+                        '&:hover': { bgcolor: 'success.dark' }
+                      }}
+                    >
+                      As-Built Wizard
+                    </Button>
                   </Box>
                 </Box>
               </CardContent>
