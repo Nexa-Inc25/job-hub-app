@@ -41,16 +41,16 @@ const buttonVariants = cva(
 
 // React 19: ref is a regular prop, no forwardRef needed
 const Button = ({ className, variant, size, asChild = false, children, ref, ...props }) => {
-  const Comp = asChild ? Slot : 'button';
-  return (
-    <Comp
-      className={cn(buttonVariants({ variant, size, className }))}
-      ref={ref}
-      {...props}
-    >
-      {children}
-    </Comp>
-  );
+    const Comp = asChild ? Slot : 'button';
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        {...props}
+      >
+        {children}
+      </Comp>
+    );
 };
 
 Button.displayName = 'Button';

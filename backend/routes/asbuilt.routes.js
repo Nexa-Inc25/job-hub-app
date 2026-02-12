@@ -963,6 +963,136 @@ router.get('/config/:utilityCode/work-types', async (req, res) => {
 });
 
 // ============================================================================
+// PAGE CLASSIFICATION ENDPOINT
+// ============================================================================
+
+/**
+ * POST /classify-pages
+ * Classify pages of a job package PDF by matching text content against
+ * the utility's detection keywords. Returns a map of sectionType → pageNumbers.
+ * 
+ * Since job packages are NOT always in the same page order, this replaces
+ * fixed page ranges with content-based detection.
+ */
+router.post('/classify-pages', async (req, res) => {
+  try {
+    const { jobId, utilityCode = 'PGE' } = req.body;
+    
+    const safeJobId = sanitizeObjectId(jobId);
+    if (!safeJobId) {
+      return res.status(400).json({ error: 'jobId is required' });
+    }
+
+    // Load utility config for detection keywords
+    const config = await UtilityAsBuiltConfig.findByUtilityCode(
+      sanitizeString(utilityCode)?.toUpperCase() || 'PGE'
+    );
+    if (!config?.pageRanges) {
+      return res.status(404).json({ error: 'No utility configuration found' });
+    }
+
+    // Find the job package PDF
+    const job = await Job.findById(safeJobId);
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Collect all PDF documents from the job
+    const allDocs = [];
+    for (const folder of job.folders || []) {
+      for (const doc of folder.documents || []) {
+        if (doc.type === 'pdf' && !doc.extractedFrom) allDocs.push(doc);
+      }
+      for (const sub of folder.subfolders || []) {
+        for (const doc of sub.documents || []) {
+          if (doc.type === 'pdf' && !doc.extractedFrom) allDocs.push(doc);
+        }
+      }
+    }
+
+    // Find the main job package (largest PDF or one named "pack"/"package")
+    const jobPackage = allDocs.find(d =>
+      d.name?.toLowerCase().includes('pack') ||
+      d.name?.toLowerCase().includes('package')
+    ) || allDocs.sort((a, b) => (b.size || 0) - (a.size || 0))[0];
+
+    if (!jobPackage?.r2Key) {
+      return res.status(404).json({ error: 'No job package PDF found' });
+    }
+
+    // Extract text from each page using pdf-parse (lazy loaded)
+    const pdfUtils = (() => {
+      try { return require('../utils/pdfUtils'); }
+      catch { return null; }
+    })();
+
+    const r2Storage = require('../utils/storage');
+    let pdfBuffer;
+    try {
+      const fileData = await r2Storage.getFileStream(jobPackage.r2Key);
+      if (!fileData?.stream) {
+        return res.status(404).json({ error: 'Could not read job package PDF' });
+      }
+      const chunks = [];
+      for await (const chunk of fileData.stream) {
+        chunks.push(chunk);
+      }
+      pdfBuffer = Buffer.concat(chunks);
+    } catch (err) {
+      console.error('Error reading PDF from R2:', err);
+      return res.status(500).json({ error: 'Failed to read job package PDF' });
+    }
+
+    // Parse PDF and get text per page
+    let pageTexts = [];
+    try {
+      const pdfParse = require('pdf-parse');
+      // pdf-parse doesn't give per-page text easily, so use pdfjs-dist if available
+      // Fallback: use the full text and match keywords
+      const parsed = await pdfParse(pdfBuffer);
+      
+      // Split by form feed or page markers if possible
+      // pdf-parse joins all pages — we need per-page text for classification
+      // Use a simple heuristic: split on common PG&E page headers
+      const fullText = parsed.text || '';
+      const totalPages = parsed.numpages || 0;
+      
+      // For now, search the full text for each keyword and report which sections exist
+      const classification = {};
+      for (const range of config.pageRanges) {
+        if (range.detectionKeyword) {
+          const found = fullText.toLowerCase().includes(range.detectionKeyword.toLowerCase());
+          if (found) {
+            classification[range.sectionType] = {
+              detected: true,
+              label: range.label,
+              keyword: range.detectionKeyword,
+              // Fall back to config page numbers as best guess for page position
+              suggestedPages: { start: range.start, end: range.end },
+            };
+          }
+        }
+      }
+
+      res.json({
+        totalPages,
+        classification,
+        pdfName: jobPackage.name,
+        r2Key: jobPackage.r2Key,
+        detectedSections: Object.keys(classification).length,
+        totalConfiguredSections: config.pageRanges.length,
+      });
+    } catch (err) {
+      console.error('Error parsing PDF:', err);
+      res.status(500).json({ error: 'Failed to parse job package PDF' });
+    }
+  } catch (err) {
+    console.error('Error classifying pages:', err);
+    res.status(500).json({ error: 'Failed to classify pages' });
+  }
+});
+
+// ============================================================================
 // AS-BUILT WIZARD SUBMISSION ENDPOINTS
 // ============================================================================
 
