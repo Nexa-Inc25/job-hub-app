@@ -64,8 +64,21 @@ async function closeRedisConnections() {
   }
 }
 
+// Store and retrieve Socket.IO instance for use in route files
+let ioInstance = null;
+
+function setIO(io) {
+  ioInstance = io;
+}
+
+function getIO() {
+  return ioInstance;
+}
+
 module.exports = {
   createRedisAdapter,
-  closeRedisConnections
+  closeRedisConnections,
+  setIO,
+  getIO
 };
 
