@@ -147,7 +147,7 @@ const OwnerDashboard = () => {
   const handleUpdateFeedbackStatus = async (feedbackId, newStatus) => {
     setUpdatingFeedback(feedbackId);
     try {
-      await api.put(`/api/admin/feedback/${feedbackId}`, { status: newStatus });
+      await api.put(`/api/feedback/admin/${feedbackId}`, { status: newStatus });
       
       // Update local state
       setFeedback(prev => prev.map(item => 
@@ -208,7 +208,7 @@ const OwnerDashboard = () => {
       const [statsRes, healthRes, feedbackRes] = await Promise.all([
         api.get('/api/admin/owner-stats'),
         api.get('/api/admin/system-health'),
-        api.get('/api/admin/feedback?limit=20'),
+        api.get('/api/feedback/admin?limit=20'),
       ]);
 
       setStats(statsRes.data);
