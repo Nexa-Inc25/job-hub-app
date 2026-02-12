@@ -83,7 +83,7 @@ const AsBuiltWizardPage = () => {
           }
 
           const getUrl = (doc) => doc.r2Key
-            ? `${apiBase}/api/files/download/${doc.r2Key}`
+            ? `${apiBase}/api/files/${doc.r2Key}`
             : doc.url;
 
           // Find construction sketch
