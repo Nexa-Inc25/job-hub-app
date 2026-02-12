@@ -71,8 +71,9 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode: _mode }) => {
   const [action, setAction] = useState('approve');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
-  const { darkMode: themeDarkMode } = useThemeMode();
-  const { dialogBg } = getThemeColors(themeDarkMode ? 'dark' : 'light');
+  const { darkMode: dlgDarkMode } = useThemeMode();
+  const dlgMode = dlgDarkMode ? 'dark' : 'light';
+  const { dialogBg } = getThemeColors(dlgMode);
 
   // Button color helpers to avoid nested ternaries
   const getButtonBgColor = (actionType) => {
@@ -144,10 +145,10 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode: _mode }) => {
           placeholder={action === 'reject' ? 'Explain the issue...' : 'Optional notes...'}
           sx={{
             '& .MuiInputBase-input': {
-              color: themeMode === 'dark' ? '#e2e8f0' : '#1e293b',
+              color: dlgMode === 'dark' ? '#e2e8f0' : '#1e293b',
             },
             '& .MuiOutlinedInput-root': {
-              bgcolor: themeMode === 'dark' ? '#252538' : '#f8fafc',
+              bgcolor: dlgMode === 'dark' ? '#252538' : '#f8fafc',
             }
           }}
         />
