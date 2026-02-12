@@ -50,6 +50,7 @@ const PriceBookAdmin = lazy(() => import('./components/billing/PriceBookAdmin'))
 const PricingPage = lazy(() => import('./components/billing/PricingPage'));
 const BillingSettings = lazy(() => import('./components/billing/BillingSettings'));
 const AsBuiltRouter = lazy(() => import('./components/asbuilt/AsBuiltRouter'));
+const AsBuiltWizard = lazy(() => import('./components/asbuilt/AsBuiltWizard'));
 
 // SmartForms - PDF template field mapping and filling
 const SmartFormsPage = lazy(() => import('./components/smartforms/SmartFormsPage'));
@@ -187,6 +188,7 @@ function App() {
               <Route path="/billing/capture/:jobId" element={<ProtectedRoute><ForemanCapturePage /></ProtectedRoute>} />
               <Route path="/jobs/:jobId/log-unit" element={<ProtectedRoute><ForemanCapturePage /></ProtectedRoute>} />
               <Route path="/asbuilt-router" element={<ProtectedRoute><AsBuiltRouter /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/asbuilt-wizard" element={<ProtectedRoute><AsBuiltWizard /></ProtectedRoute>} />
               
               {/* SmartForms - PDF template field mapping and filling */}
               <Route path="/smartforms" element={<ProtectedRoute><SmartFormsPage /></ProtectedRoute>} />
