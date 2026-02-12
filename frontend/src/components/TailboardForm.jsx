@@ -452,6 +452,7 @@ const TailboardForm = () => {
     };
     
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- taskDescription only checked, not a trigger
   }, [jobId]);
 
   // Auto-fetch weather on mount (if no existing weather)

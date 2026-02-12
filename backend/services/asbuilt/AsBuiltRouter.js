@@ -183,7 +183,7 @@ class AsBuiltRouter {
   /**
    * Extract metadata from a section (OCR placeholder)
    */
-  async extractMetadataFromSection(submission, section) {
+  async extractMetadataFromSection(submission, _section) {
     // In production, this would use OCR + AI to extract:
     // - PM numbers, job numbers
     // - Pole IDs, equipment numbers
@@ -405,7 +405,8 @@ class AsBuiltRouter {
       throw new Error(`Submission not found: ${submissionId}`);
     }
     
-    const failedSections = submission.getFailedSections();
+    // getFailedSections() validates there are sections to retry
+    submission.getFailedSections();
     
     for (let i = 0; i < submission.sections.length; i++) {
       const section = submission.sections[i];

@@ -18,7 +18,7 @@ afterEach(() => {
 
 // Mock navigator.geolocation
 const mockGeolocation = {
-  getCurrentPosition: vi.fn((success, error) => {
+  getCurrentPosition: vi.fn((success, _error) => {
     success({
       coords: {
         latitude: 37.7749,

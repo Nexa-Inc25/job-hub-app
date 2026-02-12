@@ -130,7 +130,7 @@ async function getItemCostAnalysis(companyId, itemCode, options = {}) {
 async function getCompanyAnalytics(companyId, options = {}) {
   const {
     dateRange = 365,
-    groupBy = 'category', // 'category', 'month', 'utility'
+    groupBy: _groupBy = 'category', // 'category', 'month', 'utility' (reserved for future aggregation)
   } = options;
 
   const startDate = new Date();

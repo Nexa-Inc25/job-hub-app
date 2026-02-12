@@ -41,6 +41,8 @@ export default [
       'no-unused-vars': ['warn', { 
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
       }],
       'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-debugger': 'warn',

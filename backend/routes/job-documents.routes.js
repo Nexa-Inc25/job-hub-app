@@ -17,7 +17,6 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const r2Storage = require('../utils/storage');
 const { logDocument, logExport } = require('../middleware/auditLogger');
-const { jobPackageExport } = require('../utils/jobPackageExport');
 const mongoose = require('mongoose');
 const { validateUrl } = require('../utils/urlValidator');
 

@@ -11,7 +11,6 @@ const router = express.Router();
 const crypto = require('crypto');
 const Company = require('../models/Company');
 const User = require('../models/User');
-const Utility = require('../models/Utility');
 const { sendInvitation } = require('../services/email.service');
 
 // Get current user's company

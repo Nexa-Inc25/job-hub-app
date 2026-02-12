@@ -84,7 +84,7 @@ const Breadcrumbs = () => {
         <Home className="h-4 w-4" />
       </Link>
 
-      {pathSegments.map((segment, index) => (
+      {pathSegments.map((segment) => (
         <React.Fragment key={segment.href}>
           <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
           {segment.isLast ? (

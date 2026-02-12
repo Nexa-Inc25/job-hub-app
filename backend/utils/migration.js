@@ -13,8 +13,6 @@
  * All operations are idempotent - safe to run multiple times
  */
 
-const mongoose = require('mongoose');
-
 // ============================================================================
 // MIGRATION STEP FUNCTIONS - Extracted to reduce cognitive complexity
 // ============================================================================

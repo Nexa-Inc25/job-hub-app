@@ -100,7 +100,7 @@ const TemplateManager = () => {
       return;
     }
 
-    console.log('Uploading files:', Array.from(files).map(f => f.name));
+    console.warn('Uploading files:', Array.from(files).map(f => f.name));
     setUploading(true);
     setError('');
     setSuccess('');
@@ -111,13 +111,13 @@ const TemplateManager = () => {
     });
 
     try {
-      console.log('Sending upload request...');
+      console.warn('Sending upload request...');
       const response = await api.post('/api/admin/templates', formData, {
         headers: { 
           Authorization: `Bearer ${token}`
         }
       });
-      console.log('Upload response:', response.data);
+      console.warn('Upload response:', response.data);
       setSuccess(`Uploaded ${response.data.templates.length} template(s) successfully!`);
       fetchTemplates(); // Refresh list
     } catch (err) {

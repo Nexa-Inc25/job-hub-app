@@ -102,12 +102,12 @@ export function useSyncQueue(options = {}) {
    */
   const sync = useCallback(async () => {
     if (isSyncing) {
-      console.log('[useSyncQueue] Sync already in progress');
+      console.warn('[useSyncQueue] Sync already in progress');
       return { skipped: true };
     }
 
     if (!navigator.onLine) {
-      console.log('[useSyncQueue] Offline - cannot sync');
+      console.warn('[useSyncQueue] Offline - cannot sync');
       return { offline: true };
     }
 
@@ -119,7 +119,7 @@ export function useSyncQueue(options = {}) {
     try {
       const result = await queueManager.process({
         signal: abortControllerRef.current.signal,
-        onProgress: ({ processed, failed, locked, current }) => {
+        onProgress: ({ current }) => {
           setCurrentItem(current);
           // Refresh counts on each item
           refreshCounts();
@@ -161,7 +161,7 @@ export function useSyncQueue(options = {}) {
   const cancelSync = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      console.log('[useSyncQueue] Sync cancelled');
+      console.warn('[useSyncQueue] Sync cancelled');
     }
   }, []);
 
@@ -238,7 +238,7 @@ export function useSyncQueue(options = {}) {
    * Handle online event
    */
   const handleOnline = useCallback(() => {
-    console.log('[useSyncQueue] Connection restored');
+    console.warn('[useSyncQueue] Connection restored');
     setIsOnline(true);
     
     if (autoSync && !isLocked) {
@@ -256,7 +256,7 @@ export function useSyncQueue(options = {}) {
    * Handle offline event
    */
   const handleOffline = useCallback(() => {
-    console.log('[useSyncQueue] Connection lost');
+    console.warn('[useSyncQueue] Connection lost');
     setIsOnline(false);
     
     if (syncTimeoutRef.current) {
@@ -338,7 +338,7 @@ export function useSyncQueue(options = {}) {
         if (navigator.onLine && !isSyncing && !isLocked) {
           const health = await queueManager.getHealth();
           if (health.counts.pending > 0) {
-            console.log('[useSyncQueue] Polling: found pending items, syncing...');
+            console.warn('[useSyncQueue] Polling: found pending items, syncing...');
             sync();
           }
         }

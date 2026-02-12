@@ -43,12 +43,12 @@ export function SocketProvider({ children }) {
     const token = getToken();
     
     if (!token) {
-      console.log('[Socket] No auth token, skipping connection');
+      console.warn('[Socket] No auth token, skipping connection');
       return;
     }
 
     const socketUrl = getSocketUrl();
-    console.log('[Socket] Connecting to:', socketUrl);
+    console.warn('[Socket] Connecting to:', socketUrl);
 
     const newSocket = io(socketUrl, {
       auth: { token },
@@ -61,18 +61,18 @@ export function SocketProvider({ children }) {
     });
 
     newSocket.on('connect', () => {
-      console.log('[Socket] Connected:', newSocket.id);
+      console.warn('[Socket] Connected:', newSocket.id);
       setIsConnected(true);
       setConnectionError(null);
       reconnectAttempts.current = 0;
     });
 
     newSocket.on('connected', (data) => {
-      console.log('[Socket] Server confirmed:', data.userName);
+      console.warn('[Socket] Server confirmed:', data.userName);
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.log('[Socket] Disconnected:', reason);
+      console.warn('[Socket] Disconnected:', reason);
       setIsConnected(false);
       
       // If server disconnected us, try to reconnect
@@ -100,7 +100,7 @@ export function SocketProvider({ children }) {
   // Disconnect from socket server
   const disconnect = useCallback(() => {
     if (socket) {
-      console.log('[Socket] Disconnecting...');
+      console.warn('[Socket] Disconnecting...');
       socket.disconnect();
       setSocket(null);
       socketRef.current = null; // Clear ref on disconnect
@@ -119,7 +119,7 @@ export function SocketProvider({ children }) {
     // State-based cleanup would always see initial null value due to empty deps
     return () => {
       if (socketRef.current) {
-        console.log('[Socket] Cleanup: disconnecting on unmount');
+        console.warn('[Socket] Cleanup: disconnecting on unmount');
         socketRef.current.disconnect();
         socketRef.current = null;
       }

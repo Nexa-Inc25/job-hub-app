@@ -33,7 +33,7 @@ class SharePointAdapter {
   /**
    * Deliver document to SharePoint
    */
-  async deliver(submission, section, sectionIndex) {
+  async deliver(submission, section, _sectionIndex) {
     console.log(`[SharePointAdapter] Uploading ${section.sectionType} to ${this.destination}`);
     
     const config = this.config[this.destination];

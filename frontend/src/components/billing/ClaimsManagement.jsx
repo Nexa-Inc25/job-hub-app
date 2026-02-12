@@ -537,7 +537,7 @@ const ClaimsManagement = ({
   onUpdateClaim,
   onDeleteClaim,
   onExportOracle,
-  onExportFBDI,
+  onExportFBDI: _onExportFBDI,
   onExportCSV,
   onRecordPayment,
   onViewClaim,

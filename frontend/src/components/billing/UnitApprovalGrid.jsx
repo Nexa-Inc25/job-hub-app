@@ -123,7 +123,7 @@ const UnitApprovalGrid = ({
   units = [],
   loading = false,
   onSubmit,
-  onVerify,
+  onVerify: _onVerify,
   onApprove,
   onDispute,
   onDelete,
@@ -409,7 +409,7 @@ const UnitApprovalGrid = ({
         return actions;
       },
     },
-  ], [expandedRows, handleToggleExpand, onSubmit, onVerify, onApprove, onDispute, onDelete]);
+  ], [expandedRows, handleToggleExpand, onSubmit, onApprove, onDispute, onDelete]);
 
   // Get selected unit for detail panel
   const expandedUnit = useMemo(() => {

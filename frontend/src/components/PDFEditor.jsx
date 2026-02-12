@@ -7,7 +7,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { Typography } from '@mui/material';
 
-const PDFEditor = ({ pdfUrl }) => {
+const PDFEditor = ({ pdfUrl: _pdfUrl }) => {
   // Example logic (remove unused pdfBytes or use it)
   // const pdfBytes = await fetch(pdfUrl).then(res => res.arrayBuffer()); // Comment or use
 

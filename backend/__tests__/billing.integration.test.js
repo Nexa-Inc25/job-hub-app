@@ -18,7 +18,6 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const multer = require('multer');
 
 // Models
 const User = require('../models/User');

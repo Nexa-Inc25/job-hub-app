@@ -11,10 +11,8 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const mongoose = require('mongoose');
 const Job = require('../models/Job');
 const User = require('../models/User');
-const Company = require('../models/Company');
 const r2Storage = require('../utils/storage');
 const { getIO } = require('../utils/socketAdapter');
 const OpenAI = require('openai');
@@ -408,7 +406,7 @@ router.put('/:id/audit/:auditId/resolve', async (req, res) => {
 // Finds the original job by PM number and creates the audit record
 router.post('/qa/extract-audit', upload.single('pdf'), async (req, res) => {
   const startTime = Date.now();
-  const APIUsage = require('./models/APIUsage');
+  // APIUsage already imported at module level
   let pdfPath = null;
   
   try {

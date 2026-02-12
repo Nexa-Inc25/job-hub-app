@@ -13,7 +13,6 @@ const jwt = require('jsonwebtoken');
 const { createDemoSession, resetDemoSession } = require('../utils/demoSeeder');
 const { cleanupExpiredDemoSessions } = require('../utils/demoCleanup');
 const Company = require('../models/Company');
-const User = require('../models/User');
 
 // Demo sandbox is always available for prospective client demos.
 // Sessions auto-expire and are cleaned up by the scheduled cleanup job.

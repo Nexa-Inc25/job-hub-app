@@ -15,25 +15,14 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const mongoose = require('mongoose');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Company = require('../models/Company');
-const Utility = require('../models/Utility');
-const FormTemplate = require('../models/FormTemplate');
 const r2Storage = require('../utils/storage');
-const { logDocument, logJob } = require('../middleware/auditLogger');
-const { openaiBreaker } = require('../utils/circuitBreaker');
+const { logJob } = require('../middleware/auditLogger');
 const OpenAI = require('openai');
-const notificationService = require('../services/notification.service');
 
 // Lazy-load PDF utilities (heavy optional deps)
-let pdfUtils = null;
-function getPdfUtils() {
-  if (!pdfUtils) pdfUtils = require('../utils/pdfUtils');
-  return pdfUtils;
-}
-
 let pdfImageExtractorModule = null;
 function getPdfImageExtractor() {
   if (!pdfImageExtractorModule) {
@@ -373,7 +362,7 @@ router.get('/my-assignments', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     // Reduced logging for high-frequency endpoint
-    const { search, view, includeArchived, includeDeleted } = req.query;
+    const { search, includeArchived, includeDeleted } = req.query;
     
     // Get user's company for multi-tenant filtering
     const user = await User.findById(req.userId).select('companyId');
@@ -1118,7 +1107,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
           }
         }
         // Don't include stale local path when using R2
-        const { path: localPath, ...assetWithoutPath } = asset;
+        const { path: _localPath, ...assetWithoutPath } = asset;
         uploaded.push({ ...assetWithoutPath, url, r2Key });
       }
       return uploaded;
@@ -1440,7 +1429,7 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     if (fs.existsSync(pdfPath)) {
       try {
         fs.unlinkSync(pdfPath);
-      } catch (cleanupErr) {
+      } catch {
         // Ignore cleanup errors
       }
     }
@@ -1800,15 +1789,15 @@ router.post('/:jobId/documents/:docId/approve', async (req, res) => {
     
     // Find the document in any folder/subfolder
     let foundDoc = null;
-    let foundFolder = null;
-    let foundSubfolder = null;
+    let _foundFolder = null;
+    let _foundSubfolder = null;
     
     for (const folder of job.folders) {
       // Check folder documents
       const docInFolder = folder.documents.find(d => d._id.toString() === docId);
       if (docInFolder) {
         foundDoc = docInFolder;
-        foundFolder = folder;
+        _foundFolder = folder;
         break;
       }
       
@@ -1817,8 +1806,8 @@ router.post('/:jobId/documents/:docId/approve', async (req, res) => {
         const docInSubfolder = subfolder.documents.find(d => d._id.toString() === docId);
         if (docInSubfolder) {
           foundDoc = docInSubfolder;
-          foundFolder = folder;
-          foundSubfolder = subfolder;
+          _foundFolder = folder;
+          _foundSubfolder = subfolder;
           break;
         }
         
@@ -1827,8 +1816,8 @@ router.post('/:jobId/documents/:docId/approve', async (req, res) => {
           const docInNested = nestedSubfolder.documents.find(d => d._id.toString() === docId);
           if (docInNested) {
             foundDoc = docInNested;
-            foundFolder = folder;
-            foundSubfolder = nestedSubfolder;
+            _foundFolder = folder;
+            _foundSubfolder = nestedSubfolder;
             break;
           }
         }

@@ -16,7 +16,6 @@
 
 const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
-const path = require('path');
 
 /**
  * Load a PDF document from buffer or file path
@@ -159,7 +158,7 @@ async function applyAnnotations(pdfBuffer, annotations) {
  * @param {Object} options - PDF generation options
  * @returns {Promise<Buffer>} Generated PDF buffer
  */
-async function generateTailboardPdf(tailboard, options = {}) {
+async function generateTailboardPdf(tailboard, _options = {}) {
   const { rgb, StandardFonts } = require('pdf-lib');
   
   const pdfDoc = await PDFDocument.create();

@@ -23,10 +23,10 @@ root.render(
 // Register service worker for offline functionality
 serviceWorkerRegistration.register({
   onSuccess: () => {
-    console.log('App is ready for offline use!');
+    console.warn('App is ready for offline use!');
   },
   onUpdate: (registration) => {
-    console.log('New version available! Refresh to update.');
+    console.warn('New version available! Refresh to update.');
     // Optionally show a prompt to the user
     if (registration.waiting) {
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });

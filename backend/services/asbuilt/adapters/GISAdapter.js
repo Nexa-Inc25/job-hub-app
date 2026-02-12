@@ -16,7 +16,7 @@ class GISAdapter {
   /**
    * Deliver document to GIS
    */
-  async deliver(submission, section, sectionIndex) {
+  async deliver(submission, section, _sectionIndex) {
     console.log(`[GISAdapter] Delivering ${section.sectionType} to ESRI GIS`);
     
     // Build GIS payload

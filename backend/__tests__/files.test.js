@@ -10,7 +10,6 @@
 
 const request = require('supertest');
 const express = require('express');
-const path = require('path');
 const fs = require('fs');
 const filesController = require('../controllers/files.controller');
 

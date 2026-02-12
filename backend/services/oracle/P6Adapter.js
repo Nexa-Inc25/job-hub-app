@@ -243,7 +243,7 @@ class P6Adapter {
         updatePayload.UDF_Notes = customFields.notes;
       }
       
-      const response = await this.client.put(
+      await this.client.put(
         `${this.baseUrl}/restapi/activity`,
         [updatePayload],
         { headers }
@@ -523,7 +523,7 @@ class P6Adapter {
           }
         });
         results.activityUpdates.push(constructionResult);
-      } catch (err) {
+      } catch (_err) {
         // Try alternative activity code
         try {
           const altResult = await this.updateActivityProgress({
@@ -533,8 +533,8 @@ class P6Adapter {
             actualFinishDate: submission.completedAt
           });
           results.activityUpdates.push(altResult);
-        } catch (altErr) {
-          results.errors.push({ type: 'activity', error: err.message });
+        } catch {
+          results.errors.push({ type: 'activity', error: 'Alternative activity update failed' });
         }
       }
       
@@ -547,7 +547,7 @@ class P6Adapter {
           actualFinishDate: new Date().toISOString()
         });
         results.activityUpdates.push(asbuiltResult);
-      } catch (err) {
+      } catch {
         // Non-critical if this activity doesn't exist
         console.log(`[P6Adapter] As-built activity not found (may not exist)`);
       }

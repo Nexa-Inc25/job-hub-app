@@ -114,12 +114,12 @@ async function uploadPendingPhoto(photo) {
  */
 export async function syncPendingOperations() {
   if (isSyncing) {
-    console.log('Sync already in progress...');
+    console.warn('Sync already in progress...');
     return { synced: 0, failed: 0 };
   }
 
   if (!isOnline()) {
-    console.log('Offline - skipping sync');
+    console.warn('Offline - skipping sync');
     return { synced: 0, failed: 0, offline: true };
   }
 
@@ -132,7 +132,7 @@ export async function syncPendingOperations() {
   try {
     // Sync pending operations
     const operations = await offlineStorage.getPendingOperations();
-    console.log(`Syncing ${operations.length} pending operations...`);
+    console.warn(`Syncing ${operations.length} pending operations...`);
 
     for (const op of operations) {
       // Skip operations that have failed too many times
@@ -160,7 +160,7 @@ export async function syncPendingOperations() {
 
     // Sync pending photos
     const photos = await offlineStorage.getPendingPhotos();
-    console.log(`Syncing ${photos.length} pending photos...`);
+    console.warn(`Syncing ${photos.length} pending photos...`);
 
     for (const photo of photos) {
       try {
@@ -178,7 +178,7 @@ export async function syncPendingOperations() {
       }
     }
 
-    console.log(`Sync complete: ${synced} synced, ${failed} failed`);
+    console.warn(`Sync complete: ${synced} synced, ${failed} failed`);
     emitSyncEvent('sync_complete', { synced, failed });
 
     return { synced, failed };
@@ -193,14 +193,14 @@ export async function syncPendingOperations() {
 export function initSyncManager() {
   // Sync when coming back online
   globalThis.addEventListener('online', () => {
-    console.log('Connection restored - starting sync...');
+    console.warn('Connection restored - starting sync...');
     emitSyncEvent('online', {});
     // Delay slightly to ensure connection is stable
     setTimeout(() => syncPendingOperations(), 2000);
   });
 
   globalThis.addEventListener('offline', () => {
-    console.log('Connection lost - entering offline mode');
+    console.warn('Connection lost - entering offline mode');
     emitSyncEvent('offline', {});
   });
 
@@ -208,7 +208,7 @@ export function initSyncManager() {
   if (isOnline()) {
     offlineStorage.getPendingCounts().then(counts => {
       if (counts.total > 0) {
-        console.log(`Found ${counts.total} pending items - syncing...`);
+        console.warn(`Found ${counts.total} pending items - syncing...`);
         syncPendingOperations();
       }
     });
@@ -228,7 +228,7 @@ export function initSyncManager() {
   // Clean old cache periodically
   offlineStorage.clearOldCache().then(deleted => {
     if (deleted > 0) {
-      console.log(`Cleared ${deleted} old cached items`);
+      console.warn(`Cleared ${deleted} old cached items`);
     }
   });
 }

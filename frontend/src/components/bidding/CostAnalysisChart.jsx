@@ -64,7 +64,7 @@ const CostAnalysisChart = ({ data = [], height = 200 }) => {
         gap: '2px',
         px: 1
       }}>
-        {data.map((item, idx) => {
+        {data.map((item) => {
           const barHeight = maxAmount > 0 
             ? (item.amount / maxAmount) * (chartHeight - 20) 
             : 0;
@@ -118,7 +118,7 @@ const CostAnalysisChart = ({ data = [], height = 200 }) => {
         px: 1,
         mt: 1
       }}>
-        {data.map((item, idx) => (
+        {data.map((item) => (
           <Box
             key={item.month}
             sx={{

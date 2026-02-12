@@ -347,8 +347,8 @@ describe('SmartFormsPage Component', () => {
         expect(mockFetch).toHaveBeenCalled();
       });
       
-      // Initial call count
-      const initialCallCount = mockFetch.mock.calls.length;
+      // Initial call count (tracked for future assertions)
+      const _initialCallCount = mockFetch.mock.calls.length;
       
       // Change category filter - would trigger refetch via useEffect
       // Note: The actual filter change triggers fetch in the component

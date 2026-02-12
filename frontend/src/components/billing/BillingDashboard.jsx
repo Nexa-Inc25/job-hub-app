@@ -470,7 +470,7 @@ const BillingDashboard = ({ jobId }) => {
             onExport={() => {
               // Export selected to CSV
               const selectedData = units.filter(u => selectedUnits.includes(u._id));
-              console.log('Export selected:', selectedData);
+              console.warn('Export selected:', selectedData);
             }}
           />
         </TabPanel>
@@ -486,7 +486,7 @@ const BillingDashboard = ({ jobId }) => {
               onDeleteClaim={handleDeleteClaim}
               onExportOracle={handleExportOracle}
               onRecordPayment={handleRecordPayment}
-              onViewClaim={(claim) => console.log('View claim:', claim)}
+              onViewClaim={(claim) => console.warn('View claim:', claim)}
             />
           </Box>
         </TabPanel>

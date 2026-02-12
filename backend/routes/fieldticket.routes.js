@@ -15,7 +15,6 @@
 
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const FieldTicket = require('../models/FieldTicket');
 const Job = require('../models/Job');
 const User = require('../models/User');

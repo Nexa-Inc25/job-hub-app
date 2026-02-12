@@ -45,7 +45,7 @@ export async function initOfflineDB() {
 
     request.onsuccess = () => {
       db = request.result;
-      console.log('IndexedDB initialized successfully');
+      console.warn('IndexedDB initialized successfully');
       resolve(db);
     };
 

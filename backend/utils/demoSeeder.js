@@ -12,7 +12,6 @@
  * session IDs, or any cryptographic purposes.
  */
 
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const crypto = require('node:crypto');
 const Company = require('../models/Company');

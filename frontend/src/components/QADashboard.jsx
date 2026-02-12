@@ -67,7 +67,7 @@ const INFRACTION_TYPE_LABELS = {
 };
 
 // Review Dialog Component
-const ReviewDialog = ({ open, onClose, job, onSubmit, mode }) => {
+const ReviewDialog = ({ open, onClose, job, onSubmit, mode: _mode }) => {
   const [action, setAction] = useState('approve');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);

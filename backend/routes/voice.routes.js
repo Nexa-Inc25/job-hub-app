@@ -17,7 +17,6 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('node:path');
-const fs = require('node:fs');
 const voiceAIService = require('../services/voiceAI.service');
 const PriceBook = require('../models/PriceBook');
 const User = require('../models/User');

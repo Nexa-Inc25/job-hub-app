@@ -19,8 +19,6 @@ jest.mock('resend', () => {
   };
 });
 
-const { Resend } = require('resend');
-
 // Store original env
 const originalEnv = process.env;
 

@@ -19,7 +19,7 @@ const fs = require('node:fs').promises;
 const LME = require('../models/LME');
 const Job = require('../models/Job');
 const User = require('../models/User');
-const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
+const { PDFDocument, StandardFonts } = require('pdf-lib');
 const { sanitizeObjectId, sanitizeString, sanitizeDate } = require('../utils/sanitize');
 const r2Storage = require('../utils/storage');
 
@@ -308,7 +308,7 @@ function addMaterialFieldMappings(fieldMappings, materials) {
  */
 function addEquipmentFieldMappings(fieldMappings, equipment) {
   let totalEquipmentHours = 0;
-  let totalEquipmentAmount = 0;
+  let _totalEquipmentAmount = 0;
   
   for (let i = 0; i < (equipment || []).length && i < 11; i++) {
     const eq = equipment[i];
@@ -325,7 +325,7 @@ function addEquipmentFieldMappings(fieldMappings, equipment) {
     
     // Track totals
     totalEquipmentHours += eq.hours || 0;
-    totalEquipmentAmount += eq.amount || 0;
+    _totalEquipmentAmount += eq.amount || 0;
   }
   
   // Add equipment totals
@@ -988,7 +988,7 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
 
     // Load template and create PDF document
     const templateBytes = await loadLmeTemplate();
-    let { pdfDoc, usedTemplate } = await loadOrCreatePdfDoc(templateBytes);
+    const { pdfDoc, usedTemplate } = await loadOrCreatePdfDoc(templateBytes);
     
     // Embed fonts
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
@@ -996,7 +996,6 @@ router.get('/:id/pdf', authenticateUser, async (req, res) => {
     
     // Ensure we have pages
     const pages = ensurePdfHasPages(pdfDoc);
-    if (pages.length === 1 && !usedTemplate) usedTemplate = false;
     const page = pages[0];
 
     // Try to fill form fields, fallback to text overlay

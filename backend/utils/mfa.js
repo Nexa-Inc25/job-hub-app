@@ -13,7 +13,6 @@ const { TOTP, Secret } = require('otpauth');
 const QRCode = require('qrcode');
 const crypto = require('node:crypto');
 
-const APP_NAME = 'FieldLedger';
 const ISSUER = 'FieldLedger';
 
 /**

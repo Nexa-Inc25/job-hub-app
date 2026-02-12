@@ -461,7 +461,7 @@ CSVImportDialog.propTypes = {
 /**
  * Price Book Detail View - Items Table
  */
-const PriceBookDetail = ({ priceBook, onBack, onImport, onActivate, onRefresh }) => {
+const PriceBookDetail = ({ priceBook, onBack, onImport, onActivate, onRefresh: _onRefresh }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [page, setPage] = useState(0);

@@ -11,14 +11,13 @@
 
 const mongoose = require('mongoose');
 const Claim = require('../models/Claim');
-const UnitEntry = require('../models/UnitEntry');
 const PriceBook = require('../models/PriceBook');
 const Job = require('../models/Job');
 const Company = require('../models/Company');
 const User = require('../models/User');
 
 describe('Claim Model', () => {
-  let testCompany, testUser, testJob, testPriceBook, testUtilityId;
+  let testCompany, testUser, testJob, _testPriceBook, testUtilityId;
   
   beforeEach(async () => {
     testCompany = await Company.create({
@@ -43,7 +42,7 @@ describe('Claim Model', () => {
     
     testUtilityId = new mongoose.Types.ObjectId();
     
-    testPriceBook = await PriceBook.create({
+    _testPriceBook = await PriceBook.create({
       name: 'Test Price Book',
       utilityId: testUtilityId,
       companyId: testCompany._id,

@@ -38,24 +38,17 @@ if (process.env.NODE_ENV === 'production') {
 
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
 const multer = require('multer');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const mongoSanitize = require('express-mongo-sanitize');
-const { PDFDocument } = require('pdf-lib');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('node:crypto');
 const http = require('http');
 const socketIo = require('socket.io');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const Job = require('./models/Job');
-const AuditLog = require('./models/AuditLog');
-const { logAuth, logDocument, logJob, logUser, logSecurity, logExport } = require('./middleware/auditLogger');
-const mfa = require('./utils/mfa');
-const { performSecurityCheck } = require('./utils/securityAlerts');
 const {
   requestId,
   additionalSecurityHeaders,
@@ -63,8 +56,7 @@ const {
   preventParamPollution,
   slowRequestLogger,
   blockSuspiciousAgents,
-  secureErrorHandler,
-  asyncHandler
+  secureErrorHandler
 } = require('./middleware/security');
 const {
   loginValidation,
@@ -73,14 +65,10 @@ const {
 } = require('./middleware/validators');
 const {
   ipBlockerMiddleware,
-  loginAttemptTracker,
-  blockIP,
-  unblockIP,
-  getBlockedIPs
+  loginAttemptTracker
 } = require('./middleware/ipBlocker');
-const Utility = require('./models/Utility');
-const Company = require('./models/Company');
-const SpecDocument = require('./models/SpecDocument');
+
+// Route modules
 const apiRoutes = require('./routes/api');
 const proceduresRoutes = require('./routes/procedures.routes');
 const asbuiltAssistantRoutes = require('./routes/asbuilt-assistant.routes');
@@ -112,35 +100,12 @@ const jobLifecycleRoutes = require('./routes/job-lifecycle.routes');
 const jobMiscRoutes = require('./routes/job-misc.routes');
 const jobDocumentsRoutes = require('./routes/job-documents.routes');
 const jobCoreRoutes = require('./routes/job-core.routes');
+
 const authController = require('./controllers/auth.controller');
 const r2Storage = require('./utils/storage');
 const { setupSwagger } = require('./config/swagger');
-const OpenAI = require('openai');
-const sharp = require('sharp');
-const heicConvert = require('heic-convert');
-const aiDataCapture = require('./utils/aiDataCapture');
-const documentAutoFill = require('./utils/documentAutoFill');
-const archiver = require('archiver');
-const { sendInvitation } = require('./services/email.service');
-const { validateUrl, isUrlSafeSync } = require('./utils/urlValidator');
 
 console.log('All modules loaded, memory:', Math.round(process.memoryUsage().heapUsed / 1024 / 1024), 'MB');
-
-// Lazy load heavy PDF modules only when needed
-let pdfImageExtractor = null;
-let pdfUtils = null;
-function getPdfImageExtractor() {
-  if (!pdfImageExtractor) {
-    pdfImageExtractor = require('./utils/pdfImageExtractor');
-  }
-  return pdfImageExtractor;
-}
-function getPdfUtils() {
-  if (!pdfUtils) {
-    pdfUtils = require('./utils/pdfUtils');
-  }
-  return pdfUtils;
-}
 
 // Log R2 configuration status
 console.log('R2 Storage configured:', r2Storage.isR2Configured());
@@ -650,7 +615,7 @@ const authenticateUser = (req, res, next) => {
     req.userRole = decoded.role || null;  // crew, foreman, gf, pm, admin
     req.canApprove = decoded.canApprove || false;
     next();
-  } catch (err) {
+  } catch {
     res.status(401).json({ error: 'Invalid token' });
   }
 };
@@ -661,15 +626,6 @@ const requireAdmin = (req, res, next) => {
   if (!req.isAdmin) {
     console.log('Admin access denied for user:', req.userId);
     return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
-
-// Super Admin middleware (FieldLedger platform owners only)
-const requireSuperAdmin = (req, res, next) => {
-  if (!req.isSuperAdmin) {
-    console.log('Super Admin access denied for user:', req.userId);
-    return res.status(403).json({ error: 'Super Admin access required. This feature is for FieldLedger platform owners only.' });
   }
   next();
 };
@@ -979,9 +935,48 @@ app.get('/api/admin/pending-approvals', authenticateUser, async (req, res) => {
   }
 });
 
-// ========================================
-// === UTILITY ROUTES moved to routes/utilities.routes.js ===
+// ============================================
+// ROUTE MODULES - Mounted after body parsers, before static files
+// ============================================
 
+// Public / self-authenticating routes
+app.use('/api', apiRoutes);
+app.use('/api/demo', demoRoutes);
+app.use('/api/oracle', authenticateUser, oracleRoutes);
+app.use('/api/stripe', stripeRoutes);            // Has its own webhook auth
+app.use('/api/utilities', utilitiesRoutes);
+
+// Authenticated routes - authenticateUser applied at mount level
+app.use('/api/billing', authenticateUser, billingRoutes);
+app.use('/api/pricebook', authenticateUser, priceBookRoutes);
+app.use('/api/fieldtickets', authenticateUser, fieldTicketRoutes);
+app.use('/api/voice', authenticateUser, voiceRoutes);
+app.use('/api/bidding', authenticateUser, biddingRoutes);
+app.use('/api/weather', authenticateUser, weatherRoutes);
+app.use('/api/asbuilt', authenticateUser, asbuiltRoutes);
+app.use('/api/asbuilt-assistant', authenticateUser, asbuiltAssistantRoutes);
+app.use('/api/tailboard', authenticateUser, tailboardRoutes);
+app.use('/api/notifications', authenticateUser, notificationRoutes);
+app.use('/api/smartforms', authenticateUser, smartformsRoutes);
+app.use('/api/procedures', authenticateUser, proceduresRoutes);
+app.use('/api/specs', authenticateUser, specsRoutes);
+app.use('/api/company', authenticateUser, companyRoutes);
+app.use('/api/users', authenticateUser, usersRoutes);
+app.use('/api/qa', authenticateUser, qaRoutes);
+app.use('/api/feedback', authenticateUser, feedbackRoutes);
+app.use('/api/superadmin', authenticateUser, superadminRoutes);
+app.use('/api/admin', authenticateUser, adminPlatformRoutes);
+
+// Job routes (multiple routers share /api/jobs prefix)
+app.use('/api/jobs', authenticateUser, jobCoreRoutes);
+app.use('/api/jobs', authenticateUser, jobDocumentsRoutes);
+app.use('/api/jobs', authenticateUser, jobLifecycleRoutes);
+app.use('/api/jobs', authenticateUser, jobExtendedRoutes);
+app.use('/api/jobs', authenticateUser, jobMiscRoutes);
+
+// Self-authenticating route modules (have their own authenticateUser internally)
+app.use('/api/timesheet', timesheetRoutes);
+app.use('/api/lme', lmeRoutes);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -1054,7 +1049,8 @@ io.on('connection', (socket) => {
 // ============================================
 
 // Express error handler - sanitized responses
-app.use((err, req, res, next) => {
+// Express error handler - must have 4 params for Express to recognize it
+app.use((err, req, res, _next) => {
   const requestId = req.headers['x-request-id'] || 'unknown';
   
   // Log full error internally
@@ -1082,7 +1078,7 @@ process.on('uncaughtException', (err) => {
   setTimeout(() => process.exit(1), 1000);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason, _promise) => {
   console.error('❌ Unhandled Rejection:', reason);
 });
 

@@ -8,7 +8,6 @@
  * Tests for Labor, Material, and Equipment daily statements.
  */
 
-const mongoose = require('mongoose');
 const LME = require('../models/LME');
 const Job = require('../models/Job');
 const User = require('../models/User');

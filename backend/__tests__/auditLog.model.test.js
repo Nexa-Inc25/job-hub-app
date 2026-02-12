@@ -239,7 +239,7 @@ describe('AuditLog Model', () => {
       const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
       
       // Create a log with invalid enum value by bypassing static method
-      const result = await AuditLog.log({
+      await AuditLog.log({
         action: 'DOCUMENT_VIEW',
         category: 'invalid_category'  // Invalid enum
       });

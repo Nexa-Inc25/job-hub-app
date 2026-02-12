@@ -138,6 +138,7 @@ const AsBuiltRouter = () => {
     } finally {
       setLoading(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- headers from localStorage, stable
   }, []);
   
   // Fetch analytics
@@ -148,6 +149,7 @@ const AsBuiltRouter = () => {
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- headers from localStorage, stable
   }, []);
   
   // Fetch submission details

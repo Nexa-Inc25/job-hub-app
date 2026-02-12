@@ -62,7 +62,7 @@ const createTestApp = () => {
       
       const jobs = await Job.find(query).sort({ createdAt: -1 }).lean();
       res.json(jobs);
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: 'Server error' });
     }
   });
@@ -120,7 +120,7 @@ const createTestApp = () => {
       }
       
       res.json(job);
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: 'Server error' });
     }
   });
@@ -156,7 +156,7 @@ const createTestApp = () => {
       await job.save();
       
       res.json({ ...job.toObject(), previousStatus: oldStatus });
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: 'Server error' });
     }
   });
@@ -192,7 +192,7 @@ const createTestApp = () => {
       await job.save();
       
       res.json({ message: 'Work order removed from dashboard', jobId: job._id });
-    } catch (err) {
+    } catch {
       res.status(500).json({ error: 'Server error' });
     }
   });

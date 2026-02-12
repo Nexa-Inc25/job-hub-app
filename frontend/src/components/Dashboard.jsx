@@ -419,7 +419,7 @@ const createDependenciesFromChecklist = async (jobId, checklist, preFieldItems) 
 const capturePreFieldForAI = async (jobId, checklist) => {
   try {
     await api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist });
-    console.log('[AI Training] Pre-field checklist captured for job', jobId);
+    console.warn('[AI Training] Pre-field checklist captured for job', jobId);
   } catch (error_) {
     console.warn('[AI Training] Failed to capture pre-field data:', error_);
   }

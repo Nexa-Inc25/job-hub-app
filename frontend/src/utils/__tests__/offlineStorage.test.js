@@ -28,7 +28,7 @@ const createMockRequest = (result) => {
 };
 
 // Mock IndexedDB transaction
-const createMockTransaction = (storeNames) => {
+const createMockTransaction = (_storeNames) => {
   return {
     objectStore: (name) => ({
       add: (data) => {

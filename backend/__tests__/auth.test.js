@@ -375,7 +375,6 @@ describe('Authentication Endpoints', () => {
   // ==================== GET PROFILE TESTS ====================
   describe('GET /api/users/me', () => {
     let token;
-    let userId;
     
     beforeEach(async () => {
       const signupRes = await request(app)
@@ -388,7 +387,6 @@ describe('Authentication Endpoints', () => {
         });
       
       token = signupRes.body.token;
-      userId = signupRes.body.userId;
     });
     
     it('should return user profile with valid token', async () => {

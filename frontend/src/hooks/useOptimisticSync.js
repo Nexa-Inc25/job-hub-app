@@ -130,6 +130,7 @@ export function useOptimisticSync(options = {}) {
       setError(err.message);
       return { success: false, error: err.message };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- syncPending is a function, not a trigger
   }, [endpoint, isOnline]);
 
   /**
@@ -249,6 +250,7 @@ export function useOptimisticSync(options = {}) {
     } finally {
       syncInProgressRef.current = false;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handleSyncError/updateSyncState are stable internal functions
   }, [isOnline, endpoint, config, onConflict, onSyncComplete]);
 
   /**

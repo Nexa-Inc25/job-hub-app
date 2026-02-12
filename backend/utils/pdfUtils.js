@@ -139,8 +139,8 @@ function getVectorStore(chunks) {
   return chunks; // Implement with LangChain if adding
 }
 
-function getConversationalChain(store) {
-  return { ask: (query) => 'Stub answer' };
+function getConversationalChain(_store) {
+  return { ask: (_query) => 'Stub answer' };
 }
 
 module.exports = { getPdfText, getPdfTextFromBuffer, extractWithAI, getTextChunks, getVectorStore, getConversationalChain };

@@ -69,7 +69,7 @@ function incrementCounter(key) {
 /**
  * Get current count for an activity
  */
-function getCounter(key) {
+function _getCounter(key) {
   const data = activityCache.get(key);
   if (!data) return 0;
   

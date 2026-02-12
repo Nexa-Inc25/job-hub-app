@@ -223,7 +223,7 @@ const blockSuspiciousAgents = (req, res, next) => {
 /**
  * Secure error handler - never leak stack traces
  */
-const secureErrorHandler = (err, req, res, next) => {
+const secureErrorHandler = (err, req, res, _next) => {
   // Log full error internally
   console.error(`[ERROR] ${req.method} ${req.path}:`, err);
   

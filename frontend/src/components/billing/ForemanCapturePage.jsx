@@ -234,20 +234,20 @@ const ForemanCapturePage = () => {
   // Helper: Try loading any available price book
   const loadFallbackPriceBook = async () => {
     try {
-      console.log('[ForemanCapture] No items from job priceBookId, trying active pricebooks...');
+      console.warn('[ForemanCapture] No items from job priceBookId, trying active pricebooks...');
       let allPbRes = await api.get('/api/pricebooks?status=active');
-      console.log('[ForemanCapture] Active pricebooks:', allPbRes.data?.length || 0);
+      console.warn('[ForemanCapture] Active pricebooks:', allPbRes.data?.length || 0);
       
       if (!allPbRes.data?.length) {
-        console.log('[ForemanCapture] No active, trying all pricebooks...');
+        console.warn('[ForemanCapture] No active, trying all pricebooks...');
         allPbRes = await api.get('/api/pricebooks');
-        console.log('[ForemanCapture] All pricebooks:', allPbRes.data?.length || 0);
+        console.warn('[ForemanCapture] All pricebooks:', allPbRes.data?.length || 0);
       }
       
       if (allPbRes.data?.length > 0) {
-        console.log('[ForemanCapture] Fetching full pricebook:', allPbRes.data[0]._id, allPbRes.data[0].name);
+        console.warn('[ForemanCapture] Fetching full pricebook:', allPbRes.data[0]._id, allPbRes.data[0].name);
         const fullPbRes = await api.get(`/api/pricebooks/${allPbRes.data[0]._id}`);
-        console.log('[ForemanCapture] Full pricebook items:', fullPbRes.data?.items?.length || 0);
+        console.warn('[ForemanCapture] Full pricebook items:', fullPbRes.data?.items?.length || 0);
         if (fullPbRes.data) {
           return { priceBook: fullPbRes.data, items: fullPbRes.data.items || [] };
         }
@@ -338,6 +338,7 @@ const ForemanCapturePage = () => {
     };
     
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- loadJobPriceBook is stable, defined inside effect
   }, [jobId, preselectedItemCode]);
 
   // Filter items by search

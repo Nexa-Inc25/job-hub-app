@@ -74,7 +74,7 @@ export const tryWebShare = async (blob, filename, title, text) => {
     return true;
   } catch (error) {
     if (error.name !== 'AbortError') {
-      console.log('Web Share failed, falling back to download:', error.message);
+      console.warn('Web Share failed, falling back to download:', error.message);
     }
     return false;
   }

@@ -13,7 +13,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { OracleExportService } from '../OracleExportService';
-import { generateDigitalReceiptHash, sha256 } from '../../utils/crypto.utils';
+import { generateDigitalReceiptHash } from '../../utils/crypto.utils';
 
 // Mock API
 vi.mock('../../api', () => ({

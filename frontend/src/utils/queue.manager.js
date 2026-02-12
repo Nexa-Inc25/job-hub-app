@@ -211,7 +211,7 @@ class QueueManager {
     this.initialized = true;
     this._emit('initialized', { count: this.queue.length });
     
-    console.log(`[QueueManager] Initialized with ${this.queue.length} items (Device: ${this.deviceSignature?.slice(0, 8)}...)`);
+    console.warn(`[QueueManager] Initialized with ${this.queue.length} items (Device: ${this.deviceSignature?.slice(0, 8)}...)`);
   }
 
   /**
@@ -256,7 +256,7 @@ class QueueManager {
       }
     });
 
-    console.log('[QueueManager] Queue UNLOCKED');
+    console.warn('[QueueManager] Queue UNLOCKED');
     this._emit('unlocked', {});
     
     return true;
@@ -308,7 +308,7 @@ class QueueManager {
     this._sortQueue();
     
     this._emit('enqueued', { item });
-    console.log(`[QueueManager] Enqueued ${type}: ${item.id} (checksum: ${item.checksum?.slice(0, 8)}...)`);
+    console.warn(`[QueueManager] Enqueued ${type}: ${item.id} (checksum: ${item.checksum?.slice(0, 8)}...)`);
     
     return item;
   }
@@ -379,7 +379,7 @@ class QueueManager {
     item.serverTransactionId = transactionId;
     item.serverConfirmedAt = new Date().toISOString();
     
-    console.log(`[QueueManager] ATOMIC DEQUEUE: ${itemId} confirmed by server (txn: ${transactionId || 'N/A'})`);
+    console.warn(`[QueueManager] ATOMIC DEQUEUE: ${itemId} confirmed by server (txn: ${transactionId || 'N/A'})`);
     
     // NOW it's safe to remove from IndexedDB (server has confirmed)
     if (item.type === QUEUE_TYPES.UNIT_ENTRY) {
@@ -476,7 +476,7 @@ class QueueManager {
       item.nextRetryAt = new Date(Date.now() + backoffMs).toISOString();
       item.status = QUEUE_STATUS.FAILED;
       
-      console.log(`[QueueManager] Item ${itemId} failed, retry #${item.retryCount} in ${Math.round(backoffMs/1000)}s`);
+      console.warn(`[QueueManager] Item ${itemId} failed, retry #${item.retryCount} in ${Math.round(backoffMs/1000)}s`);
       this._emit('failed', { item, backoffMs });
     }
 
@@ -507,7 +507,7 @@ class QueueManager {
     item.retryCount = 0;
     
     this._emit('reset', { item });
-    console.log(`[QueueManager] Reset item ${itemId} for retry`);
+    console.warn(`[QueueManager] Reset item ${itemId} for retry`);
     
     return item;
   }
@@ -518,12 +518,12 @@ class QueueManager {
    */
   _checkProcessingPreconditions() {
     if (this.isProcessing) {
-      console.log('[QueueManager] Already processing');
+      console.warn('[QueueManager] Already processing');
       return { processed: 0, failed: 0, locked: 0 };
     }
 
     if (!navigator.onLine) {
-      console.log('[QueueManager] Offline - skipping');
+      console.warn('[QueueManager] Offline - skipping');
       return { processed: 0, failed: 0, offline: true };
     }
 
@@ -562,7 +562,7 @@ class QueueManager {
     
     // Network/server error - exponential backoff
     await this.markFailed(item.id, err, false);
-    console.log('[QueueManager] Stopping queue to preserve order');
+    console.warn('[QueueManager] Stopping queue to preserve order');
     await sleep(this.backoffDelay);
     return { shouldBreak: true, locked: counters.locked, failed: counters.failed + 1 };
   }
@@ -610,7 +610,7 @@ class QueueManager {
       let item;
       while ((item = await this.peek()) !== null) {
         if (signal?.aborted) {
-          console.log('[QueueManager] Processing aborted');
+          console.warn('[QueueManager] Processing aborted');
           break;
         }
 
@@ -638,7 +638,7 @@ class QueueManager {
       this._emit('processing_complete', counters);
     }
 
-    console.log(`[QueueManager] Processing complete: ${counters.processed} synced, ${counters.failed} failed, ${counters.locked} locked`);
+    console.warn(`[QueueManager] Processing complete: ${counters.processed} synced, ${counters.failed} failed, ${counters.locked} locked`);
     return counters;
   }
 

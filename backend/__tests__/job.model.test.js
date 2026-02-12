@@ -9,7 +9,6 @@
  * folder structure, and document management.
  */
 
-const mongoose = require('mongoose');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const Company = require('../models/Company');

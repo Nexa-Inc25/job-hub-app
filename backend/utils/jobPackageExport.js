@@ -463,7 +463,7 @@ function addTailboardPage(pdfDoc, tailboard, fonts) {
 /**
  * Generate a combined PDF for the job package
  */
-async function generateJobPackagePDF(exportData, options = {}) {
+async function generateJobPackagePDF(exportData, _options = {}) {
   const pdfDoc = await PDFDocument.create();
   const fonts = {
     font: await pdfDoc.embedFont(StandardFonts.Helvetica),

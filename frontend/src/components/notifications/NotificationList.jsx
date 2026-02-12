@@ -63,7 +63,7 @@ function getNotificationIcon(type) {
 }
 
 // Get background color for unread notifications
-function getBackgroundColor(read, theme) {
+function _getBackgroundColor(read, theme) {
   if (read) return 'transparent';
   return theme === 'dark' 
     ? 'rgba(25, 118, 210, 0.08)' 

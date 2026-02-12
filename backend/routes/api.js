@@ -9,7 +9,6 @@ const fs = require('node:fs');
 const mongoose = require('mongoose');
 const router = express.Router();
 const Job = require('../models/Job');
-const OpenAI = require('openai');
 const r2Storage = require('../utils/storage');
 
 // Helper to validate MongoDB ObjectId

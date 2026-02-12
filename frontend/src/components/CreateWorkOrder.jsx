@@ -107,7 +107,7 @@ const CreateWorkOrder = ({ token }) => {
           // Store crew materials with M-Codes (from PG&E Crew Materials page)
           if (data.crewMaterials && Array.isArray(data.crewMaterials) && data.crewMaterials.length > 0) {
             setCrewMaterials(data.crewMaterials);
-            console.log(`Extracted ${data.crewMaterials.length} crew materials with M-Codes`);
+            console.warn(`Extracted ${data.crewMaterials.length} crew materials with M-Codes`);
           }
           // Store job scope from Face Sheet
           if (data.jobScope) {
@@ -191,7 +191,7 @@ const CreateWorkOrder = ({ token }) => {
     try {
       // api module automatically adds Authorization header
       const jobRes = await api.post('/api/jobs', jobFormData);
-      console.log('Job created:', jobRes.data);
+      console.warn('Job created:', jobRes.data);
       setSuccess(true);
       
       // Redirect to dashboard after 2 seconds

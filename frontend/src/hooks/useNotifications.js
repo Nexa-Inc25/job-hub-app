@@ -105,7 +105,7 @@ export function useNotifications() {
     if (!socket || !isConnected) return;
 
     const handleNotification = (notification) => {
-      console.log('[Notifications] Received:', notification);
+      console.warn('[Notifications] Received:', notification);
       addNotification(notification);
     };
 

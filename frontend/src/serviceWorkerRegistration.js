@@ -37,7 +37,7 @@ function clearCachesAndReload() {
  */
 function handleServiceWorkerMessage(event) {
   if (event.data?.type === 'STALE_CHUNK_DETECTED') {
-    console.log('[SW] Stale chunk detected - reloading to get new version');
+    console.warn('[SW] Stale chunk detected - reloading to get new version');
     clearCachesAndReload();
   }
 }
@@ -51,10 +51,10 @@ function createStateChangeHandler(registration, config) {
     const installingWorker = registration.installing;
     if (installingWorker?.state === 'installed') {
       if (navigator.serviceWorker.controller) {
-        console.log('[SW] New content available; please refresh.');
+        console.warn('[SW] New content available; please refresh.');
         config?.onUpdate?.(registration);
       } else {
-        console.log('[SW] Content is cached for offline use.');
+        console.warn('[SW] Content is cached for offline use.');
         config?.onSuccess?.(registration);
       }
     }
@@ -79,7 +79,7 @@ export function register(config) {
         // Running on localhost - check if service worker exists
         checkValidServiceWorker(swUrl, config);
         navigator.serviceWorker.ready.then(() => {
-          console.log('[SW] Service worker is ready (localhost)');
+          console.warn('[SW] Service worker is ready (localhost)');
         });
       } else {
         // Production - register service worker
@@ -93,7 +93,7 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
-      console.log('[SW] Service worker registered successfully');
+      console.warn('[SW] Service worker registered successfully');
       
       // Listen for messages from service worker
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
@@ -128,7 +128,7 @@ function checkValidServiceWorker(swUrl, config) {
       }
     })
     .catch(() => {
-      console.log('[SW] No internet connection. App running in offline mode.');
+      console.warn('[SW] No internet connection. App running in offline mode.');
     });
 }
 

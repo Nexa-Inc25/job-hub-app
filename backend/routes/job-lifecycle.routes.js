@@ -10,7 +10,6 @@ const express = require('express');
 const router = express.Router();
 const Job = require('../models/Job');
 const User = require('../models/User');
-const { getIO } = require('../utils/socketAdapter');
 const aiDataCapture = require('../utils/aiDataCapture');
 
 // Jobs are never truly deleted - they're marked as deleted and hidden from UI
@@ -297,15 +296,13 @@ router.put('/:id/status', async (req, res) => {
       crewScheduledDate,
       preFieldNotes,
       siteConditions,
-      submissionNotes,
-      reviewNotes
+      submissionNotes
     } = req.body;
     
     // Get current user's role
     const user = await User.findById(req.userId);
     const userRole = user?.role || 'crew';
     const isAdmin = user?.isAdmin || ['pm', 'admin'].includes(userRole);
-    const isGF = ['gf', 'pm', 'admin'].includes(userRole);
     
     // ============================================
     // MULTI-TENANT SECURITY: Filter by company

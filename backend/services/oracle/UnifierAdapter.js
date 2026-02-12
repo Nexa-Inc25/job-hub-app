@@ -232,7 +232,7 @@ class UnifierAdapter {
       const headers = await this.getHeaders();
       const shellId = await this.getShellId(projectNumber, headers);
       
-      const response = await this.client.patch(
+      await this.client.patch(
         `${this.baseUrl}/ws/rest/service/v1/shell/${shellId}`,
         {
           attributes: {
@@ -339,7 +339,7 @@ class UnifierAdapter {
   /**
    * Mock response for unconfigured/demo environments
    */
-  mockUploadResponse(options) {
+  mockUploadResponse(_options) {
     console.log('[UnifierAdapter] Using mock response (adapter not configured)');
     return {
       success: true,
@@ -351,7 +351,7 @@ class UnifierAdapter {
     };
   }
   
-  mockBPResponse(options) {
+  mockBPResponse(_options) {
     console.log('[UnifierAdapter] Using mock response (adapter not configured)');
     return {
       success: true,

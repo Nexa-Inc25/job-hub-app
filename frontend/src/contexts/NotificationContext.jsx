@@ -117,7 +117,7 @@ export function NotificationProvider({ children }) {
     if (!socket || !isConnected) return;
 
     const handleNotification = (notification) => {
-      console.log('[Notifications] Real-time:', notification);
+      console.warn('[Notifications] Real-time:', notification);
       
       // Add to notification list
       setNotifications(prev => [notification, ...prev]);

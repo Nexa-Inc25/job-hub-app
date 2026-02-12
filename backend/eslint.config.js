@@ -18,6 +18,8 @@ export default [
       'no-unused-vars': ['warn', { 
         argsIgnorePattern: '^_',
         varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
       }],
       'no-console': 'off', // Console is expected in backend
       'no-debugger': 'warn',

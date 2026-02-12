@@ -48,7 +48,7 @@ class EmailAdapter {
   /**
    * Deliver document via email
    */
-  async deliver(submission, section, sectionIndex) {
+  async deliver(submission, section, _sectionIndex) {
     console.log(`[EmailAdapter] Sending ${section.sectionType} to ${this.destination}`);
     
     const config = this.emailConfig[this.destination];

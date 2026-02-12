@@ -29,7 +29,7 @@ class OracleAdapter {
   /**
    * Deliver document to Oracle
    */
-  async deliver(submission, section, sectionIndex) {
+  async deliver(submission, section, _sectionIndex) {
     console.log(`[OracleAdapter] Delivering ${section.sectionType} to Oracle ${this.module}`);
     
     // Check if endpoint is configured
@@ -152,7 +152,7 @@ class OracleAdapter {
   /**
    * Simulate delivery (replace with actual API calls in production)
    */
-  async simulateDelivery(payload) {
+  async simulateDelivery(_payload) {
     // Simulate network latency
     // NOSONAR: Math.random() used for simulation timing/success rates, not security-sensitive
     await new Promise(resolve => setTimeout(resolve, 100 + Math.random() * 200)); // NOSONAR

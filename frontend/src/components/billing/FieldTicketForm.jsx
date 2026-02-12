@@ -457,7 +457,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
   const jobId = propJobId || urlJobId;
   
   // Debug: log jobId source
-  console.log('[FieldTicketForm] jobId sources:', { propJobId, urlJobId, resolved: jobId });
+  console.warn('[FieldTicketForm] jobId sources:', { propJobId, urlJobId, resolved: jobId });
   
   // Job data state (can be passed as prop or fetched)
   const [job, setJob] = useState(propJob || null);
@@ -561,7 +561,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
   };
 
   // Handle signature capture (submit for signature)
-  const handleSignatureComplete = async (signatureData) => {
+  const handleSignatureComplete = async (_signatureData) => {
     // This would be used after the ticket is created and needs signature
     setShowSignature(false);
   };
@@ -634,7 +634,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
       }
 
       // Validate jobId is present
-      console.log('[FieldTicketForm] Submit - jobId:', jobId);
+      console.warn('[FieldTicketForm] Submit - jobId:', jobId);
       if (!jobId) {
         setError('Job ID is missing. Please try again from the job details page.');
         setSubmitting(false);

@@ -12,6 +12,7 @@ import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import ErrorBoundary from '../ErrorBoundary';
 
 // Component that throws an error
+// eslint-disable-next-line react/prop-types
 const ThrowError = ({ shouldThrow }) => {
   if (shouldThrow) {
     throw new Error('Test error');

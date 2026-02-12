@@ -114,7 +114,7 @@ class EAMAdapter {
       const workOrder = await this.getWorkOrder(workOrderNumber, headers);
       
       // Update work order status
-      const response = await this.client.patch(
+      await this.client.patch(
         `${this.baseUrl}/fscmRestApi/resources/11.13.18.05/maintenanceWorkOrders/${workOrder.WorkOrderId}`,
         {
           WorkOrderStatusCode: 'COMPLETE',
@@ -192,7 +192,7 @@ class EAMAdapter {
       // Build update payload based on asset type
       const updatePayload = this.buildAssetPayload(assetType, assetData);
       
-      const response = await this.client.patch(
+      await this.client.patch(
         `${this.baseUrl}/fscmRestApi/resources/11.13.18.05/assets/${asset.AssetId}`,
         updatePayload,
         { headers }

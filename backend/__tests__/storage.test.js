@@ -8,8 +8,6 @@
  * Tests for R2 cloud storage and local fallback functionality.
  */
 
-const path = require('path');
-
 // Mock AWS SDK before requiring the storage module
 jest.mock('@aws-sdk/client-s3', () => ({
   S3Client: jest.fn().mockImplementation(() => ({

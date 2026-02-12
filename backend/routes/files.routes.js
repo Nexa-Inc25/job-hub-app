@@ -61,7 +61,7 @@ const initRoutes = (authMiddleware) => {
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-router.get('/signed/:key(*)', (req, res, next) => {
+router.get('/signed/:key(*)', (req, res, _next) => {
   if (authenticateUser) {
     return authenticateUser(req, res, () => filesController.getSignedUrl(req, res));
   }

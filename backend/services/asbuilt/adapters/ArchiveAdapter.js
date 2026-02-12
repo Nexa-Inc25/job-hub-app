@@ -15,7 +15,7 @@ class ArchiveAdapter {
   /**
    * Archive document
    */
-  async deliver(submission, section, sectionIndex) {
+  async deliver(submission, section, _sectionIndex) {
     console.log(`[ArchiveAdapter] Archiving ${section.sectionType}`);
     
     // Build archive metadata

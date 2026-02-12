@@ -611,7 +611,7 @@ async function convertPagesToImages(pdfPath, pageNumbers, outputDir, prefix = 'p
  * Extract all assets from a PDF - photos, drawings, and maps
  * Uses direct page content analysis instead of text pattern matching
  */
-async function extractAllAssets(pdfPath, jobId, uploadsDir, openai) {
+async function extractAllAssets(pdfPath, jobId, uploadsDir, _openai) {
   const result = {
     photos: [],
     drawings: [],
@@ -697,7 +697,7 @@ async function extractImagesFromPdf(pdfPath, outputDir) {
   return convertPagesToImages(pdfPath, pageAnalysis.photos.slice(0, 15), outputDir, 'photo');
 }
 
-async function identifyDrawingsAndMaps(pdfText, openai, totalPages) {
+async function identifyDrawingsAndMaps(_pdfText, _openai, _totalPages) {
   // This is now handled by analyzePagesByContent
   return {
     constructionDrawings: [],

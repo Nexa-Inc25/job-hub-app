@@ -29,7 +29,7 @@ import { Rate, Trend } from 'k6/metrics';
 const errorRate = new Rate('errors');
 const loginDuration = new Trend('login_duration');
 const jobsListDuration = new Trend('jobs_list_duration');
-const jobDetailDuration = new Trend('job_detail_duration');
+const _jobDetailDuration = new Trend('job_detail_duration');
 
 // Test configuration
 export const options = {
@@ -79,7 +79,7 @@ export function setup() {
   return { baseUrl: BASE_URL };
 }
 
-export default function(data) {
+export default function(_data) {
   const params = {
     headers: {
       'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ export default function(data) {
   sleep(2);
 }
 
-export function teardown(data) {
+export function teardown(_data) {
   console.log('Load test completed');
 }
 

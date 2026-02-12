@@ -317,7 +317,7 @@ async function getPatternData(job) {
 /**
  * Generate context-based values
  */
-function generateContextValue(generator, job) {
+function generateContextValue(generator, _job) {
   switch (generator) {
     case 'today':
       return new Date().toISOString().split('T')[0];

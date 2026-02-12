@@ -143,7 +143,7 @@ describe('useOffline Hook', () => {
     it('should refresh pending counts when coming online', async () => {
       Object.defineProperty(navigator, 'onLine', { value: false });
       
-      const { result } = renderHook(() => useOffline());
+      renderHook(() => useOffline());
 
       await waitFor(() => {
         expect(offlineStorage.getPendingCounts).toHaveBeenCalled();
@@ -247,8 +247,6 @@ describe('useOffline Hook', () => {
       await waitFor(() => {
         expect(offlineStorage.initOfflineDB).toHaveBeenCalled();
       });
-
-      const operationData = { type: 'unit_entry', data: { quantity: 5 }, jobId: 'job-123' };
 
       await act(async () => {
         await result.current.queueOperation('unit_entry', { quantity: 5 }, 'job-123');
@@ -434,7 +432,7 @@ describe('useOffline Hook', () => {
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       offlineStorage.getPendingCounts.mockRejectedValueOnce(new Error('DB error'));
 
-      const { result } = renderHook(() => useOffline());
+      renderHook(() => useOffline());
 
       // Should not throw, just log
       await waitFor(() => {

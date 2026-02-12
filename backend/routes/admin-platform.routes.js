@@ -12,16 +12,12 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const Company = require('../models/Company');
-const Claim = require('../models/Claim');
-const UnitEntry = require('../models/UnitEntry');
 const AuditLog = require('../models/AuditLog');
-const Timesheet = require('../models/Timesheet');
 const APIUsage = require('../models/APIUsage');
 const AITrainingData = require('../models/AITrainingData');
 const Utility = require('../models/Utility');
 const { logExport } = require('../middleware/auditLogger');
 const { blockIP, unblockIP, getBlockedIPs } = require('../middleware/ipBlocker');
-const { getCircuitBreakerHealth } = require('../utils/circuitBreaker');
 const r2Storage = require('../utils/storage');
 
 // Helper: format uptime

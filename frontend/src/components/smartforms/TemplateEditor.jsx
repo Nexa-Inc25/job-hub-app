@@ -106,7 +106,7 @@ function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, field
 
   // Debug logging for field creation (dev only)
   if (import.meta.env.DEV) {
-  console.log('[TemplateEditor] Creating field:', {
+  console.warn('[TemplateEditor] Creating field:', {
     drawRect,
     pageDim,
     pageRect: { width: pageRect.width, height: pageRect.height, left: pageRect.left, top: pageRect.top },
@@ -407,7 +407,7 @@ function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
   
   // Debug: log field positions for troubleshooting (dev only)
   if (import.meta.env.DEV) {
-  console.log('[TemplateEditor] Field overlay:', field.name, { 
+  console.warn('[TemplateEditor] Field overlay:', field.name, { 
     pdfBounds: field.bounds, 
     screenPos,
     fieldId: field.id 
@@ -718,7 +718,7 @@ export default function TemplateEditor() {
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
-  const [pageRendered, setPageRendered] = useState(0); // Triggers re-render when PDF page finishes rendering
+  const [_pageRendered, setPageRendered] = useState(0); // Triggers re-render when PDF page finishes rendering
   const containerRef = useRef(null);
   const containerWidth = useContainerWidth(containerRef);
 
@@ -750,7 +750,7 @@ export default function TemplateEditor() {
   const onDocumentLoadSuccess = ({ numPages: pages }) => {
     setNumPages(pages);
     if (import.meta.env.DEV) {
-    console.log('[TemplateEditor] PDF loaded, pages:', pages);
+    console.warn('[TemplateEditor] PDF loaded, pages:', pages);
     }
   };
 
@@ -873,7 +873,7 @@ export default function TemplateEditor() {
           />
         );
       });
-  }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField, pageRendered]);
+  }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField]);
 
   // Callback for navigating back - must be before early returns (React hooks rule)
   const handleBack = useCallback(() => navigate('/smartforms'), [navigate]);

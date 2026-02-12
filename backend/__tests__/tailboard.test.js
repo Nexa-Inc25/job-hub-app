@@ -8,7 +8,6 @@
  * Tests for tailboard/JHA meeting CRUD operations.
  */
 
-const mongoose = require('mongoose');
 const Tailboard = require('../models/Tailboard');
 const Job = require('../models/Job');
 const User = require('../models/User');

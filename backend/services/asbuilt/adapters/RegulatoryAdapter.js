@@ -14,7 +14,7 @@ class RegulatoryAdapter {
   /**
    * Deliver document to regulatory portal
    */
-  async deliver(submission, section, sectionIndex) {
+  async deliver(submission, section, _sectionIndex) {
     console.log(`[RegulatoryAdapter] Submitting ${section.sectionType} to regulatory portal`);
     
     // Build compliance submission
@@ -97,7 +97,7 @@ class RegulatoryAdapter {
   /**
    * Submit to regulatory portal
    */
-  async submitToPortal(payload) {
+  async submitToPortal(_payload) {
     // In production, this would make actual API calls to CPUC portal
     // Most regulatory portals use SOAP or REST APIs with specific authentication
     

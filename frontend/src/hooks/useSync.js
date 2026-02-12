@@ -73,12 +73,12 @@ export function useSync(options = {}) {
    */
   const sync = useCallback(async () => {
     if (isSyncing) {
-      console.log('[useSync] Sync already in progress');
+      console.warn('[useSync] Sync already in progress');
       return { skipped: true };
     }
 
     if (!navigator.onLine) {
-      console.log('[useSync] Offline - cannot sync');
+      console.warn('[useSync] Offline - cannot sync');
       return { offline: true };
     }
 
@@ -132,7 +132,7 @@ export function useSync(options = {}) {
   const cancelSync = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
-      console.log('[useSync] Sync cancelled');
+      console.warn('[useSync] Sync cancelled');
     }
   }, []);
 
@@ -195,7 +195,7 @@ export function useSync(options = {}) {
       try {
         const registration = await navigator.serviceWorker.ready;
         await registration.sync.register('sync-queue');
-        console.log('[useSync] Background sync registered');
+        console.warn('[useSync] Background sync registered');
         return true;
       } catch (err) {
         console.warn('[useSync] Background sync registration failed:', err);
@@ -209,7 +209,7 @@ export function useSync(options = {}) {
    * Handle online event
    */
   const handleOnline = useCallback(() => {
-    console.log('[useSync] Connection restored');
+    console.warn('[useSync] Connection restored');
     setIsOnline(true);
     
     if (autoSync) {
@@ -227,7 +227,7 @@ export function useSync(options = {}) {
    * Handle offline event
    */
   const handleOffline = useCallback(() => {
-    console.log('[useSync] Connection lost');
+    console.warn('[useSync] Connection lost');
     setIsOnline(false);
     
     // Cancel any pending sync
@@ -243,7 +243,7 @@ export function useSync(options = {}) {
     const { type } = event.data || {};
     
     if (type === 'BACKGROUND_SYNC_TRIGGERED') {
-      console.log('[useSync] Background sync triggered by service worker');
+      console.warn('[useSync] Background sync triggered by service worker');
       if (navigator.onLine && !isSyncing) {
         sync();
       }
@@ -294,7 +294,7 @@ export function useSync(options = {}) {
         if (navigator.onLine && !isSyncing) {
           const counts = await queueManager.getCount();
           if (counts.pending > 0) {
-            console.log('[useSync] Polling: found pending items, syncing...');
+            console.warn('[useSync] Polling: found pending items, syncing...');
             sync();
           }
         }

@@ -301,7 +301,7 @@ const deleteDocumentAndRefresh = async (options) => {
       setError('Failed to delete document');
       throw err;
     }
-    console.log('Document already deleted or not found, refreshing...');
+    console.warn('Document already deleted or not found, refreshing...');
   }
   // Always refresh to get current state
   const response = await api.get(`/api/jobs/${jobId}`, { headers: { Authorization: `Bearer ${token}` } });

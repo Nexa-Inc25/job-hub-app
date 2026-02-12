@@ -185,7 +185,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName }) => {
             const firstPage = pages[0];
             const { width, height } = firstPage.getSize();
             setPdfPageDimensions({ width, height });
-            console.log(`PDF page dimensions: ${width}x${height}`);
+            console.warn(`PDF page dimensions: ${width}x${height}`);
           }
         } catch (error_) {
           console.warn('Could not read PDF dimensions:', error_);
