@@ -1445,12 +1445,12 @@ router.delete('/claims/:id', async (req, res) => {
       return res.status(404).json({ error: 'Claim not found' });
     }
 
-    // Only allow deletion of draft claims
-    if (claim.status !== 'draft') {
-      return res.status(400).json({ error: 'Only draft claims can be deleted' });
+    // Only admins can delete non-draft claims
+    if (claim.status !== 'draft' && !req.isAdmin) {
+      return res.status(400).json({ error: 'Only admins can delete submitted claims' });
     }
 
-    // Mark associated units as no longer invoiced
+    // Mark associated units as no longer on a claim so they can be re-billed
     await UnitEntry.updateMany(
       { _id: { $in: claim.lineItems.map(li => li.unitEntryId) } },
       { $set: { status: 'approved', claimId: null } }

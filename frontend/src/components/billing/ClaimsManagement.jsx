@@ -315,6 +315,7 @@ const ClaimCard = ({
 }) => {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [exportAnchor, setExportAnchor] = useState(null);
+  const isAdmin = localStorage.getItem('isAdmin') === 'true';
 
   const status = CLAIM_STATUS[claim.status] || CLAIM_STATUS.draft;
   const validation = validateForExport(claim, units);
@@ -463,10 +464,10 @@ const ClaimCard = ({
               <ListItemIcon><ViewIcon /></ListItemIcon>
               <ListItemText>View Details</ListItemText>
             </MenuItem>
-            {claim.status === 'draft' && (
+            {(claim.status === 'draft' || isAdmin) && (
               <MenuItem onClick={() => { onDelete(claim); setMenuAnchor(null); }}>
                 <ListItemIcon><DeleteIcon color="error" /></ListItemIcon>
-                <ListItemText>Delete</ListItemText>
+                <ListItemText>{claim.status !== 'draft' ? 'Delete (Admin)' : 'Delete'}</ListItemText>
               </MenuItem>
             )}
           </Menu>
