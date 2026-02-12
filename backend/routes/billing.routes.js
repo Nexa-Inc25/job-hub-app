@@ -1010,9 +1010,9 @@ router.delete('/units/:id', async (req, res) => {
       return res.status(404).json({ error: 'Unit entry not found' });
     }
 
-    // Can only delete draft units (or admin can delete any)
-    if (unit.status !== 'draft' && !req.isAdmin) {
-      return res.status(400).json({ error: 'Can only delete draft units' });
+    // Can only delete draft units (admins and super admins can delete any)
+    if (unit.status !== 'draft' && !req.isAdmin && !req.isSuperAdmin) {
+      return res.status(400).json({ error: 'Can only delete draft units. Admins can delete any status.' });
     }
 
     const { reason } = req.body;
@@ -1445,8 +1445,8 @@ router.delete('/claims/:id', async (req, res) => {
       return res.status(404).json({ error: 'Claim not found' });
     }
 
-    // Only admins can delete non-draft claims
-    if (claim.status !== 'draft' && !req.isAdmin) {
+    // Only admins/super admins can delete non-draft claims
+    if (claim.status !== 'draft' && !req.isAdmin && !req.isSuperAdmin) {
       return res.status(400).json({ error: 'Only admins can delete submitted claims' });
     }
 
