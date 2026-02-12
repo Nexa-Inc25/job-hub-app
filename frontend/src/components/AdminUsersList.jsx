@@ -52,7 +52,8 @@ const AdminUsersList = () => {
   const [expandedCompanies, setExpandedCompanies] = useState({});
   const [search, setSearch] = useState('');
   const [stats, setStats] = useState({ totalUsers: 0, totalCompanies: 0 });
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
   const { cardBg, textPrimary, textSecondary, borderColor, pageBg, rowHoverBg, tableHeaderBg, sectionHeaderBg, sectionHeaderHoverBg } = getThemeColors(mode);
   
   // Delete state

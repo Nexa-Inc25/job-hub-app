@@ -98,7 +98,8 @@ const CompanyOnboarding = () => {
   const [newPassword, setNewPassword] = useState('');
   
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
 
   // Theme colors
   const cardBg = mode === 'dark' ? '#1e1e2e' : '#ffffff';

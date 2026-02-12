@@ -184,7 +184,8 @@ const AuditReviewDialog = ({ open, onClose, job, audit, onSubmit }) => {
   const [disputeReason, setDisputeReason] = useState('');
   const [correctionNotes, setCorrectionNotes] = useState('');
   const [loading, setLoading] = useState(false);
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
   const { dialogBg } = getThemeColors(mode);
 
   const handleSubmit = async () => {
@@ -330,7 +331,8 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
   const { dialogBg, pageBg } = getThemeColors(mode);
 
   const handleFileSelect = async (e) => {
@@ -554,7 +556,8 @@ const QADashboard = () => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
 
   const { cardBg, textPrimary, textSecondary, borderColor, pageBg } = getThemeColors(mode);
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor };

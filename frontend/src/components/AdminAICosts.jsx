@@ -37,7 +37,8 @@ const AdminAICosts = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
   const { cardBg, textPrimary, textSecondary, borderColor, chartGridColor, pageBg } = getThemeColors(mode);
 
   const fetchData = useCallback(async () => {

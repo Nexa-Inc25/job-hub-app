@@ -68,7 +68,8 @@ const AdminJobsOverview = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
 
   const theme = getThemeColors(mode);
   const { cardBg, textPrimary, textSecondary, borderColor, chartGridColor } = theme;

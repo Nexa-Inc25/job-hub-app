@@ -185,7 +185,8 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef(null);
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
 
   const isEdit = Boolean(spec);
   const isNewVersion = Boolean(spec && file);
@@ -467,7 +468,8 @@ SpecDialog.propTypes = {
 
 // Version History Dialog
 const VersionHistoryDialog = ({ open, onClose, spec, onDownloadVersion }) => {
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
   const textPrimary = mode === 'dark' ? '#e2e8f0' : '#1e293b';
   const textSecondary = mode === 'dark' ? '#94a3b8' : '#64748b';
 
@@ -547,7 +549,8 @@ const SpecLibrary = () => {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, spec: null });
   
   const navigate = useNavigate();
-  const { mode } = useThemeMode();
+  const { darkMode } = useThemeMode();
+  const mode = darkMode ? 'dark' : 'light';
 
   const { cardBg, textPrimary, textSecondary, borderColor } = getThemeColors(mode);
   const themeProps = { cardBg, textPrimary, textSecondary, borderColor };
