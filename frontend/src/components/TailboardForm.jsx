@@ -702,7 +702,7 @@ const TailboardForm = () => {
         
         {/* General Information - Row 1 */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               label="Date"
               type="date"
@@ -714,7 +714,7 @@ const TailboardForm = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               label="Start Time"
               type="time"
@@ -726,7 +726,7 @@ const TailboardForm = () => {
               InputLabelProps={{ shrink: true }}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               label="PM#"
               value={pmNumber}
@@ -737,7 +737,7 @@ const TailboardForm = () => {
               placeholder="Project #"
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <TextField
               label="Circuit#"
               value={circuit}
@@ -751,7 +751,7 @@ const TailboardForm = () => {
 
         {/* General Information - Row 2 */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               label="General Foreman"
               value={generalForemanName}
@@ -761,7 +761,7 @@ const TailboardForm = () => {
               disabled={isCompleted}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <FormControl fullWidth size="small">
               <InputLabel>Inspector</InputLabel>
               <Select
@@ -778,7 +778,7 @@ const TailboardForm = () => {
             </FormControl>
           </Grid>
           {inspector === 'other' && (
-            <Grid item xs={6} sm={3}>
+            <Grid size={{ xs: 6, sm: 3 }}>
               <TextField
                 label="Inspector Name"
                 value={inspectorName}
@@ -793,7 +793,7 @@ const TailboardForm = () => {
 
         {/* General Information - Row 3 */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={6} sm={4}>
+          <Grid size={{ xs: 6, sm: 4 }}>
             <TextField
               label="EIC Name"
               value={eicName}
@@ -804,7 +804,7 @@ const TailboardForm = () => {
               placeholder="Employee In Charge"
             />
           </Grid>
-          <Grid item xs={6} sm={4}>
+          <Grid size={{ xs: 6, sm: 4 }}>
             <TextField
               label="EIC Phone"
               value={eicPhone}
@@ -814,7 +814,7 @@ const TailboardForm = () => {
               disabled={isCompleted}
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               label="Show Up Yard Location"
               value={showUpYardLocation}
@@ -828,7 +828,7 @@ const TailboardForm = () => {
 
         {/* Weather - Auto-fetched */}
         <Grid container spacing={2}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <TextField
                 label="Weather Conditions (Auto)"
@@ -1001,7 +1001,7 @@ const TailboardForm = () => {
           {SPECIAL_MITIGATIONS.map((mitigation) => {
             const current = specialMitigations.find(m => m.item === mitigation.id);
             return (
-              <Grid item xs={12} sm={6} key={mitigation.id}>
+              <Grid size={{ xs: 12, sm: 6 }} key={mitigation.id}>
                 <Box sx={{ 
                   display: 'flex', 
                   alignItems: 'center', 
@@ -1045,7 +1045,7 @@ const TailboardForm = () => {
         </Box>
         
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2">Will Grounding Be Needed?</Typography>
               <ToggleButtonGroup
@@ -1060,7 +1060,7 @@ const TailboardForm = () => {
               </ToggleButtonGroup>
             </Box>
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2">Grounds accounted for by foreman?</Typography>
               <ToggleButtonGroup
@@ -1127,7 +1127,7 @@ const TailboardForm = () => {
         <Divider sx={{ my: 2 }} />
         
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               label="Nominal Voltages of Lines/Equipment"
               value={nominalVoltages}
@@ -1137,7 +1137,7 @@ const TailboardForm = () => {
               disabled={isCompleted}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="body2">#6-Copper condition inspected?</Typography>
               <ToggleButtonGroup
@@ -1152,7 +1152,7 @@ const TailboardForm = () => {
               </ToggleButtonGroup>
             </Box>
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <FormControlLabel
               control={
                 <Checkbox 
@@ -1180,7 +1180,7 @@ const TailboardForm = () => {
           {ppeRequired.map((ppe, index) => {
             const ppeInfo = STANDARD_PPE.find(p => p.item === ppe.item) || { icon: '🛡️' };
             return (
-              <Grid item xs={6} sm={4} md={3} key={ppe.item}>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }} key={ppe.item}>
                 <FormControlLabel
                   control={
                     <Checkbox
@@ -1231,7 +1231,7 @@ const TailboardForm = () => {
         ) : (
           <Grid container spacing={1}>
             {crewMembers.map((member, index) => (
-              <Grid item xs={6} sm={4} md={3} key={member.id || member._id || `crew-${index}`}>
+              <Grid size={{ xs: 6, sm: 4, md: 3 }} key={member.id || member._id || `crew-${index}`}>
                 <Paper 
                   variant="outlined" 
                   sx={{ p: 1, textAlign: 'center' }}
@@ -1295,7 +1295,7 @@ const TailboardForm = () => {
             {UG_CHECKLIST_ITEMS.map((checkItem) => {
               const current = ugChecklist.find(c => c.item === checkItem.id);
               return (
-                <Grid item xs={12} key={checkItem.id}>
+                <Grid size={12} key={checkItem.id}>
                   <Box sx={{ 
                     display: 'flex', 
                     alignItems: 'center', 
@@ -1349,7 +1349,7 @@ const TailboardForm = () => {
         </Box>
         
         <Grid container spacing={2}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               label="Emergency Contact"
               value={emergencyContact}
@@ -1359,7 +1359,7 @@ const TailboardForm = () => {
               disabled={isCompleted}
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               label="Emergency Phone"
               value={emergencyPhone}
@@ -1370,7 +1370,7 @@ const TailboardForm = () => {
               placeholder="911"
             />
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <TextField
               label="Nearest Hospital"
               value={nearestHospital}

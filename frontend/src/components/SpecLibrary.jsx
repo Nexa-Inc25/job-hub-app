@@ -297,7 +297,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
         
         <Grid container spacing={2}>
           {/* Division Toggle - Overhead or Underground */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
               {Object.entries(DIVISION_CONFIG).map(([key, config]) => (
                 <Button
@@ -324,7 +324,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             </Box>
           </Grid>
 
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Document Number"
@@ -338,7 +338,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Section"
@@ -350,7 +350,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               label="Spec Name / Title"
@@ -361,7 +361,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <FormControl fullWidth required>
               <InputLabel>Utility</InputLabel>
               <Select id="spec-utility" name="utilityId" value={formData.utilityId} onChange={handleChange('utilityId')} label="Utility">
@@ -374,7 +374,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             </FormControl>
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Version"
@@ -384,7 +384,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               multiline
@@ -395,7 +395,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               type="date"
@@ -406,7 +406,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               fullWidth
               label="Tags"
@@ -416,7 +416,7 @@ const SpecDialog = ({ open, onClose, spec, utilities, onSubmit }) => {
             />
           </Grid>
           
-          <Grid item xs={12}>
+          <Grid size={12}>
             <input
               id="spec-library-file-input"
               name="spec-library-file-input"
@@ -716,7 +716,7 @@ const SpecLibrary = () => {
         {/* Search and Filter */}
         <Paper sx={{ p: 2, mb: 4, bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 2 }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 placeholder="Search specs..."
@@ -732,7 +732,7 @@ const SpecLibrary = () => {
                 size="small"
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant={divisionFilter === '' ? 'contained' : 'outlined'}
@@ -866,7 +866,7 @@ const SpecLibrary = () => {
                               {sectionSpecs
                                 .sort((a, b) => (a.documentNumber || '').localeCompare(b.documentNumber || ''))
                                 .map((spec) => (
-                                  <Grid item xs={12} sm={6} md={4} key={spec._id}>
+                                  <Grid size={{ xs: 12, sm: 6, md: 4 }} key={spec._id}>
                                     <SpecCard
                                       spec={spec}
                                       onDownload={handleDownload}

@@ -421,7 +421,7 @@ const DSOCard = ({ data, loading }) => {
           <Divider sx={{ my: 2 }} />
           
           <Grid container spacing={2}>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="caption" color="text.secondary">
                 Outstanding Invoices
               </Typography>
@@ -429,7 +429,7 @@ const DSOCard = ({ data, loading }) => {
                 ${(data.outstandingAmount || 0).toLocaleString()}
               </Typography>
             </Grid>
-            <Grid item xs={6}>
+            <Grid size={6}>
               <Typography variant="caption" color="text.secondary">
                 Overdue (30+ days)
               </Typography>
@@ -681,7 +681,7 @@ const BillingAnalytics = ({ units = [], claims = [] }) => {
 
       {/* Top Metrics */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <MetricCard
             title="Total Revenue"
             value={`$${analytics.totalRevenue.toLocaleString()}`}
@@ -693,7 +693,7 @@ const BillingAnalytics = ({ units = [], claims = [] }) => {
             loading={loading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <MetricCard
             title="Pending Approval"
             value={`$${analytics.forecast.pendingApproval.toLocaleString()}`}
@@ -703,7 +703,7 @@ const BillingAnalytics = ({ units = [], claims = [] }) => {
             loading={loading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <MetricCard
             title="Ready to Invoice"
             value={`$${analytics.forecast.readyToInvoice.toLocaleString()}`}
@@ -713,7 +713,7 @@ const BillingAnalytics = ({ units = [], claims = [] }) => {
             loading={loading}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <MetricCard
             title="Disputed"
             value={`$${analytics.forecast.disputed.toLocaleString()}`}
@@ -727,23 +727,23 @@ const BillingAnalytics = ({ units = [], claims = [] }) => {
 
       {/* Pipeline */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12}>
+        <Grid size={12}>
           <PipelineVisualization data={analytics.pipeline} loading={loading} />
         </Grid>
       </Grid>
 
       {/* Detailed Breakdowns */}
       <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <TierBreakdown data={analytics.byTier} loading={loading} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <CategoryBreakdown data={analytics.byCategory} loading={loading} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <DSOCard data={analytics.dso} loading={loading} />
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <ForecastCard data={analytics.forecast} loading={loading} />
         </Grid>
       </Grid>

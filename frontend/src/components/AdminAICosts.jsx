@@ -92,7 +92,7 @@ const AdminAICosts = () => {
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Cost Summary */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="Total Cost (30d)" 
               value={`$${stats?.apiUsage?.totalCostThisMonthDollars || '0.00'}`}
@@ -101,7 +101,7 @@ const AdminAICosts = () => {
               {...themeProps}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="AI Extractions" 
               value={stats?.aiExtraction?.totalJobsProcessed || 0}
@@ -110,7 +110,7 @@ const AdminAICosts = () => {
               {...themeProps}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="Avg Processing" 
               value={`${((stats?.aiExtraction?.performance?.avgProcessingTimeMs || 0) / 1000).toFixed(1)}s`}
@@ -119,7 +119,7 @@ const AdminAICosts = () => {
               {...themeProps}
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="API Calls" 
               value={openaiStats?.totalCalls || 0}
@@ -138,13 +138,13 @@ const AdminAICosts = () => {
               OpenAI Usage Details
             </Typography>
             <Grid container spacing={3}>
-              <Grid item xs={6} sm={2}>
+              <Grid size={{ xs: 6, sm: 2 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Total Calls</Typography>
                 <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
                   {openaiStats.totalCalls || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={2}>
+              <Grid size={{ xs: 6, sm: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <CheckIcon sx={{ color: '#22c55e', fontSize: 16 }} />
                   <Typography variant="body2" sx={{ color: textSecondary }}>Successful</Typography>
@@ -153,7 +153,7 @@ const AdminAICosts = () => {
                   {openaiStats.successfulCalls || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={2}>
+              <Grid size={{ xs: 6, sm: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <ErrorIcon sx={{ color: '#ef4444', fontSize: 16 }} />
                   <Typography variant="body2" sx={{ color: textSecondary }}>Failed</Typography>
@@ -162,13 +162,13 @@ const AdminAICosts = () => {
                   {openaiStats.failedCalls || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Total Tokens</Typography>
                 <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
                   {(openaiStats.totalTokens || 0).toLocaleString()}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Avg Response Time</Typography>
                 <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
                   {Math.round(openaiStats.avgResponseTimeMs || 0)}ms
@@ -184,19 +184,19 @@ const AdminAICosts = () => {
             AI Training Data
           </Typography>
           <Grid container spacing={3}>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Typography variant="body2" sx={{ color: textSecondary }}>Total Records</Typography>
               <Typography variant="h4" component="p" sx={{ color: textPrimary, fontWeight: 700 }}>
                 {stats?.aiTraining?.totalRecords || 0}
               </Typography>
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Typography variant="body2" sx={{ color: textSecondary }}>Complete</Typography>
               <Typography variant="h4" component="p" sx={{ color: '#22c55e', fontWeight: 700 }}>
                 {stats?.aiTraining?.completeRecords || 0}
               </Typography>
             </Grid>
-            <Grid item xs={4}>
+            <Grid size={4}>
               <Typography variant="body2" sx={{ color: textSecondary }}>Completion Rate</Typography>
               <Typography variant="h4" component="p" sx={{ color: '#6366f1', fontWeight: 700 }}>
                 {stats?.aiTraining?.completionRate || '0%'}

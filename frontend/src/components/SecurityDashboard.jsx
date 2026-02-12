@@ -289,7 +289,7 @@ const SecurityDashboard = () => {
 
         {/* Stats Overview */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <StatCard
               title="Total Events (30d)"
               value={stats ? Object.values(stats.actionCounts || {}).reduce((a, b) => a + b, 0) : '-'}
@@ -300,7 +300,7 @@ const SecurityDashboard = () => {
               borderColor={borderColor}
             />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <StatCard
               title="Login Events"
               value={stats?.actionCounts?.LOGIN_SUCCESS || 0}
@@ -311,7 +311,7 @@ const SecurityDashboard = () => {
               borderColor={borderColor}
             />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <StatCard
               title="Warnings"
               value={stats?.severityCounts?.warning || 0}
@@ -322,7 +322,7 @@ const SecurityDashboard = () => {
               borderColor={borderColor}
             />
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <StatCard
               title="Critical Events"
               value={stats?.severityCounts?.critical || 0}
@@ -587,37 +587,37 @@ const SecurityDashboard = () => {
             <ShieldIcon color="primary" /> Compliance Status
           </Typography>
           <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#22c55e' }} />
                 <Typography>Audit Logging: Active</Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#22c55e' }} />
                 <Typography>Data Retention: 7 Years</Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#22c55e' }} />
                 <Typography>MFA: Available</Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#22c55e' }} />
                 <Typography>Encryption: AES-256</Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#22c55e' }} />
                 <Typography>RBAC: 6 Roles</Typography>
               </Box>
             </Grid>
-            <Grid item xs={12} md={4}>
+            <Grid size={{ xs: 12, md: 4 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CheckCircleIcon sx={{ color: '#22c55e' }} />
                 <Typography>Rate Limiting: Active</Typography>

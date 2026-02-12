@@ -216,7 +216,7 @@ const BiddingDashboard = () => {
         <>
           {/* Key Metrics */}
           <Grid container spacing={3} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <MetricCard
                 title="Total Revenue"
                 value={formatCurrency(analytics.combinedTotal)}
@@ -225,7 +225,7 @@ const BiddingDashboard = () => {
                 color={COLORS.primary}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <MetricCard
                 title="Unit-Price Billing"
                 value={formatCurrency(analytics.unitPriceBilling.totalAmount)}
@@ -234,7 +234,7 @@ const BiddingDashboard = () => {
                 color={COLORS.secondary}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <MetricCard
                 title="T&M Billing"
                 value={formatCurrency(analytics.timeAndMaterial.totalAmount)}
@@ -243,7 +243,7 @@ const BiddingDashboard = () => {
                 color={COLORS.warning}
               />
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Card sx={{ bgcolor: COLORS.surface, height: '100%' }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
@@ -399,7 +399,7 @@ const BiddingDashboard = () => {
                   T&M Cost Breakdown
                 </Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <Box sx={{ textAlign: 'center', p: 2, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
                       <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
                         Labor
@@ -412,7 +412,7 @@ const BiddingDashboard = () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <Box sx={{ textAlign: 'center', p: 2, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
                       <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
                         Equipment
@@ -425,7 +425,7 @@ const BiddingDashboard = () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={4}>
+                  <Grid size={4}>
                     <Box sx={{ textAlign: 'center', p: 2, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
                       <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
                         Materials

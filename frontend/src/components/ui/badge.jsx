@@ -35,11 +35,12 @@ const badgeVariants = cva(
   }
 );
 
-const Badge = React.forwardRef(({ className, variant, ...props }, ref) => {
+// React 19: ref is a regular prop, no forwardRef needed
+const Badge = ({ className, variant, ref, ...props }) => {
   return (
     <div ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />
   );
-});
+};
 
 Badge.displayName = 'Badge';
 
@@ -101,4 +102,3 @@ StatusBadge.propTypes = {
 };
 
 export { Badge, badgeVariants, StatusBadge, getStatusVariant };
-

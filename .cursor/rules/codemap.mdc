@@ -21,13 +21,13 @@ FieldLedger is a **unit-price billing platform for utility contractors** perform
 └─────────────────────────────────────┬───────────────────────────────────────┘
                                       │
                         ┌─────────────▼─────────────┐
-                        │   PWA Frontend (React)    │
-                        │   Offline-First / Vite    │
+                        │   PWA Frontend (React 19) │
+                        │   MUI 7 / Vite 7          │
                         └─────────────┬─────────────┘
                                       │ HTTPS/WSS
                         ┌─────────────▼─────────────┐
-                        │   Express.js REST API     │
-                        │   Node.js 20 LTS          │
+                        │   Express 5 REST API      │
+                        │   Node.js 20 LTS / Pino   │
                         └─────────────┬─────────────┘
                                       │
           ┌───────────────┬───────────┴───────────┬───────────────┐
@@ -53,7 +53,7 @@ job-hub-app/
 │   ├── utils/                  # Helpers (PDF, storage, MFA, AI capture)
 │   ├── templates/              # Master PDF templates
 │   ├── __tests__/              # Jest test suites
-│   └── server.js               # Main entry point (8374 lines)
+│   └── server.js               # Main entry point (~1270 lines)
 │
 ├── frontend/                   # React SPA (PWA)
 │   ├── src/
@@ -72,6 +72,35 @@ job-hub-app/
 ├── docs/                       # Architecture, Oracle integration docs
 └── sales/                      # Sales collateral, pilot proposals
 ```
+
+---
+
+## Tech Stack
+
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| **Frontend** | React | 19.x |
+| | MUI (Material UI) | 7.x |
+| | MUI X Data Grid | 8.x |
+| | MUI X Tree View | 8.x (SimpleTreeView) |
+| | React Router | 6.x (with v7 future flags) |
+| | Vite | 7.x |
+| | Tailwind CSS | 3.x |
+| | Radix UI | latest |
+| **Backend** | Express | 5.x |
+| | Node.js | 20 LTS |
+| | Mongoose/MongoDB | latest |
+| | Pino (structured logging) | latest |
+| **Testing** | Vitest (frontend) | 4.x |
+| | @testing-library/react | 16.x |
+| | Cypress (E2E) | 15.x |
+| | Jest (backend) | latest |
+
+**Key Frontend Notes:**
+- React 19 uses ref-as-prop (no `forwardRef` needed). See `ui/` components.
+- MUI 7 Grid uses `size` prop: `<Grid size={{ xs: 12, md: 6 }}>` (not `item xs={12} md={6}`).
+- MUI X Tree View uses `SimpleTreeView` + `itemId` (not `TreeView` + `nodeId`).
+- ESLint config ignores `ref` in prop-types validation (React 19 injects it automatically).
 
 ---
 

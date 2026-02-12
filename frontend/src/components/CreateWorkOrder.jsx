@@ -405,7 +405,7 @@ const CreateWorkOrder = ({ token }) => {
 
             {/* Form Fields */}
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="pmNumber"
                   name="pmNumber"
@@ -417,7 +417,7 @@ const CreateWorkOrder = ({ token }) => {
                   placeholder="e.g., 35611981"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="notificationNumber"
                   name="notificationNumber"
@@ -429,7 +429,7 @@ const CreateWorkOrder = ({ token }) => {
                   placeholder="e.g., 126940062"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="woNumber"
                   name="woNumber"
@@ -440,7 +440,7 @@ const CreateWorkOrder = ({ token }) => {
                   onChange={(e) => setWoNumber(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="orderType"
                   name="orderType"
@@ -452,7 +452,7 @@ const CreateWorkOrder = ({ token }) => {
                   placeholder="e.g., E460"
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   id="address"
                   name="address"
@@ -463,7 +463,7 @@ const CreateWorkOrder = ({ token }) => {
                   onChange={(e) => setAddress(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="city"
                   name="city"
@@ -474,7 +474,7 @@ const CreateWorkOrder = ({ token }) => {
                   onChange={(e) => setCity(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="client"
                   name="client"
@@ -485,7 +485,7 @@ const CreateWorkOrder = ({ token }) => {
                   onChange={(e) => setClient(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={12}>
                 <TextField
                   id="projectName"
                   name="projectName"
@@ -496,7 +496,7 @@ const CreateWorkOrder = ({ token }) => {
                   onChange={(e) => setProjectName(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="division"
                   name="division"
@@ -514,7 +514,7 @@ const CreateWorkOrder = ({ token }) => {
                   ))}
                 </TextField>
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   id="matCode"
                   name="matCode"

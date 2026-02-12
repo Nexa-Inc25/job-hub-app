@@ -220,7 +220,7 @@ export default function ProcedureManager() {
         </Typography>
         <form onSubmit={handleUpload}>
           <Grid container spacing={2}>
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button
                 variant="outlined"
                 component="label"
@@ -241,7 +241,7 @@ export default function ProcedureManager() {
               </Button>
             </Grid>
             
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <TextField
                 fullWidth
                 label="Document Name"
@@ -251,7 +251,7 @@ export default function ProcedureManager() {
               />
             </Grid>
             
-            <Grid item xs={12} md={6}>
+            <Grid size={{ xs: 12, md: 6 }}>
               <FormControl fullWidth>
                 <InputLabel id="doc-type-label">Document Type</InputLabel>
                 <Select
@@ -268,7 +268,7 @@ export default function ProcedureManager() {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12}>
+            <Grid size={12}>
               <TextField
                 fullWidth
                 multiline
@@ -280,7 +280,7 @@ export default function ProcedureManager() {
               />
             </Grid>
             
-            <Grid item xs={12}>
+            <Grid size={12}>
               <FormControl fullWidth>
                 <InputLabel id="work-types-label">Applicable Work Types</InputLabel>
                 <Select
@@ -309,7 +309,7 @@ export default function ProcedureManager() {
               </FormControl>
             </Grid>
             
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Button
                 type="submit"
                 variant="contained"
@@ -335,7 +335,7 @@ export default function ProcedureManager() {
       {!loading && procedures.length > 0 && (
         <Grid container spacing={2}>
           {procedures.map((proc) => (
-            <Grid item xs={12} md={6} key={proc._id}>
+            <Grid size={{ xs: 12, md: 6 }} key={proc._id}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>

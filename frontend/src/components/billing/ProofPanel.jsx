@@ -330,7 +330,7 @@ const ProofPanel = ({ unit }) => {
     >
       <Grid container spacing={2}>
         {/* Left Column: Photo Evidence */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <PhotoIcon fontSize="small" color="primary" />
             <Typography variant="subtitle2" color="text.primary">Photo Evidence</Typography>
@@ -341,7 +341,7 @@ const ProofPanel = ({ unit }) => {
         </Grid>
 
         {/* Right Column: Location & Metadata */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
             <LocationIcon fontSize="small" color="primary" />
             <Typography variant="subtitle2" color="text.primary">Location Verification</Typography>
@@ -446,7 +446,7 @@ const ProofPanel = ({ unit }) => {
         </Grid>
 
         {/* Bottom Row: Additional Metadata */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Divider sx={{ my: 1 }} />
           <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
             {/* Work Date */}

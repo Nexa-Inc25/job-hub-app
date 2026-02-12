@@ -158,7 +158,7 @@ export default function BillingSettings() {
 
       <Grid container spacing={3}>
         {/* Current Plan */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
               <Typography variant="h6" fontWeight={600}>
@@ -229,7 +229,7 @@ export default function BillingSettings() {
         </Grid>
 
         {/* Usage */}
-        <Grid item xs={12} md={6}>
+        <Grid size={{ xs: 12, md: 6 }}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" fontWeight={600} sx={{ mb: 3 }}>
               Usage This Period
@@ -287,7 +287,7 @@ export default function BillingSettings() {
         </Grid>
 
         {/* Features */}
-        <Grid item xs={12}>
+        <Grid size={12}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
               Included Features

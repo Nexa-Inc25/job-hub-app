@@ -468,25 +468,25 @@ const UploadAuditDialog = ({ open, onClose, onSuccess }) => {
                 Failed Audit Details
               </Typography>
               <Grid container spacing={1}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Audit #</Typography>
                   <Typography variant="body2">{result.extracted?.auditNumber || 'N/A'}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Inspector</Typography>
                   <Typography variant="body2">{result.extracted?.inspectorName || 'N/A'}</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Infraction Type</Typography>
                   <Typography variant="body2">
                     {INFRACTION_TYPE_LABELS[result.extracted?.infractionType] || result.extracted?.infractionType || 'N/A'}
                   </Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <Typography variant="caption" color="text.secondary">Spec Reference</Typography>
                   <Typography variant="body2">{result.extracted?.specReference || 'N/A'}</Typography>
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <Typography variant="caption" color="text.secondary">Description</Typography>
                   <Typography variant="body2">{result.extracted?.infractionDescription || 'N/A'}</Typography>
                 </Grid>
@@ -667,7 +667,7 @@ const QADashboard = () => {
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Stats Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="Pending Review" 
               value={stats?.pendingReview || 0} 
@@ -677,7 +677,7 @@ const QADashboard = () => {
               {...themeProps} 
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="Failed Audits" 
               value={stats?.failedAudits || 0} 
@@ -687,7 +687,7 @@ const QADashboard = () => {
               {...themeProps} 
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="Reviewed This Month" 
               value={stats?.resolvedThisMonth || 0} 
@@ -696,7 +696,7 @@ const QADashboard = () => {
               {...themeProps} 
             />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard 
               title="Avg Review Time" 
               value={stats?.avgReviewTimeHours ? `${stats.avgReviewTimeHours}h` : 'N/A'} 

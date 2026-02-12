@@ -1389,7 +1389,7 @@ const Dashboard = () => {
 
       {/* Stats Cards */}
       <Grid container spacing={3} mb={4}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -1407,7 +1407,7 @@ const Dashboard = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -1425,7 +1425,7 @@ const Dashboard = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -1443,7 +1443,7 @@ const Dashboard = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
             <CardContent>
               <Box display="flex" alignItems="center" justifyContent="space-between">
@@ -1562,7 +1562,7 @@ const Dashboard = () => {
                   const isFlipped = !!flippedCards[job._id];
                   
                   return (
-                    <Grid item xs={12} md={6} lg={4} key={job._id}>
+                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={job._id}>
                       <Box sx={{ height: 420, position: 'relative' }}>
                         {/* FRONT SIDE */}
                         {!isFlipped && (
@@ -2040,7 +2040,7 @@ const Dashboard = () => {
         /* ========== STANDARD VIEW (for non-GF or filtered/searched) ========== */
         <Grid container spacing={3}>
           {filteredJobs.length === 0 ? (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 2, boxShadow: 1 }}>
                 <DescriptionIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
                 <Typography variant="h6" component="h3" gutterBottom>
@@ -2068,7 +2068,7 @@ const Dashboard = () => {
               const details = jobDetails[job._id] || job;
               
               return (
-              <Grid item xs={12} md={6} lg={4} key={job._id}>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={job._id}>
                 {/* Flip Card Container - No animation, just show/hide */}
                 <Box sx={{ height: 420, position: 'relative' }}>
                   {/* Show front or back based on flip state */}

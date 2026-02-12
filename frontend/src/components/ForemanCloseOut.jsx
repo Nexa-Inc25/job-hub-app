@@ -222,7 +222,7 @@ const PhotoSection = ({ jobId, photos, onPhotoAdded, onPhotoDeleted }) => {
       ) : (
         <Grid container spacing={1}>
           {photos.map((photo, idx) => (
-            <Grid item xs={4} key={photo._id || idx}>
+            <Grid size={4} key={photo._id || idx}>
               <Box
                 sx={{
                   position: 'relative',
@@ -405,7 +405,7 @@ const UnitsSection = ({ jobId: _jobId, units, onNavigateUnits }) => {
     <Box>
       {/* Summary cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Card sx={{ bgcolor: COLORS.surface, border: `1px solid ${COLORS.border}` }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography sx={{ color: COLORS.primary, fontSize: '2rem', fontWeight: 700 }}>
@@ -417,7 +417,7 @@ const UnitsSection = ({ jobId: _jobId, units, onNavigateUnits }) => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6}>
+        <Grid size={6}>
           <Card sx={{ bgcolor: COLORS.surface, border: `1px solid ${COLORS.border}` }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography sx={{ color: COLORS.success, fontSize: '1.5rem', fontWeight: 700 }}>

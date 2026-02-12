@@ -7,7 +7,9 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { cn } from '../../lib/utils';
 
-const Input = React.forwardRef(({ className, type, ...props }, ref) => {
+// React 19: ref is a regular prop, no forwardRef needed
+// React 19: defaultProps removed, using default parameter values instead
+const Input = ({ className, type = 'text', ref, ...props }) => {
   return (
     <input
       type={type}
@@ -23,7 +25,7 @@ const Input = React.forwardRef(({ className, type, ...props }, ref) => {
       {...props}
     />
   );
-});
+};
 
 Input.displayName = 'Input';
 
@@ -32,12 +34,8 @@ Input.propTypes = {
   type: PropTypes.string,
 };
 
-Input.defaultProps = {
-  type: 'text',
-};
-
 // Textarea component
-const Textarea = React.forwardRef(({ className, ...props }, ref) => {
+const Textarea = ({ className, ref, ...props }) => {
   return (
     <textarea
       className={cn(
@@ -51,7 +49,7 @@ const Textarea = React.forwardRef(({ className, ...props }, ref) => {
       {...props}
     />
   );
-});
+};
 
 Textarea.displayName = 'Textarea';
 
@@ -61,7 +59,7 @@ Textarea.propTypes = {
 
 // Label component - htmlFor is required for accessibility
 // Must match the id attribute of the associated form control
-const Label = React.forwardRef(({ className, htmlFor, ...props }, ref) => (
+const Label = ({ className, htmlFor, ref, ...props }) => (
   <label
     ref={ref}
     htmlFor={htmlFor}
@@ -71,7 +69,7 @@ const Label = React.forwardRef(({ className, htmlFor, ...props }, ref) => (
     )}
     {...props}
   />
-));
+);
 
 Label.displayName = 'Label';
 
@@ -82,4 +80,3 @@ Label.propTypes = {
 };
 
 export { Input, Textarea, Label };
-

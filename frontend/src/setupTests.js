@@ -9,7 +9,7 @@
  */
 
 import '@testing-library/jest-dom';
-import { vi, beforeAll, afterAll, afterEach } from 'vitest';
+import { vi, afterEach } from 'vitest';
 
 // Reset all mocks after each test
 afterEach(() => {
@@ -111,20 +111,4 @@ globalThis.ResizeObserver = class ResizeObserver {
   disconnect() { return null; }
 };
 
-// Suppress console errors during tests (optional)
-const originalError = console.error;
-beforeAll(() => {
-  console.error = (...args) => {
-    if (
-      typeof args[0] === 'string' &&
-      args[0].includes('Warning: ReactDOM.render is no longer supported')
-    ) {
-      return;
-    }
-    originalError.call(console, ...args);
-  };
-});
-
-afterAll(() => {
-  console.error = originalError;
-});
+// Note: ReactDOM.render suppression removed — React 19 no longer uses that API

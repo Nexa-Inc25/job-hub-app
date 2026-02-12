@@ -710,10 +710,10 @@ const LMEForm = () => {
 
         {/* Job Info Header */}
         <Grid container spacing={2}>
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Grid container spacing={1}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -722,7 +722,7 @@ const LMEForm = () => {
                     InputProps={{ readOnly: true }}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -731,7 +731,7 @@ const LMEForm = () => {
                     InputProps={{ readOnly: true }}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -740,7 +740,7 @@ const LMEForm = () => {
                     InputProps={{ readOnly: true }}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -749,7 +749,7 @@ const LMEForm = () => {
                     InputProps={{ readOnly: true }}
                   />
                 </Grid>
-                <Grid item xs={12}>
+                <Grid size={12}>
                   <TextField
                     size="small"
                     fullWidth
@@ -762,10 +762,10 @@ const LMEForm = () => {
             </Paper>
           </Grid>
 
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Grid container spacing={1}>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -774,7 +774,7 @@ const LMEForm = () => {
                     onChange={(e) => setLmeNumber(e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -785,7 +785,7 @@ const LMEForm = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={3}>
                   <TextField
                     size="small"
                     fullWidth
@@ -796,7 +796,7 @@ const LMEForm = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={3}>
                   <TextField
                     size="small"
                     fullWidth
@@ -807,7 +807,7 @@ const LMEForm = () => {
                     InputLabelProps={{ shrink: true }}
                   />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={3}>
                   <TextField
                     size="small"
                     fullWidth
@@ -818,7 +818,7 @@ const LMEForm = () => {
                     helperText="0.5 hrs each"
                   />
                 </Grid>
-                <Grid item xs={3}>
+                <Grid size={3}>
                   <TextField
                     size="small"
                     fullWidth
@@ -829,7 +829,7 @@ const LMEForm = () => {
                     helperText="Count"
                   />
                 </Grid>
-                <Grid item xs={4}>
+                <Grid size={4}>
                   <TextField
                     size="small"
                     fullWidth
@@ -838,10 +838,10 @@ const LMEForm = () => {
                     onChange={(e) => setSheetNumber(e.target.value)}
                   />
                 </Grid>
-                <Grid item xs={2} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Grid size={2} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <Typography>of</Typography>
                 </Grid>
-                <Grid item xs={6}>
+                <Grid size={6}>
                   <TextField
                     size="small"
                     fullWidth
@@ -853,7 +853,7 @@ const LMEForm = () => {
             </Paper>
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               multiline
@@ -864,7 +864,7 @@ const LMEForm = () => {
             />
           </Grid>
 
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               fullWidth
               label="IF SUBCONTRACTOR USED, ENTER NAME(S) HERE"

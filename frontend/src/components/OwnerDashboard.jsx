@@ -343,7 +343,7 @@ const OwnerDashboard = () => {
       <Container maxWidth="xl" sx={{ py: 4 }}>
         {/* Key Metrics Row */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard 
               title="Total Users"
               value={stats?.users?.total || 0}
@@ -355,7 +355,7 @@ const OwnerDashboard = () => {
               {...themeProps}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard 
               title="Total Jobs"
               value={stats?.jobs?.total || 0}
@@ -367,7 +367,7 @@ const OwnerDashboard = () => {
               {...themeProps}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard 
               title="AI Extractions"
               value={stats?.aiExtraction?.totalJobsProcessed || 0}
@@ -378,7 +378,7 @@ const OwnerDashboard = () => {
               {...themeProps}
             />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <StatCard 
               title="API Cost (30d)"
               value={`$${stats?.apiUsage?.totalCostThisMonthDollars || '0.00'}`}
@@ -394,7 +394,7 @@ const OwnerDashboard = () => {
         {/* Charts Row */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {/* Job Creation Trend */}
-          <Grid item xs={12} md={8}>
+          <Grid size={{ xs: 12, md: 8 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -443,7 +443,7 @@ const OwnerDashboard = () => {
           </Grid>
 
           {/* Job Status Distribution */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -490,7 +490,7 @@ const OwnerDashboard = () => {
         {/* Second Row - Users & AI */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {/* User Growth */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -524,7 +524,7 @@ const OwnerDashboard = () => {
           </Grid>
 
           {/* Users by Role */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -566,7 +566,7 @@ const OwnerDashboard = () => {
         {/* System Health & Platform Stats */}
         <Grid container spacing={3}>
           {/* System Health */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -612,7 +612,7 @@ const OwnerDashboard = () => {
           </Grid>
 
           {/* AI & Documents Stats */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -674,7 +674,7 @@ const OwnerDashboard = () => {
           </Grid>
 
           {/* Platform Overview */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Paper sx={{ 
               p: 3, 
               bgcolor: cardBg, 
@@ -749,7 +749,7 @@ const OwnerDashboard = () => {
               OpenAI API Usage Details
             </Typography>
             <Grid container spacing={3}>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>
                   Total Calls
                 </Typography>
@@ -757,7 +757,7 @@ const OwnerDashboard = () => {
                   {stats.apiUsage.openai.totalCalls || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>
                   Successful
                 </Typography>
@@ -765,7 +765,7 @@ const OwnerDashboard = () => {
                   {stats.apiUsage.openai.successfulCalls || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>
                   Total Tokens
                 </Typography>
@@ -773,7 +773,7 @@ const OwnerDashboard = () => {
                   {(stats.apiUsage.openai.totalTokens || 0).toLocaleString()}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary, mb: 0.5 }}>
                   Avg Response Time
                 </Typography>

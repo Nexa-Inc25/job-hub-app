@@ -625,7 +625,7 @@ const WorkOrderDetails = () => {
         <Grid container spacing={2}>
 
           {/* Quick Actions Bar - Always visible */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Card sx={{ 
               borderRadius: 2, 
               bgcolor: 'primary.dark',
@@ -715,7 +715,7 @@ const WorkOrderDetails = () => {
 
           {/* CONSTRUCTION SKETCH QUICK ACCESS - Right below Quick Actions for fast crew access */}
           {constructionSketches.length > 0 && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card sx={{ 
                 borderRadius: 2, 
                 bgcolor: 'background.paper',
@@ -806,7 +806,7 @@ const WorkOrderDetails = () => {
           {/* ROW 1: Three vertical columns - Job Info | Dependencies | Notes */}
           
           {/* COLUMN 1 - Job Info & Schedule */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             {/* Job Info Card */}
             <Card sx={{ mb: 3, borderRadius: 2 }}>
               <CardContent>
@@ -880,25 +880,25 @@ const WorkOrderDetails = () => {
                       
                       <Grid container spacing={1}>
                         {job.jobScope.workType && (
-                          <Grid item xs={6} sm={4}>
+                          <Grid size={{ xs: 6, sm: 4 }}>
                             <Typography variant="caption" color="text.secondary">Work Type</Typography>
                             <Typography variant="body2" fontWeight="medium">{job.jobScope.workType}</Typography>
                           </Grid>
                         )}
                         {job.jobScope.footage && (
-                          <Grid item xs={6} sm={4}>
+                          <Grid size={{ xs: 6, sm: 4 }}>
                             <Typography variant="caption" color="text.secondary">Footage</Typography>
                             <Typography variant="body2" fontWeight="medium">{job.jobScope.footage}</Typography>
                           </Grid>
                         )}
                         {job.jobScope.voltage && (
-                          <Grid item xs={6} sm={4}>
+                          <Grid size={{ xs: 6, sm: 4 }}>
                             <Typography variant="caption" color="text.secondary">Voltage</Typography>
                             <Typography variant="body2" fontWeight="medium">{job.jobScope.voltage}</Typography>
                           </Grid>
                         )}
                         {job.jobScope.phases && (
-                          <Grid item xs={6} sm={4}>
+                          <Grid size={{ xs: 6, sm: 4 }}>
                             <Typography variant="caption" color="text.secondary">Phases</Typography>
                             <Typography variant="body2" fontWeight="medium">{job.jobScope.phases}</Typography>
                           </Grid>
@@ -988,7 +988,7 @@ const WorkOrderDetails = () => {
           </Grid>
 
           {/* Middle Column - Dependencies */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Card sx={{ borderRadius: 2, height: '100%' }}>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -1091,7 +1091,7 @@ const WorkOrderDetails = () => {
           </Grid>
 
           {/* COLUMN 3 - Notes/Chat */}
-          <Grid item xs={12} md={4}>
+          <Grid size={{ xs: 12, md: 4 }}>
             <Card sx={{ borderRadius: 2, height: '100%' }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>
@@ -1181,7 +1181,7 @@ const WorkOrderDetails = () => {
                 
           {/* ROW 2: Pre-Field Photos - Horizontal full width */}
           {['assigned_to_gf', 'pre_fielding', 'scheduled'].includes(job?.status) && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Card sx={{ borderRadius: 2 }}>
                 <CardContent>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -1336,10 +1336,10 @@ const WorkOrderDetails = () => {
 
           {/* ROW 2.5: Crew Instructions - Full width (Construction Sketches moved to top) */}
           {crewInstructions.length > 0 && (
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Grid container spacing={2}>
                 {/* Crew Instructions (Field As Built) */}
-                <Grid item xs={12}>
+                <Grid size={12}>
                     <Card sx={{ borderRadius: 2, height: '100%' }}>
                       <CardContent>
                         <Typography variant="h6" display="flex" alignItems="center" gap={1} mb={2}>
@@ -1393,7 +1393,7 @@ const WorkOrderDetails = () => {
           )}
 
           {/* ROW 3: Workflow Progress - Horizontal timeline */}
-          <Grid item xs={12}>
+          <Grid size={12}>
             <Card sx={{ borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom display="flex" alignItems="center" gap={1}>

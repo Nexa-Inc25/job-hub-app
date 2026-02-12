@@ -28,7 +28,7 @@ export default [
     rules: {
       // React rules
       'react/react-in-jsx-scope': 'off', // Not needed with React 17+
-      'react/prop-types': 'warn',
+      'react/prop-types': ['warn', { ignore: ['ref'] }],
       'react/jsx-no-undef': 'error',
       'react/jsx-uses-react': 'error',
       'react/jsx-uses-vars': 'error',

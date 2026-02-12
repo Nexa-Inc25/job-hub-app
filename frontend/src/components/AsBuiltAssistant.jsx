@@ -433,10 +433,10 @@ export default function AsBuiltAssistant() {
       {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>}
 
       <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           {renderMainContent()}
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <ChatSidebar
             chatHistory={chatHistory}
             chatMessage={chatMessage}

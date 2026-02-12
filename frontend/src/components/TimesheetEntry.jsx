@@ -204,7 +204,7 @@ const TimeEntryDialog = ({ open, onClose, onSave, member, entry }) => {
         </Typography>
 
         <Grid container spacing={2}>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <TextField
               fullWidth
               type="time"
@@ -221,7 +221,7 @@ const TimeEntryDialog = ({ open, onClose, onSave, member, entry }) => {
               }}
             />
           </Grid>
-          <Grid item xs={6}>
+          <Grid size={6}>
             <TextField
               fullWidth
               type="time"
@@ -588,7 +588,7 @@ const TimesheetEntry = () => {
         <Card sx={{ bgcolor: COLORS.surfaceLight, border: `1px solid ${COLORS.primary}` }}>
           <CardContent>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem' }}>
                   TOTAL CREW HOURS
                 </Typography>
@@ -596,7 +596,7 @@ const TimesheetEntry = () => {
                   {totalHours.toFixed(1)}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid size={6}>
                 <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem' }}>
                   CREW SIZE
                 </Typography>

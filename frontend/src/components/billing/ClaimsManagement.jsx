@@ -161,7 +161,7 @@ const CreateClaimDialog = ({
 
         {/* Claim Details */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label="Claim Description"
               fullWidth
@@ -170,7 +170,7 @@ const CreateClaimDialog = ({
               placeholder={`Claim - ${formatDate(new Date())}`}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={12}>
             <TextField
               label="Notes (Optional)"
               fullWidth
@@ -184,7 +184,7 @@ const CreateClaimDialog = ({
 
         {/* Summary Cards */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Card variant="outlined">
               <CardContent sx={{ textAlign: 'center', py: 1 }}>
                 <Typography variant="h4" color="primary">
@@ -196,7 +196,7 @@ const CreateClaimDialog = ({
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Card variant="outlined">
               <CardContent sx={{ textAlign: 'center', py: 1 }}>
                 <Typography variant="h5" color="success.main">
@@ -208,7 +208,7 @@ const CreateClaimDialog = ({
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Card variant="outlined">
               <CardContent sx={{ textAlign: 'center', py: 1 }}>
                 <Typography variant="h6">
@@ -220,7 +220,7 @@ const CreateClaimDialog = ({
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid size={{ xs: 6, md: 3 }}>
             <Card variant="outlined">
               <CardContent sx={{ textAlign: 'center', py: 1 }}>
                 <Typography variant="h6">
@@ -654,7 +654,7 @@ const ClaimsManagement = ({
 
       {/* Summary Stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} md={2}>
+        <Grid size={{ xs: 6, md: 2 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="h5">{stats.total}</Typography>
@@ -662,7 +662,7 @@ const ClaimsManagement = ({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={2}>
+        <Grid size={{ xs: 6, md: 2 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="h5" color="info.main">{stats.draft}</Typography>
@@ -670,7 +670,7 @@ const ClaimsManagement = ({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={2}>
+        <Grid size={{ xs: 6, md: 2 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="h5" color="success.main">{stats.approved}</Typography>
@@ -678,7 +678,7 @@ const ClaimsManagement = ({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} md={3}>
+        <Grid size={{ xs: 6, md: 3 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="h6" color="primary.main">
@@ -688,7 +688,7 @@ const ClaimsManagement = ({
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={3}>
+        <Grid size={{ xs: 12, md: 3 }}>
           <Card variant="outlined">
             <CardContent sx={{ textAlign: 'center', py: 1 }}>
               <Typography variant="h6" color="success.main">

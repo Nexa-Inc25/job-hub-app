@@ -7,7 +7,8 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import { cn } from '../../lib/utils';
 
-const Card = React.forwardRef(({ className, ...props }, ref) => (
+// React 19: ref is a regular prop, no forwardRef needed
+const Card = ({ className, ref, ...props }) => (
   <div
     ref={ref}
     className={cn(
@@ -16,19 +17,19 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
     )}
     {...props}
   />
-));
+);
 Card.displayName = 'Card';
 
-const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
+const CardHeader = ({ className, ref, ...props }) => (
   <div
     ref={ref}
     className={cn('flex flex-col space-y-1.5 p-6', className)}
     {...props}
   />
-));
+);
 CardHeader.displayName = 'CardHeader';
 
-const CardTitle = React.forwardRef(({ className, children, ...props }, ref) => (
+const CardTitle = ({ className, children, ref, ...props }) => (
   <h3
     ref={ref}
     className={cn('text-lg font-semibold leading-none tracking-tight', className)}
@@ -36,30 +37,30 @@ const CardTitle = React.forwardRef(({ className, children, ...props }, ref) => (
   >
     {children}
   </h3>
-));
+);
 CardTitle.displayName = 'CardTitle';
 
-const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
+const CardDescription = ({ className, ref, ...props }) => (
   <p
     ref={ref}
     className={cn('text-sm text-muted-foreground', className)}
     {...props}
   />
-));
+);
 CardDescription.displayName = 'CardDescription';
 
-const CardContent = React.forwardRef(({ className, ...props }, ref) => (
+const CardContent = ({ className, ref, ...props }) => (
   <div ref={ref} className={cn('p-6 pt-0', className)} {...props} />
-));
+);
 CardContent.displayName = 'CardContent';
 
-const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
+const CardFooter = ({ className, ref, ...props }) => (
   <div
     ref={ref}
     className={cn('flex items-center p-6 pt-0', className)}
     {...props}
   />
-));
+);
 CardFooter.displayName = 'CardFooter';
 
 Card.propTypes = { className: PropTypes.string };
@@ -70,4 +71,3 @@ CardContent.propTypes = { className: PropTypes.string };
 CardFooter.propTypes = { className: PropTypes.string };
 
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter };
-

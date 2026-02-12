@@ -217,7 +217,7 @@ const AsBuiltRouter = () => {
       {/* Analytics Cards */}
       {analytics?.summary && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={6} md={2}>
+          <Grid size={{ xs: 6, md: 2 }}>
             <Card sx={{ bgcolor: '#16161f', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h4" sx={{ color: '#00e676', fontWeight: 700 }}>
@@ -229,7 +229,7 @@ const AsBuiltRouter = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={2}>
+          <Grid size={{ xs: 6, md: 2 }}>
             <Card sx={{ bgcolor: '#16161f', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h4" sx={{ color: '#4caf50', fontWeight: 700 }}>
@@ -241,7 +241,7 @@ const AsBuiltRouter = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={2}>
+          <Grid size={{ xs: 6, md: 2 }}>
             <Card sx={{ bgcolor: '#16161f', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h4" sx={{ color: '#ff9800', fontWeight: 700 }}>
@@ -253,7 +253,7 @@ const AsBuiltRouter = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={2}>
+          <Grid size={{ xs: 6, md: 2 }}>
             <Card sx={{ bgcolor: '#16161f', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h4" sx={{ color: '#f44336', fontWeight: 700 }}>
@@ -265,7 +265,7 @@ const AsBuiltRouter = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={2}>
+          <Grid size={{ xs: 6, md: 2 }}>
             <Card sx={{ bgcolor: '#16161f', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h4" sx={{ color: '#2196f3', fontWeight: 700 }}>
@@ -277,7 +277,7 @@ const AsBuiltRouter = () => {
               </CardContent>
             </Card>
           </Grid>
-          <Grid item xs={6} md={2}>
+          <Grid size={{ xs: 6, md: 2 }}>
             <Card sx={{ bgcolor: '#16161f', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h4" sx={{ color: '#9c27b0', fontWeight: 700 }}>
@@ -403,7 +403,7 @@ const AsBuiltRouter = () => {
           {analytics.byDestination.map((dest) => {
             const config = destinationConfig[dest._id] || { icon: <DescriptionIcon />, label: dest._id, color: '#888888' };
             return (
-              <Grid item xs={12} sm={6} md={4} key={dest._id}>
+              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={dest._id}>
                 <Paper sx={{ bgcolor: '#16161f', p: 2, borderRadius: 2, borderLeft: `4px solid ${config.color}` }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <Box sx={{ color: config.color }}>{config.icon}</Box>

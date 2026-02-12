@@ -913,7 +913,7 @@ const PriceBookAdmin = () => {
       {!loading && filteredPriceBooks.length > 0 && (
         <Grid container spacing={3}>
           {filteredPriceBooks.map((pb) => (
-            <Grid item xs={12} sm={6} md={4} key={pb._id}>
+            <Grid size={{ xs: 12, sm: 6, md: 4 }} key={pb._id}>
               <PriceBookCard
                 priceBook={pb}
                 onView={handleViewPriceBook}

@@ -121,16 +121,16 @@ const AdminJobsOverview = () => {
       <Container maxWidth="lg" sx={{ py: 4 }}>
         {/* Quick Stats */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard title="Total Jobs" value={stats?.jobs?.total || 0} icon={WorkIcon} color="#22c55e" {...themeProps} />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard title="This Week" value={stats?.jobs?.thisWeek || 0} icon={TrendingUpIcon} color="#6366f1" {...themeProps} />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard title="Today" value={stats?.jobs?.today || 0} icon={ScheduleIcon} color="#f59e0b" {...themeProps} />
           </Grid>
-          <Grid item xs={6} sm={3}>
+          <Grid size={{ xs: 6, sm: 3 }}>
             <StatCard title="Emergency" value={stats?.jobs?.emergency || 0} icon={WarningIcon} color="#ef4444" {...themeProps} />
           </Grid>
         </Grid>
@@ -138,7 +138,7 @@ const AdminJobsOverview = () => {
         {/* Charts Row */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           {/* Jobs by Status */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 3 }}>
               <Typography variant="h6" sx={{ color: textPrimary, mb: 2, fontWeight: 600 }}>
                 Jobs by Status
@@ -182,7 +182,7 @@ const AdminJobsOverview = () => {
           </Grid>
 
           {/* Jobs by Priority */}
-          <Grid item xs={12} md={6}>
+          <Grid size={{ xs: 12, md: 6 }}>
             <Paper sx={{ p: 3, bgcolor: cardBg, border: `1px solid ${borderColor}`, borderRadius: 3 }}>
               <Typography variant="h6" sx={{ color: textPrimary, mb: 2, fontWeight: 600 }}>
                 Jobs by Priority
@@ -240,7 +240,7 @@ const AdminJobsOverview = () => {
               Workflow Metrics
             </Typography>
             <Grid container spacing={3}>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Avg Completion Time</Typography>
                 <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
                   {stats.workflow.avgCompletionTimeHours 
@@ -249,19 +249,19 @@ const AdminJobsOverview = () => {
                   }
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Jobs Completed (30d)</Typography>
                 <Typography variant="h5" sx={{ color: '#22c55e', fontWeight: 700 }}>
                   {stats.workflow.completedJobs || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Active Companies</Typography>
                 <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
                   {stats.platform?.companies || 0}
                 </Typography>
               </Grid>
-              <Grid item xs={6} sm={3}>
+              <Grid size={{ xs: 6, sm: 3 }}>
                 <Typography variant="body2" sx={{ color: textSecondary }}>Documents</Typography>
                 <Typography variant="h5" sx={{ color: textPrimary, fontWeight: 700 }}>
                   {stats.documents?.totalDocuments || 0}
