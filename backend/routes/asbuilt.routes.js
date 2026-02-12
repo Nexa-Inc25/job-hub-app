@@ -1081,9 +1081,8 @@ router.post('/wizard/submit', async (req, res) => {
     // ---- Step 5: Queue for AsBuiltRouter processing ----
     // The router will split, classify, and route sections to destinations
     try {
-      const router = new AsBuiltRouter();
-      // Fire-and-forget — processing happens async
-      router.processSubmission(asBuiltSubmission._id).catch(err => {
+      // AsBuiltRouter is a singleton — call methods directly
+      AsBuiltRouter.processSubmission(asBuiltSubmission._id).catch(err => {
         console.error('AsBuiltRouter processing error:', err);
       });
     } catch (routerErr) {

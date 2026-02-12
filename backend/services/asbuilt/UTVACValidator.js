@@ -258,7 +258,13 @@ class UTVACValidator {
 
       const items = sectionData.items || [];
       const unchecked = items.filter(i => !i.checked);
-      const safetyCriticalMissing = unchecked.filter(i => i.safetyCritical);
+      // Look up safetyCritical from the config, not the submission data
+      // (submission items only have { number, checked }, not safetyCritical)
+      const configItems = configSection.items || [];
+      const safetyCriticalMissing = unchecked.filter(i => {
+        const configItem = configItems.find(ci => ci.number === i.number);
+        return configItem?.safetyCritical;
+      });
 
       checks.push({
         category: 'completeness',
@@ -330,7 +336,8 @@ class UTVACValidator {
   _runConfigRules(rules, submission, options, errors, warnings, checks) {
     for (const rule of rules) {
       // Skip rules already covered by specific validators above
-      if (['SKETCH_MARKUP', 'CCSC_COMPLETE', 'CCSC_SIGNED', 'EC_TAG_SIGNED'].includes(rule.code)) {
+      // COMPLETION_PHOTOS → _validatePhotos, GPS_PRESENT → _validateGPS
+      if (['SKETCH_MARKUP', 'CCSC_COMPLETE', 'CCSC_SIGNED', 'EC_TAG_SIGNED', 'COMPLETION_PHOTOS', 'GPS_PRESENT'].includes(rule.code)) {
         continue;
       }
 
