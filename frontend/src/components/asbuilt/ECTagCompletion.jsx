@@ -57,7 +57,8 @@ const ECTagCompletion = ({
         if (source === 'today') {
           values[field.fieldName] = new Date().toLocaleDateString('en-US');
         } else if (source === 'user.lanId') {
-          values[field.fieldName] = userData.lanId || userData.username || '';
+          values[field.fieldName] = userData.lanId || userData.username || 
+            (userData.email ? userData.email.split('@')[0] : '') || userData.name || '';
         } else if (source === 'timesheet.totalHours') {
           values[field.fieldName] = timesheetHours || '';
         } else if (source.startsWith('job.')) {
@@ -69,12 +70,16 @@ const ECTagCompletion = ({
     return values;
   }, [fields, jobData, userData, timesheetHours]);
 
+  // Derive LAN ID from user data — try lanId, username, or extract from email
+  const derivedLanId = userData.lanId || userData.username || 
+    (userData.email ? userData.email.split('@')[0] : '') || userData.name || '';
+
   // ---- Form state ----
   const [formValues, setFormValues] = useState(() => ({
     completionType: 'Completed',
     crewType: 'Contractor',
     actualHours: timesheetHours?.toString() || '',
-    lanId: userData.lanId || userData.username || '',
+    lanId: derivedLanId,
     completionDate: new Date().toLocaleDateString('en-US'),
     ...autoFilled,
   }));

@@ -290,7 +290,7 @@ const verifyMfa = async (req, res) => {
  */
 const getProfile = async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('name email role isAdmin isSuperAdmin');
+    const user = await User.findById(req.userId).select('name email role isAdmin isSuperAdmin companyId lanId username');
     
     if (!user) {
       return res.status(404).json({ error: 'User not found' });

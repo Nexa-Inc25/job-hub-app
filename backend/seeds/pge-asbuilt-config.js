@@ -161,7 +161,7 @@ function getPGEConfig() {
     utilityCode: 'PGE',
     procedureId: 'TD-2051P-10',
     procedureName: 'As-Built Procedure',
-    procedureVersion: 'Rev 0',
+    procedureVersion: 'Rev 1',
     effectiveDate: new Date('2025-01-01'),
     isActive: true,
 

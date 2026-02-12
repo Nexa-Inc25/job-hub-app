@@ -837,23 +837,31 @@ const { getPGEConfig } = require('../seeds/pge-asbuilt-config');
  * Get or auto-seed utility config. Uses findOneAndUpdate with upsert
  * to avoid race conditions when multiple concurrent requests arrive
  * before the config exists (prevents E11000 duplicate key errors).
+ * 
+ * Also updates the config if the seed version has changed (effectiveDate).
  */
 async function getOrSeedConfig(utilityCode) {
   let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
-  if (config) return config;
-
-  // Auto-seed PG&E on first request (atomic upsert)
+  
   if (utilityCode === 'PGE') {
     const seed = getPGEConfig();
-    config = await UtilityAsBuiltConfig.findOneAndUpdate(
-      { utilityCode: 'PGE' },
-      { $setOnInsert: seed },
-      { upsert: true, new: true }
-    );
-    return config;
+    
+    // Check if config needs updating (version mismatch or doesn't exist)
+    const needsUpdate = !config || 
+      config.procedureVersion !== seed.procedureVersion ||
+      config.workTypes?.length !== seed.workTypes?.length;
+    
+    if (needsUpdate) {
+      config = await UtilityAsBuiltConfig.findOneAndUpdate(
+        { utilityCode: 'PGE' },
+        { $set: seed },
+        { upsert: true, new: true }
+      );
+      return config;
+    }
   }
 
-  return null;
+  return config || null;
 }
 
 /**
