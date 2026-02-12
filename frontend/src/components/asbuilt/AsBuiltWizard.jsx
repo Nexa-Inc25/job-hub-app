@@ -40,6 +40,9 @@ import ECTagCompletion from './ECTagCompletion';
 import CCSCChecklist from './CCSCChecklist';
 import FDAAttributeForm from './FDAAttributeForm';
 
+// Lazy-load PDF editor — only needed when foreman opens a form page
+const PDFFormEditor = React.lazy(() => import('../PDFFormEditor'));
+
 /**
  * Detect which equipment types are in scope based on job/EC tag data.
  * Used to show only relevant FDA attribute sections.
@@ -79,8 +82,10 @@ const AsBuiltWizard = ({
   user,
   // Timesheet hours (if available)
   timesheetHours = null,
-  // PDF URLs for sketch pages (from job package)
+  // PDF URLs
   sketchPdfUrl = null,
+  // Full job package PDF URL (for extracting form pages)
+  jobPackagePdfUrl = null,
   // Callbacks
   onComplete,         // Final submission with all collected data
   onSaveProgress: _onSaveProgress,     // Save wizard state (for resume later)
@@ -145,6 +150,28 @@ const AsBuiltWizard = ({
       });
     }
 
+    // PDF page steps — foreman fills these in the PDFFormEditor
+    // Pages are extracted from the job package using utility config page ranges
+    if (requiredDocs.includes('face_sheet')) {
+      result.push({
+        key: 'face_sheet',
+        label: 'Face Sheet',
+        description: 'Review and sign the face sheet',
+        isPdfStep: true,
+        sectionType: 'face_sheet',
+      });
+    }
+
+    if (requiredDocs.includes('equipment_info') || requiredDocs.includes('ec_tag')) {
+      result.push({
+        key: 'equipment_info',
+        label: 'Equipment Info',
+        description: 'Fill in old/new pole numbers, equipment serial numbers',
+        isPdfStep: true,
+        sectionType: 'equipment_info',
+      });
+    }
+
     if (requiredDocs.includes('construction_sketch') || selectedWorkType.requiresSketchMarkup) {
       result.push({
         key: 'sketch',
@@ -160,6 +187,16 @@ const AsBuiltWizard = ({
         key: 'ccsc',
         label: 'Completion Checklist',
         description: utilityConfig?.checklist?.formName || 'Complete the construction checklist',
+      });
+    }
+
+    if (requiredDocs.includes('billing_form')) {
+      result.push({
+        key: 'billing_form',
+        label: 'Billing Form',
+        description: 'Complete the progress billing / project completion form',
+        isPdfStep: true,
+        sectionType: 'billing_form',
       });
     }
 
@@ -210,6 +247,24 @@ const AsBuiltWizard = ({
 
   const handleFDAComplete = (data) => {
     markStepComplete('fda', data);
+  };
+
+  // Handler for PDF form page saves (face sheet, equipment info, billing form)
+  const handlePdfFormSave = useCallback(async (stepKey, base64Data, docName) => {
+    markStepComplete(stepKey, {
+      pdfSaved: true,
+      documentName: docName,
+      savedAt: new Date().toISOString(),
+    });
+  }, [markStepComplete]);
+
+  // Get the page range label for a section type (for display)
+  const getPageRangeLabel = (sectionType) => {
+    const range = utilityConfig?.pageRanges?.find(pr => pr.sectionType === sectionType);
+    if (!range) return '';
+    return range.start === range.end
+      ? `Page ${range.start}`
+      : `Pages ${range.start}–${range.end}`;
   };
 
   // ---- Validation for final review ----
@@ -309,6 +364,45 @@ const AsBuiltWizard = ({
             timesheetHours={timesheetHours}
             onComplete={handleECTagComplete}
           />
+        );
+
+      // Generic PDF form steps (face sheet, equipment info, billing form)
+      case 'face_sheet':
+      case 'equipment_info':
+      case 'billing_form':
+        return (
+          <Box>
+            {jobPackagePdfUrl ? (
+              <Box sx={{ minHeight: 400 }}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  <strong>{step.label}</strong> — {getPageRangeLabel(step.sectionType)} of the job package.
+                  Fill in any blank fields, then tap <strong>Save</strong>.
+                </Alert>
+                <React.Suspense fallback={<CircularProgress />}>
+                  <PDFFormEditor
+                    pdfUrl={jobPackagePdfUrl}
+                    jobInfo={{
+                      pmNumber: job?.pmNumber,
+                      woNumber: job?.woNumber,
+                      address: job?.address,
+                    }}
+                    documentName={step.label}
+                    onSave={(base64, name) => handlePdfFormSave(step.key, base64, name)}
+                  />
+                </React.Suspense>
+              </Box>
+            ) : (
+              <Alert severity="warning">
+                No job package PDF found. Upload the job package from the Job File System first,
+                then return to the wizard.
+              </Alert>
+            )}
+            {completedSteps[step.key] && (
+              <Alert severity="success" sx={{ mt: 2 }}>
+                {step.label} saved.
+              </Alert>
+            )}
+          </Box>
         );
 
       case 'sketch':
@@ -571,10 +665,12 @@ AsBuiltWizard.propTypes = {
     validationRules: PropTypes.array,
     colorConventions: PropTypes.array,
     symbolLibrary: PropTypes.object,
+    pageRanges: PropTypes.array,
   }),
   job: PropTypes.object,
   user: PropTypes.object,
   timesheetHours: PropTypes.number,
+  jobPackagePdfUrl: PropTypes.string,
   sketchPdfUrl: PropTypes.string,
   onComplete: PropTypes.func,
   onSaveProgress: PropTypes.func,

@@ -26,6 +26,7 @@ const AsBuiltWizardPage = () => {
   const [user, setUser] = useState(null);
   const [utilityConfig, setUtilityConfig] = useState(null);
   const [sketchPdfUrl, setSketchPdfUrl] = useState(null);
+  const [jobPackagePdfUrl, setJobPackagePdfUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -67,38 +68,43 @@ const AsBuiltWizardPage = () => {
           // Non-fatal — wizard will show a warning
         }
 
-        // Find construction sketch PDF URL from job folders
+        // Find PDFs from job folders
         const apiBase = import.meta.env.VITE_API_URL || '';
         if (jobData.folders) {
+          const allDocs = [];
           for (const folder of jobData.folders) {
-            // Check top-level documents
-            const sketch = folder.documents?.find(d =>
-              d.category === 'SKETCH' || d.type === 'drawing' ||
-              d.name?.toLowerCase().includes('sketch') ||
-              d.name?.toLowerCase().includes('drawing')
-            );
-            if (sketch) {
-              setSketchPdfUrl(sketch.r2Key
-                ? `${apiBase}/api/files/download/${sketch.r2Key}`
-                : sketch.url
-              );
-              break;
-            }
-            // Check subfolders
+            if (folder.documents) allDocs.push(...folder.documents);
             for (const sub of folder.subfolders || []) {
-              const subSketch = sub.documents?.find(d =>
-                d.category === 'SKETCH' || d.type === 'drawing' ||
-                d.name?.toLowerCase().includes('sketch')
-              );
-              if (subSketch) {
-                setSketchPdfUrl(subSketch.r2Key
-                  ? `${apiBase}/api/files/download/${subSketch.r2Key}`
-                  : subSketch.url
-                );
-                break;
+              if (sub.documents) allDocs.push(...sub.documents);
+              for (const nested of sub.subfolders || []) {
+                if (nested.documents) allDocs.push(...nested.documents);
               }
             }
           }
+
+          const getUrl = (doc) => doc.r2Key
+            ? `${apiBase}/api/files/download/${doc.r2Key}`
+            : doc.url;
+
+          // Find construction sketch
+          const sketch = allDocs.find(d =>
+            d.category === 'SKETCH' || d.type === 'drawing' ||
+            d.name?.toLowerCase().includes('sketch') ||
+            d.name?.toLowerCase().includes('drawing')
+          );
+          if (sketch) setSketchPdfUrl(getUrl(sketch));
+
+          // Find the job package PDF (the main multi-page document)
+          // It's typically the largest PDF, or named "FM Pack" / "Job Package"
+          const jobPackage = allDocs.find(d =>
+            d.type === 'pdf' &&
+            (d.name?.toLowerCase().includes('pack') ||
+             d.name?.toLowerCase().includes('fm pack') ||
+             d.name?.toLowerCase().includes('job package'))
+          ) || allDocs.find(d =>
+            d.type === 'pdf' && !d.extractedFrom && !d.category
+          );
+          if (jobPackage) setJobPackagePdfUrl(getUrl(jobPackage));
         }
       } catch (err) {
         console.error('Failed to load wizard data:', err);
@@ -185,6 +191,7 @@ const AsBuiltWizardPage = () => {
         job={job}
         user={user}
         sketchPdfUrl={sketchPdfUrl}
+        jobPackagePdfUrl={jobPackagePdfUrl}
         onComplete={handleComplete}
         onOpenSketchEditor={handleOpenSketchEditor}
       />
