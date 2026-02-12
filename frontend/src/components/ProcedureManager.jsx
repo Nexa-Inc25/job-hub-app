@@ -28,7 +28,14 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  LinearProgress
+  LinearProgress,
+  IconButton,
+  Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
 } from '@mui/material';
 import UploadIcon from '@mui/icons-material/CloudUpload';
 import DocIcon from '@mui/icons-material/Description';
@@ -37,6 +44,7 @@ import CheckIcon from '@mui/icons-material/CheckCircle';
 import PendingIcon from '@mui/icons-material/HourglassEmpty';
 import ErrorIcon from '@mui/icons-material/Error';
 import QuestionIcon from '@mui/icons-material/QuestionAnswer';
+import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../api';
 
 const docTypes = [
@@ -95,6 +103,10 @@ export default function ProcedureManager() {
   const [description, setDescription] = useState('');
   const [docType, setDocType] = useState('as-built-procedure');
   const [selectedWorkTypes, setSelectedWorkTypes] = useState(['all']);
+  
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     loadProcedures();
@@ -144,6 +156,21 @@ export default function ProcedureManager() {
       setError(err.response?.data?.error || 'Failed to upload document');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    try {
+      await api.delete(`/api/procedures/${deleteTarget._id}`);
+      setSuccess(`"${deleteTarget.name}" deleted successfully.`);
+      setDeleteTarget(null);
+      loadProcedures();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to delete procedure');
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -391,17 +418,51 @@ export default function ProcedureManager() {
                   )}
                 </CardContent>
                 
-                <CardActions>
+                <CardActions sx={{ justifyContent: 'space-between' }}>
                   <Typography variant="caption" color="text.secondary">
                     Uploaded {new Date(proc.createdAt).toLocaleDateString()}
                     {proc.uploadedBy && ` by ${proc.uploadedBy.name || proc.uploadedBy.email}`}
                   </Typography>
+                  <Tooltip title="Delete procedure">
+                    <IconButton
+                      size="small"
+                      onClick={() => setDeleteTarget(proc)}
+                      sx={{ color: '#ef4444' }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
                 </CardActions>
               </Card>
             </Grid>
           ))}
         </Grid>
       )}
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onClose={() => !deleteLoading && setDeleteTarget(null)}>
+        <DialogTitle>Delete Procedure?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete <strong>{deleteTarget?.name}</strong>?
+            {deleteTarget?.processingStatus === 'failed' && ' This document failed processing and can be safely removed.'}
+            {deleteTarget?.processingStatus === 'completed' && ' This will remove the extracted AI data as well.'}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)} disabled={deleteLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant="contained"
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
