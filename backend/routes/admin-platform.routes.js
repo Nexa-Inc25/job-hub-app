@@ -533,10 +533,10 @@ router.get('/audit-logs/export', async (req, res) => {
     logExport.bulkDownload(req, null, logs.length);
     
     if (format === 'csv') {
-      const csvHeader = 'Timestamp,User,Email,Action,Category,Severity,Resource Type,Resource Name,IP Address,Success\\n';
+      const csvHeader = 'Timestamp,User,Email,Action,Category,Severity,Resource Type,Resource Name,IP Address,Success\n';
       const csvRows = logs.map(log => 
         `"${log.timestamp.toISOString()}","${log.userName || ''}","${log.userEmail || ''}","${log.action}","${log.category || ''}","${log.severity}","${log.resourceType || ''}","${log.resourceName || ''}","${log.ipAddress || ''}","${log.success}"`
-      ).join('\\n');
+      ).join('\n');
       
       res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Content-Disposition', `attachment; filename="audit-logs-${new Date().toISOString().split('T')[0]}.csv"`);
