@@ -1015,7 +1015,7 @@ router.delete('/units/:id', async (req, res) => {
       return res.status(400).json({ error: 'Can only delete draft units. Admins can delete any status.' });
     }
 
-    const { reason } = req.body;
+    const reason = req.body?.reason;
     unit.isDeleted = true;
     unit.deletedAt = new Date();
     unit.deletedBy = user._id;
