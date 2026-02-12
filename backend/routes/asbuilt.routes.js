@@ -834,6 +834,29 @@ const UtilityAsBuiltConfig = require('../models/UtilityAsBuiltConfig');
 const { getPGEConfig } = require('../seeds/pge-asbuilt-config');
 
 /**
+ * Get or auto-seed utility config. Uses findOneAndUpdate with upsert
+ * to avoid race conditions when multiple concurrent requests arrive
+ * before the config exists (prevents E11000 duplicate key errors).
+ */
+async function getOrSeedConfig(utilityCode) {
+  let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+  if (config) return config;
+
+  // Auto-seed PG&E on first request (atomic upsert)
+  if (utilityCode === 'PGE') {
+    const seed = getPGEConfig();
+    config = await UtilityAsBuiltConfig.findOneAndUpdate(
+      { utilityCode: 'PGE' },
+      { $setOnInsert: seed },
+      { upsert: true, new: true }
+    );
+    return config;
+  }
+
+  return null;
+}
+
+/**
  * GET /config/:utilityCode
  * Fetch the active As-Built configuration for a utility.
  * The frontend uses this to drive the As-Built wizard, symbol palette,
@@ -846,13 +869,7 @@ router.get('/config/:utilityCode', async (req, res) => {
       return res.status(400).json({ error: 'Utility code is required' });
     }
 
-    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
-
-    // Auto-seed PG&E config on first request
-    if (!config && utilityCode === 'PGE') {
-      config = new UtilityAsBuiltConfig(getPGEConfig());
-      await config.save();
-    }
+    const config = await getOrSeedConfig(utilityCode);
 
     if (!config) {
       return res.status(404).json({ error: `No As-Built configuration found for utility: ${utilityCode}` });
@@ -876,12 +893,7 @@ router.get('/config/:utilityCode/symbols', async (req, res) => {
       return res.status(400).json({ error: 'Utility code is required' });
     }
 
-    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
-    
-    if (!config && utilityCode === 'PGE') {
-      config = new UtilityAsBuiltConfig(getPGEConfig());
-      await config.save();
-    }
+    const config = await getOrSeedConfig(utilityCode);
 
     if (!config?.symbolLibrary) {
       return res.status(404).json({ error: `No symbol library found for utility: ${utilityCode}` });
@@ -910,12 +922,7 @@ router.get('/config/:utilityCode/checklist', async (req, res) => {
       return res.status(400).json({ error: 'Utility code is required' });
     }
 
-    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
-    
-    if (!config && utilityCode === 'PGE') {
-      config = new UtilityAsBuiltConfig(getPGEConfig());
-      await config.save();
-    }
+    const config = await getOrSeedConfig(utilityCode);
 
     if (!config?.checklist) {
       return res.status(404).json({ error: `No checklist found for utility: ${utilityCode}` });
@@ -939,12 +946,7 @@ router.get('/config/:utilityCode/work-types', async (req, res) => {
       return res.status(400).json({ error: 'Utility code is required' });
     }
 
-    let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
-    
-    if (!config && utilityCode === 'PGE') {
-      config = new UtilityAsBuiltConfig(getPGEConfig());
-      await config.save();
-    }
+    const config = await getOrSeedConfig(utilityCode);
 
     if (!config) {
       return res.status(404).json({ error: `No configuration found for utility: ${utilityCode}` });
