@@ -151,6 +151,45 @@ The system utilizes a multi-tier architecture consisting of a Mobile/Desktop PWA
 
 ---
 
+## Backend Route Architecture
+
+`server.js` (1,159 lines) handles only infrastructure: Express setup, middleware chain, CORS, auth, Socket.IO, and server startup. All business logic is in modular route files:
+
+### Route Files (28 files)
+
+| Route File | Base Path | Handlers | Purpose |
+|---|---|---|---|
+| `job-core.routes.js` | `/api/jobs` | 16 | CRUD, AI extraction, assignments, calendar |
+| `job-documents.routes.js` | `/api/jobs` | 14 | File uploads, folders, photos, exports |
+| `job-extended.routes.js` | `/api/jobs` | 11 | Notes, field audits, dependencies |
+| `job-lifecycle.routes.js` | `/api/jobs` | 7 | Status workflow, archive, restore, delete |
+| `job-misc.routes.js` | `/api/jobs` | 11 | AI training, autofill, pre-field, CSV export |
+| `admin-platform.routes.js` | `/api/admin` | 9 | Owner dashboard, audit logs, IP security |
+| `billing.routes.js` | `/api/billing` | 25+ | Unit entries, claims, Oracle export |
+| `fieldticket.routes.js` | `/api/fieldtickets` | 10+ | T&M field tickets, signatures |
+| `smartforms.routes.js` | `/api/smartforms` | 10+ | PDF template mapping and filling |
+| `lme.routes.js` | `/api/lme` | 10+ | Labor/Material Estimates |
+| `specs.routes.js` | `/api/specs` | 9 | Spec library CRUD, versioning |
+| `superadmin.routes.js` | `/api/superadmin` | 10 | Platform owner company/user management |
+| `pricebook.routes.js` | `/api/pricebooks` | 8+ | Rate table management |
+| `asbuilt.routes.js` | `/api/asbuilt` | 8+ | As-built document routing |
+| `tailboard.routes.js` | `/api/tailboards` | 6+ | Safety briefings |
+| `oracle.routes.js` | `/api/oracle` | 5+ | Oracle ERP integration |
+| `company.routes.js` | `/api/company` | 4 | Company self-management |
+| `users.routes.js` | `/api/users` | 3 | User listing, profiles |
+| `qa.routes.js` | `/api/qa` | 3 | QA dashboard stats |
+| `feedback.routes.js` | `/api/feedback` | 3 | Pilot feedback system |
+| `utilities.routes.js` | `/api/utilities` | 3 | Utility listing (public) |
+| `voice.routes.js` | `/api/voice` | 3 | Voice AI capture |
+| `bidding.routes.js` | `/api/bidding` | 5+ | Cost analytics |
+| `weather.routes.js` | `/api/weather` | 3+ | Auto-weather |
+| `timesheet.routes.js` | `/api/timesheets` | 5+ | Time tracking |
+| `notification.routes.js` | `/api/notifications` | 4+ | Push notifications |
+| `stripe.routes.js` | `/api/stripe` | 5+ | Subscription billing |
+| `demo.routes.js` | `/api/demo` | 3 | Demo sandbox for prospects |
+
+---
+
 ## Synchronization & Offline Strategy
 
 FieldLedger utilizes a **Store-and-Forward** architecture to ensure data integrity in low-connectivity environments. The PWA caches all mutations (unit capture, photos, logs) locally in IndexedDB and flushes them to the API Gateway via a persistent background sync queue when connectivity is restored.
@@ -408,5 +447,5 @@ SSO is gated to the **Enterprise** subscription tier (configured in `subscriptio
 
 ---
 
-*Document Version: 1.4.0*  
+*Document Version: 1.5.0*  
 *Last Updated: February 2026*
