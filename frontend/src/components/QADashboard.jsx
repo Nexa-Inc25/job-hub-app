@@ -71,8 +71,8 @@ const ReviewDialog = ({ open, onClose, job, onSubmit, mode: _mode }) => {
   const [action, setAction] = useState('approve');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
-  const { mode: themeMode } = useThemeMode();
-  const { dialogBg } = getThemeColors(themeMode);
+  const { darkMode: themeDarkMode } = useThemeMode();
+  const { dialogBg } = getThemeColors(themeDarkMode ? 'dark' : 'light');
 
   // Button color helpers to avoid nested ternaries
   const getButtonBgColor = (actionType) => {
