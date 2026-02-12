@@ -532,7 +532,8 @@ User submits → Save to IndexedDB immediately → Return success
 | `UnitEntry` | Digital receipt | itemCode, quantity, photos[], location, performedBy |
 | `Claim` | Invoice/billing | claimNumber, lineItems[], oracle{}, status |
 | `PriceBook` | Rate tables | name, items[], effectiveDate, contractNumber |
-| `AsBuiltSubmission` | Document routing | sections[], routingSummary, auditLog[] |
+| `AsBuiltSubmission` | Document routing | sections[], routingSummary, auditLog[], fdaAttributes, wizardData, validationScore |
+| `UtilityAsBuiltConfig` | Per-utility as-built config | pageRanges[], workTypes[], checklist, symbolLibrary, validationRules[], colorConventions[] |
 | `Notification` | Push notifications | type, message, userId, read |
 | `AuditLog` | Activity tracking | action, userId, resourceId, changes |
 | `FormTemplate` | SmartForms templates | name, pdfUrl, fieldMappings[] |
@@ -557,7 +558,7 @@ User submits → Save to IndexedDB immediately → Return success
 | `weather.routes.js` | `/api/weather` | Auto-weather for job sites |
 | `pricebook.routes.js` | `/api/pricebook` | Price book management |
 | `files.routes.js` | `/api/files` | File upload/download |
-| `asbuilt.routes.js` | `/api/asbuilt` | As-built submissions |
+| `asbuilt.routes.js` | `/api/asbuilt` | As-built config, wizard, validation, submissions, routing |
 | `oracle.routes.js` | `/api/oracle` | Oracle integration status/test |
 | `stripe.routes.js` | `/api/stripe` | Subscription billing |
 | `admin.routes.js` | `/api/admin` | User/company management |
