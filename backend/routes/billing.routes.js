@@ -752,7 +752,7 @@ router.post('/units/:id/verify', async (req, res) => {
       return res.status(400).json({ error: 'Only submitted units can be verified' });
     }
 
-    const { notes } = req.body;
+    const { notes } = req.body || {};
     await unit.verify(user._id, notes);
     res.json(unit);
   } catch (err) {
@@ -805,7 +805,7 @@ router.post('/units/:id/approve', async (req, res) => {
       return res.status(400).json({ error: 'Only submitted or verified units can be approved' });
     }
 
-    const { notes } = req.body;
+    const { notes } = req.body || {};
     await unit.approve(user._id, notes);
     
     // Send notification to the General Foreman assigned to the job
@@ -1502,7 +1502,7 @@ router.post('/claims/:id/approve', async (req, res) => {
       return res.status(400).json({ error: 'Claim cannot be approved in current status' });
     }
 
-    const { notes } = req.body;
+    const { notes } = req.body || {};
     
     claim.status = 'approved';
     claim.approvedBy = user._id;
