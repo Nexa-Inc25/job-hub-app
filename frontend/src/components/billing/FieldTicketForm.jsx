@@ -743,7 +743,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
               T&M Field Ticket
             </Typography>
             <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>
-              WO: {job?.woNumber || 'Loading...'}
+              {!job && loadingJob ? 'Loading...' : `WO: ${job?.woNumber || job?.pmNumber || 'N/A'}`}
             </Typography>
           </Box>
           <Chip
