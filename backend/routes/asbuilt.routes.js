@@ -1210,12 +1210,14 @@ router.post('/wizard/submit', async (req, res) => {
     await asBuiltSubmission.save();
 
     // ---- Step 4: Update job status ----
-    job.auditHistory = job.auditHistory || [];
-    job.auditHistory.push({
-      action: 'asbuilt_submitted',
-      performedBy: req.userId,
-      date: new Date(),
-      details: `As-built package submitted via wizard (UTVAC score: ${validation.score}%)`,
+    // Log as a job note (auditHistory is for utility inspections with pass/fail)
+    job.notes = job.notes || [];
+    job.notes.push({
+      message: `As-built package submitted via wizard (UTVAC score: ${validation.score}%)`,
+      userId: req.userId,
+      userName: 'System',
+      noteType: 'update',
+      createdAt: new Date(),
     });
     await job.save();
 
