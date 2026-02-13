@@ -17,7 +17,7 @@
  * @module components/ForemanCloseOut
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -65,11 +65,15 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import GroupsIcon from '@mui/icons-material/Groups';
 import CloseIcon from '@mui/icons-material/Close';
 import DirectionsIcon from '@mui/icons-material/Directions';
+import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import api from '../api';
 import { openDirections } from '../utils/navigation';
 import { useOffline } from '../hooks/useOffline';
 import PDFFormEditor from './PDFFormEditor';
 import { useAppColors } from './shared/themeUtils';
+
+// Lazy load As-Built Wizard — heavy component only needed when the tab is active
+const AsBuiltWizard = lazy(() => import('./asbuilt/AsBuiltWizard'));
 
 // Tab panel wrapper
 function TabPanel({ children, value, index, ...other }) {
@@ -700,6 +704,12 @@ const ForemanCloseOut = () => {
   // SmartForms templates
   const [smartFormTemplates, setSmartFormTemplates] = useState([]);
   const [templatePickerOpen, setTemplatePickerOpen] = useState(false);
+  
+  // As-Built Wizard state
+  const [user, setUser] = useState(null);
+  const [utilityConfig, setUtilityConfig] = useState(null);
+  const [sketchPdfUrl, setSketchPdfUrl] = useState(null);
+  const [jobPackagePdfUrl, setJobPackagePdfUrl] = useState(null);
 
   // Load job data
   useEffect(() => {
@@ -757,6 +767,68 @@ const ForemanCloseOut = () => {
           setSmartFormTemplates(Array.isArray(templatesRes.data) ? templatesRes.data : []);
         } catch {
           setSmartFormTemplates([]);
+        }
+
+        // ---- As-Built Wizard data ----
+        
+        // Fetch current user profile
+        try {
+          const userRes = await api.get('/api/users/me');
+          setUser(userRes.data);
+        } catch (userErr) {
+          console.warn('Could not fetch user profile:', userErr.message);
+          const token = localStorage.getItem('token');
+          if (token) {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              setUser({ _id: payload.userId, role: payload.role, username: payload.email });
+            } catch { /* ignore */ }
+          }
+        }
+
+        // Fetch utility config — default to PGE for now
+        // TODO: derive utility code from job.utilityId when multi-utility is active
+        try {
+          const configRes = await api.get('/api/asbuilt/config/PGE');
+          setUtilityConfig(configRes.data);
+        } catch { /* non-fatal — wizard will show a warning */ }
+
+        // Extract PDF URLs from job folders for the wizard
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        if (jobData.folders) {
+          const allDocs = [];
+          for (const folder of jobData.folders) {
+            if (folder.documents) allDocs.push(...folder.documents);
+            for (const sub of folder.subfolders || []) {
+              if (sub.documents) allDocs.push(...sub.documents);
+              for (const nested of sub.subfolders || []) {
+                if (nested.documents) allDocs.push(...nested.documents);
+              }
+            }
+          }
+
+          const getUrl = (doc) => doc.r2Key
+            ? `${apiBase}/api/files/${doc.r2Key}`
+            : doc.url;
+
+          // Find construction sketch
+          const sketch = allDocs.find(d =>
+            d.category === 'SKETCH' || d.type === 'drawing' ||
+            d.name?.toLowerCase().includes('sketch') ||
+            d.name?.toLowerCase().includes('drawing')
+          );
+          if (sketch) setSketchPdfUrl(getUrl(sketch));
+
+          // Find the job package PDF (main multi-page document)
+          const jobPackage = allDocs.find(d =>
+            d.type === 'pdf' &&
+            (d.name?.toLowerCase().includes('pack') ||
+             d.name?.toLowerCase().includes('fm pack') ||
+             d.name?.toLowerCase().includes('job package'))
+          ) || allDocs.find(d =>
+            d.type === 'pdf' && !d.extractedFrom && !d.category
+          );
+          if (jobPackage) setJobPackagePdfUrl(getUrl(jobPackage));
         }
 
       } catch (err) {
@@ -907,6 +979,30 @@ const ForemanCloseOut = () => {
     navigate(`/jobs/${jobId}/lme`);
   };
 
+  // ---- As-Built Wizard handlers ----
+  const handleAsBuiltComplete = useCallback(async (submission) => {
+    try {
+      const res = await api.post('/api/asbuilt/wizard/submit', { submission });
+      if (res.data?.success) {
+        navigate(`/jobs/${jobId}`, {
+          state: { message: `As-built package submitted! UTVAC Score: ${res.data.validation?.score}%` },
+        });
+      }
+    } catch (err) {
+      console.error('As-built submission failed:', err);
+      setError(err.response?.data?.error || 'As-built submission failed');
+    }
+  }, [jobId, navigate]);
+
+  const handleOpenSketchEditor = useCallback(() => {
+    if (sketchPdfUrl) {
+      globalThis.open(sketchPdfUrl, '_blank');
+    }
+  }, [sketchPdfUrl]);
+
+  // Compute total timesheet hours to pass to the wizard
+  const timesheetHours = timesheet?.entries?.reduce((sum, e) => sum + (e.hours || 0), 0) || null;
+
   const handleSubmitForReview = async () => {
     setSubmitting(true);
     try {
@@ -1017,27 +1113,6 @@ const ForemanCloseOut = () => {
         </Box>
       </Box>
 
-      {/* As-Built Wizard CTA */}
-      <Box sx={{ mx: 2, mt: 2 }}>
-        <Button
-          fullWidth
-          variant="contained"
-          size="large"
-          onClick={() => navigate(`/jobs/${jobId}/asbuilt-wizard`)}
-          sx={{
-            bgcolor: COLORS.success,
-            color: COLORS.bg,
-            fontWeight: 700,
-            fontSize: '1rem',
-            py: 1.5,
-            borderRadius: 2,
-            '&:hover': { bgcolor: COLORS.primaryDark },
-          }}
-        >
-          📋 Complete As-Built Package
-        </Button>
-      </Box>
-
       {/* Error display */}
       {error && (
         <Alert severity="error" sx={{ m: 2 }} onClose={() => setError(null)}>
@@ -1067,6 +1142,7 @@ const ForemanCloseOut = () => {
         <Tab icon={<ReceiptIcon />} label="Units" iconPosition="start" />
         <Tab icon={<ShieldIcon />} label="Safety" iconPosition="start" />
         <Tab icon={<AccessTimeIcon />} label="Time" iconPosition="start" />
+        <Tab icon={<AssignmentTurnedInIcon />} label="As-Built" iconPosition="start" />
       </Tabs>
 
       {/* Tab content */}
@@ -1110,6 +1186,29 @@ const ForemanCloseOut = () => {
             timesheet={timesheet} 
             onNavigateTimesheet={handleNavigateTimesheet}
           />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={5}>
+          <Suspense fallback={
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 2 }}>
+              <CircularProgress sx={{ color: COLORS.primary }} />
+              <Typography sx={{ color: COLORS.textSecondary }}>Loading As-Built Wizard...</Typography>
+            </Box>
+          }>
+            <AsBuiltWizard
+              utilityConfig={utilityConfig}
+              job={job}
+              user={user}
+              timesheetHours={timesheetHours}
+              unitEntries={units}
+              tailboard={tailboard}
+              lmeData={timesheet}
+              sketchPdfUrl={sketchPdfUrl}
+              jobPackagePdfUrl={jobPackagePdfUrl}
+              onComplete={handleAsBuiltComplete}
+              onOpenSketchEditor={handleOpenSketchEditor}
+            />
+          </Suspense>
         </TabPanel>
       </Box>
 

@@ -39,6 +39,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import ECTagCompletion from './ECTagCompletion';
 import CCSCChecklist from './CCSCChecklist';
 import FDAAttributeForm from './FDAAttributeForm';
+import BillingCompletionForm from './BillingCompletionForm';
 
 // Lazy-load PDF editor — only needed when foreman opens a form page
 const PDFFormEditor = React.lazy(() => import('../PDFFormEditor'));
@@ -82,6 +83,10 @@ const AsBuiltWizard = ({
   user,
   // Timesheet hours (if available)
   timesheetHours = null,
+  // Close-out context — data already captured during field work
+  unitEntries = [],      // Unit entries (billing digital receipts)
+  tailboard = null,      // Today's tailboard (crew members, hazards)
+  lmeData = null,        // Full LME (labor, materials, equipment breakdown)
   // PDF URLs
   sketchPdfUrl = null,
   // Full job package PDF URL (for extracting form pages)
@@ -104,10 +109,11 @@ const AsBuiltWizard = ({
   const workTypes = useMemo(() => utilityConfig?.workTypes || [], [utilityConfig]);
 
   // Auto-detect work type from job data if possible
+  // Uses orderType, ecTag, preFieldLabels, and PM/Notification heuristics
   useEffect(() => {
     if (selectedWorkType || workTypes.length === 0) return;
     
-    // Heuristics for auto-detection
+    // 1. Exact match on order type code
     if (job?.orderType) {
       const match = workTypes.find(wt => 
         wt.code === job.orderType || 
@@ -119,13 +125,47 @@ const AsBuiltWizard = ({
       }
     }
     
-    // If job has an EC tag / notification, likely corrective
+    // 2. EC tag program type → map to work type
+    if (job?.ecTag?.programType) {
+      const programMap = {
+        'tag-work': 'ec_corrective',
+        'maintenance': 'ec_corrective',
+        'new-business': 'estimated',
+        'capacity': 'estimated',
+        'reliability': 'estimated',
+        'pole-replacement': 'estimated',
+        'underground-conversion': 'estimated',
+      };
+      const mappedCode = programMap[job.ecTag.programType];
+      if (mappedCode) {
+        const match = workTypes.find(wt => wt.code === mappedCode);
+        if (match) { setSelectedWorkType(match); return; }
+      }
+    }
+
+    // 3. Pre-field labels — pole work type hint
+    if (job?.preFieldLabels?.poleWork) {
+      const poleWorkMap = {
+        'set': 'estimated',
+        'change-out': 'estimated',
+        'removal': 'ec_corrective',
+        'transfer': 'estimated',
+        'replace': 'estimated',
+      };
+      const mappedCode = poleWorkMap[job.preFieldLabels.poleWork];
+      if (mappedCode) {
+        const match = workTypes.find(wt => wt.code === mappedCode);
+        if (match) { setSelectedWorkType(match); return; }
+      }
+    }
+    
+    // 4. If job has an EC tag / notification only, likely corrective
     if (job?.notificationNumber && !job?.pmNumber) {
       const ec = workTypes.find(wt => wt.code === 'ec_corrective');
       if (ec) { setSelectedWorkType(ec); return; }
     }
     
-    // If job has a PM number, likely estimated
+    // 5. If job has a PM number, likely estimated
     if (job?.pmNumber) {
       const est = workTypes.find(wt => wt.code === 'estimated');
       if (est) { setSelectedWorkType(est); return; }
@@ -249,6 +289,10 @@ const AsBuiltWizard = ({
     markStepComplete('fda', data);
   };
 
+  const handleBillingFormComplete = (data) => {
+    markStepComplete('billing_form', data);
+  };
+
   // Handler for PDF form page saves (face sheet, equipment info, billing form)
   const handlePdfFormSave = useCallback(async (stepKey, base64Data, docName) => {
     markStepComplete(stepKey, {
@@ -356,20 +400,44 @@ const AsBuiltWizard = ({
             jobData={job || {}}
             userData={user || {}}
             timesheetHours={timesheetHours}
+            ecTagData={job?.ecTag || null}
+            crewMembers={tailboard?.crewMembers || []}
+            lmeData={lmeData}
             onComplete={handleECTagComplete}
           />
         );
 
-      // Generic PDF form steps (face sheet, equipment info, billing form)
+      // PDF form steps (face sheet, equipment info)
       case 'face_sheet':
       case 'equipment_info':
-      case 'billing_form':
         return (
           <Box>
             {/* Auto-fill info banner */}
             <Alert severity="success" sx={{ mb: 1 }}>
               <strong>Auto-filled:</strong> PM# {job?.pmNumber || '—'} | {job?.address || '—'} | {new Date().toLocaleDateString()} | {user?.name || user?.email || '—'}
             </Alert>
+
+            {/* Crew Materials reference for equipment info step */}
+            {step.key === 'equipment_info' && job?.crewMaterials?.length > 0 && (
+              <Paper variant="outlined" sx={{ p: 2, mb: 1.5, borderColor: 'info.main' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Crew Materials from Job Package ({job.crewMaterials.length} items)
+                </Typography>
+                <Box sx={{ maxHeight: 160, overflow: 'auto' }}>
+                  {job.crewMaterials.map((mat, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="caption" sx={{ flex: 1 }}>
+                        <strong>{mat.mCode}</strong> — {mat.description}
+                      </Typography>
+                      <Typography variant="caption" sx={{ ml: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {mat.quantity} {mat.unit}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Paper>
+            )}
+
             {jobPackagePdfUrl ? (
               <Box sx={{ minHeight: 500 }}>
                 <Alert severity="info" sx={{ mb: 1 }} variant="outlined">
@@ -408,11 +476,65 @@ const AsBuiltWizard = ({
           </Box>
         );
 
-      case 'sketch':
+      // Billing form — native Exhibit B form (replaces PDF annotation)
+      case 'billing_form':
+        return (
+          <BillingCompletionForm
+            jobData={job || {}}
+            lmeData={lmeData}
+            unitEntries={unitEntries}
+            onComplete={handleBillingFormComplete}
+          />
+        );
+
+      case 'sketch': {
+        const hasPreExtractedSketches = job?.constructionSketches?.length > 0;
+        const hasSketchPdf = !!sketchPdfUrl;
+        const hasSketches = hasPreExtractedSketches || hasSketchPdf;
         return (
           <Box>
+            {/* Show pre-extracted construction sketch images from upload */}
+            {hasPreExtractedSketches && (
+              <Box sx={{ mb: 2 }}>
+                <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
+                  {job.constructionSketches.length} sketch page{job.constructionSketches.length > 1 ? 's' : ''} extracted from the job package.
+                  Review below, then mark up or confirm &ldquo;Built As Designed.&rdquo;
+                </Alert>
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+                  {job.constructionSketches.map((sketch, idx) => (
+                    <Box
+                      key={sketch._id || `sketch-${idx}`}
+                      sx={{
+                        border: '2px solid',
+                        borderColor: 'primary.light',
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                        cursor: 'pointer',
+                        '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+                      }}
+                      onClick={() => {
+                        const url = sketch.url || (sketch.r2Key
+                          ? `${import.meta.env.VITE_API_URL || ''}/api/files/${sketch.r2Key}`
+                          : '');
+                        if (url) globalThis.open(url, '_blank');
+                      }}
+                    >
+                      <img
+                        src={sketch.url || (sketch.r2Key
+                          ? `${import.meta.env.VITE_API_URL || ''}/api/files/${sketch.r2Key}`
+                          : '')}
+                        alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
+                        loading="lazy"
+                        style={{ width: 200, height: 160, objectFit: 'contain', backgroundColor: '#f5f5f5' }}
+                      />
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            )}
+
             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              {sketchPdfUrl && (
+              {hasSketches && (
                 <Button
                   variant="contained"
                   startIcon={<EditIcon />}
@@ -436,9 +558,9 @@ const AsBuiltWizard = ({
                 </Button>
               )}
             </Box>
-            {!sketchPdfUrl && (
+            {!hasSketches && (
               <Alert severity="info">
-                No construction sketch PDF found in the job package. If this job has a sketch,
+                No construction sketch found in the job package. If this job has a sketch,
                 upload it first from the Job File System.
               </Alert>
             )}
@@ -452,17 +574,23 @@ const AsBuiltWizard = ({
             )}
           </Box>
         );
+      }
 
-      case 'ccsc':
+      case 'ccsc': {
+        // Derive checklist scope from preFieldLabels.constructionType
+        // Maps: 'overhead' → 'OH', 'underground' → 'UG', 'both' → null (show all)
+        const scopeMap = { overhead: 'OH', underground: 'UG' };
+        const checklistScope = scopeMap[job?.preFieldLabels?.constructionType] || null;
         return (
           <CCSCChecklist
             checklist={utilityConfig?.checklist}
             pmNumber={job?.pmNumber || ''}
             address={job?.address || ''}
-            jobScope={job?.jobScope || null}
+            jobScope={checklistScope}
             onComplete={handleCCSCComplete}
           />
         );
+      }
 
       case 'fda':
         return (
@@ -675,6 +803,9 @@ AsBuiltWizard.propTypes = {
   job: PropTypes.object,
   user: PropTypes.object,
   timesheetHours: PropTypes.number,
+  unitEntries: PropTypes.array,
+  tailboard: PropTypes.object,
+  lmeData: PropTypes.object,
   jobPackagePdfUrl: PropTypes.string,
   sketchPdfUrl: PropTypes.string,
   onComplete: PropTypes.func,

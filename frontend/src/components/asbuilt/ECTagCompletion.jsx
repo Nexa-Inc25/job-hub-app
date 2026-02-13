@@ -32,6 +32,8 @@ import FindInPageIcon from '@mui/icons-material/FindInPage';
 import SaveIcon from '@mui/icons-material/Save';
 import PersonIcon from '@mui/icons-material/Person';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import GroupsIcon from '@mui/icons-material/Groups';
 
 /**
  * EC Tag Completion Form
@@ -43,6 +45,10 @@ const ECTagCompletion = ({
   jobData = {},
   userData = {},
   timesheetHours = null,
+  // Close-out context data
+  ecTagData = null,        // job.ecTag — tag type, due date, comments, urgency
+  crewMembers = [],        // From tailboard — who worked today
+  lmeData = null,          // Full LME — labor breakdown (ST/OT/DT hours per worker)
   // Callbacks
   onComplete,
   // State
@@ -74,11 +80,25 @@ const ECTagCompletion = ({
   const derivedLanId = userData.lanId || userData.username || 
     (userData.email ? userData.email.split('@')[0] : '') || userData.name || '';
 
+  // Compute best available hours from LME → timesheet → manual
+  const computedHours = useMemo(() => {
+    // LME has the most detailed breakdown (ST + OT + DT per worker)
+    if (lmeData?.labor?.length > 0) {
+      return lmeData.labor.reduce(
+        (sum, l) => sum + (l.stHours || 0) + (l.otHours || 0) + (l.dtHours || 0), 0
+      );
+    }
+    return timesheetHours || null;
+  }, [lmeData, timesheetHours]);
+
+  // Compute hours source label for helper text
+  const hoursSource = lmeData?.labor?.length > 0 ? 'From LME' : (timesheetHours ? 'From timesheet' : 'Enter hours worked');
+
   // ---- Form state ----
   const [formValues, setFormValues] = useState(() => ({
     completionType: 'Completed',
     crewType: 'Contractor',
-    actualHours: timesheetHours?.toString() || '',
+    actualHours: computedHours?.toString() || '',
     lanId: derivedLanId,
     completionDate: new Date().toLocaleDateString('en-US'),
     ...autoFilled,
@@ -133,6 +153,104 @@ const ECTagCompletion = ({
           </Box>
         </CardContent>
       </Card>
+
+      {/* EC Tag Info — auto-filled from upload AI extraction */}
+      {ecTagData && (ecTagData.tagType || ecTagData.commentsSummary) && (
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2, mb: 2,
+            borderColor: ecTagData.isUrgent ? 'error.main' : 'info.main',
+            bgcolor: ecTagData.isUrgent ? 'error.lighter' : 'info.lighter',
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            {ecTagData.isUrgent && <WarningAmberIcon fontSize="small" color="error" />}
+            EC Tag Details (from job package)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+            {ecTagData.tagType && (
+              <Chip
+                label={`${ecTagData.tagType}-Tag`}
+                size="small"
+                color={ecTagData.isUrgent ? 'error' : 'info'}
+                sx={{ fontWeight: 700 }}
+              />
+            )}
+            {ecTagData.programCode && (
+              <Chip label={ecTagData.programCode} size="small" variant="outlined" />
+            )}
+            {ecTagData.dateRequired && (
+              <Chip
+                label={`Due: ${new Date(ecTagData.dateRequired).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+            {ecTagData.dateIdentified && (
+              <Chip
+                label={`ID: ${new Date(ecTagData.dateIdentified).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Box>
+          {ecTagData.commentsSummary && (
+            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
+              <strong>History:</strong> {ecTagData.commentsSummary}
+            </Typography>
+          )}
+        </Paper>
+      )}
+
+      {/* Crew from today's Tailboard */}
+      {crewMembers.length > 0 && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <GroupsIcon fontSize="small" /> Crew on Site ({crewMembers.length})
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {crewMembers.map((member, idx) => (
+              <Chip
+                key={member._id || member.name || idx}
+                label={member.name || member.email || `Crew ${idx + 1}`}
+                size="small"
+                variant="outlined"
+                icon={<PersonIcon />}
+              />
+            ))}
+          </Box>
+        </Paper>
+      )}
+
+      {/* LME Hour Breakdown */}
+      {lmeData?.labor?.length > 0 && (
+        <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <AccessTimeIcon fontSize="small" /> LME Hours Breakdown
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {lmeData.labor.map((l, idx) => {
+              const totalHrs = (l.stHours || 0) + (l.otHours || 0) + (l.dtHours || 0);
+              return (
+                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="body2">
+                    <strong>{l.craft}</strong> — {l.name}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.5 }}>
+                    {l.stHours > 0 && <Chip label={`ST: ${l.stHours}`} size="small" sx={{ fontSize: '0.7rem', height: 20 }} />}
+                    {l.otHours > 0 && <Chip label={`OT: ${l.otHours}`} size="small" color="warning" sx={{ fontSize: '0.7rem', height: 20 }} />}
+                    {l.dtHours > 0 && <Chip label={`DT: ${l.dtHours}`} size="small" color="error" sx={{ fontSize: '0.7rem', height: 20 }} />}
+                    <Typography variant="body2" fontWeight={600} sx={{ minWidth: 40, textAlign: 'right' }}>
+                      {totalHrs}h
+                    </Typography>
+                  </Box>
+                </Box>
+              );
+            })}
+          </Box>
+        </Paper>
+      )}
 
       {/* Completion Status */}
       <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -212,7 +330,7 @@ const ECTagCompletion = ({
             type="number"
             size="small"
             required
-            helperText={timesheetHours ? 'From timesheet' : 'Enter hours worked'}
+            helperText={hoursSource}
             InputProps={{ inputProps: { min: 0, step: 0.5 } }}
             sx={{ minWidth: 120 }}
           />
@@ -303,6 +421,30 @@ ECTagCompletion.propTypes = {
   jobData: PropTypes.object,
   userData: PropTypes.object,
   timesheetHours: PropTypes.number,
+  ecTagData: PropTypes.shape({
+    tagType: PropTypes.string,
+    tagDueDate: PropTypes.string,
+    programType: PropTypes.string,
+    programCode: PropTypes.string,
+    isUrgent: PropTypes.bool,
+    dateIdentified: PropTypes.string,
+    dateRequired: PropTypes.string,
+    commentsSummary: PropTypes.string,
+  }),
+  crewMembers: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    name: PropTypes.string,
+    email: PropTypes.string,
+  })),
+  lmeData: PropTypes.shape({
+    labor: PropTypes.arrayOf(PropTypes.shape({
+      craft: PropTypes.string,
+      name: PropTypes.string,
+      stHours: PropTypes.number,
+      otHours: PropTypes.number,
+      dtHours: PropTypes.number,
+    })),
+  }),
   onComplete: PropTypes.func,
   disabled: PropTypes.bool,
 };
