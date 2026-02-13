@@ -1355,6 +1355,10 @@ router.get('/wizard/status/:submissionId', async (req, res) => {
  * Used as the viewable document in the Close Out Documents folder.
  */
 router.get('/wizard/view/:submissionId', async (req, res) => {
+  // Allow this HTML page to be viewed directly or in a frame from the app
+  res.removeHeader('X-Frame-Options');
+  res.set('Content-Security-Policy', "frame-ancestors 'self' https://app.fieldledger.io https://fieldledger.io https://fieldledger.vercel.app http://localhost:5173");
+  
   try {
     const id = sanitizeObjectId(req.params.submissionId);
     if (!id) return res.status(400).send('Invalid submission ID');
