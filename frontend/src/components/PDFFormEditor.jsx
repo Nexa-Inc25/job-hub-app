@@ -205,10 +205,10 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
     }
   }, [pdfUrl]);
 
-  const onDocumentLoadSuccess = ({ numPages: pages }) => {
+  const onDocumentLoadSuccess = useCallback(({ numPages: pages }) => {
     setNumPages(pages);
     setLoading(false);
-  };
+  }, []);
 
   // Generate unique ID
   const generateId = () => {

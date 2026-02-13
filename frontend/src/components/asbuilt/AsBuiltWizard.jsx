@@ -602,9 +602,11 @@ const AsBuiltWizard = ({
                 {step.label}
               </Typography>
             </StepLabel>
-            <StepContent>
+            <StepContent
+              TransitionProps={{ unmountOnExit: true }}
+            >
               <Box sx={{ py: 1 }}>
-                {renderStepContent(step)}
+                {activeStep === index ? renderStepContent(step) : null}
               </Box>
 
               {/* Navigation (except for steps with their own submit buttons) */}
