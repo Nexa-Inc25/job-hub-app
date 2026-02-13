@@ -60,7 +60,7 @@ describe('useGeolocation Hook', () => {
 
     it('should return "unknown" for invalid values', () => {
       expect(getGPSQuality(null)).toBe('unknown');
-      expect(getGPSQuality(undefined)).toBe('unknown');
+      expect(getGPSQuality()).toBe('unknown');
       expect(getGPSQuality(-5)).toBe('unknown');
     });
   });

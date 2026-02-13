@@ -73,7 +73,7 @@ const createMockTransaction = (_storeNames) => {
         mockStores[name] = mockStores[name].filter(i => 
           i._id !== key && i.offlineId !== key && i.id !== key
         );
-        return createMockRequest(undefined);
+        return createMockRequest();
       },
       index: (indexName) => ({
         getAll: (query) => {

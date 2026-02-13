@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('../../utils/queue.manager', () => {
   return {
     default: {
-      init: vi.fn().mockResolvedValue(undefined),
+      init: vi.fn().mockResolvedValue(),
       enqueue: vi.fn().mockResolvedValue({ id: 'test-item-1', type: 'UNIT_ENTRY' }),
       getAll: vi.fn().mockResolvedValue([]),
       getHealth: vi.fn().mockResolvedValue({

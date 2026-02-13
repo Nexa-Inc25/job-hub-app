@@ -14,7 +14,7 @@ vi.mock('../../utils/queue.manager', () => {
   const mockQueue = [];
   return {
     default: {
-      init: vi.fn().mockResolvedValue(undefined),
+      init: vi.fn().mockResolvedValue(),
       enqueue: vi.fn().mockResolvedValue({ id: 'test-item-1', type: 'UNIT_ENTRY' }),
       peek: vi.fn().mockResolvedValue(null),
       getAll: vi.fn().mockResolvedValue(mockQueue),
