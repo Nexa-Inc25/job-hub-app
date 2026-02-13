@@ -312,7 +312,7 @@ const asBuiltSubmissionSchema = new mongoose.Schema({
       type: String,
       enum: ['uploaded', 'processing_started', 'section_extracted', 'section_classified', 
              'section_routed', 'section_delivered', 'section_failed', 'section_retried',
-             'completed', 'failed', 'manual_override']
+             'completed', 'failed', 'manual_override', 'warning']
     },
     sectionIndex: Number,
     details: String,
