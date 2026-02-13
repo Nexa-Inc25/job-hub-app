@@ -609,14 +609,13 @@ TailboardSection.propTypes = {
 /**
  * LME Section - Daily Statement of Labor, Material, Equipment (PG&E format)
  */
-const TimesheetSection = ({ jobId: _jobId, timesheet, onNavigateTimesheet }) => {
+const TimesheetSection = ({ jobId: _jobId, lme, onNavigateTimesheet }) => {
   const COLORS = useAppColors();
-  const todayEntries = timesheet?.entries?.filter(e => {
-    const entryDate = new Date(e.date).toDateString();
-    return entryDate === new Date().toDateString();
-  }) || [];
-
-  const totalHours = todayEntries.reduce((sum, e) => sum + (e.hours || 0), 0);
+  // Compute total hours from LME labor entries
+  const laborEntries = lme?.labor || [];
+  const totalHours = laborEntries.reduce(
+    (sum, l) => sum + (l.stHours || 0) + (l.otHours || 0) + (l.dtHours || 0), 0
+  );
 
   return (
     <Box>
@@ -635,8 +634,8 @@ const TimesheetSection = ({ jobId: _jobId, timesheet, onNavigateTimesheet }) => 
                 Daily LME
               </Typography>
               <Typography sx={{ color: COLORS.textSecondary }}>
-                {todayEntries.length > 0 
-                  ? `${totalHours} hrs logged today`
+                {totalHours > 0 
+                  ? `${totalHours} hrs logged`
                   : 'Labor, Material & Equipment'
                 }
               </Typography>
@@ -666,11 +665,9 @@ const TimesheetSection = ({ jobId: _jobId, timesheet, onNavigateTimesheet }) => 
 
 TimesheetSection.propTypes = {
   jobId: PropTypes.string.isRequired,
-  timesheet: PropTypes.shape({
-    entries: PropTypes.arrayOf(PropTypes.shape({
-      date: PropTypes.string,
-      hours: PropTypes.number,
-    })),
+  lme: PropTypes.shape({
+    labor: PropTypes.array,
+    totals: PropTypes.object,
   }),
   onNavigateTimesheet: PropTypes.func.isRequired,
 };
@@ -888,7 +885,7 @@ const ForemanCloseOut = () => {
   const [documents, setDocuments] = useState([]);
   const [units, setUnits] = useState([]);
   const [tailboard, setTailboard] = useState(null);
-  const [timesheet, setTimesheet] = useState(null);
+  const [lme, setLme] = useState(null);
   const [fieldTickets, setFieldTickets] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
@@ -949,14 +946,14 @@ const ForemanCloseOut = () => {
           setTailboard(null);
         }
 
-        // Load timesheet for this job
+        // Load LME (Daily Statement of Labor, Material, Equipment) for this job
         try {
-          const timesheetRes = await api.get(`/api/timesheet?jobId=${jobId}&limit=1`);
-          // API returns first timesheet directly when limit=1, or array otherwise
-          const data = timesheetRes.data;
-          setTimesheet(Array.isArray(data) ? data[0] || null : data || null);
+          const lmeRes = await api.get(`/api/lme?jobId=${jobId}`);
+          const lmeList = Array.isArray(lmeRes.data) ? lmeRes.data : [];
+          // Use the most recent LME
+          setLme(lmeList.length > 0 ? lmeList[0] : null);
         } catch {
-          setTimesheet(null);
+          setLme(null);
         }
 
         // Load field tickets (T&M / Change Orders) for this job
@@ -1214,8 +1211,10 @@ const ForemanCloseOut = () => {
     }
   }, [sketchPdfUrl]);
 
-  // Compute total timesheet hours to pass to the wizard
-  const timesheetHours = timesheet?.entries?.reduce((sum, e) => sum + (e.hours || 0), 0) || null;
+  // Compute total hours from LME labor entries to pass to the wizard
+  const timesheetHours = lme?.labor?.reduce(
+    (sum, l) => sum + (l.stHours || 0) + (l.otHours || 0) + (l.dtHours || 0), 0
+  ) || null;
 
   const handleSubmitForReview = async () => {
     setSubmitting(true);
@@ -1407,7 +1406,7 @@ const ForemanCloseOut = () => {
         <TabPanel value={activeTab} index={5}>
           <TimesheetSection 
             jobId={jobId} 
-            timesheet={timesheet} 
+            lme={lme} 
             onNavigateTimesheet={handleNavigateTimesheet}
           />
         </TabPanel>
@@ -1426,7 +1425,7 @@ const ForemanCloseOut = () => {
               timesheetHours={timesheetHours}
               unitEntries={units}
               tailboard={tailboard}
-              lmeData={timesheet}
+              lmeData={lme}
               sketchPdfUrl={sketchPdfUrl}
               jobPackagePdfUrl={jobPackagePdfUrl}
               onComplete={handleAsBuiltComplete}
