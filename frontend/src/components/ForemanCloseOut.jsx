@@ -66,6 +66,8 @@ import GroupsIcon from '@mui/icons-material/Groups';
 import CloseIcon from '@mui/icons-material/Close';
 import DirectionsIcon from '@mui/icons-material/Directions';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import NoteAddIcon from '@mui/icons-material/NoteAdd';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import api from '../api';
 import { openDirections } from '../utils/navigation';
 import { useOffline } from '../hooks/useOffline';
@@ -674,6 +676,201 @@ TimesheetSection.propTypes = {
 };
 
 /**
+ * Change Order / Field Ticket (T&M) Section
+ */
+const ChangeOrderSection = ({ jobId: _jobId, fieldTickets, onNavigateFieldTicket, onCreateFieldTicket }) => {
+  const COLORS = useAppColors();
+  const atRiskTickets = fieldTickets.filter(t => ['draft', 'pending_signature'].includes(t.status));
+  const signedTickets = fieldTickets.filter(t => ['signed', 'approved'].includes(t.status));
+  const totalAtRisk = atRiskTickets.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+  const totalSigned = signedTickets.reduce((sum, t) => sum + (t.totalAmount || 0), 0);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'draft': return COLORS.warning;
+      case 'pending_signature': return '#e65100';
+      case 'signed': return COLORS.primary;
+      case 'approved': return COLORS.success;
+      case 'disputed': return '#c62828';
+      default: return COLORS.textSecondary;
+    }
+  };
+
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'draft': return 'Draft';
+      case 'pending_signature': return 'Needs Signature';
+      case 'signed': return 'Signed';
+      case 'approved': return 'Approved';
+      case 'disputed': return 'Disputed';
+      case 'billed': return 'Billed';
+      default: return status;
+    }
+  };
+
+  const getReasonLabel = (reason) => {
+    const labels = {
+      scope_change: 'Scope Change',
+      unforeseen_condition: 'Unforeseen Condition',
+      utility_request: 'Utility Request',
+      safety_requirement: 'Safety',
+      permit_requirement: 'Permit',
+      design_error: 'Design Error',
+      weather_damage: 'Weather',
+      third_party_damage: '3rd Party Damage',
+      other: 'Other',
+    };
+    return labels[reason] || reason;
+  };
+
+  return (
+    <Box>
+      {/* Summary cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid size={6}>
+          <Card sx={{ bgcolor: COLORS.surface, border: `1px solid ${totalAtRisk > 0 ? COLORS.warning : COLORS.border}` }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography sx={{ color: totalAtRisk > 0 ? COLORS.warning : COLORS.textSecondary, fontSize: '1.5rem', fontWeight: 700 }}>
+                ${totalAtRisk.toLocaleString()}
+              </Typography>
+              <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem' }}>
+                At Risk ({atRiskTickets.length})
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid size={6}>
+          <Card sx={{ bgcolor: COLORS.surface, border: `1px solid ${COLORS.border}` }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography sx={{ color: COLORS.success, fontSize: '1.5rem', fontWeight: 700 }}>
+                ${totalSigned.toLocaleString()}
+              </Typography>
+              <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem' }}>
+                Signed ({signedTickets.length})
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* At-risk warning */}
+      {totalAtRisk > 0 && (
+        <Alert
+          severity="warning"
+          icon={<WarningAmberIcon />}
+          sx={{ mb: 2, bgcolor: `${COLORS.warning}15`, border: `1px solid ${COLORS.warning}` }}
+        >
+          <strong>${totalAtRisk.toLocaleString()}</strong> in unsigned change orders — get inspector signatures before leaving the site.
+        </Alert>
+      )}
+
+      {/* Create new button */}
+      <Button
+        fullWidth
+        variant="contained"
+        startIcon={<NoteAddIcon />}
+        onClick={onCreateFieldTicket}
+        sx={{
+          py: 2,
+          bgcolor: COLORS.secondary,
+          color: COLORS.bg,
+          fontWeight: 700,
+          fontSize: '1rem',
+          mb: 3,
+          '&:hover': { bgcolor: '#7b1fa2' },
+        }}
+      >
+        Log Change Order
+      </Button>
+
+      {/* Existing tickets */}
+      {fieldTickets.length > 0 && (
+        <Box>
+          <Typography sx={{ color: COLORS.textSecondary, fontWeight: 600, fontSize: '0.75rem', mb: 1 }}>
+            CHANGE ORDERS ({fieldTickets.length})
+          </Typography>
+          {fieldTickets.map((ticket, idx) => (
+            <Card
+              key={ticket._id || idx}
+              sx={{
+                bgcolor: COLORS.surface,
+                mb: 1.5,
+                border: `1px solid ${COLORS.border}`,
+                cursor: 'pointer',
+                '&:hover': { borderColor: COLORS.primary },
+              }}
+              onClick={() => onNavigateFieldTicket(ticket)}
+            >
+              <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                  <Box>
+                    <Typography sx={{ color: COLORS.text, fontWeight: 700, fontSize: '0.95rem' }}>
+                      {ticket.ticketNumber || `FT-${idx + 1}`}
+                    </Typography>
+                    <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem' }}>
+                      {getReasonLabel(ticket.changeReason)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography sx={{ color: COLORS.text, fontWeight: 700 }}>
+                      ${(ticket.totalAmount || 0).toLocaleString()}
+                    </Typography>
+                    <Chip
+                      label={getStatusLabel(ticket.status)}
+                      size="small"
+                      sx={{
+                        bgcolor: `${getStatusColor(ticket.status)}20`,
+                        color: getStatusColor(ticket.status),
+                        fontWeight: 600,
+                        fontSize: '0.65rem',
+                        height: 20,
+                      }}
+                    />
+                  </Box>
+                </Box>
+                {ticket.changeDescription && (
+                  <Typography sx={{ color: COLORS.textSecondary, fontSize: '0.75rem', mt: 0.5 }} noWrap>
+                    {ticket.changeDescription}
+                  </Typography>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </Box>
+      )}
+
+      {fieldTickets.length === 0 && (
+        <Box sx={{
+          border: `2px dashed ${COLORS.border}`,
+          borderRadius: 2,
+          p: 4,
+          textAlign: 'center'
+        }}>
+          <NoteAddIcon sx={{ fontSize: 48, color: COLORS.textSecondary, mb: 1 }} />
+          <Typography sx={{ color: COLORS.textSecondary }}>
+            No change orders yet. Tap above to log extra work.
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+ChangeOrderSection.propTypes = {
+  jobId: PropTypes.string.isRequired,
+  fieldTickets: PropTypes.arrayOf(PropTypes.shape({
+    _id: PropTypes.string,
+    ticketNumber: PropTypes.string,
+    changeReason: PropTypes.string,
+    changeDescription: PropTypes.string,
+    totalAmount: PropTypes.number,
+    status: PropTypes.string,
+  })).isRequired,
+  onNavigateFieldTicket: PropTypes.func.isRequired,
+  onCreateFieldTicket: PropTypes.func.isRequired,
+};
+
+/**
  * Main Foreman Close Out Component
  */
 const ForemanCloseOut = () => {
@@ -692,6 +889,7 @@ const ForemanCloseOut = () => {
   const [units, setUnits] = useState([]);
   const [tailboard, setTailboard] = useState(null);
   const [timesheet, setTimesheet] = useState(null);
+  const [fieldTickets, setFieldTickets] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   
@@ -759,6 +957,14 @@ const ForemanCloseOut = () => {
           setTimesheet(Array.isArray(data) ? data[0] || null : data || null);
         } catch {
           setTimesheet(null);
+        }
+
+        // Load field tickets (T&M / Change Orders) for this job
+        try {
+          const ftRes = await api.get(`/api/fieldtickets?jobId=${jobId}`);
+          setFieldTickets(Array.isArray(ftRes.data) ? ftRes.data : []);
+        } catch {
+          setFieldTickets([]);
         }
 
         // Load active SmartForms templates
@@ -979,6 +1185,14 @@ const ForemanCloseOut = () => {
     navigate(`/jobs/${jobId}/lme`);
   };
 
+  const handleNavigateFieldTicket = (ticket) => {
+    navigate(`/jobs/${jobId}/field-ticket/${ticket._id}`);
+  };
+
+  const handleCreateFieldTicket = () => {
+    navigate(`/jobs/${jobId}/field-ticket`);
+  };
+
   // ---- As-Built Wizard handlers ----
   const handleAsBuiltComplete = useCallback(async (submission) => {
     try {
@@ -1140,6 +1354,7 @@ const ForemanCloseOut = () => {
         <Tab icon={<CameraIcon />} label="Photos" iconPosition="start" />
         <Tab icon={<DescriptionIcon />} label="Docs" iconPosition="start" />
         <Tab icon={<ReceiptIcon />} label="Units" iconPosition="start" />
+        <Tab icon={<NoteAddIcon />} label="T&M" iconPosition="start" />
         <Tab icon={<ShieldIcon />} label="Safety" iconPosition="start" />
         <Tab icon={<AccessTimeIcon />} label="Time" iconPosition="start" />
         <Tab icon={<AssignmentTurnedInIcon />} label="As-Built" iconPosition="start" />
@@ -1173,6 +1388,15 @@ const ForemanCloseOut = () => {
         </TabPanel>
 
         <TabPanel value={activeTab} index={3}>
+          <ChangeOrderSection
+            jobId={jobId}
+            fieldTickets={fieldTickets}
+            onNavigateFieldTicket={handleNavigateFieldTicket}
+            onCreateFieldTicket={handleCreateFieldTicket}
+          />
+        </TabPanel>
+
+        <TabPanel value={activeTab} index={4}>
           <TailboardSection 
             jobId={jobId} 
             tailboard={tailboard} 
@@ -1180,7 +1404,7 @@ const ForemanCloseOut = () => {
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={4}>
+        <TabPanel value={activeTab} index={5}>
           <TimesheetSection 
             jobId={jobId} 
             timesheet={timesheet} 
@@ -1188,7 +1412,7 @@ const ForemanCloseOut = () => {
           />
         </TabPanel>
 
-        <TabPanel value={activeTab} index={5}>
+        <TabPanel value={activeTab} index={6}>
           <Suspense fallback={
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6, gap: 2 }}>
               <CircularProgress sx={{ color: COLORS.primary }} />
