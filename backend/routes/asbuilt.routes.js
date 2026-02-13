@@ -1192,13 +1192,14 @@ router.post('/wizard/submit', async (req, res) => {
 
     // ---- Step 3: Create AsBuiltSubmission ----
     const asBuiltSubmission = new AsBuiltSubmission({
+      companyId: job.companyId,
       jobId: job._id,
       pmNumber: job.pmNumber,
       notificationNumber: job.notificationNumber,
       utilityCode: submission.utilityCode || 'PGE',
       workType: submission.workType,
       status: 'uploaded',
-      submittedBy: req.user?._id || submission.submittedBy,
+      submittedBy: req.userId || submission.submittedBy,
       submittedAt: new Date(),
       wizardData: submission.stepData,
       validationScore: validation.score,
@@ -1212,7 +1213,7 @@ router.post('/wizard/submit', async (req, res) => {
     job.auditHistory = job.auditHistory || [];
     job.auditHistory.push({
       action: 'asbuilt_submitted',
-      performedBy: req.user?._id,
+      performedBy: req.userId,
       date: new Date(),
       details: `As-built package submitted via wizard (UTVAC score: ${validation.score}%)`,
     });
