@@ -108,36 +108,42 @@ const PhotoSection = ({ jobId, photos, onPhotoAdded, onPhotoDeleted }) => {
 
     setUploading(true);
     try {
-      for (const file of files) {
+      // Get GPS once for all photos (not per-photo — saves 5s per image)
+      let gpsCoords = null;
+      if (navigator.geolocation) {
+        try {
+          const pos = await new Promise((resolve, reject) => 
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 })
+          );
+          gpsCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        } catch {
+          // GPS not available, continue without
+        }
+      }
+
+      // Upload all photos in parallel (not one-by-one)
+      const uploads = files.map(file => {
         const formData = new FormData();
         formData.append('file', file);
         formData.append('folder', 'ACI');
         formData.append('subfolder', 'GF Audit');
         formData.append('photoType', source === 'camera' ? 'field_capture' : 'uploaded');
-
-        // Get GPS location if available
-        if (navigator.geolocation) {
-          try {
-            const pos = await new Promise((resolve, reject) => 
-              navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 })
-            );
-            formData.append('latitude', pos.coords.latitude);
-            formData.append('longitude', pos.coords.longitude);
-          } catch {
-            // GPS not available, continue without
-          }
+        if (gpsCoords) {
+          formData.append('latitude', gpsCoords.lat);
+          formData.append('longitude', gpsCoords.lng);
         }
+        return api.post(`/api/jobs/${jobId}/upload`, formData)
+          .then(res => {
+            if (res.data?.document) onPhotoAdded(res.data.document);
+          })
+          .catch(err => console.error('Photo upload failed:', err));
+      });
 
-        const res = await api.post(`/api/jobs/${jobId}/upload`, formData);
-        if (res.data?.document) {
-          onPhotoAdded(res.data.document);
-        }
-      }
+      await Promise.all(uploads);
     } catch (err) {
       console.error('Photo upload failed:', err);
     } finally {
       setUploading(false);
-      // Reset inputs
       if (fileInputRef.current) fileInputRef.current.value = '';
       if (cameraInputRef.current) cameraInputRef.current.value = '';
     }
