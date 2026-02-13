@@ -943,7 +943,7 @@ const ForemanCloseOut = () => {
 
         // Load tailboard status (today's tailboard for this job)
         try {
-          const tailboardRes = await api.get(`/api/tailboards/job/${jobId}/today`);
+          const tailboardRes = await api.get(`/api/tailboard/job/${jobId}/today`);
           setTailboard(tailboardRes.data || null);
         } catch {
           setTailboard(null);
@@ -951,7 +951,7 @@ const ForemanCloseOut = () => {
 
         // Load timesheet for this job
         try {
-          const timesheetRes = await api.get(`/api/timesheets?jobId=${jobId}&limit=1`);
+          const timesheetRes = await api.get(`/api/timesheet?jobId=${jobId}&limit=1`);
           // API returns first timesheet directly when limit=1, or array otherwise
           const data = timesheetRes.data;
           setTimesheet(Array.isArray(data) ? data[0] || null : data || null);
