@@ -354,6 +354,7 @@ const SketchMarkupEditor = ({
         setLineStart(pt);
       } else {
         // Complete the line
+        pushUndo('line', currentPage);
         setLines(prev => [...prev, {
           start: lineStart,
           end: pt,
@@ -366,6 +367,7 @@ const SketchMarkupEditor = ({
         setTempLineEnd(null);
       }
     } else if (activeTool === TOOL.SYMBOL && selectedSymbol) {
+      pushUndo('symbol', currentPage);
       setPlacedSymbols(prev => [...prev, {
         symbol: selectedSymbol,
         x: pt.x,
@@ -376,7 +378,7 @@ const SketchMarkupEditor = ({
     } else if (activeTool === TOOL.TEXT) {
       setTextPlacement(pt);
     }
-  }, [activeTool, activeColor, lineWidth, currentPage, lineStart, selectedSymbol, getCanvasPoint]);
+  }, [activeTool, activeColor, lineWidth, currentPage, lineStart, selectedSymbol, getCanvasPoint, pushUndo]);
 
   const handlePointerMove = useCallback((e) => {
     e.preventDefault();
@@ -396,16 +398,18 @@ const SketchMarkupEditor = ({
   const handlePointerUp = useCallback(() => {
     if (activeTool === TOOL.FREEHAND && isDrawing && currentStroke) {
       if (currentStroke.points.length >= 2) {
+        pushUndo('stroke', currentPage);
         setStrokes(prev => [...prev, currentStroke]);
       }
       setCurrentStroke(null);
       setIsDrawing(false);
     }
-  }, [activeTool, isDrawing, currentStroke]);
+  }, [activeTool, isDrawing, currentStroke, currentPage, pushUndo]);
 
   // Submit text annotation
   const handleTextSubmit = () => {
     if (!textInput.trim() || !textPlacement) return;
+    pushUndo('text', currentPage);
     setTextAnnotations(prev => [...prev, {
       text: textInput.trim(),
       x: textPlacement.x,
@@ -418,45 +422,60 @@ const SketchMarkupEditor = ({
     setTextPlacement(null);
   };
 
+  // ---- Undo stack (tracks insertion order across all annotation types) ----
+  const [undoStack, setUndoStack] = useState([]);
+  // Push to undo stack whenever an annotation is added (called by handlers below)
+  const pushUndo = useCallback((type, page) => {
+    setUndoStack(prev => [...prev, { type, page }]);
+  }, []);
+
   // ---- Undo ----
   const handleUndo = () => {
-    // Undo last action on current page (check most recent across all types)
-    const lastStroke = strokes.filter(s => s.page === currentPage).at(-1);
-    const lastLine = lines.filter(l => l.page === currentPage).at(-1);
-    const lastSymbol = placedSymbols.filter(s => s.page === currentPage).at(-1);
-    const lastText = textAnnotations.filter(t => t.page === currentPage).at(-1);
-
-    // Find the most recent by checking array positions
-    const candidates = [
-      { type: 'stroke', idx: strokes.indexOf(lastStroke) },
-      { type: 'line', idx: lines.indexOf(lastLine) },
-      { type: 'symbol', idx: placedSymbols.indexOf(lastSymbol) },
-      { type: 'text', idx: textAnnotations.indexOf(lastText) },
-    ].filter(c => c.idx >= 0);
-
-    if (candidates.length === 0) {
+    // Find the most recent action on the current page
+    const lastOnPage = [...undoStack].reverse().findIndex(u => u.page === currentPage);
+    if (lastOnPage < 0) {
       if (builtAsDesigned) setBuiltAsDesigned(false);
       return;
     }
+    const undoIdx = undoStack.length - 1 - lastOnPage;
+    const entry = undoStack[undoIdx];
 
-    // Remove the one with the highest index (most recent)
-    // Since they're separate arrays, we use array length as proxy
-    const totalCounts = {
-      stroke: strokes.length,
-      line: lines.length + strokes.length,
-      symbol: placedSymbols.length + lines.length + strokes.length,
-      text: textAnnotations.length + placedSymbols.length + lines.length + strokes.length,
-    };
-
-    const most = candidates.reduce((a, b) => (totalCounts[a.type] > totalCounts[b.type] ? a : b));
-
-    switch (most.type) {
-      case 'stroke': setStrokes(prev => prev.slice(0, -1)); break;
-      case 'line': setLines(prev => prev.slice(0, -1)); break;
-      case 'symbol': setPlacedSymbols(prev => prev.slice(0, -1)); break;
-      case 'text': setTextAnnotations(prev => prev.slice(0, -1)); break;
+    // Remove the specific item: find the last item of that type on that page
+    // and splice it out by its actual index in the array
+    switch (entry.type) {
+      case 'stroke': {
+        const idx = findLastIndex(strokes, s => s.page === currentPage);
+        if (idx >= 0) setStrokes(prev => prev.filter((_, i) => i !== idx));
+        break;
+      }
+      case 'line': {
+        const idx = findLastIndex(lines, l => l.page === currentPage);
+        if (idx >= 0) setLines(prev => prev.filter((_, i) => i !== idx));
+        break;
+      }
+      case 'symbol': {
+        const idx = findLastIndex(placedSymbols, s => s.page === currentPage);
+        if (idx >= 0) setPlacedSymbols(prev => prev.filter((_, i) => i !== idx));
+        break;
+      }
+      case 'text': {
+        const idx = findLastIndex(textAnnotations, t => t.page === currentPage);
+        if (idx >= 0) setTextAnnotations(prev => prev.filter((_, i) => i !== idx));
+        break;
+      }
     }
+
+    // Remove from undo stack
+    setUndoStack(prev => prev.filter((_, i) => i !== undoIdx));
   };
+
+  // Helper: find last index matching a predicate
+  function findLastIndex(arr, predicate) {
+    for (let i = arr.length - 1; i >= 0; i--) {
+      if (predicate(arr[i])) return i;
+    }
+    return -1;
+  }
 
   const hasAnyMarkup = strokes.length > 0 || lines.length > 0 || placedSymbols.length > 0
     || textAnnotations.length > 0 || builtAsDesigned;
