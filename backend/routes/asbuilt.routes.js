@@ -1249,18 +1249,17 @@ router.post('/wizard/submit', async (req, res) => {
 
         // Save reference document pointing to the AsBuiltSubmission
         closeOutFolder.documents.push({
-          name: docName,
-          type: 'filled_pdf',
+          name: docName.replace('.json', '.html'),
+          type: 'other',
           uploadDate: new Date(),
           uploadedBy: req.userId,
           isCompleted: true,
           completedDate: new Date(),
           completedBy: req.userId,
-          // Store summary data for quick display without DB lookup
           extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
-          // URL for viewing the submission details
-          url: `/api/asbuilt/wizard/status/${asBuiltSubmission._id}`,
-          path: `/api/asbuilt/wizard/status/${asBuiltSubmission._id}`,
+          // URL for viewable HTML summary
+          url: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
+          path: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
         });
 
         console.log(`As-built saved to Close Out Documents: ${docName}`);
@@ -1347,6 +1346,165 @@ router.get('/wizard/status/:submissionId', async (req, res) => {
   } catch (err) {
     console.error('Error fetching status:', err);
     res.status(500).json({ error: 'Failed to fetch status' });
+  }
+});
+
+/**
+ * GET /wizard/view/:submissionId
+ * Render a human-readable HTML summary of the as-built submission.
+ * Used as the viewable document in the Close Out Documents folder.
+ */
+router.get('/wizard/view/:submissionId', async (req, res) => {
+  try {
+    const id = sanitizeObjectId(req.params.submissionId);
+    if (!id) return res.status(400).send('Invalid submission ID');
+
+    const submission = await AsBuiltSubmission.findById(id);
+    if (!submission) return res.status(404).send('Submission not found');
+
+    // Load the job for context
+    const job = await Job.findById(submission.jobId).select(
+      'pmNumber woNumber notificationNumber address city client jobScope'
+    );
+
+    const stepData = submission.wizardData || {};
+    const score = submission.validationScore || 0;
+    const submittedAt = submission.submittedAt
+      ? new Date(submission.submittedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      : 'Unknown';
+
+    // Build HTML sections from wizard step data
+    const sections = [];
+
+    // EC Tag
+    if (stepData.ec_tag) {
+      const ec = stepData.ec_tag;
+      sections.push(`
+        <div class="section">
+          <h3>EC Tag Completion</h3>
+          <table>
+            <tr><td><strong>Status</strong></td><td>${ec.completionType || '—'}</td></tr>
+            <tr><td><strong>Crew Type</strong></td><td>${ec.crewType || '—'}</td></tr>
+            <tr><td><strong>Actual Hours</strong></td><td>${ec.actualHours || '—'}</td></tr>
+            <tr><td><strong>LAN ID</strong></td><td>${ec.lanId || '—'}</td></tr>
+            <tr><td><strong>Date</strong></td><td>${ec.completionDate || '—'}</td></tr>
+          </table>
+          ${ec.signatureData ? '<p>✅ Signature captured</p>' : '<p>⚠️ No signature</p>'}
+        </div>
+      `);
+    }
+
+    // Billing Form
+    if (stepData.billing_form) {
+      const bf = stepData.billing_form;
+      sections.push(`
+        <div class="section">
+          <h3>Billing Completion (Exhibit B)</h3>
+          <table>
+            <tr><td><strong>Division</strong></td><td>${bf.division || '—'}</td></tr>
+            <tr><td><strong>Accessibility</strong></td><td>${bf.accessibility || '—'}</td></tr>
+            <tr><td><strong>MAT Code</strong></td><td>${bf.matCode || '—'}</td></tr>
+            <tr><td><strong>Tag Type Poles</strong></td><td>${bf.tagTypePoles || '—'}</td></tr>
+            <tr><td><strong>Traffic Control</strong></td><td>${bf.trafficControl || '—'}</td></tr>
+            <tr><td><strong>Fire Watch</strong></td><td>${bf.fireWatch || '—'}</td></tr>
+            <tr><td><strong>ST Crew</strong></td><td>${bf.stCrewHeadcount || '0'} workers, ${bf.stHours || '0'} hrs</td></tr>
+            <tr><td><strong>Premium Crew</strong></td><td>${bf.premiumCrewHeadcount || '0'} workers, ${bf.premiumHours || '0'} hrs</td></tr>
+          </table>
+          ${bf.comments ? `<p><strong>Comments:</strong> ${bf.comments}</p>` : ''}
+        </div>
+      `);
+    }
+
+    // CCSC Checklist
+    if (stepData.ccsc) {
+      const ccsc = stepData.ccsc;
+      const checkedCount = ccsc.checkedItems?.length || 0;
+      const totalCount = ccsc.totalItems || checkedCount;
+      sections.push(`
+        <div class="section">
+          <h3>Completion Checklist (CCSC)</h3>
+          <p><strong>${checkedCount}/${totalCount}</strong> items checked</p>
+          ${ccsc.comments ? `<p><strong>Comments:</strong> ${ccsc.comments}</p>` : ''}
+          ${ccsc.signatureData ? '<p>✅ Signature captured</p>' : ''}
+        </div>
+      `);
+    }
+
+    // Sketch
+    if (stepData.sketch) {
+      const sk = stepData.sketch;
+      sections.push(`
+        <div class="section">
+          <h3>Construction Sketch</h3>
+          <p>${sk.builtAsDesigned
+            ? '✅ Built As Designed — no redlines needed'
+            : `Markup: ${sk.strokeCount || 0} strokes, ${sk.lineCount || 0} lines, ${sk.symbolCount || 0} symbols`
+          }</p>
+        </div>
+      `);
+    }
+
+    // FDA Equipment
+    if (stepData.fda) {
+      sections.push(`
+        <div class="section">
+          <h3>Equipment Attributes (FDA)</h3>
+          <p>Equipment data recorded for Asset Registry</p>
+        </div>
+      `);
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>As-Built Summary — ${job?.pmNumber || submission.pmNumber || 'Unknown'}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; padding: 24px; max-width: 800px; margin: 0 auto; background: #f8f9fa; color: #1a1a1a; }
+    h1 { font-size: 1.5rem; margin-bottom: 4px; }
+    h2 { font-size: 1rem; color: #666; margin-bottom: 16px; font-weight: 400; }
+    h3 { font-size: 1.1rem; margin-bottom: 12px; color: #1565c0; }
+    .header { background: #1565c0; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    .header h1, .header h2 { color: white; }
+    .score { display: inline-block; background: ${score >= 80 ? '#2e7d32' : score >= 50 ? '#ed6c02' : '#d32f2f'}; color: white; padding: 4px 12px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; margin-top: 8px; }
+    .section { background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px; border: 1px solid #e0e0e0; }
+    table { width: 100%; border-collapse: collapse; }
+    td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem; }
+    td:first-child { width: 160px; color: #666; }
+    .meta { font-size: 0.8rem; color: #999; margin-top: 16px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>As-Built Package Summary</h1>
+    <h2>PM# ${job?.pmNumber || submission.pmNumber || '—'} | ${job?.address || '—'}, ${job?.city || ''}</h2>
+    <span class="score">UTVAC Score: ${score}%</span>
+  </div>
+
+  <div class="section">
+    <h3>Submission Details</h3>
+    <table>
+      <tr><td><strong>Work Type</strong></td><td>${submission.workType || '—'}</td></tr>
+      <tr><td><strong>Notification #</strong></td><td>${job?.notificationNumber || submission.notificationNumber || '—'}</td></tr>
+      <tr><td><strong>Client</strong></td><td>${job?.client || '—'}</td></tr>
+      <tr><td><strong>Submitted</strong></td><td>${submittedAt}</td></tr>
+      <tr><td><strong>Submission ID</strong></td><td>${submission.submissionId || submission._id}</td></tr>
+    </table>
+  </div>
+
+  ${sections.join('\n')}
+
+  <p class="meta">Generated by FieldLedger As-Built Wizard • ${new Date().toLocaleDateString('en-US')}</p>
+</body>
+</html>`;
+
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+  } catch (err) {
+    console.error('Error rendering as-built view:', err);
+    res.status(500).send('Failed to load as-built summary');
   }
 });
 
