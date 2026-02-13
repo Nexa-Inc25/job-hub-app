@@ -825,8 +825,35 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
                 </Box>
               }
             >
-              {Array.from(new Array(numPages || 1), (_, index) => {
-                const pageNum = index + 1;
+              {/* Page Navigation */}
+              {numPages > 1 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1 }}>
+                  <Button
+                    size="small"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  >
+                    ← Prev
+                  </Button>
+                  <Chip
+                    label={`Page ${currentPage} / ${numPages}`}
+                    color="primary"
+                    size="small"
+                    sx={{ fontWeight: 700 }}
+                  />
+                  <Button
+                    size="small"
+                    disabled={currentPage >= numPages}
+                    onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
+                  >
+                    Next →
+                  </Button>
+                </Box>
+              )}
+
+              {/* Single Page Render (not all pages — prevents browser crash on large PDFs) */}
+              {(() => {
+                const pageNum = currentPage;
                 const pageAnnotations = annotations.filter(a => (a.page || 1) === pageNum);
                 return (
                   <Box
@@ -842,11 +869,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
                       cursor: currentTool === 'text' ? 'text' : 'crosshair',
                     }}
                     onClick={(e) => {
-                      // Accept clicks on the Box wrapper, the canvas, or any child
-                      // element of the Page component (react-pdf v9 wraps canvas in divs)
                       const isAnnotation = e.target.closest('[data-annotation]');
                       if (!isAnnotation) {
-                        setCurrentPage(pageNum);
                         handlePageClick(e);
                       }
                     }}
@@ -858,22 +882,8 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
                       renderAnnotationLayer={false}
                       width={containerWidth ? Math.min(containerWidth - 32, 700) : undefined}
                     />
-                    
-                    {/* Page number */}
-                    <Chip
-                      label={`Page ${pageNum} / ${numPages}`}
-                      size="small"
-                      sx={{
-                        position: 'absolute',
-                        bottom: 8,
-                        right: 8,
-                        bgcolor: 'rgba(0,0,0,0.7)',
-                        color: 'white',
-                        fontSize: 12,
-                      }}
-                    />
 
-                    {/* Annotations */}
+                    {/* Annotations for current page */}
                     {pageAnnotations.map((annotation) => {
                       // Convert PDF coordinates back to screen coordinates for display
                       // Use screenX/screenY if available (new annotations), otherwise calculate from PDF coords
@@ -977,7 +987,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
                     })}
                   </Box>
                 );
-              })}
+              })()}
             </Document>
           )}
         </Box>
