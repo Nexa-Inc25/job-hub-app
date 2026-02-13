@@ -123,6 +123,12 @@ const handleFetchError = (err, navigate) => {
   return 'Failed to load dashboard data. Please try again.';
 };
 
+// Helper: feedback row background based on status and theme
+const getFeedbackBgColor = (status, isDarkMode) => {
+  if (status !== 'new') return 'transparent';
+  return isDarkMode ? '#1a1a2e' : '#fefce8';
+};
+
 const OwnerDashboard = () => {
   const [stats, setStats] = useState(null);
   const [health, setHealth] = useState(null);
@@ -136,12 +142,6 @@ const OwnerDashboard = () => {
   const navigate = useNavigate();
   const { darkMode } = useThemeMode();
   const mode = darkMode ? 'dark' : 'light';
-  
-  // Helper to get feedback item background color (avoids nested ternary)
-  const getFeedbackBgColor = (status) => {
-    if (status !== 'new') return 'transparent';
-    return darkMode ? '#1a1a2e' : '#fefce8';
-  };
 
   // Update feedback status
   const handleUpdateFeedbackStatus = async (feedbackId, newStatus) => {
@@ -829,7 +829,7 @@ const OwnerDashboard = () => {
                     borderLeft: `4px solid ${
                       { bug: '#ef4444', feature_request: '#f59e0b', question: '#3b82f6' }[item.type] || '#6b7280'
                     }`,
-                    bgcolor: getFeedbackBgColor(item.status)
+                    bgcolor: getFeedbackBgColor(item.status, darkMode)
                   }}
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>

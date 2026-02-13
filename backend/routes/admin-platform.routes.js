@@ -19,6 +19,7 @@ const Utility = require('../models/Utility');
 const { logExport } = require('../middleware/auditLogger');
 const { blockIP, unblockIP, getBlockedIPs } = require('../middleware/ipBlocker');
 const r2Storage = require('../utils/storage');
+const { sanitizeString, sanitizeObjectId, sanitizeInt } = require('../utils/sanitize');
 
 // Helper: format uptime
 function formatUptime(seconds) {
@@ -390,27 +391,30 @@ router.get('/audit-logs', async (req, res) => {
       }
     }
     
-    // Apply filters
-    if (action) query.action = action;
-    if (category) query.category = category;
-    if (severity) query.severity = severity;
-    if (filterUserId) query.userId = filterUserId;
-    if (resourceType) query.resourceType = resourceType;
+    // Apply filters (sanitized to prevent NoSQL injection)
+    if (action) query.action = sanitizeString(action);
+    if (category) query.category = sanitizeString(category);
+    if (severity) query.severity = sanitizeString(severity);
+    if (filterUserId) query.userId = sanitizeObjectId(filterUserId);
+    if (resourceType) query.resourceType = sanitizeString(resourceType);
     
-    // Date range
-    if (startDate || endDate) {
-      query.timestamp = {};
-      if (startDate) query.timestamp.$gte = new Date(startDate);
-      if (endDate) query.timestamp.$lte = new Date(endDate);
+    // Date range (flat conditions to reduce nesting complexity)
+    if (startDate) {
+      query.timestamp = { ...query.timestamp, $gte: new Date(startDate) };
+    }
+    if (endDate) {
+      query.timestamp = { ...query.timestamp, $lte: new Date(endDate) };
     }
     
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const safePage = sanitizeInt(page, 1, 10000);
+    const safeLimit = sanitizeInt(limit, 50, 200);
+    const skip = (safePage - 1) * safeLimit;
     
     const [logs, total] = await Promise.all([
       AuditLog.find(query)
         .sort({ timestamp: -1 })
         .skip(skip)
-        .limit(parseInt(limit))
+        .limit(safeLimit)
         .lean(),
       AuditLog.countDocuments(query)
     ]);
@@ -418,10 +422,10 @@ router.get('/audit-logs', async (req, res) => {
     res.json({
       logs,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / parseInt(limit))
+        pages: Math.ceil(total / safeLimit)
       }
     });
   } catch (err) {
@@ -435,7 +439,7 @@ router.get('/audit-stats', async (req, res) => {
   try {
     const { days = 30 } = req.query;
     const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(days));
+    startDate.setDate(startDate.getDate() - Number.parseInt(days, 10));
     
     // Build company filter
     const matchStage = { timestamp: { $gte: startDate } };
@@ -494,7 +498,7 @@ router.get('/audit-stats', async (req, res) => {
     ]);
     
     res.json({
-      period: { days: parseInt(days), startDate },
+      period: { days: Number.parseInt(days, 10), startDate },
       actionCounts: actionCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
       severityCounts: severityCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
       categoryCounts: categoryCounts.reduce((acc, { _id, count }) => ({ ...acc, [_id]: count }), {}),
@@ -585,7 +589,7 @@ router.post('/security/block-ip', async (req, res) => {
     }
     
     const durationMs = permanent ? null : durationMinutes * 60 * 1000;
-    const result = blockIP(ip, durationMs, reason || 'Manually blocked by admin', permanent);
+    const result = await blockIP(ip, durationMs, reason || 'Manually blocked by admin', permanent);
     
     // Log the action
     await AuditLog.log({

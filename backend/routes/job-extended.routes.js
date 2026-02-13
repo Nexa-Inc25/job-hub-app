@@ -9,14 +9,15 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const r2Storage = require('../utils/storage');
 const { getIO } = require('../utils/socketAdapter');
 const OpenAI = require('openai');
 const APIUsage = require('../models/APIUsage');
+const { sanitizeObjectId } = require('../utils/sanitize');
 
 // Reuse uploads directory
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -29,6 +30,28 @@ const upload = multer({
   limits: { fileSize: 50 * 1024 * 1024 }
 });
 
+// Helper: apply QA audit review decision to reduce route handler complexity
+function applyAuditDecision(audit, job, { decision, assignToGF, correctionNotes, disputeReason }) {
+  if (decision === 'accepted') {
+    audit.status = 'correction_assigned';
+    if (assignToGF) {
+      audit.correctionAssignedTo = assignToGF;
+      audit.correctionAssignedDate = new Date();
+      audit.correctionNotes = correctionNotes || '';
+      job.assignedToGF = assignToGF;
+    }
+  } else if (decision === 'disputed') {
+    audit.status = 'disputed';
+    audit.disputeReason = disputeReason || '';
+    const activeAudits = job.auditHistory.filter(a =>
+      a.result === 'fail' && !['resolved', 'closed', 'disputed'].includes(a.status)
+    );
+    if (activeAudits.length === 0) {
+      job.hasFailedAudit = false;
+    }
+  }
+}
+
 // Get notes for a job
 router.get('/:id/notes', async (req, res) => {
   try {
@@ -36,7 +59,9 @@ router.get('/:id/notes', async (req, res) => {
     // MULTI-TENANT SECURITY: Filter by company
     // ============================================
     const user = await User.findById(req.userId).select('companyId');
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId) {
       query.companyId = user.companyId;
     }
@@ -69,7 +94,9 @@ router.post('/:id/notes', async (req, res) => {
     // ============================================
     // MULTI-TENANT SECURITY: Filter by company
     // ============================================
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId) {
       query.companyId = user.companyId;
     }
@@ -136,7 +163,9 @@ router.post('/:id/audit', async (req, res) => {
       return res.status(403).json({ error: 'QA access required - failed audits go directly to QA' });
     }
     
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId && !user.isSuperAdmin) {
       query.companyId = user.companyId;
     }
@@ -205,7 +234,9 @@ router.put('/:id/audit/:auditId/review', async (req, res) => {
       return res.status(403).json({ error: 'QA access required' });
     }
     
-    const query = { _id: id };
+    const jobId = sanitizeObjectId(id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId && !user.isSuperAdmin) {
       query.companyId = user.companyId;
     }
@@ -230,31 +261,7 @@ router.put('/:id/audit/:auditId/review', async (req, res) => {
       audit.specsReferenced = specsReferenced;
     }
     
-    if (decision === 'accepted') {
-      // Infraction is valid - assign to GF for correction
-      audit.status = 'correction_assigned';
-      
-      if (assignToGF) {
-        audit.correctionAssignedTo = assignToGF;
-        audit.correctionAssignedDate = new Date();
-        audit.correctionNotes = correctionNotes || '';
-        job.assignedToGF = assignToGF;
-      }
-    } else if (decision === 'disputed') {
-      // Disputing the infraction with utility
-      audit.status = 'disputed';
-      audit.disputeReason = disputeReason || '';
-      
-      // Check if there are any other active failed audits
-      const activeAudits = job.auditHistory.filter(a => 
-        a.result === 'fail' && !['resolved', 'closed', 'disputed'].includes(a.status)
-      );
-      
-      // If all failed audits are disputed/resolved, job can proceed
-      if (activeAudits.length === 0) {
-        job.hasFailedAudit = false;
-      }
-    }
+    applyAuditDecision(audit, job, { decision, assignToGF, correctionNotes, disputeReason });
     
     await job.save();
     
@@ -279,7 +286,9 @@ router.post('/:id/audit/:auditId/correction', upload.array('photos', 10), async 
       return res.status(403).json({ error: 'Permission denied' });
     }
     
-    const query = { _id: id };
+    const jobId = sanitizeObjectId(id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId && !user.isSuperAdmin) {
       query.companyId = user.companyId;
     }
@@ -360,7 +369,9 @@ router.put('/:id/audit/:auditId/resolve', async (req, res) => {
       return res.status(403).json({ error: 'QA access required' });
     }
     
-    const query = { _id: id };
+    const jobId = sanitizeObjectId(id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId && !user.isSuperAdmin) {
       query.companyId = user.companyId;
     }
@@ -402,19 +413,141 @@ router.put('/:id/audit/:auditId/resolve', async (req, res) => {
 });
 
 // ==================== QA AUDIT PDF EXTRACTION ====================
+// Helper: Parse PDF text from file path
+async function parsePdfText(pdfPath, fallbackName) {
+  try {
+    const pdfParse = require('pdf-parse');
+    const pdfBuffer = fs.readFileSync(pdfPath);
+    const pdfData = await pdfParse(pdfBuffer, { max: 3 });
+    return pdfData.text.substring(0, 8000);
+  } catch (error_) {
+    console.warn('PDF parsing failed:', error_.message);
+    return fallbackName || '';
+  }
+}
+
+// Helper: Parse and clean AI JSON response with regex fallback
+function parseAiResponse(response, sourceText) {
+  try {
+    const content = response.choices[0]?.message?.content || '{}';
+    const cleanContent = content.replaceAll(/```json\n?/g, '').replaceAll(/```\n?/g, '').trim();
+    return JSON.parse(cleanContent);
+  } catch (error_) {
+    console.error('Failed to parse AI response:', error_);
+    const pmMatch = /(?:PM|PM#|PM Number|Order)[:\s#]*(\d{7,8})/i.exec(sourceText);
+    return { pmNumber: pmMatch ? pmMatch[1] : '' };
+  }
+}
+
+// Helper: Find existing job or create a new audit work order
+async function findOrCreateAuditJob(extracted, user, userId) {
+  const jobQuery = {
+    pmNumber: extracted.pmNumber,
+    isDeleted: { $ne: true }
+  };
+  if (user?.companyId) {
+    jobQuery.companyId = user.companyId;
+  }
+
+  const existingJob = await Job.findOne(jobQuery);
+  if (existingJob) return { job: existingJob, isNewAuditJob: false };
+
+  console.log(`No existing job found for PM ${extracted.pmNumber}, creating audit work order`);
+  const job = new Job({
+    pmNumber: extracted.pmNumber,
+    woNumber: extracted.woNumber || null,
+    address: extracted.address || 'Address pending from audit',
+    city: extracted.city || '',
+    status: 'submitted',
+    companyId: user?.companyId,
+    utilityId: user?.utilityId,
+    userId,
+    createdFromAudit: true,
+    notes: [{
+      message: `Created from utility audit - PM ${extracted.pmNumber} was audited but original work order was not found in system.`,
+      userId,
+      userName: user?.name || 'QA System',
+      userRole: user?.role || 'qa',
+      noteType: 'update'
+    }],
+    folders: [
+      { name: 'ACI', documents: [], subfolders: [] },
+      { name: 'Job Package', documents: [], subfolders: [] },
+      { name: 'QA Go Back', documents: [], subfolders: [] }
+    ]
+  });
+  await job.save();
+  return { job, isNewAuditJob: true };
+}
+
+// Helper: Attach audit PDF to job's QA Go Back folder
+async function attachAuditPdfToJob(job, pdfPath, extracted, userId) {
+  let qaFolder = job.folders.find(f => f.name === 'QA Go Back');
+  if (!qaFolder) {
+    job.folders.push({ name: 'QA Go Back', documents: [], subfolders: [] });
+    qaFolder = job.folders[job.folders.length - 1];
+  }
+
+  let pdfUrl = `/uploads/${path.basename(pdfPath)}`;
+  let r2Key = null;
+  const auditFileName = `Audit_${extracted.auditNumber || Date.now()}_${extracted.pmNumber}.pdf`;
+
+  if (r2Storage.isR2Configured()) {
+    try {
+      const result = await r2Storage.uploadJobFile(pdfPath, job._id.toString(), 'QA_Go_Back', auditFileName);
+      pdfUrl = r2Storage.getPublicUrl(result.key);
+      r2Key = result.key;
+    } catch (error_) {
+      console.error('Failed to upload audit PDF to R2:', error_.message);
+    }
+  }
+
+  cleanupTempFile(pdfPath);
+
+  qaFolder.documents.push({
+    name: auditFileName, url: pdfUrl, r2Key,
+    type: 'pdf', uploadDate: new Date(), uploadedBy: userId
+  });
+  job.markModified('folders');
+  return pdfUrl;
+}
+
+// Helper: Build audit record from extracted data
+function buildAuditRecord(extracted) {
+  return {
+    auditNumber: extracted.auditNumber || null,
+    auditDate: extracted.auditDate ? new Date(extracted.auditDate) : new Date(),
+    receivedDate: new Date(),
+    inspectorName: extracted.inspectorName || null,
+    inspectorId: extracted.inspectorId || null,
+    result: extracted.result || 'fail',
+    status: 'pending_qa',
+    infractionType: extracted.infractionType || 'other',
+    infractionDescription: extracted.infractionDescription || '',
+    specReference: extracted.specReference || null
+  };
+}
+
+// Helper: Safely remove a temporary file
+function cleanupTempFile(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  } catch { /* Ignore cleanup errors */ }
+}
+
 // Upload and extract failed audit PDF from utility (e.g., PG&E)
 // Finds the original job by PM number and creates the audit record
 router.post('/qa/extract-audit', upload.single('pdf'), async (req, res) => {
   const startTime = Date.now();
-  // APIUsage already imported at module level
   let pdfPath = null;
   
   try {
     const user = await User.findById(req.userId);
     
-    // Only QA can upload failed audits
     if (!['qa', 'admin'].includes(user?.role) && !user?.isSuperAdmin) {
-      if (req.file) try { fs.unlinkSync(req.file.path); } catch { /* Ignore cleanup errors */ }
+      cleanupTempFile(req.file?.path);
       return res.status(403).json({ error: 'QA access required' });
     }
     
@@ -423,30 +556,14 @@ router.post('/qa/extract-audit', upload.single('pdf'), async (req, res) => {
     }
     
     pdfPath = req.file.path;
+    const text = await parsePdfText(pdfPath, req.file.originalname);
     
-    // STEP 1: Parse PDF text
-    let text = '';
-    try {
-      const pdfParse = require('pdf-parse');
-      const pdfBuffer = fs.readFileSync(pdfPath);
-      const pdfData = await pdfParse(pdfBuffer, { max: 3 }); // First 3 pages
-      text = pdfData.text.substring(0, 8000);
-    } catch (parseErr) {
-      console.warn('PDF parsing failed:', parseErr.message);
-      text = req.file.originalname || '';
-    }
-    
-    // STEP 2: AI extraction with audit-specific prompt
     if (!process.env.OPENAI_API_KEY) {
-      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
+      cleanupTempFile(pdfPath);
       return res.status(500).json({ error: 'AI extraction not configured' });
     }
     
-    const openai = new OpenAI({ 
-      apiKey: process.env.OPENAI_API_KEY,
-      timeout: 60000
-    });
-    
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, timeout: 60000 });
     const response = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
@@ -470,16 +587,12 @@ Extract and return ONLY valid JSON with these fields:
 
 Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown or explanation.`
         },
-        {
-          role: 'user',
-          content: text
-        }
+        { role: 'user', content: text }
       ],
       temperature: 0,
       max_tokens: 800
     });
     
-    // Log API usage
     const usage = response.usage || {};
     await APIUsage.logOpenAIUsage({
       operation: 'audit-extraction',
@@ -493,24 +606,10 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
       metadata: { textLength: text.length }
     });
     
-    // Parse the AI response
-    let extracted = {};
-    try {
-      const content = response.choices[0]?.message?.content || '{}';
-      const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      extracted = JSON.parse(cleanContent);
-    } catch (parseErr) {
-      console.error('Failed to parse AI response:', parseErr);
-      // Try basic regex extraction for PM number
-      const pmMatch = text.match(/(?:PM|PM#|PM Number|Order)[:\s#]*(\d{7,8})/i);
-      extracted = { pmNumber: pmMatch ? pmMatch[1] : '' };
-    }
-    
+    const extracted = parseAiResponse(response, text);
     console.log('Extracted audit data:', extracted);
     
-    // STEP 3: Find the job by PM number
     if (!extracted.pmNumber) {
-      // Don't delete PDF - let user try again or enter manually
       return res.json({
         success: false,
         error: 'Could not extract PM number from document',
@@ -519,144 +618,32 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
       });
     }
     
-    const jobQuery = { 
-      pmNumber: extracted.pmNumber,
-      isDeleted: { $ne: true }
-    };
-    if (user?.companyId) {
-      jobQuery.companyId = user.companyId;
-    }
+    const { job, isNewAuditJob } = await findOrCreateAuditJob(extracted, user, req.userId);
+    const pdfUrl = await attachAuditPdfToJob(job, pdfPath, extracted, req.userId);
+    pdfPath = null; // Already cleaned up inside attachAuditPdfToJob
     
-    let job = await Job.findOne(jobQuery);
-    let isNewAuditJob = false;
-    
-    // If job not found, create a new "audit work order"
-    if (!job) {
-      console.log(`No existing job found for PM ${extracted.pmNumber}, creating audit work order`);
-      
-      job = new Job({
-        pmNumber: extracted.pmNumber,
-        woNumber: extracted.woNumber || null,
-        address: extracted.address || 'Address pending from audit',
-        city: extracted.city || '',
-        status: 'submitted', // These are already submitted jobs that got audited
-        companyId: user?.companyId,
-        utilityId: user?.utilityId,
-        userId: req.userId, // Track who created the job (matches Job schema)
-        createdFromAudit: true, // Flag to indicate this was created from an audit
-        notes: [{
-          message: `Created from utility audit - PM ${extracted.pmNumber} was audited but original work order was not found in system.`,
-          userId: req.userId,
-          userName: user?.name || 'QA System',
-          userRole: user?.role || 'qa',
-          noteType: 'update'
-        }],
-        folders: [
-          { name: 'ACI', documents: [], subfolders: [] },
-          { name: 'Job Package', documents: [], subfolders: [] },
-          { name: 'QA Go Back', documents: [], subfolders: [] }
-        ]
-      });
-      
-      // Save new job first so it has an _id for file uploads
-      await job.save();
-      isNewAuditJob = true;
-    }
-    
-    // STEP 4: Upload the PDF to "QA Go Back" folder
-    let pdfUrl = `/uploads/${path.basename(pdfPath)}`;
-    let r2Key = null;
-    
-    // Ensure QA Go Back folder exists on the job
-    let qaFolder = job.folders.find(f => f.name === 'QA Go Back');
-    if (!qaFolder) {
-      job.folders.push({
-        name: 'QA Go Back',
-        documents: [],
-        subfolders: []
-      });
-      qaFolder = job.folders[job.folders.length - 1];
-    }
-    
-    // Upload to R2 if configured
-    const auditFileName = `Audit_${extracted.auditNumber || Date.now()}_${extracted.pmNumber}.pdf`;
-    if (r2Storage.isR2Configured()) {
-      try {
-        const result = await r2Storage.uploadJobFile(pdfPath, job._id.toString(), 'QA_Go_Back', auditFileName);
-        pdfUrl = r2Storage.getPublicUrl(result.key);
-        r2Key = result.key;
-      } catch (uploadErr) {
-        console.error('Failed to upload audit PDF to R2:', uploadErr.message);
-      }
-    }
-    
-    // Clean up local file (always, regardless of R2 configuration)
-    try {
-      if (fs.existsSync(pdfPath)) {
-        fs.unlinkSync(pdfPath);
-      }
-    } catch (cleanupErr) {
-      console.error('Failed to clean up audit PDF temp file:', cleanupErr.message);
-    }
-    
-    // Add document to QA Go Back folder
-    console.log(`Adding audit PDF to job ${job._id} (PM: ${job.pmNumber}), folder: QA Go Back`);
-    qaFolder.documents.push({
-      name: auditFileName,
-      url: pdfUrl,
-      r2Key: r2Key,
-      type: 'pdf',
-      uploadDate: new Date(),
-      uploadedBy: req.userId
-    });
-    
-    // Mark folders as modified for Mongoose to detect nested array changes
-    job.markModified('folders');
-    
-    // STEP 5: Create the audit record
-    const audit = {
-      auditNumber: extracted.auditNumber || null,
-      auditDate: extracted.auditDate ? new Date(extracted.auditDate) : new Date(),
-      receivedDate: new Date(),
-      inspectorName: extracted.inspectorName || null,
-      inspectorId: extracted.inspectorId || null,
-      result: extracted.result || 'fail',
-      status: 'pending_qa',
-      infractionType: extracted.infractionType || 'other',
-      infractionDescription: extracted.infractionDescription || '',
-      specReference: extracted.specReference || null
-    };
-    
+    const audit = buildAuditRecord(extracted);
     if (!job.auditHistory) job.auditHistory = [];
     job.auditHistory.push(audit);
     job.hasFailedAudit = true;
     job.failedAuditCount = (job.failedAuditCount || 0) + 1;
-    
-    // Mark audit history as modified
     job.markModified('auditHistory');
     
     await job.save();
-    console.log(`Saved audit to job ${job._id}, folders count: ${job.folders.length}, QA Go Back docs: ${qaFolder.documents.length}`);
     
-    const logMessage = isNewAuditJob 
-      ? `Created new audit work order for PM ${job.pmNumber}: ${extracted.infractionType}`
-      : `Failed audit extracted and recorded for job ${job.pmNumber}: ${extracted.infractionType}`;
-    console.log(logMessage);
+    const action = isNewAuditJob ? 'Created new audit work order' : 'Failed audit extracted and recorded';
+    console.log(`${action} for PM ${job.pmNumber}: ${extracted.infractionType}`);
     
     res.json({
       success: true,
-      message: isNewAuditJob 
+      message: isNewAuditJob
         ? 'Audit work order created - original job was not in system'
         : 'Audit extracted and recorded successfully',
       isNewAuditJob,
       extracted,
       job: {
-        _id: job._id,
-        pmNumber: job.pmNumber,
-        woNumber: job.woNumber,
-        address: job.address,
-        city: job.city,
-        createdFromAudit: job.createdFromAudit
+        _id: job._id, pmNumber: job.pmNumber, woNumber: job.woNumber,
+        address: job.address, city: job.city, createdFromAudit: job.createdFromAudit
       },
       audit: job.auditHistory[job.auditHistory.length - 1],
       pdfUrl
@@ -664,10 +651,7 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     
   } catch (err) {
     console.error('Audit extraction error:', err);
-    // Clean up file on error
-    if (pdfPath && fs.existsSync(pdfPath)) {
-      try { fs.unlinkSync(pdfPath); } catch { /* Ignore cleanup errors */ }
-    }
+    cleanupTempFile(pdfPath);
     res.status(500).json({ error: 'Failed to extract audit', details: err.message });
   }
 });
@@ -677,7 +661,9 @@ router.get('/:id/audits', async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId && !user.isSuperAdmin) {
       query.companyId = user.companyId;
     }
@@ -717,7 +703,9 @@ router.get('/:id/dependencies', async (req, res) => {
     // MULTI-TENANT SECURITY: Filter by company
     // ============================================
     const user = await User.findById(req.userId).select('companyId');
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId) {
       query.companyId = user.companyId;
     }
@@ -746,7 +734,9 @@ router.post('/:id/dependencies', async (req, res) => {
     // MULTI-TENANT SECURITY: Filter by company
     // ============================================
     const user = await User.findById(req.userId).select('companyId');
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId) {
       query.companyId = user.companyId;
     }
@@ -786,7 +776,9 @@ router.put('/:id/dependencies/:depId', async (req, res) => {
     // MULTI-TENANT SECURITY: Filter by company
     // ============================================
     const user = await User.findById(req.userId).select('companyId');
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId) {
       query.companyId = user.companyId;
     }
@@ -825,7 +817,9 @@ router.delete('/:id/dependencies/:depId', async (req, res) => {
     // MULTI-TENANT SECURITY: Filter by company
     // ============================================
     const user = await User.findById(req.userId).select('companyId');
-    const query = { _id: req.params.id };
+    const jobId = sanitizeObjectId(req.params.id);
+    if (!jobId) return res.status(400).json({ error: 'Invalid job ID' });
+    const query = { _id: jobId };
     if (user?.companyId) {
       query.companyId = user.companyId;
     }

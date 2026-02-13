@@ -8,6 +8,7 @@
 const express = require('express');
 const router = express.Router();
 const Utility = require('../models/Utility');
+const { sanitizeString } = require('../utils/sanitize');
 
 // Get all utilities (public - for signup dropdown)
 router.get('/', async (req, res) => {
@@ -25,7 +26,7 @@ router.get('/', async (req, res) => {
 // Get utility by slug
 router.get('/:slug', async (req, res) => {
   try {
-    const utility = await Utility.findOne({ slug: req.params.slug, isActive: true });
+    const utility = await Utility.findOne({ slug: sanitizeString(req.params.slug), isActive: true });
     if (!utility) {
       return res.status(404).json({ error: 'Utility not found' });
     }

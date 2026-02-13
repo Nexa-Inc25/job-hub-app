@@ -267,6 +267,17 @@ const sanitizeSortField = (field, allowedFields = []) => {
   return sanitized;
 };
 
+/**
+ * Escape special regex characters to prevent ReDoS attacks
+ * 
+ * @param {any} value - Value to escape for safe regex use
+ * @returns {string} Escaped string safe for RegExp construction
+ */
+const escapeRegex = (value) => {
+  if (value == null) return '';
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
 module.exports = {
   sanitizeString,
   sanitizeObjectId,
@@ -277,6 +288,7 @@ module.exports = {
   sanitizeDate,
   sanitizeQueryObject,
   sanitizePmNumber,
-  sanitizeSortField
+  sanitizeSortField,
+  escapeRegex
 };
 

@@ -11,6 +11,7 @@ const router = express.Router();
 const Company = require('../models/Company');
 const User = require('../models/User');
 const Utility = require('../models/Utility');
+const { sanitizeObjectId, escapeRegex } = require('../utils/sanitize');
 
 // Get all companies
 router.get('/companies', async (req, res) => {
@@ -41,8 +42,9 @@ router.post('/companies', async (req, res) => {
       return res.status(400).json({ error: 'Company name is required' });
     }
     
+    const safeName = escapeRegex(name);
     const existingCompany = await Company.findOne({ 
-      name: { $regex: new RegExp(`^${name}$`, 'i') } 
+      name: { $regex: new RegExp(`^${safeName}$`, 'i') } 
     });
     if (existingCompany) {
       return res.status(400).json({ error: 'A company with this name already exists' });
@@ -67,7 +69,9 @@ router.post('/companies', async (req, res) => {
 // Get users for a specific company
 router.get('/companies/:companyId/users', async (req, res) => {
   try {
-    const users = await User.find({ companyId: req.params.companyId })
+    const companyId = sanitizeObjectId(req.params.companyId);
+    if (!companyId) return res.status(400).json({ error: 'Invalid company ID' });
+    const users = await User.find({ companyId })
       .select('-password')
       .sort({ createdAt: -1 });
     res.json(users);

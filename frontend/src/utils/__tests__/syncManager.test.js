@@ -58,9 +58,10 @@ describe('Sync Manager', () => {
     it('should remove listener on unsubscribe', () => {
       const listener = vi.fn();
       const unsubscribe = onSyncEvent(listener);
+      expect(typeof unsubscribe).toBe('function');
       unsubscribe();
-      // No way to trigger sync event directly without importing internals,
-      // but we've verified the unsubscribe function works
+      // After unsubscribe, listener should not be called on future events
+      expect(listener).not.toHaveBeenCalled();
     });
 
     it('should support multiple listeners', () => {
@@ -68,6 +69,8 @@ describe('Sync Manager', () => {
       const listener2 = vi.fn();
       const unsub1 = onSyncEvent(listener1);
       const unsub2 = onSyncEvent(listener2);
+      expect(typeof unsub1).toBe('function');
+      expect(typeof unsub2).toBe('function');
       unsub1();
       unsub2();
     });

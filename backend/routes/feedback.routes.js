@@ -9,6 +9,7 @@ const express = require('express');
 const router = express.Router();
 const Feedback = require('../models/Feedback');
 const User = require('../models/User');
+const { sanitizeString, sanitizeInt } = require('../utils/sanitize');
 
 // Submit feedback (any authenticated user)
 router.post('/', async (req, res) => {
@@ -63,12 +64,12 @@ router.get('/admin', async (req, res) => {
     const { status, type, limit = 50 } = req.query;
     
     const query = {};
-    if (status) query.status = status;
-    if (type) query.type = type;
+    if (status) query.status = sanitizeString(status);
+    if (type) query.type = sanitizeString(type);
     
     const feedback = await Feedback.find(query)
       .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
+      .limit(sanitizeInt(limit, 50, 200))
       .populate('jobId', 'pmNumber woNumber title');
     
     const counts = await Feedback.aggregate([

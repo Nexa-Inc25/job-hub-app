@@ -8,10 +8,11 @@
 
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
+const crypto = require('node:crypto');
 const Company = require('../models/Company');
 const User = require('../models/User');
 const { sendInvitation } = require('../services/email.service');
+const { sanitizeEmail } = require('../utils/sanitize');
 
 // Get current user's company
 router.get('/', async (req, res) => {
@@ -106,7 +107,11 @@ router.post('/invite', async (req, res) => {
       return res.status(403).json({ error: 'Permission denied' });
     }
     
-    const existingUser = await User.findOne({ email });
+    const safeEmail = sanitizeEmail(email);
+    if (!safeEmail) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+    const existingUser = await User.findOne({ email: safeEmail });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
@@ -141,8 +146,8 @@ router.post('/invite', async (req, res) => {
         role: userRole
       });
       console.log('Invitation email sent to:', email);
-    } catch (emailErr) {
-      console.error('Failed to send invitation email:', emailErr);
+    } catch (error_) {
+      console.error('Failed to send invitation email:', error_);
     }
     
     console.log('Invited user:', email, 'to company:', inviter.companyId);

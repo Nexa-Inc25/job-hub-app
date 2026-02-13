@@ -802,9 +802,8 @@ router.post('/templates/:id/fill', async (req, res) => {
     console.log(`[SmartForms] Filling ${template.fields.length} fields...`);
     fillPdfFields({ template, dataContext, pages, font, debug: true });
     
-    // Save the filled PDF and release the document
+    // Save the filled PDF (pdfDoc released in finally block)
     const filledPdfBytes = await pdfDoc.save();
-    pdfDoc = null; // Release pdf-lib document (largest in-memory object)
     
     // Record the fill
     await template.recordFill();
@@ -824,8 +823,8 @@ router.post('/templates/:id/fill', async (req, res) => {
     // Hint to GC if memory is elevated after PDF processing
     const memAfter = process.memoryUsage();
     const heapAfterMB = Math.round(memAfter.heapUsed / 1024 / 1024);
-    if (heapAfterMB > 200 && global.gc) {
-      global.gc();
+    if (heapAfterMB > 200 && globalThis.gc) {
+      globalThis.gc();
       console.log(`[SmartForms] GC triggered after fill (${heapAfterMB}MB heap)`);
     }
   }

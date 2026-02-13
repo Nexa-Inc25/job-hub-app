@@ -8,13 +8,20 @@
 
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const path = require('node:path');
+const fs = require('node:fs');
 const SpecDocument = require('../models/SpecDocument');
 const User = require('../models/User');
 const r2Storage = require('../utils/storage');
+const { sanitizeString, sanitizeObjectId, escapeRegex } = require('../utils/sanitize');
+
+// Helper: parse tags from string or array input
+function parseTags(tags) {
+  if (!tags) return [];
+  if (typeof tags === 'string') return tags.split(',').map(t => t.trim());
+  return tags;
+}
 
 // Configure multer for spec uploads
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -47,10 +54,10 @@ router.get('/', async (req, res) => {
     
     const query = { isDeleted: { $ne: true } };
     
-    if (utilityId) query.utilityId = utilityId;
-    if (division) query.division = division;
-    if (category) query.category = category;
-    if (section) query.section = section;
+    if (utilityId) query.utilityId = sanitizeObjectId(utilityId);
+    if (division) query.division = sanitizeString(division);
+    if (category) query.category = sanitizeString(category);
+    if (section) query.section = sanitizeString(section);
     
     // Multi-tenant filtering
     if (user?.companyId && !user.isSuperAdmin) {
@@ -63,10 +70,11 @@ router.get('/', async (req, res) => {
     
     let specs;
     if (search) {
+      const safeSearch = sanitizeString(search);
       try {
         specs = await SpecDocument.find({
           ...query,
-          $text: { $search: search }
+          $text: { $search: safeSearch }
         })
           .populate('utilityId', 'name shortName')
           .populate('createdBy', 'name email')
@@ -77,7 +85,7 @@ router.get('/', async (req, res) => {
       }
       
       if (specs.length === 0) {
-        const searchRegex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+        const searchRegex = new RegExp(escapeRegex(search), 'i');
         specs = await SpecDocument.find({
           ...query,
           $or: [
@@ -132,8 +140,11 @@ router.get('/meta/sections', async (req, res) => {
     const user = await User.findById(req.userId);
     
     const matchStage = { isDeleted: { $ne: true } };
-    if (category) matchStage.category = category;
-    if (utilityId) matchStage.utilityId = new mongoose.Types.ObjectId(utilityId);
+    if (category) matchStage.category = sanitizeString(category);
+    if (utilityId) {
+      const safeUtilityId = sanitizeObjectId(utilityId);
+      if (safeUtilityId) matchStage.utilityId = safeUtilityId;
+    }
     
     if (user?.companyId && !user.isSuperAdmin) {
       matchStage.$or = [
@@ -249,7 +260,7 @@ router.post('/', specUpload.single('file'), async (req, res) => {
       subcategory, utilityId,
       companyId: user.companyId || null,
       effectiveDate: effectiveDate ? new Date(effectiveDate) : null,
-      tags: tags ? (typeof tags === 'string' ? tags.split(',').map(t => t.trim()) : tags) : [],
+      tags: parseTags(tags),
       currentVersion: version,
       r2Key,
       fileName: req.file.originalname,
@@ -352,7 +363,7 @@ router.put('/:id', async (req, res) => {
     if (subcategory !== undefined) spec.subcategory = subcategory;
     if (effectiveDate) spec.effectiveDate = new Date(effectiveDate);
     if (expirationDate) spec.expirationDate = new Date(expirationDate);
-    if (tags) spec.tags = typeof tags === 'string' ? tags.split(',').map(t => t.trim()) : tags;
+    if (tags) spec.tags = parseTags(tags);
     
     spec.lastUpdatedBy = req.userId;
     await spec.save();
