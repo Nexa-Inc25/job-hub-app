@@ -1191,12 +1191,14 @@ const ForemanCloseOut = () => {
   };
 
   // ---- As-Built Wizard handlers ----
+  // Completing the as-built IS the close-out submission — no separate submit button needed
   const handleAsBuiltComplete = useCallback(async (submission) => {
     try {
       const res = await api.post('/api/asbuilt/wizard/submit', { submission });
       if (res.data?.success) {
+        const score = res.data.validation?.score;
         navigate(`/jobs/${jobId}`, {
-          state: { message: `As-built package submitted! UTVAC Score: ${res.data.validation?.score}%` },
+          state: { message: `Job submitted for review! As-built UTVAC Score: ${score}%` },
         });
       }
     } catch (err) {

@@ -1209,8 +1209,67 @@ router.post('/wizard/submit', async (req, res) => {
 
     await asBuiltSubmission.save();
 
-    // ---- Step 4: Update job status ----
-    // Log as a job note (auditHistory is for utility inspections with pass/fail)
+    // ---- Step 4: Save as-built summary to Close Out Documents folder ----
+    try {
+      const aciFolder = job.folders?.find(f => f.name === 'ACI');
+      if (aciFolder) {
+        if (!aciFolder.subfolders) aciFolder.subfolders = [];
+        let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
+        if (!closeOutFolder) {
+          closeOutFolder = { name: 'Close Out Documents', documents: [], subfolders: [] };
+          aciFolder.subfolders.push(closeOutFolder);
+        }
+        if (!closeOutFolder.documents) closeOutFolder.documents = [];
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        const docName = `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_${dateStr}.json`;
+
+        // Remove old version if exists
+        const existingIdx = closeOutFolder.documents.findIndex(d =>
+          d.name?.includes('AsBuilt') && d.type === 'filled_pdf'
+        );
+        if (existingIdx !== -1) {
+          closeOutFolder.documents.splice(existingIdx, 1);
+        }
+
+        // Build summary of completed wizard steps for review
+        const stepData = submission.stepData || {};
+        const completedSteps = submission.completedSteps || {};
+        const summary = {
+          workType: submission.workType,
+          completedSteps: Object.keys(completedSteps).filter(k => completedSteps[k]),
+          ecTag: stepData.ec_tag || null,
+          billingForm: stepData.billing_form || null,
+          ccsc: stepData.ccsc || null,
+          fda: stepData.fda || null,
+          sketch: stepData.sketch || null,
+          utvacScore: validation.score,
+          submittedAt: new Date().toISOString(),
+        };
+
+        // Save reference document pointing to the AsBuiltSubmission
+        closeOutFolder.documents.push({
+          name: docName,
+          type: 'filled_pdf',
+          uploadDate: new Date(),
+          uploadedBy: req.userId,
+          isCompleted: true,
+          completedDate: new Date(),
+          completedBy: req.userId,
+          // Store summary data for quick display without DB lookup
+          extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
+          // URL for viewing the submission details
+          url: `/api/asbuilt/wizard/status/${asBuiltSubmission._id}`,
+          path: `/api/asbuilt/wizard/status/${asBuiltSubmission._id}`,
+        });
+
+        console.log(`As-built saved to Close Out Documents: ${docName}`);
+      }
+    } catch (folderErr) {
+      console.warn('Failed to save as-built to Close Out folder:', folderErr.message);
+    }
+
+    // ---- Step 5: Update job status + log note ----
     job.notes = job.notes || [];
     job.notes.push({
       message: `As-built package submitted via wizard (UTVAC score: ${validation.score}%)`,
@@ -1219,9 +1278,18 @@ router.post('/wizard/submit', async (req, res) => {
       noteType: 'update',
       createdAt: new Date(),
     });
+
+    // Advance job to pending review if it's still in progress
+    const reviewStatuses = ['in_progress', 'pending_gf_review'];
+    if (reviewStatuses.includes(job.status)) {
+      job.status = 'pending_gf_review';
+      job.crewSubmittedDate = new Date();
+      job.crewSubmittedBy = req.userId;
+    }
+
     await job.save();
 
-    // ---- Step 5: Queue for AsBuiltRouter processing ----
+    // ---- Step 6: Queue for AsBuiltRouter processing ----
     // The router will split, classify, and route sections to destinations
     try {
       // AsBuiltRouter is a singleton — call methods directly
