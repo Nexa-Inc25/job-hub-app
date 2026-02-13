@@ -622,9 +622,9 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'auto', bgcolor: '#e0e0e0' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 600, bgcolor: '#e0e0e0' }}>
       
-      {/* ===== STICKY TOOLBAR ===== */}
+      {/* ===== FIXED TOOLBAR (never scrolls) ===== */}
       <Paper 
         elevation={4}
         sx={{ 
@@ -636,8 +636,6 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
           borderRadius: 0,
           bgcolor: 'background.paper',
           flexShrink: 0,
-          position: 'sticky',
-          top: 0,
           zIndex: 50,
         }}
       >
