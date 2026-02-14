@@ -636,7 +636,7 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     
     res.json({
       success: true,
-      message: isNewAuditJob
+      message: isNewAuditJob 
         ? 'Audit work order created - original job was not in system'
         : 'Audit extracted and recorded successfully',
       isNewAuditJob,

@@ -1024,24 +1024,24 @@ const JobFileSystem = () => {
 
     // HTML → view-only iframe; everything else → PDF editor
     const useEditor = !isHtml;
-    setViewingDoc(doc);
+      setViewingDoc(doc);
     setEditorMode(useEditor);
-
-    const docUrl = getDocUrl(doc);
-    if (docUrl.includes('/api/')) {
-      try {
+      
+      const docUrl = getDocUrl(doc);
+      if (docUrl.includes('/api/')) {
+        try {
         const blobUrl = await fetchAuthenticatedDoc(docUrl);
-        setViewingDocBlobUrl(blobUrl);
-        setPdfViewerOpen(true);
-      } catch (err) {
+            setViewingDocBlobUrl(blobUrl);
+            setPdfViewerOpen(true);
+        } catch (err) {
         console.error('Error fetching document:', err);
         setError(`Failed to load document: ${err.message}`);
-        setViewingDoc(null);
-        setEditorMode(false);
-      }
-    } else {
-      setViewingDocBlobUrl(null);
-      setPdfViewerOpen(true);
+          setViewingDoc(null);
+          setEditorMode(false);
+        }
+      } else {
+        setViewingDocBlobUrl(null);
+        setPdfViewerOpen(true);
     }
   };
 

@@ -1645,17 +1645,17 @@ const ForemanCloseOut = () => {
               />
             </Box>
           ) : (
-            <PDFFormEditor
-              pdfUrl={filledPdfUrl || getDocumentUrl(selectedDocument)}
-              jobInfo={{
-                pmNumber: job?.pmNumber,
-                woNumber: job?.woNumber,
-                address: job?.address,
-                city: job?.city,
-              }}
-              documentName={selectedDocument.name}
-              onSave={handlePdfSave}
-            />
+          <PDFFormEditor
+            pdfUrl={filledPdfUrl || getDocumentUrl(selectedDocument)}
+            jobInfo={{
+              pmNumber: job?.pmNumber,
+              woNumber: job?.woNumber,
+              address: job?.address,
+              city: job?.city,
+            }}
+            documentName={selectedDocument.name}
+            onSave={handlePdfSave}
+          />
           )
         )}
         {pdfLoading && (

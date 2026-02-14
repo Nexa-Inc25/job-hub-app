@@ -108,6 +108,8 @@ export async function initOfflineDB() {
       }
     };
   });
+
+  return dbInitPromise;
 }
 
 /**
