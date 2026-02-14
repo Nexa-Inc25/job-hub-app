@@ -1634,17 +1634,29 @@ const ForemanCloseOut = () => {
           </IconButton>
         </Box>
         {selectedDocument && (
-          <PDFFormEditor
-            pdfUrl={filledPdfUrl || getDocumentUrl(selectedDocument)}
-            jobInfo={{
-              pmNumber: job?.pmNumber,
-              woNumber: job?.woNumber,
-              address: job?.address,
-              city: job?.city,
-            }}
-            documentName={selectedDocument.name}
-            onSave={handlePdfSave}
-          />
+          selectedDocument.name?.match(/\.html?$/i) ? (
+            // HTML documents (e.g., as-built summaries) render in an iframe
+            <Box sx={{ flex: 1, p: 2, height: '100%' }}>
+              <iframe
+                src={getDocumentUrl(selectedDocument)}
+                style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', minHeight: '600px' }}
+                title={selectedDocument.name}
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+              />
+            </Box>
+          ) : (
+            <PDFFormEditor
+              pdfUrl={filledPdfUrl || getDocumentUrl(selectedDocument)}
+              jobInfo={{
+                pmNumber: job?.pmNumber,
+                woNumber: job?.woNumber,
+                address: job?.address,
+                city: job?.city,
+              }}
+              documentName={selectedDocument.name}
+              onSave={handlePdfSave}
+            />
+          )
         )}
         {pdfLoading && (
           <Box sx={{ 
