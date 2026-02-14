@@ -11,6 +11,15 @@
 import '@testing-library/jest-dom';
 import { vi, afterEach } from 'vitest';
 
+// Polyfill Promise.withResolvers for Node 20 (required by pdfjs-dist)
+if (typeof Promise.withResolvers !== 'function') {
+  Promise.withResolvers = function () {
+    let resolve, reject;
+    const promise = new Promise((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  };
+}
+
 // Reset all mocks after each test
 afterEach(() => {
   vi.clearAllMocks();
