@@ -188,9 +188,13 @@ export async function syncPendingOperations() {
 }
 
 /**
- * Initialize sync manager - set up online/offline listeners
+ * Initialize sync manager - set up online/offline listeners (idempotent)
  */
+let syncManagerInitialized = false;
 export function initSyncManager() {
+  if (syncManagerInitialized) return;
+  syncManagerInitialized = true;
+
   // Sync when coming back online
   globalThis.addEventListener('online', () => {
     console.warn('Connection restored - starting sync...');

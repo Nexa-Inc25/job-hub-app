@@ -25,27 +25,29 @@ const STORES = {
 };
 
 let db = null;
+let dbInitPromise = null;
 
 /**
  * Initialize the IndexedDB database
+ * Uses a cached promise to prevent duplicate opens from concurrent callers.
  */
 export async function initOfflineDB() {
-  return new Promise((resolve, reject) => {
-    if (db) {
-      resolve(db);
-      return;
-    }
+  if (db) return db;
+  if (dbInitPromise) return dbInitPromise;
 
+  dbInitPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => {
+      dbInitPromise = null; // Allow retry on failure
       console.error('Failed to open IndexedDB:', request.error);
       reject(request.error);
     };
 
     request.onsuccess = () => {
       db = request.result;
-      console.warn('IndexedDB initialized successfully');
+      // eslint-disable-next-line no-console -- one-time startup info
+      console.log('IndexedDB initialized successfully');
       resolve(db);
     };
 
