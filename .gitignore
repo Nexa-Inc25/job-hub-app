@@ -47,3 +47,7 @@ frontend/cypress/downloads/
 # But allow PDF templates for LME, CWC, etc.
 !backend/templates/**/*.pdf
 *.jdk/
+
+# Files with leaked secrets (removed from repo)
+ENV_SETUP.md
+backend/test-mongo.js
