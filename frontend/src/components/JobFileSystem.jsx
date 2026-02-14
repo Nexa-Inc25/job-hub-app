@@ -996,6 +996,19 @@ const JobFileSystem = () => {
     }
   };
 
+  // Fetch an authenticated document and return a blob URL, or null on failure
+  const fetchAuthenticatedDoc = async (docUrl) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(docUrl, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      throw new Error(response.statusText || 'Failed to load');
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  };
+
   // Handle double-click to open PDF viewer
   const handleDocDoubleClick = async (doc) => {
     // Check if it's an image file
@@ -1004,74 +1017,31 @@ const JobFileSystem = () => {
     const isHtml = doc.name?.match(/\.html?$/i) || doc.type === 'html';
     
     if (isImage) {
-      // Open image in modal viewer
       setViewingImage(doc);
       setImageViewerOpen(true);
-    } else if (isHtml) {
-      // Open HTML in view-only iframe (not PDF editor)
-      setViewingDoc(doc);
-      setEditorMode(false);
-      
-      const docUrl = getDocUrl(doc);
-      if (docUrl.includes('/api/')) {
-        try {
-          const token = localStorage.getItem('token');
-          const response = await fetch(docUrl, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (response.ok) {
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            setViewingDocBlobUrl(blobUrl);
-          } else {
-            console.error('Failed to fetch HTML document:', response.status);
-            setError(`Failed to load document: ${response.statusText || 'Error'}`);
-            setViewingDoc(null);
-            return;
-          }
-        } catch (err) {
-          console.error('Error fetching HTML document:', err);
-          setError('Failed to load document. Please try again.');
-          setViewingDoc(null);
-          return;
-        }
-      }
-      setPdfViewerOpen(true);
-    } else {
-      // Open PDF editor for PDFs
-      setViewingDoc(doc);
-      setEditorMode(true);
-      
-      // For API endpoints (like LME PDFs), fetch with auth and create blob URL
-      const docUrl = getDocUrl(doc);
-      if (docUrl.includes('/api/')) {
-        try {
-          const token = localStorage.getItem('token');
-          const response = await fetch(docUrl, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-          if (response.ok) {
-            const blob = await response.blob();
-            const blobUrl = URL.createObjectURL(blob);
-            setViewingDocBlobUrl(blobUrl);
-            setPdfViewerOpen(true);
-          } else {
-            console.error('Failed to fetch PDF:', response.status, response.statusText);
-            setError(`Failed to load document: ${response.statusText || 'Unauthorized'}`);
-            setViewingDoc(null);
-            setEditorMode(false);
-          }
-        } catch (err) {
-          console.error('Error fetching PDF:', err);
-          setError('Failed to load document. Please try again.');
-          setViewingDoc(null);
-          setEditorMode(false);
-        }
-      } else {
-        // For direct URLs (R2/CDN), we can use them directly
-        setViewingDocBlobUrl(null);
+      return;
+    }
+
+    // HTML → view-only iframe; everything else → PDF editor
+    const useEditor = !isHtml;
+    setViewingDoc(doc);
+    setEditorMode(useEditor);
+
+    const docUrl = getDocUrl(doc);
+    if (docUrl.includes('/api/')) {
+      try {
+        const blobUrl = await fetchAuthenticatedDoc(docUrl);
+        setViewingDocBlobUrl(blobUrl);
         setPdfViewerOpen(true);
+      } catch (err) {
+        console.error('Error fetching document:', err);
+        setError(`Failed to load document: ${err.message}`);
+        setViewingDoc(null);
+        setEditorMode(false);
       }
+    } else {
+      setViewingDocBlobUrl(null);
+      setPdfViewerOpen(true);
     }
   };
 
@@ -1657,7 +1627,7 @@ const JobFileSystem = () => {
                         minHeight: '600px'
                       }}
                       title={viewingDoc.name}
-                      sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                      sandbox="allow-scripts allow-popups allow-forms"
                     />
                   )}
                 </Box>

@@ -1641,7 +1641,7 @@ const ForemanCloseOut = () => {
                 src={getDocumentUrl(selectedDocument)}
                 style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', minHeight: '600px' }}
                 title={selectedDocument.name}
-                sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                sandbox="allow-scripts allow-popups allow-forms"
               />
             </Box>
           ) : (
