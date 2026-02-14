@@ -1000,11 +1000,43 @@ const JobFileSystem = () => {
   const handleDocDoubleClick = async (doc) => {
     // Check if it's an image file
     const isImage = doc.name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) || doc.type === 'image' || doc.type === 'photo' || doc.type === 'drawing' || doc.type === 'map';
+    // Check if it's an HTML file (e.g., as-built summaries)
+    const isHtml = doc.name?.match(/\.html?$/i) || doc.type === 'html';
     
     if (isImage) {
       // Open image in modal viewer
       setViewingImage(doc);
       setImageViewerOpen(true);
+    } else if (isHtml) {
+      // Open HTML in view-only iframe (not PDF editor)
+      setViewingDoc(doc);
+      setEditorMode(false);
+      
+      const docUrl = getDocUrl(doc);
+      if (docUrl.includes('/api/')) {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(docUrl, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const blob = await response.blob();
+            const blobUrl = URL.createObjectURL(blob);
+            setViewingDocBlobUrl(blobUrl);
+          } else {
+            console.error('Failed to fetch HTML document:', response.status);
+            setError(`Failed to load document: ${response.statusText || 'Error'}`);
+            setViewingDoc(null);
+            return;
+          }
+        } catch (err) {
+          console.error('Error fetching HTML document:', err);
+          setError('Failed to load document. Please try again.');
+          setViewingDoc(null);
+          return;
+        }
+      }
+      setPdfViewerOpen(true);
     } else {
       // Open PDF editor for PDFs
       setViewingDoc(doc);
