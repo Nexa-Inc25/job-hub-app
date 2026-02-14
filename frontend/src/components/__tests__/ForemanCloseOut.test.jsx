@@ -140,10 +140,10 @@ const mockTailboard = {
   hazardCount: 3,
 };
 
-const mockTimesheet = {
-  _id: 'timesheet-1',
-  entries: [
-    { date: new Date().toISOString(), hours: 8 },
+const mockLme = {
+  _id: 'lme-1',
+  labor: [
+    { name: 'John Doe', craft: 'Lineman', stHours: 8, otHours: 0, dtHours: 0 },
   ],
 };
 
@@ -170,11 +170,11 @@ describe('ForemanCloseOut Component', () => {
       if (url.includes('/api/billing/units')) {
         return Promise.resolve({ data: mockUnits });
       }
-      if (url.includes('/api/tailboards/job/')) {
+      if (url.includes('/api/tailboard/job/')) {
         return Promise.resolve({ data: mockTailboard });
       }
-      if (url.includes('/api/timesheets')) {
-        return Promise.resolve({ data: mockTimesheet });
+      if (url.includes('/api/lme')) {
+        return Promise.resolve({ data: [mockLme] });
       }
       return Promise.resolve({ data: {} });
     });
@@ -685,11 +685,11 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: null });
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: mockTimesheet });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -756,7 +756,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Time'));
       
       await waitFor(() => {
-        expect(screen.getByText('8 hrs logged today')).toBeInTheDocument();
+        expect(screen.getByText('8 hrs logged')).toBeInTheDocument();
       });
     });
 
@@ -768,11 +768,11 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: mockTailboard });
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: { entries: [] } });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -842,10 +842,10 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: [] }); // No units
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: null }); // No tailboard
         }
-        if (url.includes('/api/timesheets')) {
+        if (url.includes('/api/lme')) {
           return Promise.resolve({ data: null });
         }
         return Promise.resolve({ data: {} });
@@ -1010,11 +1010,11 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.reject(new Error('Units error'));
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: mockTailboard });
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: mockTimesheet });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -1042,11 +1042,11 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.reject(new Error('Tailboard error'));
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: mockTimesheet });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -1074,10 +1074,10 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: mockTailboard });
         }
-        if (url.includes('/api/timesheets')) {
+        if (url.includes('/api/lme')) {
           return Promise.reject(new Error('Timesheet error'));
         }
         return Promise.resolve({ data: {} });
@@ -1192,12 +1192,12 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: mockTailboard });
         }
-        if (url.includes('/api/timesheets')) {
+        if (url.includes('/api/lme')) {
           // API returns array
-          return Promise.resolve({ data: [mockTimesheet] });
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -1212,7 +1212,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Time'));
       
       await waitFor(() => {
-        expect(screen.getByText('8 hrs logged today')).toBeInTheDocument();
+        expect(screen.getByText('8 hrs logged')).toBeInTheDocument();
       });
     });
 
@@ -1224,7 +1224,7 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({
             data: {
               ...mockTailboard,
@@ -1232,8 +1232,8 @@ describe('ForemanCloseOut Component', () => {
             },
           });
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: mockTimesheet });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -1260,7 +1260,7 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({
             data: {
               ...mockTailboard,
@@ -1268,8 +1268,8 @@ describe('ForemanCloseOut Component', () => {
             },
           });
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: mockTimesheet });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -1425,11 +1425,11 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: mockTailboard });
         }
-        if (url.includes('/api/timesheets')) {
-          return Promise.resolve({ data: mockTimesheet });
+        if (url.includes('/api/lme')) {
+          return Promise.resolve({ data: [mockLme] });
         }
         return Promise.resolve({ data: {} });
       });
@@ -1449,10 +1449,10 @@ describe('ForemanCloseOut Component', () => {
         if (url.includes('/api/billing/units')) {
           return Promise.resolve({ data: mockUnits });
         }
-        if (url.includes('/api/tailboards/job/')) {
+        if (url.includes('/api/tailboard/job/')) {
           return Promise.resolve({ data: mockTailboard });
         }
-        if (url.includes('/api/timesheets')) {
+        if (url.includes('/api/lme')) {
           return Promise.resolve({ data: [] }); // Empty array
         }
         return Promise.resolve({ data: {} });
