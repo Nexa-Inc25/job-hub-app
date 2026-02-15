@@ -13,9 +13,11 @@ const LME = require('../models/LME');
 const FormTemplate = require('../models/FormTemplate');
 
 /**
- * Clean up all expired demo sessions
- * Deletes: Companies, Users, Jobs, LMEs, FormTemplates
- * @returns {Promise<Object>} Cleanup statistics
+ * Clean up all expired demo sessions.
+ * Deletes: Companies, Users, Jobs, LMEs, FormTemplates.
+ *
+ * @returns {Promise<{companiesDeleted: number, usersDeleted: number, jobsDeleted: number, lmesDeleted: number, templatesDeleted: number, errors: Array}>} Cleanup statistics
+ * @throws {Error} Logs fatal errors but does not throw — errors are captured in `stats.errors`
  */
 async function cleanupExpiredDemoSessions() {
   const now = new Date();
@@ -83,8 +85,9 @@ async function cleanupExpiredDemoSessions() {
 }
 
 /**
- * Get statistics about active demo sessions
- * @returns {Object} Demo session statistics
+ * Get statistics about active demo sessions.
+ *
+ * @returns {Promise<{activeSessions: number, expiredSessions: number, totalDemoJobs: number, totalDemoUsers: number, oldestActiveSession: Object|null}>} Demo session statistics
  */
 async function getDemoStats() {
   const now = new Date();
@@ -115,9 +118,10 @@ async function getDemoStats() {
 }
 
 /**
- * Force cleanup a specific demo session (for admin use)
+ * Force cleanup a specific demo session (for admin use).
+ *
  * @param {string} sessionId - The demo session ID to clean up
- * @returns {Object} Cleanup result
+ * @returns {Promise<{jobsDeleted: number, lmesDeleted: number, templatesDeleted: number, usersDeleted: number, companyDeleted: boolean, error?: string}>} Cleanup result
  */
 async function forceCleanupSession(sessionId) {
   console.log(`[Demo Cleanup] Force cleaning session: ${sessionId}`);
@@ -157,8 +161,10 @@ async function forceCleanupSession(sessionId) {
 }
 
 /**
- * Schedule periodic cleanup (call once on server start)
- * Runs cleanup every hour
+ * Schedule periodic cleanup (call once on server start).
+ * Runs cleanup every hour after an initial 10-second delay.
+ *
+ * @returns {void}
  */
 function scheduleCleanup() {
   const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour

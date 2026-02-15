@@ -18,7 +18,10 @@
 // ============================================================================
 
 /**
- * Step 1: Create default PG&E utility if it doesn't exist
+ * Step 1: Create default PG&E utility if it doesn't exist.
+ *
+ * @param {import('mongoose').Model} Utility - Utility model
+ * @returns {Promise<Object>} The PG&E utility document
  */
 async function ensurePgeUtility(Utility) {
   let pgeUtility = await Utility.findOne({ slug: 'pge' });
@@ -53,7 +56,12 @@ async function ensurePgeUtility(Utility) {
 }
 
 /**
- * Step 2: Create default company for existing users if needed
+ * Step 2: Create default company for existing users if needed.
+ *
+ * @param {import('mongoose').Model} Company - Company model
+ * @param {import('mongoose').Model} User - User model
+ * @param {Object} pgeUtility - The PG&E utility document
+ * @returns {Promise<Object|null>} The default company document or null
  */
 async function ensureDefaultCompany(Company, User, pgeUtility) {
   let defaultCompany = await Company.findOne({ slug: 'default-company' });
@@ -89,7 +97,11 @@ async function ensureDefaultCompany(Company, User, pgeUtility) {
 }
 
 /**
- * Step 3: Link existing users to default company
+ * Step 3: Link existing users to default company.
+ *
+ * @param {import('mongoose').Model} User - User model
+ * @param {Object|null} defaultCompany - The default company document
+ * @returns {Promise<void>}
  */
 async function linkUsersToCompany(User, defaultCompany) {
   if (!defaultCompany) return;
@@ -105,7 +117,12 @@ async function linkUsersToCompany(User, defaultCompany) {
 }
 
 /**
- * Step 4: Link existing jobs to default company and PG&E utility
+ * Step 4: Link existing jobs to default company and PG&E utility.
+ *
+ * @param {import('mongoose').Model} Job - Job model
+ * @param {Object|null} defaultCompany - The default company document
+ * @param {Object} pgeUtility - The PG&E utility document
+ * @returns {Promise<void>}
  */
 async function linkJobsToCompanyAndUtility(Job, defaultCompany, pgeUtility) {
   if (!defaultCompany || !pgeUtility) return;
@@ -130,7 +147,10 @@ async function linkJobsToCompanyAndUtility(Job, defaultCompany, pgeUtility) {
 }
 
 /**
- * Count jobs that have LME documents needing URL fix
+ * Count jobs that have LME documents needing URL fix.
+ *
+ * @param {Object[]} jobs - Array of job documents
+ * @returns {number} Count of jobs needing fix
  */
 function countJobsNeedingLmeFix(jobs) {
   let count = 0;
@@ -143,7 +163,10 @@ function countJobsNeedingLmeFix(jobs) {
 }
 
 /**
- * Check if a job has any LME documents needing URL fix
+ * Check if a job has any LME documents needing URL fix.
+ *
+ * @param {Object} job - Job document with folders
+ * @returns {boolean} True if the job has LME docs needing fix
  */
 function jobHasLmeDocNeedingFix(job) {
   for (const folder of job.folders || []) {
@@ -181,7 +204,9 @@ function fixLmeDocsInJob(job) {
 }
 
 /**
- * Fix LME documents in a document list
+ * Fix LME documents in a document list.
+ *
+ * @param {Object[]} documents - Array of document objects
  * @returns {number} Number of documents fixed
  */
 function fixLmeDocsInDocList(documents) {
@@ -279,7 +304,10 @@ async function migrateLmeUrls(Job) {
 // ============================================================================
 
 /**
- * Run all migration steps
+ * Run all migration steps.
+ * Idempotent — safe to run multiple times on server startup.
+ *
+ * @returns {Promise<{success: boolean, error?: string}>} Migration result
  */
 async function runMigration() {
   console.log('=== Running database migration ===');

@@ -60,7 +60,10 @@ const logger = pino({
 
 /**
  * Format a single argument for message concatenation.
- * Errors keep their stack, objects become JSON, everything else → String.
+ * Errors keep their stack, objects become JSON, everything else -> String.
+ *
+ * @param {*} arg - Value to format
+ * @returns {string} Formatted string
  */
 function formatArg(arg) {
   if (arg instanceof Error) return arg.stack || arg.message;
@@ -76,7 +79,9 @@ function formatArg(arg) {
  * third-party libs) is captured as structured JSON in production.
  *
  * After calling this, `console.log('msg', value)` produces:
- *   {"level":30,"time":1707600000000,"msg":"msg value"}
+ *   `{"level":30,"time":1707600000000,"msg":"msg value"}`
+ *
+ * @returns {void}
  */
 function redirectConsole() {
   const original = {
