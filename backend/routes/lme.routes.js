@@ -19,6 +19,7 @@ const fs = require('node:fs').promises;
 const LME = require('../models/LME');
 const Job = require('../models/Job');
 const User = require('../models/User');
+const FieldTicket = require('../models/FieldTicket');
 const { PDFDocument, StandardFonts } = require('pdf-lib');
 const { sanitizeObjectId, sanitizeString, sanitizeDate } = require('../utils/sanitize');
 const r2Storage = require('../utils/storage');
@@ -842,7 +843,40 @@ router.post('/', authenticateUser, async (req, res) => {
       console.warn('Failed to save LME to Close Out folder:', error_.message);
     }
 
-    res.json(lme);
+    // CASCADE: If inspector signed the LME, auto-sign matching field tickets
+    let signedTicketCount = 0;
+    if (lme.pgeRepSignature && lme.pgeRepName) {
+      try {
+        const lmeDate = new Date(lme.date);
+        const dayStart = new Date(lmeDate.getFullYear(), lmeDate.getMonth(), lmeDate.getDate(), 0, 0, 0);
+        const dayEnd = new Date(lmeDate.getFullYear(), lmeDate.getMonth(), lmeDate.getDate(), 23, 59, 59, 999);
+
+        const pendingTickets = await FieldTicket.find({
+          jobId: lme.jobId,
+          workDate: { $gte: dayStart, $lte: dayEnd },
+          status: 'pending_signature',
+          isDeleted: { $ne: true },
+        });
+
+        for (const ticket of pendingTickets) {
+          ticket.inspectorSignature = {
+            signatureData: lme.pgeRepSignature,
+            signerName: lme.pgeRepName,
+            signedAt: lme.pgeRepSignedAt || new Date(),
+          };
+          ticket.status = 'signed';
+          await ticket.save();
+        }
+        signedTicketCount = pendingTickets.length;
+        if (signedTicketCount > 0) {
+          console.log(`[LME:Cascade] Inspector signature on LME ${lme.lmeNumber} auto-signed ${signedTicketCount} field ticket(s) for job ${safeJobId}`);
+        }
+      } catch (cascadeErr) {
+        console.error('[LME:Cascade] Failed to cascade signature to field tickets:', cascadeErr.message);
+      }
+    }
+
+    res.json({ ...lme.toObject(), signedTicketCount });
   } catch (err) {
     console.error('Save LME error:', err);
     // Handle duplicate key error with user-friendly message
