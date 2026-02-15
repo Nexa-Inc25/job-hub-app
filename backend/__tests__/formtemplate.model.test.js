@@ -185,5 +185,177 @@ describe('FormTemplate Model', () => {
       expect(tpl.dataMappings.get('job_address')).toBe('job.address');
     });
   });
+
+  describe('Field Validation Rules', () => {
+    it('should store validation rules on fields', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = {
+        required: true,
+        requiredMessage: 'Contractor name is required',
+        minLength: 2,
+        maxLength: 100,
+      };
+      const tpl = await FormTemplate.create(data);
+      expect(tpl.fields[0].validation.required).toBe(true);
+      expect(tpl.fields[0].validation.minLength).toBe(2);
+      expect(tpl.fields[0].validation.maxLength).toBe(100);
+    });
+
+    it('should default validation to empty object', async () => {
+      const tpl = await FormTemplate.create(validTemplateData());
+      expect(tpl.fields[0].validation).toBeDefined();
+      expect(tpl.fields[0].validation.required).toBe(false);
+    });
+
+    it('should store format preset', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { formatPreset: 'phone' };
+      const tpl = await FormTemplate.create(data);
+      expect(tpl.fields[0].validation.formatPreset).toBe('phone');
+    });
+
+    it('should reject invalid format preset', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { formatPreset: 'invalid_preset' };
+      await expect(FormTemplate.create(data)).rejects.toThrow();
+    });
+
+    it('should store cross-field rules', async () => {
+      const data = validTemplateData();
+      data.fields.push({
+        id: 'field_2', name: 'end_date', page: 1, type: 'date',
+        bounds: { x: 100, y: 600, width: 200, height: 20 },
+        validation: {
+          crossFieldRules: [{
+            field: 'contractor_name',
+            operator: 'neq',
+            message: 'End date must differ from contractor name',
+          }],
+        },
+      });
+      const tpl = await FormTemplate.create(data);
+      expect(tpl.fields[1].validation.crossFieldRules).toHaveLength(1);
+      expect(tpl.fields[1].validation.crossFieldRules[0].operator).toBe('neq');
+    });
+
+    it('should reject invalid cross-field operator', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = {
+        crossFieldRules: [{ field: 'other', operator: 'invalid_op' }],
+      };
+      await expect(FormTemplate.create(data)).rejects.toThrow();
+    });
+  });
+
+  describe('validateFieldValues method', () => {
+    it('should pass valid values', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { required: true, minLength: 2 };
+      const tpl = await FormTemplate.create(data);
+      const result = tpl.validateFieldValues({ contractor_name: 'Alvah Electric' });
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+    });
+
+    it('should fail required empty field', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { required: true };
+      const tpl = await FormTemplate.create(data);
+      const result = tpl.validateFieldValues({ contractor_name: '' });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].field).toBe('contractor_name');
+    });
+
+    it('should fail minLength violation', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { minLength: 5 };
+      const tpl = await FormTemplate.create(data);
+      const result = tpl.validateFieldValues({ contractor_name: 'AB' });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toContain('Minimum length');
+    });
+
+    it('should fail maxLength violation', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { maxLength: 5 };
+      const tpl = await FormTemplate.create(data);
+      const result = tpl.validateFieldValues({ contractor_name: 'Very Long Name' });
+      expect(result.valid).toBe(false);
+      expect(result.errors[0].message).toContain('Maximum length');
+    });
+
+    it('should validate phone format preset', async () => {
+      const data = validTemplateData();
+      data.fields[0].type = 'text';
+      data.fields[0].validation = { formatPreset: 'phone' };
+      const tpl = await FormTemplate.create(data);
+
+      const valid = tpl.validateFieldValues({ contractor_name: '(555) 123-4567' });
+      expect(valid.valid).toBe(true);
+
+      const invalid = tpl.validateFieldValues({ contractor_name: 'not a phone' });
+      expect(invalid.valid).toBe(false);
+    });
+
+    it('should validate email format preset', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { formatPreset: 'email' };
+      const tpl = await FormTemplate.create(data);
+
+      expect(tpl.validateFieldValues({ contractor_name: 'test@example.com' }).valid).toBe(true);
+      expect(tpl.validateFieldValues({ contractor_name: 'not-email' }).valid).toBe(false);
+    });
+
+    it('should validate custom pattern', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { pattern: '^[A-Z]{2}-\\d{4}$', patternMessage: 'Must be XX-0000 format' };
+      const tpl = await FormTemplate.create(data);
+
+      expect(tpl.validateFieldValues({ contractor_name: 'PM-1234' }).valid).toBe(true);
+      expect(tpl.validateFieldValues({ contractor_name: 'invalid' }).valid).toBe(false);
+    });
+
+    it('should validate numeric range', async () => {
+      const data = validTemplateData();
+      data.fields[0].type = 'number';
+      data.fields[0].validation = { min: 0, max: 100 };
+      const tpl = await FormTemplate.create(data);
+
+      expect(tpl.validateFieldValues({ contractor_name: '50' }).valid).toBe(true);
+      expect(tpl.validateFieldValues({ contractor_name: '-5' }).valid).toBe(false);
+      expect(tpl.validateFieldValues({ contractor_name: '150' }).valid).toBe(false);
+    });
+
+    it('should validate cross-field rules (gt)', async () => {
+      const data = validTemplateData();
+      data.fields.push({
+        id: 'field_end', name: 'end_value', page: 1, type: 'number',
+        bounds: { x: 0, y: 0, width: 100, height: 20 },
+        validation: {
+          crossFieldRules: [{
+            field: 'contractor_name',
+            operator: 'gt',
+            message: 'End must be greater than start',
+          }],
+        },
+      });
+      const tpl = await FormTemplate.create(data);
+
+      const valid = tpl.validateFieldValues({ contractor_name: '10', end_value: '20' });
+      expect(valid.valid).toBe(true);
+
+      const invalid = tpl.validateFieldValues({ contractor_name: '20', end_value: '10' });
+      expect(invalid.valid).toBe(false);
+      expect(invalid.errors[0].message).toBe('End must be greater than start');
+    });
+
+    it('should skip validation for empty non-required fields', async () => {
+      const data = validTemplateData();
+      data.fields[0].validation = { minLength: 5, formatPreset: 'email' };
+      const tpl = await FormTemplate.create(data);
+      const result = tpl.validateFieldValues({ contractor_name: '' });
+      expect(result.valid).toBe(true);
+    });
+  });
 });
 

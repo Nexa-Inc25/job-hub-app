@@ -37,6 +37,187 @@ const Job = require('../models/Job');
 const AITrainingData = require('../models/AITrainingData');
 const User = require('../models/User');
 
+// ——— Fuzzy Field Name Matching ———
+
+/**
+ * Normalise a field name for fuzzy comparison.
+ * Strips punctuation, collapses whitespace, lowercases.
+ * "PM#", "PM Number", "PM_Number" → "pm number"
+ */
+function normalizeFieldName(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/[#_\-./\\]+/g, ' ')   // replace common separators with space
+    .replace(/[^a-z0-9\s]/g, '')    // strip remaining non-alphanumeric
+    .replace(/\s+/g, ' ')           // collapse whitespace
+    .trim();
+}
+
+/**
+ * Build a set of common aliases for job-data field names.
+ * Keys are normalised, values are the canonical job field path.
+ */
+const FIELD_ALIASES = {
+  'pm number': 'pmNumber',
+  'pm no': 'pmNumber',
+  'pm': 'pmNumber',
+  'project number': 'pmNumber',
+  'project no': 'pmNumber',
+  'wo number': 'woNumber',
+  'wo no': 'woNumber',
+  'wo': 'woNumber',
+  'work order': 'woNumber',
+  'work order number': 'woNumber',
+  'notification number': 'notificationNumber',
+  'notif no': 'notificationNumber',
+  'notification no': 'notificationNumber',
+  'address': 'address',
+  'job address': 'address',
+  'location': 'address',
+  'job location': 'address',
+  'city': 'city',
+  'order type': 'orderType',
+  'mat code': 'matCode',
+  'material code': 'matCode',
+  'date': '__context_today',
+  'today': '__context_today',
+  'foreman': 'user.name',
+  'foreman name': 'user.name',
+  'gf name': 'user.name',
+  'general foreman': 'user.name',
+  'employee id': 'user.employeeId',
+  'foreman id': 'user.employeeId',
+  'po number': 'poNumber',
+  'po no': 'poNumber',
+  'po': 'poNumber',
+  'cor number': 'corNumber',
+  'cor no': 'corNumber',
+  'division': 'division',
+};
+
+/**
+ * Compute similarity between two normalised strings using Dice coefficient.
+ * Returns 0–1 where 1 is identical.
+ */
+function diceSimilarity(a, b) {
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const bigramsA = new Set();
+  for (let i = 0; i < a.length - 1; i++) bigramsA.add(a.substring(i, i + 2));
+  let overlap = 0;
+  for (let i = 0; i < b.length - 1; i++) {
+    if (bigramsA.has(b.substring(i, i + 2))) overlap++;
+  }
+  return (2 * overlap) / (a.length - 1 + b.length - 1);
+}
+
+/**
+ * Given an arbitrary field name (e.g. from a PDF form), find the best
+ * matching canonical field path and a confidence score.
+ *
+ * @param {string} fieldName - raw field name from a PDF form
+ * @returns {{ path: string|null, confidence: number }}
+ */
+function fuzzyMatchFieldName(fieldName) {
+  const norm = normalizeFieldName(fieldName);
+  if (!norm) return { path: null, confidence: 0 };
+
+  // 1) Exact alias match
+  if (FIELD_ALIASES[norm]) {
+    return { path: FIELD_ALIASES[norm], confidence: 1 };
+  }
+
+  // 2) Prefix / contains match on alias keys
+  let bestPath = null;
+  let bestScore = 0;
+
+  for (const [alias, path] of Object.entries(FIELD_ALIASES)) {
+    // Check if one contains the other
+    if (norm.includes(alias) || alias.includes(norm)) {
+      const score = Math.min(norm.length, alias.length) / Math.max(norm.length, alias.length);
+      if (score > bestScore) { bestScore = score; bestPath = path; }
+    }
+
+    // Dice similarity
+    const dice = diceSimilarity(norm, alias);
+    if (dice > bestScore) { bestScore = dice; bestPath = path; }
+  }
+
+  // Only return if we're fairly confident (>0.6)
+  if (bestScore >= 0.6) {
+    return { path: bestPath, confidence: Math.round(bestScore * 100) / 100 };
+  }
+
+  return { path: null, confidence: 0 };
+}
+
+// ——— Field Type Detection ———
+
+/**
+ * Detect the likely field type from a field name and optionally a value.
+ * Returns one of: 'date', 'number', 'phone', 'email', 'text'
+ */
+function detectFieldType(fieldName, value) {
+  const norm = normalizeFieldName(fieldName);
+
+  // Date patterns
+  if (/\b(date|day|month|year)\b/.test(norm)) return 'date';
+  if (value && /^\d{4}-\d{2}-\d{2}/.test(String(value))) return 'date';
+  if (value && /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(String(value))) return 'date';
+
+  // Phone patterns
+  if (/\b(phone|tel|fax|mobile|cell)\b/.test(norm)) return 'phone';
+
+  // Email patterns
+  if (/\b(email|e mail)\b/.test(norm)) return 'email';
+
+  // Number patterns
+  if (/\b(number|no|qty|quantity|amount|total|cost|rate|hours|hrs|count|size|footage)\b/.test(norm)) return 'number';
+  if (value !== null && value !== undefined && !isNaN(Number(value)) && String(value).trim() !== '') return 'number';
+
+  return 'text';
+}
+
+/**
+ * Format a value based on detected field type.
+ */
+function formatFieldValue(value, fieldType, options = {}) {
+  if (value === null || value === undefined) return null;
+
+  switch (fieldType) {
+    case 'date': {
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return String(value);
+      const fmt = options.dateFormat || 'MM/DD/YYYY';
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const year = date.getFullYear();
+      return fmt
+        .replace('MM', month)
+        .replace('DD', day)
+        .replace('YYYY', String(year))
+        .replace('YY', String(year).slice(-2));
+    }
+    case 'number': {
+      const num = Number(value);
+      if (isNaN(num)) return String(value);
+      // If it looks like currency, format with 2 decimals
+      if (options.isCurrency) return num.toFixed(2);
+      // If it's a whole number, don't add decimals
+      if (Number.isInteger(num)) return String(num);
+      return String(Math.round(num * 100) / 100);
+    }
+    case 'phone': {
+      const digits = String(value).replace(/\D/g, '');
+      if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+      return String(value);
+    }
+    default:
+      return String(value);
+  }
+}
+
 /**
  * Field definitions for common utility documents
  * These map to actual form fields and their data sources
@@ -354,9 +535,96 @@ function getDocumentTypes() {
   }));
 }
 
+/**
+ * Auto-fill arbitrary PDF form fields using fuzzy matching.
+ *
+ * Given a list of PDF field names and a job context, returns the best
+ * value and confidence for each field.
+ *
+ * @param {string[]} pdfFieldNames - field names from the PDF form
+ * @param {string} jobId - Job to pull data from
+ * @param {string} userId - Current user
+ * @returns {Object} Map of fieldName → { value, confidence, fieldType, formattedValue, matchedPath }
+ */
+async function fuzzyAutoFill(pdfFieldNames, jobId, userId) {
+  const job = await Job.findById(jobId)
+    .populate('assignedTo', 'name email employeeId')
+    .populate('assignedToGF', 'name email employeeId')
+    .lean();
+
+  if (!job) {
+    return { error: 'Job not found', fields: {} };
+  }
+
+  const user = userId ? await User.findById(userId).lean() : null;
+
+  // Build flat lookup from job + user
+  const dataContext = {
+    pmNumber: job.pmNumber,
+    woNumber: job.woNumber,
+    notificationNumber: job.notificationNumber,
+    address: job.address,
+    city: job.city,
+    orderType: job.orderType,
+    matCode: job.matCode,
+    poNumber: job.poNumber,
+    corNumber: job.corNumber,
+    division: job.division,
+    'user.name': user?.name,
+    'user.employeeId': user?.employeeId,
+    __context_today: new Date().toISOString().split('T')[0],
+  };
+
+  const result = { fields: {}, autoFillCount: 0, totalFields: pdfFieldNames.length };
+
+  for (const fieldName of pdfFieldNames) {
+    const match = fuzzyMatchFieldName(fieldName);
+
+    if (match.path && match.confidence > 0) {
+      const rawValue = dataContext[match.path] ?? null;
+      const fieldType = detectFieldType(fieldName, rawValue);
+      const formattedValue = rawValue !== null ? formatFieldValue(rawValue, fieldType) : null;
+
+      result.fields[fieldName] = {
+        value: rawValue,
+        formattedValue,
+        fieldType,
+        confidence: match.confidence,
+        matchedPath: match.path,
+        isAutoFilled: rawValue !== null,
+      };
+
+      if (rawValue !== null) result.autoFillCount++;
+    } else {
+      result.fields[fieldName] = {
+        value: null,
+        formattedValue: null,
+        fieldType: detectFieldType(fieldName),
+        confidence: 0,
+        matchedPath: null,
+        isAutoFilled: false,
+      };
+    }
+  }
+
+  result.autoFillPercentage = result.totalFields > 0
+    ? Math.round((result.autoFillCount / result.totalFields) * 100)
+    : 0;
+
+  return result;
+}
+
 module.exports = {
   generateAutoFill,
+  fuzzyAutoFill,
   getPatternData,
   getDocumentTypes,
   DOCUMENT_TEMPLATES,
+  // Exported for testing
+  normalizeFieldName,
+  fuzzyMatchFieldName,
+  detectFieldType,
+  formatFieldValue,
+  diceSimilarity,
+  FIELD_ALIASES,
 };

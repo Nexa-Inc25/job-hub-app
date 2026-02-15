@@ -1,160 +1,49 @@
 /**
- * TemplateEditor - Field drawing and data mapping interface for SmartForms
+ * TemplateEditor - Orchestrator for SmartForms PDF template editor
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ *
+ * Sub-components: FieldMapper, FieldMappingList, TemplatePreview
  */
-
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
-
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
-
 import {
-  Box,
-  Typography,
-  Button,
-  Paper,
-  IconButton,
-  TextField,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  CircularProgress,
-  Alert,
-  Tooltip,
-  Chip,
-  Divider,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  Drawer,
-  Autocomplete,
-  Snackbar,
+  Box, Typography, Button, Paper, IconButton, CircularProgress, Alert,
+  Chip, Divider, List, ListItem, ListItemText, ListItemSecondaryAction,
+  Tooltip, Snackbar,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import SaveIcon from '@mui/icons-material/Save';
 import AddBoxIcon from '@mui/icons-material/AddBox';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ZoomInIcon from '@mui/icons-material/ZoomIn';
-import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import EditIcon from '@mui/icons-material/Edit';
 import LinkIcon from '@mui/icons-material/Link';
-import TextFieldsIcon from '@mui/icons-material/TextFields';
-import DateRangeIcon from '@mui/icons-material/DateRange';
-import CheckBoxIcon from '@mui/icons-material/CheckBox';
+import ZoomInIcon from '@mui/icons-material/ZoomIn';
+import ZoomOutIcon from '@mui/icons-material/ZoomOut';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import { useThemeMode } from '../../ThemeContext';
+import { renderFieldOverlays, FieldEditDialog } from './FieldMapper';
+import FieldMappingList from './FieldMappingList';
+import TemplatePreview from './TemplatePreview';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const FIELD_TYPES = [
-  { value: 'text', label: 'Text', icon: TextFieldsIcon },
-  { value: 'date', label: 'Date', icon: DateRangeIcon },
-  { value: 'checkbox', label: 'Checkbox', icon: CheckBoxIcon },
-  { value: 'number', label: 'Number', icon: TextFieldsIcon },
-];
-
-/**
- * Convert data mappings from server format to object
- */
-function convertMappingsToObject(dataMappings) {
-  if (!dataMappings) return {};
-  const mappingsObj = {};
-  for (const [key, value] of Object.entries(dataMappings)) {
-    mappingsObj[key] = value;
-  }
-  return mappingsObj;
+// ——— API helpers ———
+async function fetchWithAuth(url, options = {}) {
+  const token = localStorage.getItem('token');
+  return fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers } });
 }
+async function loadTemplateData(id) { const r = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${id}`); if (!r.ok) throw new Error('Failed to load template'); return r.json(); }
+async function loadPdfBlob(id) { const r = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${id}/pdf`); if (!r.ok) throw new Error('Failed to fetch PDF'); return URL.createObjectURL(await r.blob()); }
+async function loadDataPaths() { const r = await fetchWithAuth(`${API_BASE}/api/smartforms/data-paths`); return r.ok ? r.json() : []; }
+async function saveTemplateFields(id, fields) { const r = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${id}/fields`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fields }) }); if (!r.ok) throw new Error('Failed to save fields'); return r.json(); }
+async function saveTemplateMappings(id, mappings) { const r = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${id}/mappings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mappings }) }); if (!r.ok) throw new Error('Failed to save mappings'); return r.json(); }
+async function activateTemplate(id) { const r = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${id}/activate`, { method: 'POST' }); if (!r.ok) throw new Error('Failed to activate template'); return r.json(); }
 
-/**
- * Generate unique field ID
- */
-function generateFieldId() {
-  // NOSONAR: Math.random() for UI element IDs is safe - not security-sensitive
-  return `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`; // NOSONAR
-}
+function convertMappingsToObject(dm) { if (!dm) return {}; const o = {}; for (const [k, v] of Object.entries(dm)) o[k] = v; return o; }
+function generateFieldId() { return `field_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`; } // NOSONAR
+function calculateDrawRect(sx, sy, cx, cy) { return { left: Math.min(sx, cx), top: Math.min(sy, cy), width: Math.abs(cx - sx), height: Math.abs(cy - sy) }; }
 
-/**
- * Calculate draw rectangle from start and current position
- */
-function calculateDrawRect(startX, startY, currentX, currentY) {
-  return {
-    left: Math.min(startX, currentX),
-    top: Math.min(startY, currentY),
-    width: Math.abs(currentX - startX),
-    height: Math.abs(currentY - startY),
-  };
-}
-
-/**
- * Create a new field from draw rectangle
- */
-function createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, fieldsCount) {
-  const scaleX = pageDim.width / pageRect.width;
-  const scaleY = pageDim.height / pageRect.height;
-
-  const pdfX = drawRect.left * scaleX;
-  const pdfWidth = drawRect.width * scaleX;
-  const pdfHeight = drawRect.height * scaleY;
-  const pdfY = pageDim.height - (drawRect.top + drawRect.height) * scaleY;
-
-  // Debug logging for field creation (dev only)
-  if (import.meta.env.DEV) {
-  console.warn('[TemplateEditor] Creating field:', {
-    drawRect,
-    pageDim,
-    pageRect: { width: pageRect.width, height: pageRect.height, left: pageRect.left, top: pageRect.top },
-    scaleX,
-    scaleY,
-    calculatedBounds: { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight }
-  });
-  }
-
-  return {
-    id: generateFieldId(),
-    name: `field_${fieldsCount + 1}`,
-    label: `Field ${fieldsCount + 1}`,
-    page: currentPage,
-    type: 'text',
-    bounds: { x: pdfX, y: pdfY, width: pdfWidth, height: pdfHeight },
-    fontSize: 10,
-    fontColor: '#000000',
-    required: false,
-  };
-}
-
-/**
- * Custom hook for container width tracking
- * Reduces cognitive complexity in main component
- */
-function useContainerWidth(containerRef) {
-  const [containerWidth, setContainerWidth] = useState(null);
-
-  useEffect(() => {
-    const updateWidth = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.clientWidth);
-}
-    };
-
-    updateWidth();
-    globalThis.addEventListener('resize', updateWidth);
-    return () => globalThis.removeEventListener('resize', updateWidth);
-  }, [containerRef]);
-
-  return containerWidth;
-}
-
-/**
- * Custom hook for template data loading
- * Reduces cognitive complexity in main component
- */
+// ——— Custom hooks ———
 function useTemplateData(templateId) {
   const [template, setTemplate] = useState(null);
   const [fields, setFields] = useState([]);
@@ -163,519 +52,54 @@ function useTemplateData(templateId) {
   const [error, setError] = useState('');
   const [pdfBlobUrl, setPdfBlobUrl] = useState(null);
   const [dataPaths, setDataPaths] = useState([]);
-
-  // Load template
-  useEffect(() => {
-        setLoading(true);
-    loadTemplateData(templateId)
-      .then(data => {
-        setTemplate(data);
-        setFields(data.fields || []);
-        setMappings(convertMappingsToObject(data.dataMappings));
-        setError('');
-      })
-      .catch(err => {
-        console.error('Error loading template:', err);
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
-  }, [templateId]);
-
-  // Fetch PDF as blob
-  useEffect(() => {
-      if (!template) return;
-      
-    let blobUrl = null;
-    loadPdfBlob(templateId)
-      .then(url => {
-        blobUrl = url;
-        setPdfBlobUrl(url);
-      })
-      .catch(err => {
-        console.error('[TemplateEditor] Error fetching PDF blob:', err);
-        setError('Failed to load PDF: ' + err.message);
-      });
-    
-    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl); };
-  }, [template, templateId]);
-
-  // Load data paths
-  useEffect(() => {
-    loadDataPaths()
-      .then(data => setDataPaths(data))
-      .catch(err => console.error('Error loading data paths:', err));
-  }, []);
-
-    return {
-    template, setTemplate,
-    fields, setFields,
-    mappings, setMappings,
-    loading, error, setError,
-    pdfBlobUrl,
-    dataPaths,
-  };
+  useEffect(() => { setLoading(true); loadTemplateData(templateId).then(d => { setTemplate(d); setFields(d.fields || []); setMappings(convertMappingsToObject(d.dataMappings)); setError(''); }).catch(e => { console.error('Error loading template:', e); setError(e.message); }).finally(() => setLoading(false)); }, [templateId]);
+  useEffect(() => { if (!template) return; let url = null; loadPdfBlob(templateId).then(u => { url = u; setPdfBlobUrl(u); }).catch(e => { console.error('[TemplateEditor] PDF blob error:', e); setError('Failed to load PDF: ' + e.message); }); return () => { if (url) URL.revokeObjectURL(url); }; }, [template, templateId]);
+  useEffect(() => { loadDataPaths().then(d => setDataPaths(d)).catch(e => console.error('Error loading data paths:', e)); }, []);
+  return { template, setTemplate, fields, setFields, mappings, setMappings, loading, error, setError, pdfBlobUrl, dataPaths };
 }
 
-/**
- * Custom hook for field drawing on PDF
- * Reduces cognitive complexity in main component
- */
 function useFieldDrawing(template, currentPage, fieldsLength, onFieldCreated) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState(null);
   const [drawRect, setDrawRect] = useState(null);
   const [drawMode, setDrawMode] = useState(false);
-
-  const handleMouseDown = useCallback((e) => {
-    if (!drawMode) return;
-
-    const pageElement = e.currentTarget;
-    const rect = pageElement.getBoundingClientRect();
-    const startX = e.clientX - rect.left;
-    const startY = e.clientY - rect.top;
-
-    setIsDrawing(true);
-    setDrawStart({ x: startX, y: startY, clientX: e.clientX, clientY: e.clientY });
-    setDrawRect({ left: startX, top: startY, width: 0, height: 0 });
-  }, [drawMode]);
-
-  const handleMouseMove = useCallback((e) => {
-    if (!isDrawing || !drawStart) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const currentX = e.clientX - rect.left;
-    const currentY = e.clientY - rect.top;
-
-    setDrawRect(calculateDrawRect(drawStart.x, drawStart.y, currentX, currentY));
-  }, [isDrawing, drawStart]);
-
+  const handleMouseDown = useCallback((e) => { if (!drawMode) return; const r = e.currentTarget.getBoundingClientRect(); const sx = e.clientX - r.left; const sy = e.clientY - r.top; setIsDrawing(true); setDrawStart({ x: sx, y: sy }); setDrawRect({ left: sx, top: sy, width: 0, height: 0 }); }, [drawMode]);
+  const handleMouseMove = useCallback((e) => { if (!isDrawing || !drawStart) return; const r = e.currentTarget.getBoundingClientRect(); setDrawRect(calculateDrawRect(drawStart.x, drawStart.y, e.clientX - r.left, e.clientY - r.top)); }, [isDrawing, drawStart]);
   const handleMouseUp = useCallback((e) => {
-    if (!isDrawing || !drawRect || !drawStart) {
-      setIsDrawing(false);
-      return;
-    }
-
-    // Minimum size check (10x10 pixels)
-    if (drawRect.width < 10 || drawRect.height < 10) {
-      setIsDrawing(false);
-      setDrawRect(null);
-      setDrawStart(null);
-      return;
-    }
-
-    const pageDim = template?.sourceFile?.pageDimensions?.[currentPage - 1];
-    if (!pageDim) return;
-
-    const pageRect = e.currentTarget.getBoundingClientRect();
-    const newField = createFieldFromDrawRect(drawRect, currentPage, pageDim, pageRect, fieldsLength);
-
-    onFieldCreated(newField);
-    setIsDrawing(false);
-    setDrawRect(null);
-    setDrawStart(null);
-    setDrawMode(false);
+    if (!isDrawing || !drawRect || !drawStart) { setIsDrawing(false); return; }
+    if (drawRect.width < 10 || drawRect.height < 10) { setIsDrawing(false); setDrawRect(null); setDrawStart(null); return; }
+    const pageDim = template?.sourceFile?.pageDimensions?.[currentPage - 1]; if (!pageDim) return;
+    const pr = e.currentTarget.getBoundingClientRect(); const scaleX = pageDim.width / pr.width; const scaleY = pageDim.height / pr.height;
+    const newField = { id: generateFieldId(), name: `field_${fieldsLength + 1}`, label: `Field ${fieldsLength + 1}`, page: currentPage, type: 'text',
+      bounds: { x: drawRect.left * scaleX, y: pageDim.height - (drawRect.top + drawRect.height) * scaleY, width: drawRect.width * scaleX, height: drawRect.height * scaleY }, fontSize: 10, fontColor: '#000000', required: false };
+    onFieldCreated(newField); setIsDrawing(false); setDrawRect(null); setDrawStart(null); setDrawMode(false);
   }, [isDrawing, drawRect, drawStart, currentPage, template, fieldsLength, onFieldCreated]);
-
-  const handleMouseLeave = useCallback(() => {
-    if (isDrawing) {
-      setIsDrawing(false);
-      setDrawRect(null);
-      setDrawStart(null);
-    }
-  }, [isDrawing]);
-
-  return {
-    isDrawing,
-    drawRect,
-    drawMode,
-    setDrawMode,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    handleMouseLeave,
-  };
+  const handleMouseLeave = useCallback(() => { if (isDrawing) { setIsDrawing(false); setDrawRect(null); setDrawStart(null); } }, [isDrawing]);
+  return { isDrawing, drawRect, drawMode, setDrawMode, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave };
 }
 
-/**
- * API helper for template operations
- * Reduces cognitive complexity in main component
- */
-async function fetchWithAuth(url, options = {}) {
-      const token = localStorage.getItem('token');
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    ...options.headers,
-  };
-  return fetch(url, { ...options, headers });
-}
-
-async function loadTemplateData(templateId) {
-  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}`);
-  if (!response.ok) throw new Error('Failed to load template');
-  return response.json();
-}
-
-async function loadPdfBlob(templateId) {
-  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/pdf`);
-  if (!response.ok) throw new Error('Failed to fetch PDF');
-  const blob = await response.blob();
-  return URL.createObjectURL(blob);
-}
-
-async function loadDataPaths() {
-  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/data-paths`);
-  if (response.ok) return response.json();
-  return [];
-}
-
-async function saveTemplateFields(templateId, fields) {
-  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/fields`, {
-        method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fields }),
-      });
-  if (!response.ok) throw new Error('Failed to save fields');
-  return response.json();
-}
-
-async function saveTemplateMappings(templateId, mappings) {
-  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/mappings`, {
-        method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mappings }),
-      });
-  if (!response.ok) throw new Error('Failed to save mappings');
-  return response.json();
-    }
-
-async function activateTemplate(templateId) {
-  const response = await fetchWithAuth(`${API_BASE}/api/smartforms/templates/${templateId}/activate`, {
-    method: 'POST',
-      });
-      if (!response.ok) throw new Error('Failed to activate template');
-  return response.json();
-}
-
-/**
- * Loading state component
- */
-function LoadingState() {
+// ——— FieldsPanel (sidebar) ———
+function FieldsPanel({ fields, mappings, selectedField, setSelectedField, setCurrentPage, numPages, currentPage, onEditField }) {
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-      <CircularProgress />
-    </Box>
-  );
-    }
-
-/**
- * Error state component
- */
-function ErrorState({ error, onBack }) {
-  return (
-    <Box sx={{ p: 3 }}>
-      <Alert severity="error">{error}</Alert>
-      <Button startIcon={<ArrowBackIcon />} onClick={onBack} sx={{ mt: 2 }}>
-        Back to SmartForms
-      </Button>
-    </Box>
-  );
-}
-
-ErrorState.propTypes = {
-  error: PropTypes.string.isRequired,
-  onBack: PropTypes.func.isRequired,
-  };
-
-/**
- * Convert a field to its screen overlay representation
- * Returns null if field is invalid or has no visible dimensions
- */
-function fieldToOverlay(field, pdfToScreenCoords, pageElement) {
-  if (!field?.bounds) {
-    console.warn('[TemplateEditor] Field missing bounds:', field?.id);
-    return null;
-  }
-  
-  // Validate bounds have positive dimensions
-  const { x, y, width, height } = field.bounds;
-  if (width <= 0 || height <= 0) {
-    console.warn('[TemplateEditor] Field has zero/negative dimensions:', field.id, field.bounds);
-    return null;
-  }
-      
-  const screenPos = pdfToScreenCoords(x, y, width, height, pageElement);
-  
-  // Debug: log field positions for troubleshooting (dev only)
-  if (import.meta.env.DEV) {
-  console.warn('[TemplateEditor] Field overlay:', field.name, { 
-    pdfBounds: field.bounds, 
-    screenPos,
-    fieldId: field.id 
-  });
-  }
-      
-  if (screenPos.width <= 0 || screenPos.height <= 0) return null;
-
-  return { field, screenPos };
-}
-
-/**
- * FieldOverlay - Renders a single field overlay on the PDF
- */
-function FieldOverlay({ field, screenPos, isSelected, hasMapping, onSelect, onEdit, onDelete }) {
-    return (
-    <Box
-      sx={{
-        position: 'absolute',
-        left: screenPos.left,
-        top: screenPos.top,
-        width: screenPos.width,
-        height: screenPos.height,
-        border: isSelected ? '3px solid #1976d2' : '2px solid #4caf50',
-        bgcolor: isSelected ? 'rgba(25, 118, 210, 0.2)' : 'rgba(76, 175, 80, 0.15)',
-        cursor: 'pointer',
-        '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.3)' },
-      }}
-      onClick={(e) => { e.stopPropagation(); onSelect(field.id); }}
-    >
-      <Chip
-        size="small"
-        label={field.name}
-        color={hasMapping ? 'success' : 'default'}
-        icon={hasMapping ? <LinkIcon /> : undefined}
-        sx={{ position: 'absolute', top: -12, left: 0, height: 20, fontSize: 10 }}
-      />
-      {isSelected && (
-        <Box sx={{ position: 'absolute', top: -12, right: 0, display: 'flex', gap: 0.5 }}>
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onEdit(field); }}
-            sx={{ bgcolor: 'white', width: 24, height: 24 }}
-          >
-            <EditIcon sx={{ fontSize: 14 }} />
-          </IconButton>
-          <IconButton
-            size="small"
-            onClick={(e) => { e.stopPropagation(); onDelete(field.id); }}
-            sx={{ bgcolor: 'white', width: 24, height: 24 }}
-            color="error"
-          >
-            <DeleteIcon sx={{ fontSize: 14 }} />
-          </IconButton>
-        </Box>
-      )}
-      </Box>
-    );
-  }
-
-FieldOverlay.propTypes = {
-  field: PropTypes.shape({
-    id: PropTypes.string.isRequired,
-    name: PropTypes.string.isRequired,
-  }).isRequired,
-  screenPos: PropTypes.shape({
-    left: PropTypes.number.isRequired,
-    top: PropTypes.number.isRequired,
-    width: PropTypes.number.isRequired,
-    height: PropTypes.number.isRequired,
-  }).isRequired,
-  isSelected: PropTypes.bool.isRequired,
-  hasMapping: PropTypes.bool.isRequired,
-  onSelect: PropTypes.func.isRequired,
-  onEdit: PropTypes.func.isRequired,
-  onDelete: PropTypes.func.isRequired,
-};
-
-/**
- * EditorToolbar - Toolbar component for template editor
- * Extracted to reduce cognitive complexity of main component
- */
-function EditorToolbar({ 
-  template, fields, currentPage, numPages, drawMode, setDrawMode, 
-  setMappingDrawerOpen, zoom, setZoom, saving, onSave, onActivate, onBack 
-}) {
-  const zoomOut = () => setZoom((z) => Math.max(0.5, z - 0.25));
-  const zoomIn = () => setZoom((z) => Math.min(2, z + 0.25));
-  const toggleDrawMode = () => setDrawMode(!drawMode);
-  const openMappings = () => setMappingDrawerOpen(true);
-
-  return (
-      <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
-      <IconButton onClick={onBack} aria-label="Go back">
-          <ArrowBackIcon />
-        </IconButton>
-
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" fontWeight={600}>
-            {template?.name}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}
-          </Typography>
-        </Box>
-
-        <Chip
-          label={template?.status === 'active' ? 'Active' : 'Draft'}
-          color={template?.status === 'active' ? 'success' : 'warning'}
-          size="small"
-        />
-
-        <Divider orientation="vertical" flexItem />
-
-        <Tooltip title="Draw New Field">
-          <Button
-            variant={drawMode ? 'contained' : 'outlined'}
-            startIcon={<AddBoxIcon />}
-          onClick={toggleDrawMode}
-            color={drawMode ? 'secondary' : 'primary'}
-          >
-            {drawMode ? 'Drawing...' : 'Add Field'}
-          </Button>
-        </Tooltip>
-
-        <Tooltip title="Map Data">
-        <Button variant="outlined" startIcon={<LinkIcon />} onClick={openMappings}>
-            Mappings
-          </Button>
-        </Tooltip>
-
-        <Divider orientation="vertical" flexItem />
-
-      <IconButton onClick={zoomOut} aria-label="Zoom out">
-          <ZoomOutIcon />
-        </IconButton>
-        <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>
-          {Math.round(zoom * 100)}%
-        </Typography>
-      <IconButton onClick={zoomIn} aria-label="Zoom in">
-          <ZoomInIcon />
-        </IconButton>
-
-        <Divider orientation="vertical" flexItem />
-
-        <Button
-          variant="outlined"
-          startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
-        onClick={onSave}
-          disabled={saving}
-        >
-          Save
-        </Button>
-
-        {template?.status !== 'active' && (
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={<PlayArrowIcon />}
-          onClick={onActivate}
-            disabled={saving || fields.length === 0}
-          >
-            Activate
-          </Button>
-        )}
-      </Paper>
-  );
-}
-
-EditorToolbar.propTypes = {
-  template: PropTypes.object,
-  fields: PropTypes.array.isRequired,
-  currentPage: PropTypes.number.isRequired,
-  numPages: PropTypes.number,
-  drawMode: PropTypes.bool.isRequired,
-  setDrawMode: PropTypes.func.isRequired,
-  setMappingDrawerOpen: PropTypes.func.isRequired,
-  zoom: PropTypes.number.isRequired,
-  setZoom: PropTypes.func.isRequired,
-  saving: PropTypes.bool.isRequired,
-  onSave: PropTypes.func.isRequired,
-  onActivate: PropTypes.func.isRequired,
-  onBack: PropTypes.func.isRequired,
-};
-
-/**
- * FieldsPanel - Sidebar showing field list and page navigation
- * Extracted to reduce cognitive complexity of main component
- */
-function FieldsPanel({ 
-  fields, mappings, selectedField, setSelectedField, setCurrentPage, 
-  numPages, currentPage, onEditField 
-}) {
-  return (
-    <Paper
-      sx={{
-        width: 300,
-        flexShrink: 0,
-        overflow: 'auto',
-        borderLeft: 1,
-        borderColor: 'divider',
-      }}
-    >
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="subtitle1" fontWeight={600}>
-          Fields ({fields.length})
-        </Typography>
-      </Box>
+    <Paper sx={{ width: 300, flexShrink: 0, overflow: 'auto', borderLeft: 1, borderColor: 'divider' }}>
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}><Typography variant="subtitle1" fontWeight={600}>Fields ({fields.length})</Typography></Box>
       <List dense>
-        {fields.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Click &quot;Add Field&quot; and draw on the PDF to create fields
-            </Typography>
-          </Box>
-        ) : (
-          fields.map((field) => (
-            <ListItem
-              key={field.id}
-              button
-              selected={selectedField === field.id}
-              onClick={() => {
-                setSelectedField(field.id);
-                setCurrentPage(field.page);
-              }}
-              sx={{
-                borderLeft: 3,
-                borderColor: mappings[field.name] ? 'success.main' : 'transparent',
-              }}
-            >
-              <ListItemText
-                primary={field.name}
-                secondary={
-                  <>
-                    {field.type} • Page {field.page}
-                    {mappings[field.name] && (
-                      <Typography component="span" variant="caption" color="success.main" sx={{ display: 'block' }}>
-                        → {mappings[field.name]}
-                      </Typography>
-                    )}
-                  </>
-                }
-              />
-              <ListItemSecondaryAction>
-                <IconButton size="small" onClick={() => onEditField(field)} aria-label="Edit field">
-                  <EditIcon fontSize="small" />
-                </IconButton>
-              </ListItemSecondaryAction>
+        {fields.length === 0 ? (<Box sx={{ p: 3, textAlign: 'center' }}><Typography variant="body2" color="text.secondary">Click &quot;Add Field&quot; and draw on the PDF to create fields</Typography></Box>) : (
+          fields.map(field => (
+            <ListItem key={field.id} button selected={selectedField === field.id}
+              onClick={() => { setSelectedField(field.id); setCurrentPage(field.page); }}
+              sx={{ borderLeft: 3, borderColor: mappings[field.name] ? 'success.main' : 'transparent' }}>
+              <ListItemText primary={field.name} secondary={<>{field.type} • Page {field.page}{mappings[field.name] && <Typography component="span" variant="caption" color="success.main" sx={{ display: 'block' }}>→ {mappings[field.name]}</Typography>}</>} />
+              <ListItemSecondaryAction><IconButton size="small" onClick={() => onEditField(field)} aria-label="Edit field"><EditIcon fontSize="small" /></IconButton></ListItemSecondaryAction>
             </ListItem>
           ))
         )}
       </List>
-
-      {numPages && numPages > 1 && (
+      {numPages > 1 && (
         <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider' }}>
-          <Typography variant="caption" color="text.secondary" gutterBottom>
-            Navigate Pages
-          </Typography>
+          <Typography variant="caption" color="text.secondary" gutterBottom>Navigate Pages</Typography>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-            {Array.from({ length: numPages }, (_, i) => (
-              <Chip
-                key={i + 1}
-                label={i + 1}
-                size="small"
-                color={currentPage === i + 1 ? 'primary' : 'default'}
-                onClick={() => setCurrentPage(i + 1)}
-              />
-            ))}
+            {Array.from({ length: numPages }, (_, i) => <Chip key={i + 1} label={i + 1} size="small" color={currentPage === i + 1 ? 'primary' : 'default'} onClick={() => setCurrentPage(i + 1)} />)}
           </Box>
         </Box>
       )}
@@ -694,505 +118,96 @@ FieldsPanel.propTypes = {
   onEditField: PropTypes.func.isRequired,
 };
 
+// ——— Main Component ———
 export default function TemplateEditor() {
   const { templateId } = useParams();
   const navigate = useNavigate();
   const { darkMode } = useThemeMode();
-  const isDark = darkMode;
-
-  // Template data hook - handles loading, PDF blob, and data paths
-  const {
-    template, setTemplate,
-    fields, setFields,
-    mappings, setMappings,
-    loading, error, setError,
-    pdfBlobUrl,
-    dataPaths,
-  } = useTemplateData(templateId);
-
-  // UI state
+  const { template, setTemplate, fields, setFields, mappings, setMappings, loading, error, setError, pdfBlobUrl, dataPaths } = useTemplateData(templateId);
   const [saving, setSaving] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-
-  // PDF state
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(1);
-  const [_pageRendered, setPageRendered] = useState(0); // Triggers re-render when PDF page finishes rendering
-  const containerRef = useRef(null);
-  const containerWidth = useContainerWidth(containerRef);
-
-  // Selection state
+  const [_pgRender, setPgRender] = useState(0);
   const [selectedField, setSelectedField] = useState(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
   const [mappingDrawerOpen, setMappingDrawerOpen] = useState(false);
 
-  // Field drawing hook - handles all drawing state and mouse events
-  const handleFieldCreated = useCallback((newField) => {
-    setFields((prev) => [...prev, newField]);
-    setSelectedField(newField.id);
-    setEditingField(newField);
-    setEditDialogOpen(true);
-  }, [setFields, setSelectedField, setEditingField, setEditDialogOpen]);
+  const handleFieldCreated = useCallback((f) => { setFields(p => [...p, f]); setSelectedField(f.id); setEditingField(f); setEditDialogOpen(true); }, [setFields]);
+  const { isDrawing, drawRect, drawMode, setDrawMode, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave } = useFieldDrawing(template, currentPage, fields.length, handleFieldCreated);
 
-  const {
-    isDrawing,
-    drawRect,
-    drawMode,
-    setDrawMode,
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
-    handleMouseLeave,
-  } = useFieldDrawing(template, currentPage, fields.length, handleFieldCreated);
-
-  const onDocumentLoadSuccess = ({ numPages: pages }) => {
-    setNumPages(pages);
-    if (import.meta.env.DEV) {
-    console.warn('[TemplateEditor] PDF loaded, pages:', pages);
-    }
-  };
-
-  // Convert PDF coords to screen coords for display
-  const pdfToScreenCoords = useCallback((pdfX, pdfY, pdfWidth, pdfHeight, pageElement) => {
-    if (!pageElement) {
-      console.warn('[TemplateEditor] pdfToScreenCoords: pageElement is null');
-      return { left: 0, top: 0, width: 0, height: 0 };
-    }
-    if (!template?.sourceFile?.pageDimensions) {
-      console.warn('[TemplateEditor] pdfToScreenCoords: pageDimensions missing');
-      return { left: 0, top: 0, width: 0, height: 0 };
-    }
-
-    const rect = pageElement.getBoundingClientRect();
-    const pageDim = template.sourceFile.pageDimensions[currentPage - 1];
-    if (!pageDim) {
-      console.warn('[TemplateEditor] pdfToScreenCoords: pageDim for page', currentPage, 'is null');
-      return { left: 0, top: 0, width: 0, height: 0 };
-    }
-
-    const scaleX = rect.width / pageDim.width;
-    const scaleY = rect.height / pageDim.height;
-
-    return {
-      left: pdfX * scaleX,
-      top: (pageDim.height - pdfY - pdfHeight) * scaleY,
-      width: pdfWidth * scaleX,
-      height: pdfHeight * scaleY,
-    };
+  const pdfToScreenCoords = useCallback((px, py, pw, ph, el) => {
+    if (!el || !template?.sourceFile?.pageDimensions) return { left: 0, top: 0, width: 0, height: 0 };
+    const r = el.getBoundingClientRect(); const pd = template.sourceFile.pageDimensions[currentPage - 1]; if (!pd) return { left: 0, top: 0, width: 0, height: 0 };
+    const sx = r.width / pd.width; const sy = r.height / pd.height;
+    return { left: px * sx, top: (pd.height - py - ph) * sy, width: pw * sx, height: ph * sy };
   }, [template, currentPage]);
 
-  // Save fields
   const handleSaveFields = async () => {
-    try {
-      setSaving(true);
-      await saveTemplateFields(templateId, fields);
-      await saveTemplateMappings(templateId, mappings);
-      setSnackbar({ open: true, message: 'Template saved successfully!', severity: 'success' });
-    } catch (err) {
-      console.error('Error saving template:', err);
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setSaving(false);
-    }
+    try { setSaving(true); await saveTemplateFields(templateId, fields); await saveTemplateMappings(templateId, mappings); setSnackbar({ open: true, message: 'Template saved!', severity: 'success' });
+    } catch (e) { setSnackbar({ open: true, message: e.message, severity: 'error' }); } finally { setSaving(false); }
   };
-
-  // Activate template
   const handleActivate = async () => {
-    if (fields.length === 0) {
-      setSnackbar({ open: true, message: 'Add at least one field before activating', severity: 'warning' });
-      return;
-    }
-
-    try {
-      setSaving(true);
-      // Save fields and mappings first
-      await handleSaveFields();
-      // Activate template
-      await activateTemplate(templateId);
-      setTemplate((prev) => ({ ...prev, status: 'active' }));
-      setSnackbar({ open: true, message: 'Template activated!', severity: 'success' });
-    } catch (err) {
-      console.error('Error activating template:', err);
-      setSnackbar({ open: true, message: err.message, severity: 'error' });
-    } finally {
-      setSaving(false);
-    }
+    if (fields.length === 0) { setSnackbar({ open: true, message: 'Add at least one field', severity: 'warning' }); return; }
+    try { setSaving(true); await handleSaveFields(); await activateTemplate(templateId); setTemplate(p => ({ ...p, status: 'active' })); setSnackbar({ open: true, message: 'Template activated!', severity: 'success' });
+    } catch (e) { setSnackbar({ open: true, message: e.message, severity: 'error' }); } finally { setSaving(false); }
   };
-
-  // Update field
-  const handleUpdateField = (fieldId, updates) => {
-    setFields((prev) =>
-      prev.map((f) => (f.id === fieldId ? { ...f, ...updates } : f))
-    );
-  };
-
-  // Delete field - needs fields in dependency for mapping lookup
-  const handleDeleteField = useCallback((fieldId) => {
-    const fieldToDelete = fields.find((f) => f.id === fieldId);
-    setFields((prev) => prev.filter((f) => f.id !== fieldId));
-    setSelectedField((prevSelected) => prevSelected === fieldId ? null : prevSelected);
-    // Remove mapping if field had one
-    if (fieldToDelete) {
-      setMappings((prev) => {
-        const updated = { ...prev };
-        delete updated[fieldToDelete.name];
-        return updated;
-      });
-    }
+  const handleDeleteField = useCallback((fid) => {
+    const fd = fields.find(f => f.id === fid);
+    setFields(p => p.filter(f => f.id !== fid)); setSelectedField(p => p === fid ? null : p);
+    if (fd) setMappings(p => { const u = { ...p }; delete u[fd.name]; return u; });
   }, [fields, setFields, setMappings]);
+  const openEditDialog = useCallback((f) => { setEditingField(f); setEditDialogOpen(true); }, []);
 
-  // Open edit dialog for a field
-  const openEditDialog = useCallback((f) => {
-    setEditingField(f);
-    setEditDialogOpen(true);
-  }, []);
+  const overlayRenderer = useCallback((pageEl) => renderFieldOverlays(fields, currentPage, pdfToScreenCoords, pageEl, selectedField, mappings, setSelectedField, openEditDialog, handleDeleteField), [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField]);
 
-  // Render field overlays - uses extracted helper function
-  // pageRendered dependency ensures re-render after PDF page finishes loading
-  const renderFieldOverlays = useCallback((pageElement) => {
-    if (!pageElement) return null;
-    
-    return fields
-      .filter((f) => f.page === currentPage)
-      .map((field) => {
-        const overlay = fieldToOverlay(field, pdfToScreenCoords, pageElement);
-        if (!overlay) return null;
-
-        return (
-          <FieldOverlay
-            key={field.id}
-            field={overlay.field}
-            screenPos={overlay.screenPos}
-            isSelected={selectedField === field.id}
-            hasMapping={!!mappings[field.name]}
-            onSelect={setSelectedField}
-            onEdit={openEditDialog}
-            onDelete={handleDeleteField}
-          />
-        );
-      });
-  }, [fields, currentPage, pdfToScreenCoords, selectedField, mappings, openEditDialog, handleDeleteField]);
-
-  // Callback for navigating back - must be before early returns (React hooks rule)
   const handleBack = useCallback(() => navigate('/smartforms'), [navigate]);
-
-  // Early return states - extracted to separate components
-  if (loading) return <LoadingState />;
-  if (error) return <ErrorState error={error} onBack={handleBack} />;
+  if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}><CircularProgress /></Box>;
+  if (error) return <Box sx={{ p: 3 }}><Alert severity="error">{error}</Alert><Button startIcon={<ArrowBackIcon />} onClick={handleBack} sx={{ mt: 2 }}>Back to SmartForms</Button></Box>;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      {/* Toolbar - extracted component */}
-      <EditorToolbar
-        template={template}
-        fields={fields}
-        currentPage={currentPage}
-        numPages={numPages}
-        drawMode={drawMode}
-        setDrawMode={setDrawMode}
-        setMappingDrawerOpen={setMappingDrawerOpen}
-        zoom={zoom}
-        setZoom={setZoom}
-        saving={saving}
-        onSave={handleSaveFields}
-        onActivate={handleActivate}
-        onBack={handleBack}
-      />
+      {/* Toolbar */}
+      <Paper sx={{ px: 2, py: 1, display: 'flex', alignItems: 'center', gap: 2, flexShrink: 0 }}>
+        <IconButton onClick={handleBack} aria-label="Go back"><ArrowBackIcon /></IconButton>
+        <Box sx={{ flex: 1 }}><Typography variant="h6" fontWeight={600}>{template?.name}</Typography><Typography variant="caption" color="text.secondary">{fields.length} field{fields.length === 1 ? '' : 's'} • Page {currentPage} of {numPages || 1}</Typography></Box>
+        <Chip label={template?.status === 'active' ? 'Active' : 'Draft'} color={template?.status === 'active' ? 'success' : 'warning'} size="small" />
+        <Divider orientation="vertical" flexItem />
+        <Tooltip title="Draw New Field"><Button variant={drawMode ? 'contained' : 'outlined'} startIcon={<AddBoxIcon />} onClick={() => setDrawMode(!drawMode)} color={drawMode ? 'secondary' : 'primary'}>{drawMode ? 'Drawing...' : 'Add Field'}</Button></Tooltip>
+        <Tooltip title="Map Data"><Button variant="outlined" startIcon={<LinkIcon />} onClick={() => setMappingDrawerOpen(true)}>Mappings</Button></Tooltip>
+        <Divider orientation="vertical" flexItem />
+        <IconButton onClick={() => setZoom(z => Math.max(0.5, z - 0.25))} aria-label="Zoom out"><ZoomOutIcon /></IconButton>
+        <Typography variant="body2" sx={{ minWidth: 40, textAlign: 'center' }}>{Math.round(zoom * 100)}%</Typography>
+        <IconButton onClick={() => setZoom(z => Math.min(2, z + 0.25))} aria-label="Zoom in"><ZoomInIcon /></IconButton>
+        <Divider orientation="vertical" flexItem />
+        <Button variant="outlined" startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />} onClick={handleSaveFields} disabled={saving}>Save</Button>
+        {template?.status !== 'active' && <Button variant="contained" color="success" startIcon={<PlayArrowIcon />} onClick={handleActivate} disabled={saving || fields.length === 0}>Activate</Button>}
+      </Paper>
 
-      {/* Main Content */}
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        {/* PDF Canvas - scrollable container */}
-        <Box
-          ref={containerRef}
-          sx={{
-            flex: 1,
-            overflow: 'auto',
-            p: 2,
-            bgcolor: isDark ? 'grey.900' : 'grey.300',
-          }}
-        >
-          {/* Inner centering wrapper - only centers when content fits */}
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              minWidth: 'fit-content',
-            }}
-          >
-          {pdfBlobUrl ? (
-            <Document
-              file={pdfBlobUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              onLoadError={(err) => {
-                console.error('[TemplateEditor] PDF load error:', err);
-                setError('Failed to load PDF: ' + err.message);
-              }}
-              loading={
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                  <CircularProgress />
-                </Box>
-              }
-              error={
-                <Box sx={{ p: 4, textAlign: 'center' }}>
-                  <Alert severity="error">Failed to load PDF. Please try again.</Alert>
-                </Box>
-              }
-            >
-              <Box
-                sx={{
-                  position: 'relative',
-                  bgcolor: 'white',
-                  boxShadow: 3,
-                  cursor: drawMode ? 'crosshair' : 'default',
-                }}
-                onMouseDown={handleMouseDown}
-                onMouseMove={handleMouseMove}
-                onMouseUp={handleMouseUp}
-                onMouseLeave={handleMouseLeave}
-              >
-                <Page
-                  pageNumber={currentPage}
-                  scale={zoom}
-                  renderTextLayer={false}
-                  renderAnnotationLayer={false}
-                  width={containerWidth ? Math.min(containerWidth - 64, 800) : undefined}
-                  onRenderSuccess={() => {
-                    // Force re-render of overlays when page renders
-                    // This ensures field positions are calculated after PDF dimensions are known
-                    setPageRendered(prev => prev + 1);
-                  }}
-                  onRenderError={(err) => {
-                    console.error('Page render error:', err);
-                  }}
-                  error={
-                    <Box sx={{ p: 4, textAlign: 'center', bgcolor: 'white' }}>
-                      <Alert severity="error">Failed to render page {currentPage}</Alert>
-                    </Box>
-                  }
-                />
-
-                {/* Field overlays */}
-                {containerRef.current && renderFieldOverlays(containerRef.current.querySelector('.react-pdf__Page'))}
-
-                {/* Drawing rectangle */}
-                {isDrawing && drawRect && (
-                  <Box
-                    sx={{
-                      position: 'absolute',
-                      left: drawRect.left,
-                      top: drawRect.top,
-                      width: drawRect.width,
-                      height: drawRect.height,
-                      border: '2px dashed #1976d2',
-                      bgcolor: 'rgba(25, 118, 210, 0.2)',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                )}
-              </Box>
-            </Document>
-          ) : (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', p: 4, minHeight: 400 }}>
-              <CircularProgress />
-              <Typography sx={{ ml: 2 }}>Loading PDF...</Typography>
-            </Box>
-          )}
-          </Box>
-        </Box>
-
-        {/* Fields Panel - extracted component */}
-        <FieldsPanel
-          fields={fields}
-          mappings={mappings}
-          selectedField={selectedField}
-          setSelectedField={setSelectedField}
-          setCurrentPage={setCurrentPage}
-          numPages={numPages}
-          currentPage={currentPage}
-          onEditField={openEditDialog}
-                  />
+        <TemplatePreview
+          pdfBlobUrl={pdfBlobUrl} currentPage={currentPage} zoom={zoom} isDark={darkMode}
+          drawMode={drawMode} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseLeave}
+          isDrawing={isDrawing} drawRect={drawRect}
+          onDocumentLoadSuccess={({ numPages: p }) => setNumPages(p)} onError={setError}
+          renderOverlays={overlayRenderer} onPageRendered={() => setPgRender(p => p + 1)}
+        />
+        <FieldsPanel fields={fields} mappings={mappings} selectedField={selectedField} setSelectedField={setSelectedField} setCurrentPage={setCurrentPage} numPages={numPages} currentPage={currentPage} onEditField={openEditDialog} />
       </Box>
 
-      {/* Field Edit Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Field</DialogTitle>
-        <DialogContent>
-          {editingField && (
-            <Box sx={{ pt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                label="Field Name"
-                value={editingField.name}
-                onChange={(e) => setEditingField({ ...editingField, name: e.target.value })}
-                fullWidth
-                helperText="Used for data mapping (no spaces)"
-              />
-              <TextField
-                label="Label"
-                value={editingField.label || ''}
-                onChange={(e) => setEditingField({ ...editingField, label: e.target.value })}
-                fullWidth
-                helperText="Display label (optional)"
-              />
-              <TextField
-                select
-                label="Field Type"
-                value={editingField.type}
-                onChange={(e) => setEditingField({ ...editingField, type: e.target.value })}
-                fullWidth
-              >
-                {FIELD_TYPES.map((t) => (
-                  <MenuItem key={t.value} value={t.value}>
-                    {t.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Font Size"
-                type="number"
-                value={editingField.fontSize}
-                onChange={(e) => setEditingField({ ...editingField, fontSize: Number.parseInt(e.target.value, 10) || 10 })}
-                fullWidth
-                inputProps={{ min: 6, max: 48 }}
-              />
-              {editingField.type === 'date' && (
-                <TextField
-                  label="Date Format"
-                  value={editingField.dateFormat || 'MM/DD/YYYY'}
-                  onChange={(e) => setEditingField({ ...editingField, dateFormat: e.target.value })}
-                  fullWidth
-                  helperText="e.g., MM/DD/YYYY, YYYY-MM-DD"
-                />
-              )}
-              <TextField
-                label="Default Value"
-                value={editingField.defaultValue || ''}
-                onChange={(e) => setEditingField({ ...editingField, defaultValue: e.target.value })}
-                fullWidth
-              />
+      <FieldEditDialog
+        open={editDialogOpen} field={editingField} dataPaths={dataPaths} mappings={mappings}
+        onFieldChange={setEditingField} onMappingsChange={setMappings} onDelete={handleDeleteField}
+        onClose={() => setEditDialogOpen(false)}
+        onSave={() => { if (editingField) { setFields(p => p.map(f => f.id === editingField.id ? { ...f, ...editingField } : f)); } setEditDialogOpen(false); }}
+      />
+      <FieldMappingList open={mappingDrawerOpen} onClose={() => setMappingDrawerOpen(false)} fields={fields} mappings={mappings} onMappingsChange={setMappings} dataPaths={dataPaths} onSave={handleSaveFields} />
 
-              {/* Data Mapping */}
-              <Autocomplete
-                options={dataPaths}
-                getOptionLabel={(option) => `${option.label} (${option.path})`}
-                groupBy={(option) => option.category}
-                value={dataPaths.find((p) => p.path === mappings[editingField.name]) || null}
-                onChange={(e, newValue) => {
-                  setMappings((prev) => ({
-                    ...prev,
-                    [editingField.name]: newValue?.path || '',
-                  }));
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Map to Data Field"
-                    helperText="Select which FieldLedger data to fill here"
-                  />
-                )}
-              />
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button
-            color="error"
-            onClick={() => {
-              handleDeleteField(editingField.id);
-              setEditDialogOpen(false);
-            }}
-          >
-            Delete Field
-          </Button>
-          <Box sx={{ flex: 1 }} />
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              handleUpdateField(editingField.id, editingField);
-              setEditDialogOpen(false);
-            }}
-          >
-            Save Field
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Mapping Drawer */}
-      <Drawer
-        anchor="right"
-        open={mappingDrawerOpen}
-        onClose={() => setMappingDrawerOpen(false)}
-      >
-        <Box sx={{ width: 400, p: 2 }}>
-          <Typography variant="h6" gutterBottom>
-            Data Mappings
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Connect template fields to FieldLedger data for auto-fill
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-
-          {fields.length === 0 ? (
-            <Alert severity="info">Add fields to the template first</Alert>
-          ) : (
-            <List>
-              {fields.map((field) => (
-                <ListItem key={field.id} sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                  <Typography variant="subtitle2" fontWeight={600}>
-                    {field.name}
-                  </Typography>
-                  <Autocomplete
-                    size="small"
-                    options={dataPaths}
-                    getOptionLabel={(option) => `${option.label} (${option.path})`}
-                    groupBy={(option) => option.category}
-                    value={dataPaths.find((p) => p.path === mappings[field.name]) || null}
-                    onChange={(e, newValue) => {
-                      setMappings((prev) => ({
-                        ...prev,
-                        [field.name]: newValue?.path || '',
-                      }));
-                    }}
-                    renderInput={(params) => (
-                      <TextField {...params} placeholder="Select data source..." size="small" />
-                    )}
-                    sx={{ mt: 1 }}
-                  />
-                </ListItem>
-              ))}
-            </List>
-          )}
-
-          <Box sx={{ mt: 3 }}>
-            <Button
-              variant="contained"
-              fullWidth
-              onClick={() => {
-                handleSaveFields();
-                setMappingDrawerOpen(false);
-              }}
-              startIcon={<SaveIcon />}
-            >
-              Save Mappings
-            </Button>
-          </Box>
-        </Box>
-      </Drawer>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-      >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar((s) => ({ ...s, open: false }))}>
-          {snackbar.message}
-        </Alert>
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(s => ({ ...s, open: false }))} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>{snackbar.message}</Alert>
       </Snackbar>
     </Box>
   );
 }
-
