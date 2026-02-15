@@ -179,6 +179,7 @@ const fdaGridRowSchema = new mongoose.Schema({
   category: { type: String, required: true },     // e.g., 'Anchor', 'Conductor', 'Ground', 'Pole'
   condition: { type: String, required: true },     // e.g., 'Broken/Damaged', 'Missing', 'Corroded'
   y: { type: Number, required: true },            // Y position of this row
+  page: { type: Number, default: 0 },            // Which FDA page (0, 1, 2) — relative to fdaGrid.pageOffset
 }, { _id: false });
 
 const fdaGridCheckboxSchema = new mongoose.Schema({
