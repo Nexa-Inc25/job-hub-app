@@ -235,7 +235,7 @@ function registerInlineRoutes(app, uploadsDir) {
         return res.status(403).json({ error: 'You do not have permission to view pending approvals' });
       }
 
-      const jobs = await Job.find({}).select('pmNumber woNumber address folders').lean();
+      const jobs = await Job.find({ companyId: user.companyId, isDeleted: { $ne: true } }).select('pmNumber woNumber address folders').lean();
 
       const pendingDocs = [];
       for (const job of jobs) {
