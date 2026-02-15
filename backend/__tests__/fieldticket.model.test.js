@@ -259,6 +259,53 @@ describe('FieldTicket Model', () => {
       expect(updated.isDisputed).toBe(true);
       expect(updated.disputeReason).toBe('Incorrect hours');
     });
+
+    it('dispute should accept category and evidence', async () => {
+      const data = validTicketData();
+      data.status = 'signed';
+      const ticket = await FieldTicket.create(data);
+      const evidence = [
+        { url: 'https://example.com/photo.jpg', documentType: 'photo', description: 'Site photo' },
+        { url: 'https://example.com/doc.pdf', documentType: 'document', description: 'Original scope' }
+      ];
+      const updated = await ticket.dispute(user._id, 'Hours overstated', 'hours', evidence);
+      expect(updated.disputeCategory).toBe('hours');
+      expect(updated.disputeEvidence).toHaveLength(2);
+      expect(updated.disputeEvidence[0].documentType).toBe('photo');
+      expect(updated.disputeEvidence[1].documentType).toBe('document');
+    });
+
+    it('resolveDispute should revert status to signed', async () => {
+      const data = validTicketData();
+      data.status = 'disputed';
+      data.isDisputed = true;
+      data.disputeReason = 'Wrong hours';
+      data.inspectorSignature = { signatureData: 'sig', signerName: 'Inspector' };
+      const ticket = await FieldTicket.create(data);
+      const updated = await ticket.resolveDispute(user._id, 'Verified hours on-site');
+      expect(updated.status).toBe('signed');
+      expect(updated.disputeResolution).toBe('Verified hours on-site');
+      expect(updated.disputeResolvedAt).toBeDefined();
+      expect(updated.disputeResolvedBy.toString()).toBe(user._id.toString());
+    });
+
+    it('resolveDispute should throw if ticket is not disputed', async () => {
+      const data = validTicketData();
+      data.status = 'draft';
+      const ticket = await FieldTicket.create(data);
+      expect(() => ticket.resolveDispute(user._id, 'Resolved')).toThrow('Only disputed tickets can be resolved');
+    });
+
+    it('resolveDispute should append evidence to existing', async () => {
+      const data = validTicketData();
+      data.status = 'disputed';
+      data.isDisputed = true;
+      data.disputeEvidence = [{ url: 'existing.jpg', documentType: 'photo', description: 'Original' }];
+      const ticket = await FieldTicket.create(data);
+      const newEvidence = [{ url: 'resolution.jpg', documentType: 'photo', description: 'Resolution proof' }];
+      const updated = await ticket.resolveDispute(user._id, 'Resolved', newEvidence);
+      expect(updated.disputeEvidence).toHaveLength(2);
+    });
   });
 
   // === STATIC METHODS ===
@@ -302,6 +349,121 @@ describe('FieldTicket Model', () => {
 
       const billable = await FieldTicket.getApprovedForBilling(company._id);
       expect(billable).toHaveLength(1);
+    });
+
+    it('getAtRiskAging should bucket tickets by age', async () => {
+      const base = validTicketData();
+      const now = new Date();
+
+      // Fresh: 1 day old
+      const freshDate = new Date(now);
+      freshDate.setDate(freshDate.getDate() - 1);
+      await FieldTicket.create({ ...base, status: 'draft', workDate: freshDate });
+
+      // Warning: 5 days old
+      const warningDate = new Date(now);
+      warningDate.setDate(warningDate.getDate() - 5);
+      await FieldTicket.create({ ...base, status: 'pending_signature', workDate: warningDate });
+
+      // Critical: 10 days old
+      const criticalDate = new Date(now);
+      criticalDate.setDate(criticalDate.getDate() - 10);
+      await FieldTicket.create({ ...base, status: 'draft', workDate: criticalDate });
+
+      const aging = await FieldTicket.getAtRiskAging(company._id, { warning: 3, critical: 7 });
+      expect(aging.fresh.count).toBe(1);
+      expect(aging.warning.count).toBe(1);
+      expect(aging.critical.count).toBe(1);
+    });
+
+    it('getAtRiskTrend should return weekly aggregation', async () => {
+      const base = validTicketData();
+      base.laborEntries = [{ workerName: 'A', regularHours: 8, regularRate: 100, totalAmount: 0 }];
+      await FieldTicket.create({ ...base, status: 'draft' });
+
+      const trend = await FieldTicket.getAtRiskTrend(company._id, 4);
+      expect(Array.isArray(trend)).toBe(true);
+      // At least one week of data
+      expect(trend.length).toBeGreaterThanOrEqual(1);
+      expect(trend[0]).toHaveProperty('totalAmount');
+      expect(trend[0]).toHaveProperty('count');
+    });
+  });
+
+  // === CALCULATION EDGE CASES ===
+  describe('Calculation Edge Cases', () => {
+    it('should handle zero hours gracefully', async () => {
+      const data = validTicketData();
+      data.laborEntries = [{
+        workerName: 'Worker', regularHours: 0, overtimeHours: 0, doubleTimeHours: 0,
+        regularRate: 50, totalAmount: 0,
+      }];
+      const ticket = await FieldTicket.create(data);
+      expect(ticket.laborEntries[0].totalAmount).toBe(0);
+      expect(ticket.laborTotal).toBe(0);
+    });
+
+    it('should use custom overtime rate when provided', async () => {
+      const data = validTicketData();
+      data.laborEntries = [{
+        workerName: 'Worker', regularHours: 8, overtimeHours: 2,
+        regularRate: 50, overtimeRate: 80, totalAmount: 0,
+      }];
+      const ticket = await FieldTicket.create(data);
+      // regular: 8*50=400, overtime: 2*80=160
+      expect(ticket.laborEntries[0].totalAmount).toBe(560);
+    });
+
+    it('should use custom double time rate when provided', async () => {
+      const data = validTicketData();
+      data.laborEntries = [{
+        workerName: 'Worker', regularHours: 8, doubleTimeHours: 2,
+        regularRate: 50, doubleTimeRate: 110, totalAmount: 0,
+      }];
+      const ticket = await FieldTicket.create(data);
+      // regular: 8*50=400, doubleTime: 2*110=220
+      expect(ticket.laborEntries[0].totalAmount).toBe(620);
+    });
+
+    it('should use custom standby rate when provided', async () => {
+      const data = validTicketData();
+      data.equipmentEntries = [{
+        equipmentType: 'crane', description: 'Crane', hours: 4,
+        hourlyRate: 200, standbyHours: 2, standbyRate: 80, totalAmount: 0,
+      }];
+      const ticket = await FieldTicket.create(data);
+      // operating: 4*200=800, standby: 2*80=160
+      expect(ticket.equipmentEntries[0].totalAmount).toBe(960);
+    });
+
+    it('should handle zero markup on materials', async () => {
+      const data = validTicketData();
+      data.materialEntries = [{
+        description: 'Wire', quantity: 10, unit: 'LF', unitCost: 5,
+        markup: 0, totalAmount: 0,
+      }];
+      const ticket = await FieldTicket.create(data);
+      expect(ticket.materialEntries[0].totalAmount).toBe(50);
+    });
+
+    it('should handle multiple entries of each type', async () => {
+      const data = validTicketData();
+      data.laborEntries = [
+        { workerName: 'A', regularHours: 8, regularRate: 50, totalAmount: 0 },
+        { workerName: 'B', regularHours: 4, regularRate: 75, totalAmount: 0 },
+      ];
+      data.equipmentEntries = [
+        { equipmentType: 'crane', description: 'Crane', hours: 2, hourlyRate: 200, totalAmount: 0 },
+      ];
+      data.materialEntries = [
+        { description: 'Wire', quantity: 100, unit: 'LF', unitCost: 2, totalAmount: 0 },
+        { description: 'Poles', quantity: 2, unit: 'EA', unitCost: 800, markup: 10, totalAmount: 0 },
+      ];
+      const ticket = await FieldTicket.create(data);
+      expect(ticket.laborTotal).toBe(700); // 400 + 300
+      expect(ticket.equipmentTotal).toBe(400); // 2*200
+      expect(ticket.materialTotal).toBe(1960); // 200 + (1600+160)
+      expect(ticket.subtotal).toBe(3060);
     });
   });
 });

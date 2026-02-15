@@ -206,8 +206,27 @@ const fieldTicketSchema = new mongoose.Schema({
   disputedAt: Date,
   disputedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   disputeReason: String,
+  disputeCategory: {
+    type: String,
+    enum: ['hours', 'rates', 'materials', 'scope', 'quality', 'other'],
+    default: 'other'
+  },
+  disputeEvidence: [{
+    url: String,
+    r2Key: String,
+    fileName: String,
+    documentType: {
+      type: String,
+      enum: ['photo', 'document', 'email', 'receipt', 'other'],
+      default: 'photo'
+    },
+    description: String,
+    addedAt: { type: Date, default: Date.now },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }],
   disputeResolution: String,
   disputeResolvedAt: Date,
+  disputeResolvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   
   // === NOTES ===
   internalNotes: String,                            // For contractor use only
@@ -337,6 +356,93 @@ fieldTicketSchema.statics.getAtRiskTotal = async function(companyId) {
   return result[0] || { totalAtRisk: 0, count: 0 };
 };
 
+// Static method to get "At Risk" with aging breakdown
+fieldTicketSchema.statics.getAtRiskAging = async function(companyId, thresholds = { warning: 3, critical: 7 }) {
+  const now = new Date();
+  const warningDate = new Date(now);
+  warningDate.setDate(warningDate.getDate() - thresholds.warning);
+  const criticalDate = new Date(now);
+  criticalDate.setDate(criticalDate.getDate() - thresholds.critical);
+
+  const result = await this.aggregate([
+    {
+      $match: {
+        companyId: new mongoose.Types.ObjectId(companyId),
+        status: { $in: ['draft', 'pending_signature'] },
+        isDeleted: { $ne: true }
+      }
+    },
+    {
+      $addFields: {
+        ageDays: {
+          $dateDiff: { startDate: '$workDate', endDate: now, unit: 'day' }
+        }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          $cond: [
+            { $lte: ['$ageDays', thresholds.warning] },
+            'fresh',
+            {
+              $cond: [
+                { $lte: ['$ageDays', thresholds.critical] },
+                'warning',
+                'critical'
+              ]
+            }
+          ]
+        },
+        count: { $sum: 1 },
+        totalAmount: { $sum: '$totalAmount' }
+      }
+    }
+  ]);
+
+  const aging = { fresh: { count: 0, totalAmount: 0 }, warning: { count: 0, totalAmount: 0 }, critical: { count: 0, totalAmount: 0 } };
+  for (const bucket of result) {
+    aging[bucket._id] = { count: bucket.count, totalAmount: bucket.totalAmount };
+  }
+  return aging;
+};
+
+// Static method to get weekly at-risk trend (last N weeks)
+fieldTicketSchema.statics.getAtRiskTrend = async function(companyId, weeks = 8) {
+  const now = new Date();
+  const startDate = new Date(now);
+  startDate.setDate(startDate.getDate() - (weeks * 7));
+
+  const result = await this.aggregate([
+    {
+      $match: {
+        companyId: new mongoose.Types.ObjectId(companyId),
+        status: { $in: ['draft', 'pending_signature'] },
+        isDeleted: { $ne: true },
+        createdAt: { $gte: startDate }
+      }
+    },
+    {
+      $group: {
+        _id: {
+          year: { $isoWeekYear: '$createdAt' },
+          week: { $isoWeek: '$createdAt' }
+        },
+        totalAmount: { $sum: '$totalAmount' },
+        count: { $sum: 1 }
+      }
+    },
+    { $sort: { '_id.year': 1, '_id.week': 1 } }
+  ]);
+
+  return result.map(r => ({
+    year: r._id.year,
+    week: r._id.week,
+    totalAmount: r.totalAmount,
+    count: r.count
+  }));
+};
+
 // Static method to get approved tickets for billing
 fieldTicketSchema.statics.getApprovedForBilling = async function(companyId) {
   return this.find({
@@ -378,12 +484,41 @@ fieldTicketSchema.methods.approve = function(userId, notes) {
 };
 
 // Instance method to dispute
-fieldTicketSchema.methods.dispute = function(userId, reason) {
+fieldTicketSchema.methods.dispute = function(userId, reason, category, evidence) {
   this.status = 'disputed';
   this.isDisputed = true;
   this.disputedAt = new Date();
   this.disputedBy = userId;
   this.disputeReason = reason;
+  if (category) this.disputeCategory = category;
+  if (evidence && Array.isArray(evidence)) {
+    this.disputeEvidence = evidence.map(e => ({
+      ...e,
+      addedAt: new Date(),
+      addedBy: userId
+    }));
+  }
+  return this.save();
+};
+
+// Instance method to resolve dispute
+fieldTicketSchema.methods.resolveDispute = function(userId, resolution, evidence) {
+  if (this.status !== 'disputed') {
+    throw new Error('Only disputed tickets can be resolved');
+  }
+  this.disputeResolution = resolution;
+  this.disputeResolvedAt = new Date();
+  this.disputeResolvedBy = userId;
+  // Revert to signed status so it can be re-approved
+  this.status = 'signed';
+  if (evidence && Array.isArray(evidence)) {
+    const newEvidence = evidence.map(e => ({
+      ...e,
+      addedAt: new Date(),
+      addedBy: userId
+    }));
+    this.disputeEvidence = [...(this.disputeEvidence || []), ...newEvidence];
+  }
   return this.save();
 };
 
