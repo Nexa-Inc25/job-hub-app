@@ -143,7 +143,7 @@ const Dashboard = () => {
     if (!canApprove) return;
     try {
       const response = await api.get('/api/admin/pending-approvals');
-      setPendingApprovals(response.data || []);
+      setPendingApprovals(response.data.pendingDocuments || response.data || []);
     } catch (err) { console.error('Error fetching pending approvals:', err); }
   }, [canApprove]);
 
