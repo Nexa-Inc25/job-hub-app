@@ -92,7 +92,7 @@ const BillingDashboard = ({ jobId }) => {
   const [error, setError] = useState(null);
   
   // Selection state
-  const [selectedUnits, setSelectedUnits] = useState([]);
+  const [selectedUnits, setSelectedUnits] = useState(new Set());
   const [statusFilter, setStatusFilter] = useState('all');
   
   // UI state
@@ -343,7 +343,7 @@ const BillingDashboard = ({ jobId }) => {
 
   // Get selected units for claim creation
   const selectedUnitsForClaim = units.filter(u => 
-    selectedUnits.includes(u._id) && u.status === 'approved'
+    selectedUnits.has(u._id) && u.status === 'approved'
   );
 
   // Stats - simplified workflow (submitted -> approved)
@@ -469,7 +469,7 @@ const BillingDashboard = ({ jobId }) => {
             onRefresh={fetchUnits}
             onExport={() => {
               // Export selected to CSV
-              const selectedData = units.filter(u => selectedUnits.includes(u._id));
+              const selectedData = units.filter(u => selectedUnits.has(u._id));
               console.warn('Export selected:', selectedData);
             }}
           />

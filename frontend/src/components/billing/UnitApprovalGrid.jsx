@@ -130,7 +130,7 @@ const UnitApprovalGrid = ({
   onAddToClaim,
   onRefresh,
   onExport,
-  selectionModel = [],
+  selectionModel = new Set(),
   onSelectionChange,
   statusFilter = 'all',
   onStatusFilterChange,
@@ -420,8 +420,8 @@ const UnitApprovalGrid = ({
 
   // Handle bulk actions
   const handleBulkApprove = useCallback(() => {
-    if (onApprove && selectionModel.length > 0) {
-      const selectedUnits = units.filter(u => selectionModel.includes(u._id));
+    if (onApprove && selectionModel.size > 0) {
+      const selectedUnits = units.filter(u => selectionModel.has(u._id));
       selectedUnits.forEach(unit => {
         if (unit.status === 'verified') {
           onApprove(unit);
@@ -431,9 +431,9 @@ const UnitApprovalGrid = ({
   }, [onApprove, selectionModel, units]);
 
   const handleAddSelectedToClaim = useCallback(() => {
-    if (onAddToClaim && selectionModel.length > 0) {
+    if (onAddToClaim && selectionModel.size > 0) {
       const selectedUnits = units.filter(u => 
-        selectionModel.includes(u._id) && u.status === 'approved'
+        selectionModel.has(u._id) && u.status === 'approved'
       );
       if (selectedUnits.length > 0) {
         onAddToClaim(selectedUnits);
@@ -444,7 +444,7 @@ const UnitApprovalGrid = ({
   // Count approved units in selection
   const approvedInSelection = useMemo(() => {
     return units.filter(u => 
-      selectionModel.includes(u._id) && u.status === 'approved'
+      selectionModel.has(u._id) && u.status === 'approved'
     ).length;
   }, [units, selectionModel]);
 
@@ -493,10 +493,10 @@ const UnitApprovalGrid = ({
           <Box sx={{ flex: 1 }} />
 
           {/* Bulk Actions */}
-          {selectionModel.length > 0 && (
+          {selectionModel.size > 0 && (
             <>
               <Typography variant="body2" color="text.secondary">
-                {selectionModel.length} selected
+                {selectionModel.size} selected
               </Typography>
               
               <Button
@@ -504,7 +504,7 @@ const UnitApprovalGrid = ({
                 size="small"
                 startIcon={<CheckCircleIcon />}
                 onClick={handleBulkApprove}
-                disabled={!selectionModel.some(id => 
+                disabled={![...selectionModel].some(id => 
                   units.find(u => u._id === id)?.status === 'verified'
                 )}
               >
@@ -550,8 +550,6 @@ const UnitApprovalGrid = ({
         <DataGrid
           rows={filteredUnits || []}
           columns={columns}
-          columnVisibilityModel={{}}
-          autosizeOnMount={false}
           getRowId={(row) => row._id}
           loading={loading}
           checkboxSelection
@@ -662,7 +660,7 @@ UnitApprovalGrid.propTypes = {
   onAddToClaim: PropTypes.func,
   onRefresh: PropTypes.func,
   onExport: PropTypes.func,
-  selectionModel: PropTypes.array,
+  selectionModel: PropTypes.instanceOf(Set),
   onSelectionChange: PropTypes.func,
   statusFilter: PropTypes.string,
   onStatusFilterChange: PropTypes.func,
