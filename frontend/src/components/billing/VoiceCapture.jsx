@@ -37,6 +37,7 @@ import {
   ListItemText,
   ListItemIcon,
   Tooltip,
+  TextField,
 } from '@mui/material';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
@@ -48,6 +49,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import BuildIcon from '@mui/icons-material/Build';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import InfoIcon from '@mui/icons-material/Info';
+import EditIcon from '@mui/icons-material/Edit';
 import api from '../../api';
 import { useAppColors } from '../shared/themeUtils';
 
@@ -469,6 +471,10 @@ const VoiceCapture = ({
   const [translation, setTranslation] = useState(null);
   const [parsed, setParsed] = useState(null);
   const [showResult, setShowResult] = useState(false);
+  
+  // Edit transcript state
+  const [showEditTranscript, setShowEditTranscript] = useState(false);
+  const [editedTranscript, setEditedTranscript] = useState('');
 
   // Refs
   const mediaRecorderRef = useRef(null);
@@ -597,6 +603,32 @@ const VoiceCapture = ({
     }
   }, [audioBlob, isRecording, processAudio]);
 
+  // Re-parse edited transcript
+  const reparseTranscript = useCallback(async () => {
+    if (!editedTranscript.trim()) return;
+
+    setProcessing(true);
+    setError(null);
+    setShowEditTranscript(false);
+
+    try {
+      const endpoint = dataType === 'fieldticket' ? '/api/voice/parse-fieldticket' : '/api/voice/parse-unit';
+      const payload = { text: editedTranscript.trim() };
+      if (dataType === 'unit' && utilityId) {
+        payload.utilityId = utilityId;
+      }
+
+      const response = await api.post(endpoint, payload);
+      setParsed(response.data);
+      setShowResult(true);
+    } catch (err) {
+      console.error('Error re-parsing transcript:', err);
+      setError(err.response?.data?.error || 'Failed to re-parse transcript');
+    } finally {
+      setProcessing(false);
+    }
+  }, [editedTranscript, dataType, utilityId]);
+
   // Reset state
   const handleReset = useCallback(() => {
     setAudioBlob(null);
@@ -604,6 +636,8 @@ const VoiceCapture = ({
     setTranslation(null);
     setParsed(null);
     setShowResult(false);
+    setShowEditTranscript(false);
+    setEditedTranscript('');
     setError(null);
     setRecordingTime(0);
   }, []);
@@ -723,32 +757,88 @@ const VoiceCapture = ({
           />
         )}
 
+        {/* Edit Transcript Section */}
+        {showEditTranscript && (
+          <Box>
+            <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
+              Edit the transcript below, then click "Re-parse" to extract data from the corrected text.
+            </Typography>
+            <TextField
+              value={editedTranscript}
+              onChange={(e) => setEditedTranscript(e.target.value)}
+              multiline
+              rows={4}
+              fullWidth
+              placeholder="Edit the transcribed text..."
+              InputProps={{ sx: { bgcolor: COLORS.surface, color: COLORS.text } }}
+              InputLabelProps={{ sx: { color: COLORS.textSecondary } }}
+              sx={{ mb: 2 }}
+            />
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                onClick={() => setShowEditTranscript(false)}
+                sx={{ color: COLORS.textSecondary }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                onClick={reparseTranscript}
+                disabled={!editedTranscript.trim() || processing}
+                startIcon={processing ? <CircularProgress size={16} /> : <CheckIcon />}
+                sx={{
+                  bgcolor: COLORS.primary,
+                  color: COLORS.bg,
+                  '&:hover': { bgcolor: COLORS.primaryDark },
+                }}
+              >
+                {processing ? 'Parsing...' : 'Re-parse'}
+              </Button>
+            </Box>
+          </Box>
+        )}
+
         {/* Result Section */}
-        {showResult && parsed && (
+        {showResult && parsed && !showEditTranscript && (
           <Box>
             {/* Transcription */}
             <Card sx={{ mb: 2, bgcolor: COLORS.surface }}>
               <CardContent>
-                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
-                  TRANSCRIPTION
-                  {translation && (
-                    <Chip
-                      icon={<TranslateIcon sx={{ fontSize: 14 }} />}
-                      label={`from ${transcription?.language}`}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+                    TRANSCRIPTION
+                    {translation && (
+                      <Chip
+                        icon={<TranslateIcon sx={{ fontSize: 14 }} />}
+                        label={`from ${transcription?.language}`}
+                        size="small"
+                        sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
+                      />
+                    )}
+                  </Typography>
+                  <Tooltip title="Edit transcript before auto-fill">
+                    <IconButton
                       size="small"
-                      sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                    />
-                  )}
-                </Typography>
+                      onClick={() => {
+                        const text = translation ? translation.translated : transcription?.text;
+                        setEditedTranscript(text || '');
+                        setShowEditTranscript(true);
+                      }}
+                      sx={{ color: COLORS.textSecondary }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </Box>
                 <Typography variant="body2" sx={{ color: COLORS.text, mt: 1 }}>
-                  "{translation ? translation.translated : transcription?.text}"
+                  &ldquo;{translation ? translation.translated : transcription?.text}&rdquo;
                 </Typography>
                 {translation && (
                   <Typography
                     variant="caption"
                     sx={{ color: COLORS.textSecondary, display: 'block', mt: 1, fontStyle: 'italic' }}
                   >
-                    Original: "{translation.original}"
+                    Original: &ldquo;{translation.original}&rdquo;
                   </Typography>
                 )}
               </CardContent>
@@ -774,6 +864,20 @@ const VoiceCapture = ({
                   )}
                 </Box>
                 <ParsedResultDisplay parsed={parsed} dataType={dataType} colors={COLORS} />
+
+                {/* Low confidence warning */}
+                {parsed.confidence !== undefined && parsed.confidence < 0.5 && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    Low confidence score. Consider editing the transcript or re-recording.
+                  </Alert>
+                )}
+
+                {/* Parse error indicator */}
+                {parsed.parseError && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    {parsed.parseError}. Try editing the transcript above.
+                  </Alert>
+                )}
               </CardContent>
             </Card>
 
@@ -783,7 +887,7 @@ const VoiceCapture = ({
               icon={<InfoIcon />}
               sx={{ mt: 2, bgcolor: COLORS.surfaceLight }}
             >
-              Review the extracted data. Click "Use This" to fill the form, or "Try Again" to re-record.
+              Review the extracted data. Click &ldquo;Use This&rdquo; to fill the form, &ldquo;Edit Transcript&rdquo; to correct, or &ldquo;Try Again&rdquo; to re-record.
             </Alert>
           </Box>
         )}

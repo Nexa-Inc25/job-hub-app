@@ -16,6 +16,10 @@ const OpenAI = require('openai');
 const fs = require('fs');
 const path = require('path');
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const RETRY_DELAY_MS = 1000;
+
 // Lazy-initialize OpenAI client (only when needed)
 let openai = null;
 
@@ -32,41 +36,103 @@ function getOpenAIClient() {
 }
 
 /**
+ * Retry wrapper with exponential backoff
+ * @param {Function} fn - Async function to retry
+ * @param {number} maxRetries - Max retry attempts
+ * @param {string} label - Label for logging
+ * @returns {Promise<*>} Result of the function
+ */
+async function withRetry(fn, maxRetries = MAX_RETRIES, label = 'operation') {
+  let lastError;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      console.warn(`[VoiceAI] ${label} attempt ${attempt}/${maxRetries} failed:`, error.message);
+      if (attempt < maxRetries) {
+        const delay = RETRY_DELAY_MS * Math.pow(2, attempt - 1);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Safely parse JSON from GPT response with fallback extraction
+ * @param {string} content - Raw content from GPT
+ * @returns {Object} Parsed JSON object
+ */
+function safeParseJSON(content) {
+  // Try direct parse first
+  try {
+    return JSON.parse(content);
+  } catch (_e) {
+    // Fallback: try to extract JSON from markdown code block
+    const jsonMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (jsonMatch) {
+      try {
+        return JSON.parse(jsonMatch[1].trim());
+      } catch (_e2) {
+        // continue to next fallback
+      }
+    }
+
+    // Fallback: try to find first { ... } block
+    const braceMatch = content.match(/\{[\s\S]*\}/);
+    if (braceMatch) {
+      try {
+        return JSON.parse(braceMatch[0]);
+      } catch (_e3) {
+        // continue to final fallback
+      }
+    }
+
+    // Final fallback: return basic structure with the raw text
+    console.warn('[VoiceAI] Could not parse GPT response as JSON, returning fallback');
+    return {
+      itemDescription: content.trim(),
+      quantity: null,
+      unit: null,
+      confidence: 0.1,
+      parseError: 'Could not extract structured data from AI response'
+    };
+  }
+}
+
+/**
  * Transcribe audio file to text using Whisper
  * @param {string} audioPath - Path to audio file (mp3, mp4, mpeg, mpga, m4a, wav, webm)
  * @param {string} language - Optional language hint (es, pt, en)
  * @returns {Promise<{text: string, language: string, duration: number}>}
  */
 async function transcribeAudio(audioPath, language = null) {
-  try {
-    console.log('[VoiceAI] Transcribing audio:', audioPath);
-    
-    // Verify file exists
-    if (!fs.existsSync(audioPath)) {
-      throw new Error('Audio file not found');
-    }
+  console.log('[VoiceAI] Transcribing audio:', audioPath);
+  
+  // Verify file exists
+  if (!fs.existsSync(audioPath)) {
+    throw new Error('Audio file not found');
+  }
 
+  const transcription = await withRetry(async () => {
     const file = fs.createReadStream(audioPath);
-    
-    const transcription = await getOpenAIClient().audio.transcriptions.create({
+    return getOpenAIClient().audio.transcriptions.create({
       file,
       model: 'whisper-1',
       language: language || undefined,
       response_format: 'verbose_json',
     });
+  }, MAX_RETRIES, 'Whisper transcription');
 
-    console.log('[VoiceAI] Transcription complete:', transcription.text?.substring(0, 100));
+  console.log('[VoiceAI] Transcription complete:', transcription.text?.substring(0, 100));
 
-    return {
-      text: transcription.text,
-      language: transcription.language,
-      duration: transcription.duration,
-      segments: transcription.segments,
-    };
-  } catch (error) {
-    console.error('[VoiceAI] Transcription error:', error.message);
-    throw error;
-  }
+  return {
+    text: transcription.text,
+    language: transcription.language,
+    duration: transcription.duration,
+    segments: transcription.segments,
+  };
 }
 
 /**
@@ -139,17 +205,19 @@ Return a JSON object with these fields:
 - confidence: 0-1 score for how confident you are in the parsing
 - originalText: The original transcribed text`;
 
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-    });
+    const response = await withRetry(async () => {
+      return getOpenAIClient().chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      });
+    }, MAX_RETRIES, 'GPT-4 unit parse');
 
-    const parsed = JSON.parse(response.choices[0].message.content);
+    const parsed = safeParseJSON(response.choices[0].message.content);
     console.log('[VoiceAI] Parsed unit entry:', parsed);
 
     return {
@@ -194,17 +262,19 @@ Return a JSON object with these fields:
 - confidence: 0-1 score
 - originalText: The original transcribed text`;
 
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: text }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.3,
-    });
+    const response = await withRetry(async () => {
+      return getOpenAIClient().chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: text }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.3,
+      });
+    }, MAX_RETRIES, 'GPT-4 field ticket parse');
 
-    const parsed = JSON.parse(response.choices[0].message.content);
+    const parsed = safeParseJSON(response.choices[0].message.content);
     console.log('[VoiceAI] Parsed field ticket:', parsed);
 
     return {
@@ -232,17 +302,19 @@ async function translateToEnglish(text, sourceLanguage) {
 
     console.log('[VoiceAI] Translating from', sourceLanguage, ':', text.substring(0, 50));
 
-    const response = await getOpenAIClient().chat.completions.create({
-      model: 'gpt-4-turbo-preview',
-      messages: [
-        { 
-          role: 'system', 
-          content: 'Translate the following text to English. Preserve technical terms related to utility construction work. Return only the translation.' 
-        },
-        { role: 'user', content: text }
-      ],
-      temperature: 0.1,
-    });
+    const response = await withRetry(async () => {
+      return getOpenAIClient().chat.completions.create({
+        model: 'gpt-4-turbo-preview',
+        messages: [
+          { 
+            role: 'system', 
+            content: 'Translate the following text to English. Preserve technical terms related to utility construction work. Return only the translation.' 
+          },
+          { role: 'user', content: text }
+        ],
+        temperature: 0.1,
+      });
+    }, MAX_RETRIES, 'GPT-4 translation');
 
     const translated = response.choices[0].message.content;
     console.log('[VoiceAI] Translated:', translated.substring(0, 50));

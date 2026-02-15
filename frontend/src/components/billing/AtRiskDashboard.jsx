@@ -52,6 +52,7 @@ import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { useNavigate } from 'react-router-dom';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import api from '../../api';
 import { useAppColors } from '../shared/themeUtils';
 
@@ -73,11 +74,18 @@ const daysSince = (dateString) => {
   return Math.floor(diff / (1000 * 60 * 60 * 24));
 };
 
-// Get aging color based on days
-const getAgingColor = (days, colors) => {
-  if (days <= 2) return colors.primary;
-  if (days <= 5) return colors.warning;
+// Get aging color based on configurable thresholds
+const getAgingColor = (days, colors, thresholds = { warning: 3, critical: 7 }) => {
+  if (days < thresholds.warning) return colors.primary;
+  if (days <= thresholds.critical) return colors.warning;
   return colors.error;
+};
+
+// Get aging label
+const getAgingLabel = (days, thresholds = { warning: 3, critical: 7 }) => {
+  if (days < thresholds.warning) return 'Fresh';
+  if (days <= thresholds.critical) return 'Aging';
+  return 'Critical';
 };
 
 // Status chip component
@@ -119,7 +127,10 @@ const AtRiskDashboard = () => {
     totalAtRisk: 0,
     ticketCount: 0,
     byStatus: { draft: [], pending_signature: [] },
-    tickets: []
+    tickets: [],
+    aging: { fresh: { count: 0, totalAmount: 0 }, warning: { count: 0, totalAmount: 0 }, critical: { count: 0, totalAmount: 0 } },
+    trend: [],
+    thresholds: { warning: 3, critical: 7 }
   });
   
   // Delete state
@@ -184,16 +195,27 @@ const AtRiskDashboard = () => {
     setTicketToDelete(null);
   }, []);
 
-  // Calculate aging metrics
-  const agingMetrics = data.tickets.reduce((acc, ticket) => {
-    const days = daysSince(ticket.workDate);
-    if (days <= 2) acc.fresh++;
-    else if (days <= 5) acc.aging++;
-    else acc.stale++;
-    return acc;
-  }, { fresh: 0, aging: 0, stale: 0 });
+  // Use server-provided aging data with thresholds
+  const agingMetrics = {
+    fresh: data.aging?.fresh?.count || 0,
+    aging: data.aging?.warning?.count || 0,
+    stale: data.aging?.critical?.count || 0,
+  };
+  const agingAmounts = {
+    fresh: data.aging?.fresh?.totalAmount || 0,
+    aging: data.aging?.warning?.totalAmount || 0,
+    stale: data.aging?.critical?.totalAmount || 0,
+  };
+  const thresholds = data.thresholds || { warning: 3, critical: 7 };
 
   const totalTickets = agingMetrics.fresh + agingMetrics.aging + agingMetrics.stale;
+
+  // Format trend data for chart
+  const trendData = (data.trend || []).map(item => ({
+    label: `W${item.week}`,
+    amount: item.totalAmount,
+    count: item.count,
+  }));
 
   if (loading) {
     return (
@@ -316,7 +338,7 @@ const AtRiskDashboard = () => {
               <Box sx={{ flex: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="body2" sx={{ color: COLORS.primary }}>
-                    Fresh (0-2 days)
+                    Fresh (&lt; {thresholds.warning}d)
                   </Typography>
                   <Typography variant="body2" sx={{ color: COLORS.text }}>
                     {agingMetrics.fresh}
@@ -332,11 +354,14 @@ const AtRiskDashboard = () => {
                     '& .MuiLinearProgress-bar': { bgcolor: COLORS.primary }
                   }}
                 />
+                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+                  {formatCurrency(agingAmounts.fresh)}
+                </Typography>
               </Box>
               <Box sx={{ flex: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="body2" sx={{ color: COLORS.warning }}>
-                    Aging (3-5 days)
+                    Aging ({thresholds.warning}-{thresholds.critical}d)
                   </Typography>
                   <Typography variant="body2" sx={{ color: COLORS.text }}>
                     {agingMetrics.aging}
@@ -352,11 +377,14 @@ const AtRiskDashboard = () => {
                     '& .MuiLinearProgress-bar': { bgcolor: COLORS.warning }
                   }}
                 />
+                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+                  {formatCurrency(agingAmounts.aging)}
+                </Typography>
               </Box>
               <Box sx={{ flex: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                   <Typography variant="body2" sx={{ color: COLORS.error }}>
-                    Stale (6+ days)
+                    Critical (&gt; {thresholds.critical}d)
                   </Typography>
                   <Typography variant="body2" sx={{ color: COLORS.text }}>
                     {agingMetrics.stale}
@@ -372,8 +400,47 @@ const AtRiskDashboard = () => {
                     '& .MuiLinearProgress-bar': { bgcolor: COLORS.error }
                   }}
                 />
+                <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>
+                  {formatCurrency(agingAmounts.stale)}
+                </Typography>
               </Box>
             </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Weekly Trend Chart */}
+      {trendData.length > 1 && (
+        <Card sx={{ mb: 3, bgcolor: COLORS.surface }}>
+          <CardContent>
+            <Typography variant="subtitle1" sx={{ color: COLORS.text, mb: 2, fontWeight: 600 }}>
+              <TrendingUpIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+              At-Risk Trend (Weekly)
+            </Typography>
+            <ResponsiveContainer width="100%" height={200}>
+              <AreaChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                <XAxis dataKey="label" tick={{ fill: COLORS.textSecondary, fontSize: 12 }} />
+                <YAxis
+                  tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`}
+                  tick={{ fill: COLORS.textSecondary, fontSize: 12 }}
+                />
+                <RechartsTooltip
+                  formatter={(value) => [formatCurrency(value), 'At Risk']}
+                  contentStyle={{ backgroundColor: COLORS.surface, border: `1px solid ${COLORS.border}` }}
+                  labelStyle={{ color: COLORS.text }}
+                  itemStyle={{ color: COLORS.warning }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="amount"
+                  stroke={COLORS.warning}
+                  fill={COLORS.warning}
+                  fillOpacity={0.2}
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       )}
@@ -434,16 +501,18 @@ const AtRiskDashboard = () => {
                           {new Date(ticket.workDate).toLocaleDateString()}
                         </TableCell>
                         <TableCell sx={{ borderColor: COLORS.border }}>
-                          <Chip
-                            label={`${days}d`}
-                            size="small"
-                            sx={{
-                              bgcolor: getAgingColor(days, COLORS),
-                              color: COLORS.bg,
-                              fontWeight: 600,
-                              minWidth: 40
-                            }}
-                          />
+                          <Tooltip title={getAgingLabel(days, thresholds)}>
+                            <Chip
+                              label={`${days}d`}
+                              size="small"
+                              sx={{
+                                bgcolor: getAgingColor(days, COLORS, thresholds),
+                                color: COLORS.bg,
+                                fontWeight: 600,
+                                minWidth: 40
+                              }}
+                            />
+                          </Tooltip>
                         </TableCell>
                         <TableCell sx={{ color: COLORS.primary, borderColor: COLORS.border, fontWeight: 600 }}>
                           {formatCurrency(ticket.totalAmount)}

@@ -20,6 +20,7 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 const notificationService = require('../services/notification.service');
+const { withOptionalTransaction } = require('../utils/transaction');
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -258,9 +259,16 @@ router.get('/at-risk', async (req, res) => {
       return res.status(400).json({ error: 'User not associated with a company' });
     }
 
-    const [tickets, totals] = await Promise.all([
+    // Configurable age thresholds (query params, defaults: warning=3, critical=7)
+    const warningDays = sanitizeInt(req.query.warningDays, 3, 30) || 3;
+    const criticalDays = sanitizeInt(req.query.criticalDays, 7, 90) || 7;
+    const thresholds = { warning: warningDays, critical: criticalDays };
+
+    const [tickets, totals, aging, trend] = await Promise.all([
       FieldTicket.getAtRisk(user.companyId),
-      FieldTicket.getAtRiskTotal(user.companyId)
+      FieldTicket.getAtRiskTotal(user.companyId),
+      FieldTicket.getAtRiskAging(user.companyId, thresholds),
+      FieldTicket.getAtRiskTrend(user.companyId)
     ]);
 
     // Group by status for dashboard
@@ -273,7 +281,10 @@ router.get('/at-risk', async (req, res) => {
       totalAtRisk: totals.totalAtRisk,
       ticketCount: totals.count,
       byStatus,
-      tickets
+      tickets,
+      aging,
+      trend,
+      thresholds
     });
   } catch (err) {
     console.error('Error getting at-risk tickets:', err);
@@ -308,6 +319,157 @@ router.get('/approved', async (req, res) => {
   } catch (err) {
     console.error('Error getting approved tickets:', err);
     res.status(500).json({ error: 'Failed to get approved tickets' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/fieldtickets/batch-sign:
+ *   post:
+ *     summary: Batch sign multiple field tickets with a single signature
+ *     description: Allows an inspector to sign multiple pending_signature tickets at once
+ *     tags: [FieldTickets]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ticketIds
+ *               - signatureData
+ *               - signerName
+ *             properties:
+ *               ticketIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               signatureData:
+ *                 type: string
+ *               signerName:
+ *                 type: string
+ *               signerTitle:
+ *                 type: string
+ *               signerCompany:
+ *                 type: string
+ *               signerEmployeeId:
+ *                 type: string
+ *               signatureLocation:
+ *                 type: object
+ *                 properties:
+ *                   latitude:
+ *                     type: number
+ *                   longitude:
+ *                     type: number
+ */
+router.post('/batch-sign', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const {
+      ticketIds,
+      signatureData,
+      signerName,
+      signerTitle,
+      signerCompany,
+      signerEmployeeId,
+      signatureLocation
+    } = req.body;
+
+    // Validate inputs
+    if (!Array.isArray(ticketIds) || ticketIds.length === 0) {
+      return res.status(400).json({ error: 'ticketIds array is required and must not be empty' });
+    }
+    if (!signatureData || !signerName) {
+      return res.status(400).json({ error: 'Signature data and signer name are required' });
+    }
+
+    // Sanitize ticket IDs
+    const safeTicketIds = ticketIds
+      .map(id => sanitizeObjectId(id))
+      .filter(Boolean);
+
+    if (safeTicketIds.length === 0) {
+      return res.status(400).json({ error: 'No valid ticket IDs provided' });
+    }
+
+    // Build signature object
+    const signature = {
+      signatureData: sanitizeString(signatureData),
+      signedAt: new Date(),
+      signerName: sanitizeString(signerName),
+      signerTitle: sanitizeString(signerTitle),
+      signerCompany: sanitizeString(signerCompany),
+      signerEmployeeId: sanitizeString(signerEmployeeId),
+      signatureLocation: signatureLocation ? sanitizeLocation(signatureLocation) : undefined,
+      deviceInfo: req.headers['user-agent']
+    };
+
+    // Fetch all tickets and validate
+    const tickets = await FieldTicket.find({
+      _id: { $in: safeTicketIds },
+      companyId: user.companyId,
+      isDeleted: { $ne: true }
+    });
+
+    if (tickets.length === 0) {
+      return res.status(404).json({ error: 'No matching tickets found' });
+    }
+
+    // Check all tickets are in pending_signature status
+    const invalidTickets = tickets.filter(t => t.status !== 'pending_signature');
+    if (invalidTickets.length > 0) {
+      const invalidNumbers = invalidTickets.map(t => t.ticketNumber).join(', ');
+      return res.status(400).json({
+        error: `The following tickets are not in pending_signature status: ${invalidNumbers}`
+      });
+    }
+
+    // Apply signature to all tickets in a transaction
+    const signedTickets = await withOptionalTransaction(async (session) => {
+      const opts = session ? { session } : {};
+      const results = [];
+      for (const ticket of tickets) {
+        ticket.inspectorSignature = signature;
+        ticket.status = 'signed';
+        await ticket.save(opts);
+        results.push(ticket);
+      }
+      return results;
+    });
+
+    // Fire-and-forget notifications for each ticket
+    for (const ticket of signedTickets) {
+      try {
+        const job = await Job.findById(ticket.jobId).select('userId companyId woNumber').lean();
+        if (job) {
+          await notificationService.createNotification({
+            userId: job.userId,
+            companyId: job.companyId,
+            type: 'field_ticket_signed',
+            title: 'Field Ticket Signed (Batch)',
+            message: `Field ticket ${ticket.ticketNumber} for WO ${job.woNumber} has been signed by ${signerName}`,
+            link: `/billing/field-tickets/${ticket._id}`
+          });
+        }
+      } catch (notifError) {
+        console.error('[FieldTicket:BatchSign] Notification error:', notifError.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      signedCount: signedTickets.length,
+      tickets: signedTickets
+    });
+  } catch (err) {
+    console.error('Error batch-signing field tickets:', err);
+    res.status(500).json({ error: 'Failed to batch-sign field tickets' });
   }
 });
 
@@ -783,6 +945,33 @@ router.post('/:id/approve', async (req, res) => {
 });
 
 /**
+ * Valid dispute categories
+ */
+const VALID_DISPUTE_CATEGORIES = new Set([
+  'hours', 'rates', 'materials', 'scope', 'quality', 'other'
+]);
+
+/**
+ * Sanitize dispute evidence array
+ */
+function sanitizeDisputeEvidence(evidence, userId) {
+  if (!Array.isArray(evidence)) return [];
+  const validDocTypes = new Set(['photo', 'document', 'email', 'receipt', 'other']);
+  return evidence.map(e => {
+    if (!e || typeof e !== 'object') return null;
+    return {
+      url: sanitizeString(e.url),
+      r2Key: sanitizeString(e.r2Key),
+      fileName: sanitizeString(e.fileName),
+      documentType: validDocTypes.has(e.documentType) ? e.documentType : 'other',
+      description: sanitizeString(e.description),
+      addedAt: new Date(),
+      addedBy: userId
+    };
+  }).filter(Boolean);
+}
+
+/**
  * @swagger
  * /api/fieldtickets/{id}/dispute:
  *   post:
@@ -790,6 +979,34 @@ router.post('/:id/approve', async (req, res) => {
  *     tags: [FieldTickets]
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - reason
+ *             properties:
+ *               reason:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *                 enum: [hours, rates, materials, scope, quality, other]
+ *               evidence:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     url:
+ *                       type: string
+ *                     fileName:
+ *                       type: string
+ *                     documentType:
+ *                       type: string
+ *                       enum: [photo, document, email, receipt, other]
+ *                     description:
+ *                       type: string
  */
 router.post('/:id/dispute', async (req, res) => {
   try {
@@ -813,16 +1030,99 @@ router.post('/:id/dispute', async (req, res) => {
       return res.status(404).json({ error: 'Field ticket not found' });
     }
 
-    const { reason } = req.body;
+    const { reason, category, evidence } = req.body;
     if (!reason) {
       return res.status(400).json({ error: 'Dispute reason is required' });
     }
 
-    await ticket.dispute(user._id, sanitizeString(reason));
+    const safeCategory = VALID_DISPUTE_CATEGORIES.has(category) ? category : 'other';
+    const safeEvidence = evidence ? sanitizeDisputeEvidence(evidence, user._id) : [];
+
+    await ticket.dispute(user._id, sanitizeString(reason), safeCategory, safeEvidence);
     res.json(ticket);
   } catch (err) {
     console.error('Error disputing field ticket:', err);
     res.status(500).json({ error: 'Failed to dispute field ticket' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/fieldtickets/{id}/resolve-dispute:
+ *   post:
+ *     summary: Resolve a disputed field ticket
+ *     tags: [FieldTickets]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - resolution
+ *             properties:
+ *               resolution:
+ *                 type: string
+ *               evidence:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     url:
+ *                       type: string
+ *                     fileName:
+ *                       type: string
+ *                     documentType:
+ *                       type: string
+ *                       enum: [photo, document, email, receipt, other]
+ *                     description:
+ *                       type: string
+ */
+router.post('/:id/resolve-dispute', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    // Only PM/GF/Admin can resolve disputes
+    if (!['pm', 'gf', 'admin'].includes(user.role) && !req.isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to resolve disputes' });
+    }
+
+    const ticketId = sanitizeObjectId(req.params.id);
+    if (!ticketId) {
+      return res.status(400).json({ error: 'Invalid ticket ID' });
+    }
+
+    const ticket = await FieldTicket.findOne({
+      _id: ticketId,
+      companyId: user.companyId,
+      isDeleted: { $ne: true }
+    });
+
+    if (!ticket) {
+      return res.status(404).json({ error: 'Field ticket not found' });
+    }
+
+    if (ticket.status !== 'disputed') {
+      return res.status(400).json({ error: 'Only disputed tickets can be resolved' });
+    }
+
+    const { resolution, evidence } = req.body;
+    if (!resolution) {
+      return res.status(400).json({ error: 'Resolution description is required' });
+    }
+
+    const safeEvidence = evidence ? sanitizeDisputeEvidence(evidence, user._id) : [];
+
+    await ticket.resolveDispute(user._id, sanitizeString(resolution), safeEvidence);
+    res.json(ticket);
+  } catch (err) {
+    console.error('Error resolving dispute:', err);
+    res.status(500).json({ error: err.message || 'Failed to resolve dispute' });
   }
 });
 
