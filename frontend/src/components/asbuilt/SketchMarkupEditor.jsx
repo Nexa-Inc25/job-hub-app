@@ -34,6 +34,7 @@ import {
   ToggleButton, ToggleButtonGroup,
 } from '@mui/material';
 import UndoIcon from '@mui/icons-material/Undo';
+import RedoIcon from '@mui/icons-material/Redo';
 import SaveIcon from '@mui/icons-material/Save';
 import ZoomInIcon from '@mui/icons-material/ZoomIn';
 import ZoomOutIcon from '@mui/icons-material/ZoomOut';
@@ -86,6 +87,8 @@ function getCursor(tool) {
 
 // ---- Component ----
 
+const MAX_UNDO_STACK = 50;
+
 const SketchMarkupEditor = ({
   pdfUrl,
   jobInfo: _jobInfo = {},
@@ -96,6 +99,10 @@ const SketchMarkupEditor = ({
   documentName = 'Construction Sketch',
   // Initial page (for multi-page sketches)
   initialPage = 1,
+  // Saved sketch data (JSON) for restore
+  initialData = null,
+  // Callback to save sketch as JSON (for draft persistence)
+  onSaveJson = null,
 }) => {
   // ---- State ----
   const [pdfBytes, setPdfBytes] = useState(null);
@@ -422,52 +429,19 @@ const SketchMarkupEditor = ({
     setTextPlacement(null);
   };
 
-  // ---- Undo stack (tracks insertion order across all annotation types) ----
+  // ---- Undo / Redo stack ----
   const [undoStack, setUndoStack] = useState([]);
-  // Push to undo stack whenever an annotation is added (called by handlers below)
+  const [redoStack, setRedoStack] = useState([]);
+
+  // Push to undo stack whenever an annotation is added
   const pushUndo = useCallback((type, page) => {
-    setUndoStack(prev => [...prev, { type, page }]);
+    setUndoStack(prev => {
+      const next = [...prev, { type, page }];
+      return next.length > MAX_UNDO_STACK ? next.slice(-MAX_UNDO_STACK) : next;
+    });
+    // Clear redo stack when a new action is performed
+    setRedoStack([]);
   }, []);
-
-  // ---- Undo ----
-  const handleUndo = () => {
-    // Find the most recent action on the current page
-    const lastOnPage = [...undoStack].reverse().findIndex(u => u.page === currentPage);
-    if (lastOnPage < 0) {
-      if (builtAsDesigned) setBuiltAsDesigned(false);
-      return;
-    }
-    const undoIdx = undoStack.length - 1 - lastOnPage;
-    const entry = undoStack[undoIdx];
-
-    // Remove the specific item: find the last item of that type on that page
-    // and splice it out by its actual index in the array
-    switch (entry.type) {
-      case 'stroke': {
-        const idx = findLastIndex(strokes, s => s.page === currentPage);
-        if (idx >= 0) setStrokes(prev => prev.filter((_, i) => i !== idx));
-        break;
-      }
-      case 'line': {
-        const idx = findLastIndex(lines, l => l.page === currentPage);
-        if (idx >= 0) setLines(prev => prev.filter((_, i) => i !== idx));
-        break;
-      }
-      case 'symbol': {
-        const idx = findLastIndex(placedSymbols, s => s.page === currentPage);
-        if (idx >= 0) setPlacedSymbols(prev => prev.filter((_, i) => i !== idx));
-        break;
-      }
-      case 'text': {
-        const idx = findLastIndex(textAnnotations, t => t.page === currentPage);
-        if (idx >= 0) setTextAnnotations(prev => prev.filter((_, i) => i !== idx));
-        break;
-      }
-    }
-
-    // Remove from undo stack
-    setUndoStack(prev => prev.filter((_, i) => i !== undoIdx));
-  };
 
   // Helper: find last index matching a predicate
   function findLastIndex(arr, predicate) {
@@ -476,6 +450,126 @@ const SketchMarkupEditor = ({
     }
     return -1;
   }
+
+  // ---- Undo ----
+  const handleUndo = useCallback(() => {
+    const lastOnPage = [...undoStack].reverse().findIndex(u => u.page === currentPage);
+    if (lastOnPage < 0) {
+      if (builtAsDesigned) setBuiltAsDesigned(false);
+      return;
+    }
+    const undoIdx = undoStack.length - 1 - lastOnPage;
+    const entry = undoStack[undoIdx];
+
+    // Remove the item and push it to the redo stack with its data
+    let removedItem = null;
+    switch (entry.type) {
+      case 'stroke': {
+        const idx = findLastIndex(strokes, s => s.page === currentPage);
+        if (idx >= 0) {
+          removedItem = strokes[idx];
+          setStrokes(prev => prev.filter((_, i) => i !== idx));
+        }
+        break;
+      }
+      case 'line': {
+        const idx = findLastIndex(lines, l => l.page === currentPage);
+        if (idx >= 0) {
+          removedItem = lines[idx];
+          setLines(prev => prev.filter((_, i) => i !== idx));
+        }
+        break;
+      }
+      case 'symbol': {
+        const idx = findLastIndex(placedSymbols, s => s.page === currentPage);
+        if (idx >= 0) {
+          removedItem = placedSymbols[idx];
+          setPlacedSymbols(prev => prev.filter((_, i) => i !== idx));
+        }
+        break;
+      }
+      case 'text': {
+        const idx = findLastIndex(textAnnotations, t => t.page === currentPage);
+        if (idx >= 0) {
+          removedItem = textAnnotations[idx];
+          setTextAnnotations(prev => prev.filter((_, i) => i !== idx));
+        }
+        break;
+      }
+    }
+
+    // Move to redo stack
+    setRedoStack(prev => [...prev, { ...entry, data: removedItem }]);
+    setUndoStack(prev => prev.filter((_, i) => i !== undoIdx));
+  }, [undoStack, currentPage, builtAsDesigned, strokes, lines, placedSymbols, textAnnotations]);
+
+  // ---- Redo ----
+  const handleRedo = useCallback(() => {
+    const lastOnPage = [...redoStack].reverse().findIndex(r => r.page === currentPage);
+    if (lastOnPage < 0) return;
+    const redoIdx = redoStack.length - 1 - lastOnPage;
+    const entry = redoStack[redoIdx];
+
+    if (entry.data) {
+      switch (entry.type) {
+        case 'stroke': setStrokes(prev => [...prev, entry.data]); break;
+        case 'line': setLines(prev => [...prev, entry.data]); break;
+        case 'symbol': setPlacedSymbols(prev => [...prev, entry.data]); break;
+        case 'text': setTextAnnotations(prev => [...prev, entry.data]); break;
+      }
+    }
+
+    // Move back to undo stack
+    setUndoStack(prev => [...prev, { type: entry.type, page: entry.page }]);
+    setRedoStack(prev => prev.filter((_, i) => i !== redoIdx));
+  }, [redoStack, currentPage]);
+
+  // ---- Restore from saved JSON ----
+  useEffect(() => {
+    if (!initialData) return;
+    try {
+      const data = typeof initialData === 'string' ? JSON.parse(initialData) : initialData;
+      if (data.strokes) setStrokes(data.strokes);
+      if (data.lines) setLines(data.lines);
+      if (data.placedSymbols) setPlacedSymbols(data.placedSymbols);
+      if (data.textAnnotations) setTextAnnotations(data.textAnnotations);
+      if (data.builtAsDesigned) setBuiltAsDesigned(data.builtAsDesigned);
+    } catch (err) {
+      console.error('[SketchMarkupEditor] Failed to restore saved data:', err);
+    }
+  }, [initialData]);
+
+  // ---- Save as JSON (for draft persistence) ----
+  const handleSaveJson = useCallback(() => {
+    if (!onSaveJson) return;
+    const data = {
+      strokes,
+      lines,
+      placedSymbols,
+      textAnnotations,
+      builtAsDesigned,
+      savedAt: new Date().toISOString(),
+    };
+    onSaveJson(data);
+  }, [strokes, lines, placedSymbols, textAnnotations, builtAsDesigned, onSaveJson]);
+
+  // ---- Keyboard Shortcuts (Ctrl+Z = undo, Ctrl+Shift+Z = redo) ----
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ignore when typing in text fields
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        handleRedo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        e.preventDefault();
+        handleUndo();
+      }
+    };
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => globalThis.removeEventListener('keydown', handleKeyDown);
+  }, [handleUndo, handleRedo]);
 
   const hasAnyMarkup = strokes.length > 0 || lines.length > 0 || placedSymbols.length > 0
     || textAnnotations.length > 0 || builtAsDesigned;
@@ -633,6 +727,9 @@ const SketchMarkupEditor = ({
         });
       }
 
+      // Also persist the JSON state for resume capability
+      handleSaveJson();
+
       setSnackbar({ open: true, message: 'Sketch markup saved!', severity: 'success' });
     } catch (err) {
       console.error('Error saving markup:', err);
@@ -789,9 +886,20 @@ const SketchMarkupEditor = ({
 
           <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
 
-          <IconButton size="small" onClick={handleUndo} disabled={!hasAnyMarkup}>
-            <UndoIcon fontSize="small" />
-          </IconButton>
+          <Tooltip title="Undo (Ctrl+Z)">
+            <span>
+              <IconButton size="small" onClick={handleUndo} disabled={!hasAnyMarkup}>
+                <UndoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+          <Tooltip title="Redo (Ctrl+Shift+Z)">
+            <span>
+              <IconButton size="small" onClick={handleRedo} disabled={redoStack.length === 0}>
+                <RedoIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
 
           <Button
             size="small"
@@ -979,6 +1087,8 @@ SketchMarkupEditor.propTypes = {
   colorConventions: PropTypes.array,
   documentName: PropTypes.string,
   initialPage: PropTypes.number,
+  initialData: PropTypes.oneOfType([PropTypes.object, PropTypes.string]),
+  onSaveJson: PropTypes.func,
 };
 
 export default SketchMarkupEditor;

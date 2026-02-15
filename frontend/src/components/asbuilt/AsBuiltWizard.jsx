@@ -35,6 +35,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import WarningIcon from '@mui/icons-material/Warning';
 import ErrorIcon from '@mui/icons-material/Error';
+import SaveIcon from '@mui/icons-material/Save';
 
 import ECTagCompletion from './ECTagCompletion';
 import CCSCChecklist from './CCSCChecklist';
@@ -93,8 +94,10 @@ const AsBuiltWizard = ({
   jobPackagePdfUrl = null,
   // Callbacks
   onComplete,         // Final submission with all collected data
-  onSaveProgress: _onSaveProgress,     // Save wizard state (for resume later)
+  onSaveProgress,     // Save wizard state (for resume later)
   onOpenSketchEditor, // Opens the SketchMarkupEditor for the construction sketch
+  // Draft resume — if provided, wizard restores this state on mount
+  initialDraft = null,
   // Loading state
   loading = false,
 }) => {
@@ -102,11 +105,74 @@ const AsBuiltWizard = ({
   const [completedSteps, setCompletedSteps] = useState({});
   const [stepData, setStepData] = useState({});
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftSavedAt, setDraftSavedAt] = useState(null);
 
   // ---- Determine work type and required docs ----
   const [selectedWorkType, setSelectedWorkType] = useState(null);
 
   const workTypes = useMemo(() => utilityConfig?.workTypes || [], [utilityConfig]);
+
+  // ---- Resume from saved draft ----
+  useEffect(() => {
+    if (!initialDraft) return;
+
+    // Restore wizard state from the draft
+    if (initialDraft.stepData) setStepData(initialDraft.stepData);
+    if (initialDraft.completedSteps) setCompletedSteps(initialDraft.completedSteps);
+    if (initialDraft.activeStep != null) setActiveStep(initialDraft.activeStep);
+
+    // Restore work type selection
+    if (initialDraft.workType && workTypes.length > 0) {
+      const wt = workTypes.find(w => w.code === initialDraft.workType);
+      if (wt) setSelectedWorkType(wt);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDraft]); // Run once on mount
+
+  // ---- Auto-save progress on every step change ----
+  const saveProgressRef = React.useRef(onSaveProgress);
+  saveProgressRef.current = onSaveProgress;
+
+  useEffect(() => {
+    // Only save if there's something to save and the callback exists
+    if (!saveProgressRef.current) return;
+    if (!selectedWorkType && Object.keys(completedSteps).length === 0) return;
+
+    const draft = {
+      activeStep,
+      workType: selectedWorkType?.code || null,
+      completedSteps,
+      stepData,
+      savedAt: new Date().toISOString(),
+    };
+
+    // Debounce: save after 500ms of inactivity
+    const timer = setTimeout(() => {
+      saveProgressRef.current(draft);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [activeStep, selectedWorkType, completedSteps, stepData]);
+
+  // ---- Manual "Save Draft" handler ----
+  const handleSaveDraft = useCallback(async () => {
+    if (!onSaveProgress) return;
+    setDraftSaving(true);
+    try {
+      const draft = {
+        activeStep,
+        workType: selectedWorkType?.code || null,
+        completedSteps,
+        stepData,
+        savedAt: new Date().toISOString(),
+      };
+      await Promise.resolve(onSaveProgress(draft));
+      setDraftSavedAt(new Date().toLocaleTimeString());
+    } finally {
+      setDraftSaving(false);
+    }
+  }, [activeStep, selectedWorkType, completedSteps, stepData, onSaveProgress]);
 
   // Auto-detect work type from job data if possible
   // Uses orderType, ecTag, preFieldLabels, and PM/Notification heuristics
@@ -708,9 +774,28 @@ const AsBuiltWizard = ({
         <Typography variant="body2" color="text.secondary">
           {utilityConfig.utilityName} • {utilityConfig.procedureId} {utilityConfig.procedureVersion}
         </Typography>
-        {job?.pmNumber && (
-          <Chip label={`PM# ${job.pmNumber}`} size="small" sx={{ mt: 1 }} />
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+          {job?.pmNumber && (
+            <Chip label={`PM# ${job.pmNumber}`} size="small" />
+          )}
+          {onSaveProgress && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={draftSaving ? <CircularProgress size={14} /> : <SaveIcon />}
+              onClick={handleSaveDraft}
+              disabled={draftSaving}
+              sx={{ ml: 'auto', fontWeight: 600, fontSize: '0.75rem' }}
+            >
+              Save Draft
+            </Button>
+          )}
+          {draftSavedAt && (
+            <Typography variant="caption" color="text.secondary">
+              Saved {draftSavedAt}
+            </Typography>
+          )}
+        </Box>
       </Paper>
 
       {/* Stepper */}
@@ -811,6 +896,13 @@ AsBuiltWizard.propTypes = {
   onComplete: PropTypes.func,
   onSaveProgress: PropTypes.func,
   onOpenSketchEditor: PropTypes.func,
+  initialDraft: PropTypes.shape({
+    activeStep: PropTypes.number,
+    workType: PropTypes.string,
+    completedSteps: PropTypes.object,
+    stepData: PropTypes.object,
+    savedAt: PropTypes.string,
+  }),
   loading: PropTypes.bool,
 };
 
