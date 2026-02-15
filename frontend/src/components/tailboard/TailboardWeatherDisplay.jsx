@@ -10,9 +10,19 @@ import {
 } from '@mui/material';
 import WeatherIcon from '@mui/icons-material/WbSunny';
 
-const TailboardWeatherDisplay = ({ value, weatherLoading, weatherData, weatherError, onRefresh, disabled }) => {
+const TailboardWeatherDisplay = ({ value, onChange, weatherLoading, weatherData, weatherError, onRefresh, disabled }) => {
+  const isUnavailable = weatherData?.mock || weatherData?.source === 'placeholder' || weatherData?.source === 'error';
+  const allowManualEntry = isUnavailable && !disabled;
+
+  const iconColor = (() => {
+    if (weatherLoading) return 'text.secondary';
+    if (isUnavailable || weatherError) return 'warning.main';
+    return 'success.main';
+  })();
+
   const helperText = (() => {
     if (weatherError) return weatherError;
+    if (isUnavailable) return 'Weather API not configured — type conditions manually';
     if (weatherData?.source === 'api') return 'Auto-fetched from weather service';
     if (weatherData?.source === 'cache') return 'Cached weather data';
     return '';
@@ -23,10 +33,13 @@ const TailboardWeatherDisplay = ({ value, weatherLoading, weatherData, weatherEr
       <Grid size={12}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <TextField
-            label="Weather Conditions (Auto)" value={value} fullWidth size="small"
-            disabled={true} placeholder="Fetching weather..."
+            label={allowManualEntry ? 'Weather Conditions (Manual)' : 'Weather Conditions (Auto)'}
+            value={value} fullWidth size="small"
+            disabled={!allowManualEntry}
+            placeholder={allowManualEntry ? 'e.g. Sunny, 72°F, light winds' : 'Fetching weather...'}
+            onChange={allowManualEntry ? (e) => onChange(e.target.value) : undefined}
             InputProps={{
-              startAdornment: <WeatherIcon sx={{ mr: 1, color: weatherLoading ? 'text.secondary' : 'success.main' }} />,
+              startAdornment: <WeatherIcon sx={{ mr: 1, color: iconColor }} />,
               endAdornment: weatherLoading && <CircularProgress size={16} />
             }}
             helperText={helperText}
@@ -50,6 +63,7 @@ const TailboardWeatherDisplay = ({ value, weatherLoading, weatherData, weatherEr
 
 TailboardWeatherDisplay.propTypes = {
   value: PropTypes.string.isRequired,
+  onChange: PropTypes.func.isRequired,
   weatherLoading: PropTypes.bool.isRequired,
   weatherData: PropTypes.object,
   weatherError: PropTypes.string,

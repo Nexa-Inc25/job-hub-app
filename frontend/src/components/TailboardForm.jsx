@@ -94,8 +94,17 @@ const TailboardForm = () => {
       const { latitude, longitude } = pos.coords;
       const res = await api.get(`/api/weather/current?lat=${latitude}&lng=${longitude}`);
       setWeatherData(res.data);
-      setWeatherConditions(res.data.formatted || `${res.data.temperature}°F, ${res.data.conditions}`);
-      if (res.data.workStatus?.blocked) setWeatherError(`Warning: ${res.data.workStatus.reason}`);
+      // Handle placeholder/unavailable weather (API key not configured)
+      if (res.data.mock || res.data.source === 'placeholder') {
+        setWeatherConditions('');
+        setWeatherError(res.data.warning || 'Weather service not configured');
+      } else if (res.data.source === 'error') {
+        setWeatherConditions('');
+        setWeatherError(res.data.error || 'Weather service error');
+      } else {
+        setWeatherConditions(res.data.formatted || `${res.data.temperature}°F, ${res.data.conditions}`);
+        if (res.data.workStatus?.blocked) setWeatherError(`Warning: ${res.data.workStatus.reason}`);
+      }
     } catch (err) {
       if (err.code === 1) setWeatherError('Location permission denied');
       else if (err.code === 2) setWeatherError('Location unavailable');
@@ -112,7 +121,7 @@ const TailboardForm = () => {
         setJob(jobRes.data);
         if (jobRes.data.pmNumber) setPmNumber(jobRes.data.pmNumber);
         try {
-          const tbRes = await api.get(`/api/tailboards/job/${jobId}/today`);
+          const tbRes = await api.get(`/api/tailboard/job/${jobId}/today`);
           if (tbRes.data) { setTailboard(tbRes.data); populateFormFromTailboard(tbRes.data, allSetters); }
         } catch { /* No tailboard for today */ }
         if (!taskDescription && jobRes.data.jobScope?.summary) setTaskDescription(jobRes.data.jobScope.summary);
@@ -140,7 +149,7 @@ const TailboardForm = () => {
 
   const handleSave = async () => {
     try { setSaving(true);
-      const res = tailboard?._id ? await api.put(`/api/tailboards/${tailboard._id}`, buildData()) : await api.post('/api/tailboards', buildData());
+      const res = tailboard?._id ? await api.put(`/api/tailboard/${tailboard._id}`, buildData()) : await api.post('/api/tailboard', buildData());
       setTailboard(res.data); setSnackbar({ open: true, message: 'Tailboard saved', severity: 'success' });
     } catch { setSnackbar({ open: true, message: 'Failed to save tailboard', severity: 'error' });
     } finally { setSaving(false); }
@@ -149,9 +158,9 @@ const TailboardForm = () => {
   const handleComplete = async () => {
     try { setSaving(true);
       let cur = tailboard;
-      const sRes = cur?._id ? await api.put(`/api/tailboards/${cur._id}`, buildData()) : await api.post('/api/tailboards', buildData());
+      const sRes = cur?._id ? await api.put(`/api/tailboard/${cur._id}`, buildData()) : await api.post('/api/tailboard', buildData());
       cur = sRes.data; setTailboard(cur);
-      const cRes = await api.post(`/api/tailboards/${cur._id}/complete`);
+      const cRes = await api.post(`/api/tailboard/${cur._id}/complete`);
       setTailboard(cRes.data); setSnackbar({ open: true, message: 'Tailboard completed!', severity: 'success' });
       setTimeout(() => navigate(`/jobs/${jobId}/closeout`), 1500);
     } catch (err) { setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to complete tailboard', severity: 'error' });
@@ -160,7 +169,7 @@ const TailboardForm = () => {
 
   const handleAddSignature = async (sigData) => {
     try {
-      if (tailboard?._id) { const r = await api.post(`/api/tailboards/${tailboard._id}/sign`, sigData); setCrewMembers(r.data.crewMembers); }
+      if (tailboard?._id) { const r = await api.post(`/api/tailboard/${tailboard._id}/sign`, sigData); setCrewMembers(r.data.crewMembers); }
       else { setCrewMembers([...crewMembers, { id: `crew-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`, ...sigData, signedAt: new Date() }]); } // NOSONAR
       setSnackbar({ open: true, message: `${sigData.name} signed`, severity: 'success' });
     } catch { setSnackbar({ open: true, message: 'Failed to add signature', severity: 'error' }); }
@@ -211,7 +220,7 @@ const TailboardForm = () => {
           <Grid size={{ xs: 6, sm: 4 }}><F disabled={d} label="EIC Phone" value={eicPhone} onChange={e => setEicPhone(e.target.value)} /></Grid>
           <Grid size={{ xs: 12, sm: 4 }}><F disabled={d} label="Show Up Yard Location" value={showUpYardLocation} onChange={e => setShowUpYardLocation(e.target.value)} /></Grid>
         </Grid>
-        <TailboardWeatherDisplay value={weatherConditions} weatherLoading={weatherLoading} weatherData={weatherData} weatherError={weatherError} onRefresh={fetchWeather} disabled={isCompleted} />
+        <TailboardWeatherDisplay value={weatherConditions} onChange={setWeatherConditions} weatherLoading={weatherLoading} weatherData={weatherData} weatherError={weatherError} onRefresh={fetchWeather} disabled={isCompleted} />
       </Paper>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Summary of Work - Job Steps</Typography>
