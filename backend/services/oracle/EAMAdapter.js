@@ -14,6 +14,8 @@
  */
 
 const axios = require('axios');
+const log = require('../../utils/logger');
+const { createCircuitBreaker } = require('../../utils/circuitBreaker');
 
 class EAMAdapter {
   constructor(config = {}) {
@@ -23,14 +25,56 @@ class EAMAdapter {
     
     this.accessToken = null;
     this.tokenExpiry = null;
+    this.adapterName = 'EAM';
+    
+    // Circuit breaker: open after 5 consecutive failures, half-open after 30s
+    this.breaker = createCircuitBreaker('oracle-eam', {
+      failureThreshold: 5,
+      resetTimeout: 30000,
+    });
     
     // API client
     this.client = axios.create({
-      timeout: 30000,
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
+    });
+  }
+  
+  /**
+   * Execute a function with retry (exponential backoff) and circuit breaker
+   * 3 retries with 1s, 2s, 4s delays
+   */
+  async _executeWithRetry(fn, operation) {
+    const retryDelays = [1000, 2000, 4000];
+    const maxAttempts = retryDelays.length + 1;
+    
+    return this.breaker.execute(async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          if (attempt > 1) {
+            const delay = retryDelays[attempt - 2];
+            log.info({ adapter: this.adapterName, operation, attempt, delayMs: delay }, 'Retrying after delay');
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          const startTime = Date.now();
+          const result = await fn();
+          const durationMs = Date.now() - startTime;
+          log.info({ adapter: this.adapterName, operation, attempt, durationMs }, 'Request succeeded');
+          return result;
+        } catch (error) {
+          lastError = error;
+          log.warn({ adapter: this.adapterName, operation, attempt, err: error }, 'Request attempt failed');
+          if (attempt === maxAttempts) {
+            log.error({ adapter: this.adapterName, operation, attempts: maxAttempts, err: error }, 'All retries exhausted');
+            throw error;
+          }
+        }
+      }
+      throw lastError;
     });
   }
   
@@ -74,7 +118,7 @@ class EAMAdapter {
       
       return this.accessToken;
     } catch (error) {
-      console.error('[EAMAdapter] Authentication failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Authentication failed');
       throw new Error(`Oracle EAM authentication failed: ${error.message}`);
     }
   }
@@ -101,13 +145,13 @@ class EAMAdapter {
   async completeWorkOrder(options) {
     const { workOrderNumber, completionDate, completionData = {} } = options;
     
-    console.log(`[EAMAdapter] Completing work order ${workOrderNumber}`);
+    log.info({ adapter: this.adapterName, workOrderNumber }, 'Completing work order');
     
     if (!this.isConfigured()) {
       return this.mockWorkOrderResponse(options);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       // Get work order ID
@@ -138,11 +182,7 @@ class EAMAdapter {
         completionDate,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[EAMAdapter] Work order completion failed:', error.message);
-      throw new Error(`Work order completion failed: ${error.message}`);
-    }
+    }, 'completeWorkOrder');
   }
   
   /**
@@ -177,13 +217,13 @@ class EAMAdapter {
   async updateAsset(options) {
     const { assetNumber, assetType, assetData = {} } = options;
     
-    console.log(`[EAMAdapter] Updating asset ${assetNumber} (${assetType})`);
+    log.info({ adapter: this.adapterName, assetNumber, assetType }, 'Updating asset');
     
     if (!this.isConfigured()) {
       return this.mockAssetResponse(options);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       // Get asset ID
@@ -205,11 +245,7 @@ class EAMAdapter {
         assetType,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[EAMAdapter] Asset update failed:', error.message);
-      throw new Error(`Asset update failed: ${error.message}`);
-    }
+    }, 'updateAsset');
   }
   
   /**
@@ -243,13 +279,13 @@ class EAMAdapter {
   async createAsset(options) {
     const { assetType, assetData } = options;
     
-    console.log(`[EAMAdapter] Creating new ${assetType} asset`);
+    log.info({ adapter: this.adapterName, assetType }, 'Creating new asset');
     
     if (!this.isConfigured()) {
       return this.mockAssetResponse({ ...options, action: 'create' });
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       const payload = {
@@ -284,11 +320,7 @@ class EAMAdapter {
         assetType,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[EAMAdapter] Asset creation failed:', error.message);
-      throw new Error(`Asset creation failed: ${error.message}`);
-    }
+    }, 'createAsset');
   }
   
   /**
@@ -354,7 +386,7 @@ class EAMAdapter {
   async attachDocument(options) {
     const { workOrderNumber, fileName, fileContent, contentType = 'application/pdf' } = options;
     
-    console.log(`[EAMAdapter] Attaching ${fileName} to work order ${workOrderNumber}`);
+    log.info({ adapter: this.adapterName, workOrderNumber, fileName }, 'Attaching document');
     
     if (!this.isConfigured()) {
       return {
@@ -365,7 +397,7 @@ class EAMAdapter {
       };
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const workOrder = await this.getWorkOrder(workOrderNumber, headers);
       
@@ -392,11 +424,7 @@ class EAMAdapter {
         fileName,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[EAMAdapter] Document attachment failed:', error.message);
-      throw new Error(`Document attachment failed: ${error.message}`);
-    }
+    }, 'attachDocument');
   }
   
   /**
@@ -405,7 +433,7 @@ class EAMAdapter {
   async reportMeterReading(options) {
     const { assetNumber, meterType, reading, readingDate } = options;
     
-    console.log(`[EAMAdapter] Reporting ${meterType} reading for ${assetNumber}`);
+    log.info({ adapter: this.adapterName, assetNumber, meterType }, 'Reporting meter reading');
     
     if (!this.isConfigured()) {
       return {
@@ -416,7 +444,7 @@ class EAMAdapter {
       };
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const asset = await this.getAsset(assetNumber, headers);
       
@@ -437,18 +465,14 @@ class EAMAdapter {
         readingId: response.data.MeterReadingId,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[EAMAdapter] Meter reading failed:', error.message);
-      throw error;
-    }
+    }, 'reportMeterReading');
   }
   
   /**
    * Mock responses for unconfigured environments
    */
   mockWorkOrderResponse(options) {
-    console.log('[EAMAdapter] Using mock response (adapter not configured)');
+    log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
     return {
       success: true,
       mock: true,
@@ -461,7 +485,7 @@ class EAMAdapter {
   }
   
   mockAssetResponse(options) {
-    console.log('[EAMAdapter] Using mock response (adapter not configured)');
+    log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
     return {
       success: true,
       mock: true,
@@ -478,7 +502,7 @@ class EAMAdapter {
    * High-level method for full workflow
    */
   async processAsBuilt(submission) {
-    console.log(`[EAMAdapter] Processing as-built for EAM: ${submission.pmNumber}`);
+    log.info({ adapter: this.adapterName, pmNumber: submission.pmNumber }, 'Processing as-built for EAM');
     
     const results = {
       pmNumber: submission.pmNumber,
@@ -555,7 +579,7 @@ class EAMAdapter {
       return results;
       
     } catch (error) {
-      console.error('[EAMAdapter] Processing failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Processing failed');
       results.success = false;
       results.errors.push({ type: 'general', error: error.message });
       return results;

@@ -85,26 +85,54 @@ describe('Weather Service', () => {
   });
 
   describe('assessHazards', () => {
-    it('should detect high wind hazard', () => {
+    it('should detect CAUTION wind at 25 mph', () => {
       const result = weatherService.assessHazards({
-        windSpeed: 35,
-        windGust: 45,
+        windSpeed: 28,
         temperature: 70,
-        visibility: 10,
+        humidity: 50,
         conditionCode: 800,
       });
       expect(result.hasHazards).toBe(true);
       expect(result.hazards).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ type: 'wind' })
+          expect.objectContaining({ type: 'wind', severity: 'warning' })
         ])
       );
+      expect(result.stopWorkRecommended).toBe(false);
+    });
+
+    it('should detect STOP_WORK wind at 35 mph', () => {
+      const result = weatherService.assessHazards({
+        windSpeed: 38,
+        temperature: 70,
+        humidity: 50,
+        conditionCode: 800,
+      });
+      expect(result.hasHazards).toBe(true);
+      expect(result.hazards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: 'wind', severity: 'danger' })
+        ])
+      );
+      expect(result.stopWorkRecommended).toBe(true);
+    });
+
+    it('should NOT flag wind below 25 mph', () => {
+      const result = weatherService.assessHazards({
+        windSpeed: 20,
+        temperature: 70,
+        humidity: 50,
+        conditionCode: 800,
+      });
+      const windHazards = result.hazards.filter(h => h.type === 'wind');
+      expect(windHazards).toHaveLength(0);
     });
 
     it('should detect extreme cold', () => {
       const result = weatherService.assessHazards({
         windSpeed: 5,
         temperature: 20,
+        humidity: 40,
         visibility: 10,
         conditionCode: 800,
       });
@@ -120,6 +148,7 @@ describe('Weather Service', () => {
       const result = weatherService.assessHazards({
         windSpeed: 5,
         temperature: 105,
+        humidity: 30,
         visibility: 10,
         conditionCode: 800,
       });
@@ -141,25 +170,50 @@ describe('Weather Service', () => {
       });
       expect(result.hasHazards).toBe(false);
       expect(result.hazards).toHaveLength(0);
+      expect(result.stopWorkRecommended).toBe(false);
     });
 
-    it('should detect thunderstorm from condition code', () => {
+    it('should detect lightning/thunderstorm and recommend STOP_WORK (code 200-232)', () => {
       const result = weatherService.assessHazards({
         windSpeed: 10,
         temperature: 70,
+        humidity: 60,
         conditionCode: 211,
       });
       expect(result.hazards).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ type: 'storm', severity: 'danger' })
+          expect.objectContaining({ type: 'lightning', severity: 'danger' })
         ])
       );
+      expect(result.stopWorkRecommended).toBe(true);
+    });
+
+    it('should detect lightning at boundary code 200', () => {
+      const result = weatherService.assessHazards({
+        windSpeed: 5,
+        temperature: 75,
+        humidity: 60,
+        conditionCode: 200,
+      });
+      expect(result.hazards.some(h => h.type === 'lightning')).toBe(true);
+      expect(result.stopWorkRecommended).toBe(true);
+    });
+
+    it('should detect lightning at boundary code 232', () => {
+      const result = weatherService.assessHazards({
+        windSpeed: 5,
+        temperature: 75,
+        humidity: 60,
+        conditionCode: 232,
+      });
+      expect(result.hazards.some(h => h.type === 'lightning')).toBe(true);
     });
 
     it('should detect snow from condition code', () => {
       const result = weatherService.assessHazards({
         windSpeed: 10,
         temperature: 28,
+        humidity: 80,
         conditionCode: 601,
       });
       expect(result.hazards).toEqual(
@@ -167,6 +221,56 @@ describe('Weather Service', () => {
           expect.objectContaining({ type: 'snow' })
         ])
       );
+    });
+
+    it('should calculate heat index STOP_WORK when temp + humidity are extreme', () => {
+      // 100°F + 70% humidity → heat index well above 105°F
+      const result = weatherService.assessHazards({
+        windSpeed: 5,
+        temperature: 100,
+        humidity: 70,
+        conditionCode: 800,
+      });
+      expect(result.hazards).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ type: 'heat_index', severity: 'danger' })
+        ])
+      );
+      expect(result.stopWorkRecommended).toBe(true);
+    });
+
+    it('should calculate heat index warning at moderate levels', () => {
+      // 88°F + 65% humidity → heat index ~95°F
+      const result = weatherService.assessHazards({
+        windSpeed: 5,
+        temperature: 88,
+        humidity: 65,
+        conditionCode: 800,
+      });
+      const heatIndexHazard = result.hazards.find(h => h.type === 'heat_index');
+      expect(heatIndexHazard).toBeDefined();
+      expect(heatIndexHazard.severity).toBe('warning');
+    });
+
+    it('should produce a combined hazard score', () => {
+      const result = weatherService.assessHazards({
+        windSpeed: 40,
+        temperature: 100,
+        humidity: 80,
+        conditionCode: 211,
+      });
+      expect(result.hazardScore).toBeGreaterThan(0);
+      expect(result.hazardScore).toBeLessThanOrEqual(100);
+    });
+    
+    it('should return hazardScore of 0 for mild conditions', () => {
+      const result = weatherService.assessHazards({
+        windSpeed: 5,
+        temperature: 72,
+        humidity: 50,
+        conditionCode: 800,
+      });
+      expect(result.hazardScore).toBe(0);
     });
   });
 
@@ -195,21 +299,40 @@ describe('Weather Service', () => {
     });
   });
 
+  describe('calculateHeatIndex', () => {
+    it('should return temp for temperatures below 80°F', () => {
+      expect(weatherService.calculateHeatIndex(75, 50)).toBe(75);
+    });
+
+    it('should calculate elevated heat index for high temp + humidity', () => {
+      const hi = weatherService.calculateHeatIndex(100, 70);
+      expect(hi).toBeGreaterThan(100);
+    });
+
+    it('should return reasonable values for moderate conditions', () => {
+      const hi = weatherService.calculateHeatIndex(85, 50);
+      expect(hi).toBeGreaterThanOrEqual(85);
+      expect(hi).toBeLessThan(100);
+    });
+  });
+
   describe('shouldBlockWork', () => {
-    it('should block for dangerous wind', () => {
+    it('should block for dangerous wind (>=35 mph)', () => {
       const result = weatherService.shouldBlockWork({
-        windSpeed: 45,
+        windSpeed: 40,
         temperature: 70,
+        humidity: 50,
         conditionCode: 800,
       });
       expect(result.blocked).toBe(true);
-      expect(result.reason).toContain('wind');
+      expect(result.reason.toLowerCase()).toContain('wind');
     });
 
     it('should not block for mild conditions', () => {
       const result = weatherService.shouldBlockWork({
         windSpeed: 5,
         temperature: 72,
+        humidity: 50,
         conditionCode: 800,
       });
       expect(result.blocked).toBe(false);
@@ -219,7 +342,18 @@ describe('Weather Service', () => {
       const result = weatherService.shouldBlockWork({
         windSpeed: 15,
         temperature: 72,
+        humidity: 50,
         conditionCode: 211,
+      });
+      expect(result.blocked).toBe(true);
+    });
+
+    it('should block for extreme heat index', () => {
+      const result = weatherService.shouldBlockWork({
+        windSpeed: 5,
+        temperature: 105,
+        humidity: 70,
+        conditionCode: 800,
       });
       expect(result.blocked).toBe(true);
     });

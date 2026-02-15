@@ -203,5 +203,145 @@ describe('Oracle Routes', () => {
       expect(res.body.systems).toHaveProperty('p6');
     });
   });
+  
+  describe('POST /api/oracle/validate-export', () => {
+    it('should require claimId', async () => {
+      const res = await request(app)
+        .post('/api/oracle/validate-export')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({});
+      
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('claimId');
+    });
+    
+    it('should return 404 for non-existent claim', async () => {
+      const mongoose = require('mongoose');
+      const res = await request(app)
+        .post('/api/oracle/validate-export')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ claimId: new mongoose.Types.ObjectId().toString() });
+      
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('CLAIM_NOT_FOUND');
+    });
+    
+    it('should validate a claim with missing oracle fields', async () => {
+      const Claim = require('../models/Claim');
+      const Company = require('../models/Company');
+      
+      const company = await Company.create({
+        name: 'FBDI Test Company',
+        subscription: { plan: 'professional' }
+      });
+      
+      const claim = await Claim.create({
+        companyId: company._id,
+        subtotal: 1000,
+        totalAmount: 1000,
+        amountDue: 1000,
+        status: 'approved',
+        lineItems: [{
+          unitEntryId: new (require('mongoose').Types.ObjectId)(),
+          lineNumber: 1,
+          itemCode: 'TEST-1',
+          description: 'Test item',
+          quantity: 1,
+          unit: 'EA',
+          unitPrice: 1000,
+          totalAmount: 1000,
+        }],
+        oracle: {
+          // Missing vendorId, businessUnit, paymentTerms
+        }
+      });
+      
+      const res = await request(app)
+        .post('/api/oracle/validate-export')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ claimId: claim._id.toString() });
+      
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(false);
+      expect(res.body.errors.length).toBeGreaterThan(0);
+      expect(res.body.errors.some(e => e.field.includes('vendorId'))).toBe(true);
+      expect(res.body.errors.some(e => e.field.includes('businessUnit'))).toBe(true);
+    });
+    
+    it('should pass validation for a fully configured claim', async () => {
+      const Claim = require('../models/Claim');
+      const Company = require('../models/Company');
+      
+      const company = await Company.create({
+        name: 'FBDI Valid Company',
+        subscription: { plan: 'professional' }
+      });
+      
+      const claim = await Claim.create({
+        companyId: company._id,
+        subtotal: 2000,
+        totalAmount: 2000,
+        amountDue: 2000,
+        status: 'approved',
+        lineItems: [{
+          unitEntryId: new (require('mongoose').Types.ObjectId)(),
+          lineNumber: 1,
+          itemCode: 'POLE-45',
+          description: 'Install pole',
+          quantity: 1,
+          unit: 'EA',
+          unitPrice: 2000,
+          totalAmount: 2000,
+        }],
+        oracle: {
+          vendorId: 'VND-123',
+          vendorName: 'Test Vendor',
+          businessUnit: 'PGE-BU',
+          paymentTerms: 'Net 30',
+          glDate: new Date(),
+        }
+      });
+      
+      const res = await request(app)
+        .post('/api/oracle/validate-export')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ claimId: claim._id.toString() });
+      
+      expect(res.status).toBe(200);
+      expect(res.body.valid).toBe(true);
+      expect(res.body.errors).toHaveLength(0);
+    });
+  });
+  
+  describe('GET /api/oracle/health', () => {
+    it('should require authentication', async () => {
+      const res = await request(app)
+        .get('/api/oracle/health');
+      
+      expect(res.status).toBe(401);
+    });
+    
+    it('should return health status for all adapters', async () => {
+      const res = await request(app)
+        .get('/api/oracle/health')
+        .set('Authorization', `Bearer ${authToken}`);
+      
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('unifier');
+      expect(res.body).toHaveProperty('eam');
+      expect(res.body).toHaveProperty('p6');
+    });
+    
+    it('should report unconfigured status for unconfigured adapters', async () => {
+      const res = await request(app)
+        .get('/api/oracle/health')
+        .set('Authorization', `Bearer ${authToken}`);
+      
+      // In test env, all adapters should be unconfigured
+      expect(res.body.unifier.status).toBe('unconfigured');
+      expect(res.body.eam.status).toBe('unconfigured');
+      expect(res.body.p6.status).toBe('unconfigured');
+    });
+  });
 });
 

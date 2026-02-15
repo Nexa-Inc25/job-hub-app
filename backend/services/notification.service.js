@@ -5,6 +5,12 @@
 /**
  * FieldLedger - Notification Service
  * Centralized service for sending real-time notifications
+ * 
+ * Features:
+ * - Delivery receipts (tracks if client received notification)
+ * - Retry for failed WebSocket pushes (falls back to polling)
+ * - Offline queue (delivers on reconnect)
+ * - Notification grouping (collapses 5+ same-type notifications)
  */
 
 const Notification = require('../models/Notification');
@@ -12,12 +18,198 @@ const Notification = require('../models/Notification');
 // Socket.io instance - set by server.js
 let io = null;
 
+// Pending deliveries awaiting acknowledgement
+const pendingDeliveries = new Map();
+
+// Retry configuration
+const DELIVERY_RETRY_MAX = 3;
+const DELIVERY_RETRY_DELAY_MS = 5000;
+
+// Grouping threshold
+const GROUP_THRESHOLD = 5;
+const GROUP_WINDOW_MS = 60 * 1000; // 1 minute window for grouping
+
 /**
  * Initialize the notification service with socket.io instance
  */
 function initialize(socketIo) {
   io = socketIo;
   console.log('[NotificationService] Initialized with Socket.IO');
+
+  // Listen for delivery receipts from clients
+  if (io) {
+    io.on('connection', (socket) => {
+      socket.on('notification:ack', (data) => {
+        handleDeliveryReceipt(data.notificationId, socket.userId);
+      });
+
+      // Deliver queued notifications on reconnect
+      socket.on('notification:request_pending', () => {
+        deliverPendingNotifications(socket.userId, socket);
+      });
+    });
+  }
+}
+
+/**
+ * Handle delivery receipt from client
+ */
+async function handleDeliveryReceipt(notificationId, userId) {
+  try {
+    const key = `${notificationId}:${userId}`;
+    const pending = pendingDeliveries.get(key);
+    if (pending) {
+      clearTimeout(pending.retryTimeout);
+      pendingDeliveries.delete(key);
+    }
+
+    // Mark as delivered in database
+    await Notification.findOneAndUpdate(
+      { _id: notificationId, userId },
+      { deliveredAt: new Date(), deliveryStatus: 'delivered' }
+    );
+  } catch (error) {
+    console.error('[NotificationService] Delivery receipt error:', error);
+    // Fail silently per coding conventions
+  }
+}
+
+/**
+ * Deliver pending notifications for a user who just reconnected
+ */
+async function deliverPendingNotifications(userId, socket) {
+  try {
+    if (!userId || !socket) return;
+
+    const pending = await Notification.find({
+      userId,
+      deliveryStatus: { $in: ['pending', 'failed', null] },
+      read: false,
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    if (pending.length > 0) {
+      console.log(`[NotificationService] Delivering ${pending.length} pending notifications to user ${userId}`);
+
+      // Group if too many of the same type
+      const grouped = groupNotifications(pending);
+
+      for (const notification of grouped) {
+        socket.emit('notification', {
+          id: notification._id,
+          type: notification.type,
+          title: notification.title,
+          message: notification.message,
+          data: notification.data,
+          createdAt: notification.createdAt,
+          grouped: notification._grouped || false,
+          groupCount: notification._groupCount || 1,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('[NotificationService] Pending delivery error:', error);
+    // Fail silently
+  }
+}
+
+/**
+ * Group notifications by type when there are 5+ of the same type
+ * within the grouping time window
+ */
+function groupNotifications(notifications) {
+  const byType = {};
+  const result = [];
+
+  for (const n of notifications) {
+    const key = n.type;
+    if (!byType[key]) {
+      byType[key] = [];
+    }
+    byType[key].push(n);
+  }
+
+  for (const [type, items] of Object.entries(byType)) {
+    if (items.length >= GROUP_THRESHOLD) {
+      // Check if items are within the grouping window
+      const newest = new Date(items[0].createdAt).getTime();
+      const oldest = new Date(items[items.length - 1].createdAt).getTime();
+      const withinWindow = (newest - oldest) <= GROUP_WINDOW_MS;
+
+      if (withinWindow) {
+        // Collapse into a single grouped notification
+        result.push({
+          ...items[0],
+          title: `${items.length} ${type.replaceAll('_', ' ')} notifications`,
+          message: `You have ${items.length} new ${type.replaceAll('_', ' ')} notifications`,
+          _grouped: true,
+          _groupCount: items.length,
+        });
+      } else {
+        // Not within window, keep them separate
+        result.push(...items);
+      }
+    } else {
+      result.push(...items);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Emit notification via WebSocket with retry logic
+ */
+function emitWithRetry(userId, notification, attempt = 0) {
+  if (!io) return;
+
+  const key = `${notification._id}:${userId}`;
+  
+  try {
+    io.to(`user:${userId}`).emit('notification', {
+      id: notification._id,
+      type: notification.type,
+      title: notification.title,
+      message: notification.message,
+      data: notification.data,
+      createdAt: notification.createdAt,
+    });
+
+    // Track delivery and set retry timeout
+    if (attempt < DELIVERY_RETRY_MAX) {
+      const retryTimeout = setTimeout(async () => {
+        // Check if delivery was acknowledged
+        if (pendingDeliveries.has(key)) {
+          console.warn(`[NotificationService] Delivery not acked for ${notification._id}, retry #${attempt + 1}`);
+          
+          // Check if user is still connected
+          const sockets = await io.in(`user:${userId}`).fetchSockets();
+          if (sockets.length > 0) {
+            emitWithRetry(userId, notification, attempt + 1);
+          } else {
+            // User disconnected — mark as pending for reconnect delivery
+            pendingDeliveries.delete(key);
+            await Notification.findByIdAndUpdate(notification._id, {
+              deliveryStatus: 'pending',
+            }).catch(() => {});
+          }
+        }
+      }, DELIVERY_RETRY_DELAY_MS);
+
+      pendingDeliveries.set(key, { notification, attempt, retryTimeout });
+    } else {
+      // Max retries reached — mark as failed
+      pendingDeliveries.delete(key);
+      Notification.findByIdAndUpdate(notification._id, {
+        deliveryStatus: 'failed',
+      }).catch(() => {});
+    }
+  } catch (error) {
+    console.error('[NotificationService] Emit error:', error);
+    // Fail silently per coding conventions
+  }
 }
 
 /**
@@ -39,20 +231,12 @@ async function notifyUser({ userId, companyId, type, title, message, data = {} }
       type,
       title,
       message,
-      data
+      data,
+      deliveryStatus: 'pending',
     });
 
-    // Emit via WebSocket if connected
-    if (io) {
-      io.to(`user:${userId}`).emit('notification', {
-        id: notification._id,
-        type,
-        title,
-        message,
-        data,
-        createdAt: notification.createdAt
-      });
-    }
+    // Emit via WebSocket with retry logic
+    emitWithRetry(userId, notification);
 
     return notification;
   } catch (error) {
@@ -383,8 +567,12 @@ async function markAllAsRead(userId) {
   );
 }
 
+// Legacy aliases for cross-domain contract
+const createNotification = notifyUser;
+
 module.exports = {
   initialize,
+  createNotification,
   notifyUser,
   notifyCompany,
   notifyJobStakeholders,
@@ -397,6 +585,9 @@ module.exports = {
   getUnreadCount,
   getNotifications,
   markAsRead,
-  markAllAsRead
+  markAllAsRead,
+  // New exports
+  groupNotifications,
+  handleDeliveryReceipt,
+  deliverPendingNotifications,
 };
-

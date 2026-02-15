@@ -266,6 +266,127 @@ describe('offlineStorage - Unit Entry Functions', () => {
     });
   });
 
+  describe('Conflict Resolution Functions', () => {
+    it('should save a conflict record', async () => {
+      const conflictData = {
+        offlineId: 'offline_123_abc',
+        type: 'unit_entry',
+        localData: { quantity: 10, itemCode: 'EC-001' },
+        serverData: { quantity: 8, itemCode: 'EC-001' },
+        resolution: 'keep_server',
+        conflictingFields: ['quantity'],
+      };
+
+      const result = await storage.saveConflictRecord(conflictData);
+
+      expect(result).toBeDefined();
+      expect(result.offlineId).toBe('offline_123_abc');
+      expect(result.resolution).toBe('keep_server');
+      expect(result.resolvedAt).toBeDefined();
+    });
+
+    it('should get conflict history for an offlineId', async () => {
+      await storage.saveConflictRecord({
+        offlineId: 'offline_456_def',
+        type: 'unit_entry',
+        localData: { quantity: 5 },
+        serverData: { quantity: 3 },
+        resolution: 'keep_local',
+      });
+
+      const history = await storage.getConflictHistory('offline_456_def');
+      expect(history).toHaveLength(1);
+      expect(history[0].resolution).toBe('keep_local');
+    });
+
+    it('should get all conflict records when no offlineId specified', async () => {
+      await storage.saveConflictRecord({
+        offlineId: 'offline_a', type: 'unit_entry',
+        localData: {}, serverData: {}, resolution: 'keep_server',
+      });
+      await storage.saveConflictRecord({
+        offlineId: 'offline_b', type: 'field_ticket',
+        localData: {}, serverData: {}, resolution: 'merge',
+      });
+
+      const all = await storage.getAllConflicts();
+      expect(all.length).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  describe('compareFields', () => {
+    it('should detect conflicting fields', () => {
+      const local = { quantity: 10, itemCode: 'EC-001', notes: 'local note' };
+      const server = { quantity: 8, itemCode: 'EC-001', notes: 'server note' };
+
+      const diff = storage.compareFields(local, server);
+
+      expect(diff.hasConflicts).toBe(true);
+      expect(diff.conflicts.length).toBe(2); // quantity and notes
+      expect(diff.unchanged).toContain('itemCode');
+    });
+
+    it('should return no conflicts for identical data', () => {
+      const data = { quantity: 5, itemCode: 'EC-001' };
+
+      const diff = storage.compareFields(data, { ...data });
+
+      expect(diff.hasConflicts).toBe(false);
+      expect(diff.conflicts.length).toBe(0);
+    });
+
+    it('should skip internal metadata keys', () => {
+      const local = { _id: '123', quantity: 5, syncStatus: 'pending' };
+      const server = { _id: '456', quantity: 5, syncStatus: 'synced' };
+
+      const diff = storage.compareFields(local, server);
+
+      expect(diff.hasConflicts).toBe(false);
+      expect(diff.conflicts.length).toBe(0);
+    });
+
+    it('should handle null inputs', () => {
+      const diff = storage.compareFields(null, { quantity: 5 });
+
+      expect(diff.hasConflicts).toBe(true);
+      expect(diff.conflicts.length).toBe(1);
+    });
+
+    it('should detect nested object changes', () => {
+      const local = { gps: { lat: 37.7749, lng: -122.4194 } };
+      const server = { gps: { lat: 37.7750, lng: -122.4194 } };
+
+      const diff = storage.compareFields(local, server);
+
+      expect(diff.hasConflicts).toBe(true);
+      expect(diff.conflicts[0].field).toBe('gps');
+    });
+  });
+
+  describe('mergeFieldChoices', () => {
+    it('should merge using field choices', () => {
+      const local = { quantity: 10, notes: 'local note', itemCode: 'EC-001' };
+      const server = { quantity: 8, notes: 'server note', itemCode: 'EC-002' };
+      const choices = { quantity: 'local', notes: 'server' };
+
+      const merged = storage.mergeFieldChoices(local, server, choices);
+
+      expect(merged.quantity).toBe(10);      // local
+      expect(merged.notes).toBe('server note'); // server
+      expect(merged.itemCode).toBe('EC-002');  // server (default)
+    });
+
+    it('should default to server values for unspecified fields', () => {
+      const local = { a: 1, b: 2 };
+      const server = { a: 10, b: 20 };
+
+      const merged = storage.mergeFieldChoices(local, server, {});
+
+      expect(merged.a).toBe(10);
+      expect(merged.b).toBe(20);
+    });
+  });
+
   describe('Integration: Full Sync Workflow', () => {
     it('should support full offline to sync workflow', async () => {
       // 1. Save unit offline

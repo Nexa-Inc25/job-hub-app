@@ -5,9 +5,15 @@
 /**
  * FieldLedger - Notification Context
  * Provides global notification state and toast display
+ * 
+ * Features:
+ * - Real-time notifications via Socket.io
+ * - Delivery receipts (ack back to server)
+ * - Request pending notifications on reconnect
+ * - Notification grouping for collapsed display
  */
 
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { useSocket } from './SocketContext';
 import { Snackbar, Alert, IconButton, Typography, Box } from '@mui/material';
@@ -25,6 +31,9 @@ export function NotificationProvider({ children }) {
   // Toast state
   const [toast, setToast] = useState(null);
   const [toastOpen, setToastOpen] = useState(false);
+
+  // Track previously connected state for reconnect detection
+  const wasConnectedRef = useRef(false);
 
   // Fetch notifications from API
   const fetchNotifications = useCallback(async ({ limit = 20, skip = 0 } = {}) => {
@@ -112,6 +121,13 @@ export function NotificationProvider({ children }) {
     return severityMap[type] || 'info';
   }, []);
 
+  // Send delivery receipt to server
+  const acknowledgeNotification = useCallback((notificationId) => {
+    if (socket && isConnected && notificationId) {
+      socket.emit('notification:ack', { notificationId });
+    }
+  }, [socket, isConnected]);
+
   // Listen for real-time notifications
   useEffect(() => {
     if (!socket || !isConnected) return;
@@ -119,9 +135,19 @@ export function NotificationProvider({ children }) {
     const handleNotification = (notification) => {
       console.warn('[Notifications] Real-time:', notification);
       
-      // Add to notification list
-      setNotifications(prev => [notification, ...prev]);
-      setUnreadCount(prev => prev + 1);
+      // Send delivery receipt
+      acknowledgeNotification(notification.id);
+      
+      // Handle grouped notifications
+      if (notification.grouped && notification.groupCount > 1) {
+        // Add grouped notification
+        setNotifications(prev => [notification, ...prev]);
+        setUnreadCount(prev => prev + notification.groupCount);
+      } else {
+        // Add to notification list
+        setNotifications(prev => [notification, ...prev]);
+        setUnreadCount(prev => prev + 1);
+      }
       
       // Show toast
       showToast(notification);
@@ -132,7 +158,17 @@ export function NotificationProvider({ children }) {
     return () => {
       socket.off('notification', handleNotification);
     };
-  }, [socket, isConnected, showToast]);
+  }, [socket, isConnected, showToast, acknowledgeNotification]);
+
+  // Request pending notifications on reconnect
+  useEffect(() => {
+    if (isConnected && wasConnectedRef.current === false && socket) {
+      // We just reconnected - request any pending notifications
+      console.warn('[Notifications] Reconnected - requesting pending notifications');
+      socket.emit('notification:request_pending');
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, socket]);
 
   // Initial fetch on mount (if logged in)
   useEffect(() => {
@@ -191,6 +227,11 @@ export function NotificationProvider({ children }) {
               <Typography variant="body2">
                 {toast.message}
               </Typography>
+              {toast.grouped && toast.groupCount > 1 && (
+                <Typography variant="caption" color="text.secondary">
+                  ({toast.groupCount} notifications)
+                </Typography>
+              )}
             </Box>
           </Alert>
         )}
@@ -212,4 +253,3 @@ export function useNotificationContext() {
 }
 
 export default NotificationContext;
-

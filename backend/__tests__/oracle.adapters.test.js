@@ -191,6 +191,104 @@ describe('Oracle Adapters', () => {
     });
   });
   
+  describe('P6Adapter - Retry + Circuit Breaker', () => {
+    let adapter;
+    
+    beforeEach(() => {
+      adapter = new P6Adapter({
+        baseUrl: 'https://p6.example.com',
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+      });
+      // Reset the circuit breaker between tests
+      adapter.breaker.reset();
+    });
+    
+    it('should retry on failure and succeed on subsequent attempt', async () => {
+      let attempts = 0;
+      const result = await adapter._executeWithRetry(async () => {
+        attempts++;
+        if (attempts < 3) {
+          throw new Error('Transient failure');
+        }
+        return { ok: true };
+      }, 'testRetry');
+      
+      expect(result).toEqual({ ok: true });
+      expect(attempts).toBe(3);
+    });
+    
+    it('should exhaust all retries and throw on persistent failure', async () => {
+      await expect(
+        adapter._executeWithRetry(async () => {
+          throw new Error('Persistent failure');
+        }, 'testExhaust')
+      ).rejects.toThrow('Persistent failure');
+    });
+    
+    it('should open circuit breaker after threshold failures', async () => {
+      // Fill up failures to threshold (5)
+      for (let i = 0; i < 5; i++) {
+        adapter.breaker.onFailure(new Error('fail'));
+      }
+      
+      // Next call should immediately reject with CIRCUIT_OPEN
+      await expect(
+        adapter._executeWithRetry(async () => ({ ok: true }), 'testCircuit')
+      ).rejects.toThrow(/OPEN/);
+    });
+  });
+  
+  describe('UnifierAdapter - Retry + Circuit Breaker', () => {
+    let adapter;
+    
+    beforeEach(() => {
+      adapter = new UnifierAdapter({
+        baseUrl: 'https://unifier.example.com',
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+      });
+      adapter.breaker.reset();
+    });
+    
+    it('should retry transient failures', async () => {
+      let attempts = 0;
+      const result = await adapter._executeWithRetry(async () => {
+        attempts++;
+        if (attempts < 2) throw new Error('Transient');
+        return { data: 'ok' };
+      }, 'testRetry');
+      
+      expect(result).toEqual({ data: 'ok' });
+      expect(attempts).toBe(2);
+    });
+  });
+  
+  describe('EAMAdapter - Retry + Circuit Breaker', () => {
+    let adapter;
+    
+    beforeEach(() => {
+      adapter = new EAMAdapter({
+        baseUrl: 'https://eam.example.com',
+        clientId: 'test-id',
+        clientSecret: 'test-secret',
+      });
+      adapter.breaker.reset();
+    });
+    
+    it('should retry transient failures', async () => {
+      let attempts = 0;
+      const result = await adapter._executeWithRetry(async () => {
+        attempts++;
+        if (attempts < 2) throw new Error('Transient');
+        return { data: 'ok' };
+      }, 'testRetry');
+      
+      expect(result).toEqual({ data: 'ok' });
+      expect(attempts).toBe(2);
+    });
+  });
+  
   describe('OracleIntegrationService', () => {
     it('should report status of all integrations', () => {
       const status = oracleService.getStatus();

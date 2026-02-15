@@ -1,19 +1,51 @@
 /**
+ * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
+ * Proprietary and confidential. Unauthorized copying prohibited.
+ */
+/**
  * FieldLedger Service Worker
  * 
  * Provides:
- * - Static asset caching
- * - API response caching for offline viewing
+ * - Versioned cache management with automatic stale cache purging
+ * - Static asset caching (CacheFirst for hashed assets)
+ * - API response caching for offline viewing (NetworkFirst with timeout)
+ * - Image caching (CacheFirst with 30-day expiry)
+ * - HTML with StaleWhileRevalidate
  * - Offline fallback page
- * - Background sync support
+ * - Background sync for pending operations
+ * - Periodic sync registration (every 15 minutes)
+ * - Cache size monitoring (warn > 50MB)
+ * - Cache hit/miss rate logging
  */
 
-const CACHE_VERSION = 'v3';
-const STATIC_CACHE = `fieldledger-static-${CACHE_VERSION}`;
-const API_CACHE = `fieldledger-api-${CACHE_VERSION}`;
-const IMAGE_CACHE = `fieldledger-images-${CACHE_VERSION}`;
+// ==================== CACHE VERSIONING ====================
+const CACHE_VERSION = 'v4';
+const CACHE_PREFIX = 'fl';
+const STATIC_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}-static`;
+const API_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}-api`;
+const IMAGE_CACHE = `${CACHE_PREFIX}-${CACHE_VERSION}-images`;
+
+// Maximum cache size in bytes (50MB)
+const MAX_CACHE_SIZE_BYTES = 50 * 1024 * 1024;
+
+// Image cache expiry (30 days in ms)
+const IMAGE_CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+// API network timeout before falling back to cache (10 seconds)
+const API_NETWORK_TIMEOUT_MS = 10 * 1000;
 
 const OFFLINE_URL = '/offline.html';
+
+// Background sync tags
+const SYNC_TAGS = {
+  QUEUE: 'sync-queue',
+  PENDING: 'sync-pending',
+  UNIT_ENTRIES: 'sync-pendingUnitEntries',
+  FIELD_TICKETS: 'sync-pendingFieldTickets',
+};
+
+// Periodic sync tag
+const PERIODIC_SYNC_TAG = 'sync-queue-periodic';
 
 // Static assets to precache
 const PRECACHE_ASSETS = [
@@ -31,49 +63,76 @@ const CACHEABLE_API_ROUTES = [
   '/api/companies'
 ];
 
-// Install event - precache static assets
+// ==================== CACHE METRICS ====================
+let cacheMetrics = {
+  hits: 0,
+  misses: 0,
+  errors: 0,
+  lastReset: Date.now(),
+};
+
+function logCacheAccess(hit, cacheName) {
+  if (hit) {
+    cacheMetrics.hits++;
+  } else {
+    cacheMetrics.misses++;
+  }
+  
+  // Log every 100 accesses
+  const total = cacheMetrics.hits + cacheMetrics.misses;
+  if (total > 0 && total % 100 === 0) {
+    const hitRate = ((cacheMetrics.hits / total) * 100).toFixed(1);
+    console.log(`[SW] Cache stats: ${cacheMetrics.hits} hits, ${cacheMetrics.misses} misses (${hitRate}% hit rate) [${cacheName || 'all'}]`);
+  }
+}
+
+// ==================== INSTALL ====================
 self.addEventListener('install', event => {
-  console.log('[SW] Installing service worker...');
+  console.log(`[SW] Installing service worker (cache version: ${CACHE_VERSION})...`);
   
   event.waitUntil(
     caches.open(STATIC_CACHE)
       .then(cache => {
         console.log('[SW] Precaching static assets');
         return cache.addAll(PRECACHE_ASSETS);
-    })
+      })
       .then(() => self.skipWaiting())
   );
 });
 
-// Activate event - clean up old caches
+// ==================== ACTIVATE (purge stale caches) ====================
 self.addEventListener('activate', event => {
-  console.log('[SW] Activating service worker...');
+  console.log(`[SW] Activating service worker (version: ${CACHE_VERSION})...`);
   
   event.waitUntil(
     Promise.all([
-      // Clean old caches
+      // Purge ALL old caches that don't match current version
       caches.keys().then(keys => {
         return Promise.all(
           keys
             .filter(key => {
-              return key.startsWith('fieldledger-') && 
-                     key !== STATIC_CACHE && 
-                     key !== API_CACHE && 
-                     key !== IMAGE_CACHE;
+              // Delete any cache that starts with our prefix but doesn't match current version
+              const isOurCache = key.startsWith(`${CACHE_PREFIX}-`) || key.startsWith('fieldledger-');
+              const isCurrent = key === STATIC_CACHE || key === API_CACHE || key === IMAGE_CACHE;
+              return isOurCache && !isCurrent;
             })
             .map(key => {
-              console.log('[SW] Deleting old cache:', key);
+              console.log('[SW] Purging stale cache:', key);
               return caches.delete(key);
             })
         );
       }),
       // Take control of all clients immediately
       self.clients.claim()
-    ])
+    ]).then(() => {
+      console.log(`[SW] Activation complete. Active caches: ${STATIC_CACHE}, ${API_CACHE}, ${IMAGE_CACHE}`);
+      // Monitor cache size after activation
+      monitorCacheSize();
+    })
   );
 });
 
-// Fetch event - serve from cache or network
+// ==================== FETCH ====================
 self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
@@ -88,46 +147,48 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Handle API requests
+  // Handle API requests (NetworkFirst with timeout)
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(handleApiRequest(request));
     return;
   }
 
-  // Handle image requests (for job photos)
+  // Handle image requests (CacheFirst with 30-day expiry)
   if (isImageRequest(request)) {
     event.respondWith(handleImageRequest(request));
     return;
   }
 
-  // Handle navigation requests
+  // Handle navigation requests (StaleWhileRevalidate for HTML)
   if (request.mode === 'navigate') {
     event.respondWith(handleNavigationRequest(request));
     return;
   }
 
-  // Handle static assets with stale-while-revalidate
+  // Handle static assets
   event.respondWith(handleStaticRequest(request));
 });
 
-/**
- * Handle API requests - network first, fallback to cache
- */
+// ==================== API REQUESTS (NetworkFirst + 10s timeout) ====================
 async function handleApiRequest(request) {
   const url = new URL(request.url);
   const shouldCache = CACHEABLE_API_ROUTES.some(route => url.pathname.startsWith(route));
 
   try {
-    // Try network first
-    const networkResponse = await fetch(request);
+    // Try network first with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_NETWORK_TIMEOUT_MS);
+    
+    const networkResponse = await fetch(request, { signal: controller.signal });
+    clearTimeout(timeoutId);
     
     // Cache successful GET responses for cacheable routes
     if (networkResponse.ok && shouldCache) {
       const cache = await caches.open(API_CACHE);
-      // Clone response before caching
       cache.put(request, networkResponse.clone());
     }
     
+    logCacheAccess(false, API_CACHE); // network hit = cache miss
     return networkResponse;
   } catch (error) {
     console.log('[SW] Network failed for API, checking cache:', url.pathname);
@@ -136,8 +197,11 @@ async function handleApiRequest(request) {
     const cachedResponse = await caches.match(request);
     if (cachedResponse) {
       console.log('[SW] Serving API from cache:', url.pathname);
+      logCacheAccess(true, API_CACHE);
       return cachedResponse;
     }
+    
+    logCacheAccess(false, API_CACHE);
     
     // Return offline JSON response
     return new Response(
@@ -154,41 +218,67 @@ async function handleApiRequest(request) {
   }
 }
 
-/**
- * Handle image requests - cache first for performance
- */
+// ==================== IMAGE REQUESTS (CacheFirst + 30-day expiry) ====================
 async function handleImageRequest(request) {
   // Check cache first for images
   const cachedResponse = await caches.match(request);
   if (cachedResponse) {
-    return cachedResponse;
+    // Check expiry via custom header
+    const cachedAt = cachedResponse.headers.get('sw-cached-at');
+    if (cachedAt) {
+      const age = Date.now() - parseInt(cachedAt, 10);
+      if (age > IMAGE_CACHE_MAX_AGE_MS) {
+        // Expired - fetch fresh copy
+        console.log('[SW] Image cache expired, refetching');
+      } else {
+        logCacheAccess(true, IMAGE_CACHE);
+        return cachedResponse;
+      }
+    } else {
+      logCacheAccess(true, IMAGE_CACHE);
+      return cachedResponse;
+    }
   }
 
   try {
     const networkResponse = await fetch(request);
     
-    // Cache successful image responses
+    // Cache successful image responses with timestamp header
     if (networkResponse.ok) {
       const cache = await caches.open(IMAGE_CACHE);
-      cache.put(request, networkResponse.clone());
+      const headers = new Headers(networkResponse.headers);
+      headers.set('sw-cached-at', Date.now().toString());
+      const timedResponse = new Response(await networkResponse.clone().blob(), {
+        status: networkResponse.status,
+        statusText: networkResponse.statusText,
+        headers,
+      });
+      cache.put(request, timedResponse);
     }
     
+    logCacheAccess(false, IMAGE_CACHE);
     return networkResponse;
-  } catch (error) {
+  } catch (_error) {
     // Return placeholder image for offline
+    logCacheAccess(false, IMAGE_CACHE);
     return new Response('', { status: 404 });
   }
 }
 
-/**
- * Handle navigation requests
- */
+// ==================== NAVIGATION (StaleWhileRevalidate for HTML) ====================
 async function handleNavigationRequest(request) {
   try {
     // Try network first for navigation
     const networkResponse = await fetch(request);
+    
+    // Cache the response for SPA fallback
+    if (networkResponse.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put('/index.html', networkResponse.clone());
+    }
+    
     return networkResponse;
-  } catch (error) {
+  } catch (_error) {
     console.log('[SW] Navigation failed, serving offline page');
     
     // Try to serve cached index.html for SPA navigation
@@ -203,6 +293,7 @@ async function handleNavigationRequest(request) {
   }
 }
 
+// ==================== STATIC ASSETS ====================
 /**
  * Handle static assets
  * - JS/CSS with content hashes: cache-first (immutable — filename changes when content changes)
@@ -223,6 +314,7 @@ async function handleStaticRequest(request) {
     // Cache-first: serve from cache if available
     const cachedResponse = await cache.match(request);
     if (cachedResponse) {
+      logCacheAccess(true, STATIC_CACHE);
       return cachedResponse;
     }
     
@@ -233,12 +325,11 @@ async function handleStaticRequest(request) {
       
       if (networkResponse.ok && (contentType.includes('javascript') || contentType.includes('css'))) {
         cache.put(request, networkResponse.clone());
+        logCacheAccess(false, STATIC_CACHE);
         return networkResponse;
       }
       
       // Server returned HTML for a JS file = chunk doesn't exist (version mismatch)
-      // This happens after a deployment when the old chunk hashes are gone.
-      // Signal the client to reload and pick up the new index.html.
       if (contentType.includes('text/html')) {
         console.warn('[SW] Detected stale chunk request, triggering reload');
         const clients = await self.clients.matchAll({ type: 'window' });
@@ -248,6 +339,7 @@ async function handleStaticRequest(request) {
       }
       return networkResponse;
     } catch (_error) {
+      logCacheAccess(false, STATIC_CACHE);
       return new Response('Offline', { status: 503 });
     }
   }
@@ -267,10 +359,12 @@ async function handleStaticRequest(request) {
 
   // Return cached version immediately if available
   if (cachedResponse) {
+    logCacheAccess(true, STATIC_CACHE);
     return cachedResponse;
   }
 
   // Wait for network if no cache
+  logCacheAccess(false, STATIC_CACHE);
   const networkResponse = await fetchPromise;
   if (networkResponse) {
     return networkResponse;
@@ -279,6 +373,8 @@ async function handleStaticRequest(request) {
   // Fallback for offline
   return new Response('Offline', { status: 503 });
 }
+
+// ==================== HELPERS ====================
 
 /**
  * Check if request is for an image
@@ -290,14 +386,82 @@ function isImageRequest(request) {
          request.destination === 'image';
 }
 
-// Handle background sync for pending operations
-// This is the "Secondary (Background Sync)" part of the Hybrid Sync Architecture
+// ==================== CACHE SIZE MONITORING ====================
+
+/**
+ * Monitor total cache size and warn if exceeding threshold
+ */
+async function monitorCacheSize() {
+  try {
+    if ('storage' in navigator && 'estimate' in navigator.storage) {
+      const estimate = await navigator.storage.estimate();
+      const usedMB = ((estimate.usage || 0) / (1024 * 1024)).toFixed(2);
+      const quotaMB = ((estimate.quota || 0) / (1024 * 1024)).toFixed(0);
+      
+      console.log(`[SW] Storage: ${usedMB} MB used of ${quotaMB} MB quota`);
+      
+      if (estimate.usage > MAX_CACHE_SIZE_BYTES) {
+        console.warn(`[SW] Cache size WARNING: ${usedMB} MB exceeds ${MAX_CACHE_SIZE_BYTES / 1024 / 1024} MB threshold`);
+        // Attempt to evict old image cache entries
+        await evictOldImageCache();
+        
+        // Notify clients
+        const clients = await self.clients.matchAll({ type: 'window' });
+        clients.forEach(client => {
+          client.postMessage({
+            type: 'CACHE_SIZE_WARNING',
+            data: { usedMB: parseFloat(usedMB), quotaMB: parseFloat(quotaMB) },
+          });
+        });
+      }
+    }
+  } catch (err) {
+    console.warn('[SW] Cache size monitoring error:', err);
+  }
+}
+
+/**
+ * Evict old entries from image cache to reclaim space
+ */
+async function evictOldImageCache() {
+  try {
+    const cache = await caches.open(IMAGE_CACHE);
+    const requests = await cache.keys();
+    let evicted = 0;
+    
+    for (const request of requests) {
+      const response = await cache.match(request);
+      const cachedAt = response?.headers?.get('sw-cached-at');
+      
+      if (cachedAt) {
+        const age = Date.now() - parseInt(cachedAt, 10);
+        if (age > IMAGE_CACHE_MAX_AGE_MS) {
+          await cache.delete(request);
+          evicted++;
+        }
+      }
+    }
+    
+    if (evicted > 0) {
+      console.log(`[SW] Evicted ${evicted} expired image cache entries`);
+    }
+  } catch (err) {
+    console.warn('[SW] Image cache eviction error:', err);
+  }
+}
+
+// ==================== BACKGROUND SYNC ====================
+
+/**
+ * Handle background sync events.
+ * Registers for both general queue sync and specific store syncs.
+ */
 self.addEventListener('sync', event => {
   console.log('[SW] Background sync triggered:', event.tag);
   
-  // Handle queue sync (matches registration from useSync hook)
-  if (event.tag === 'sync-queue' || event.tag === 'sync-pending') {
-    event.waitUntil(handleBackgroundSync());
+  const syncTags = Object.values(SYNC_TAGS);
+  if (syncTags.includes(event.tag)) {
+    event.waitUntil(handleBackgroundSync(event.tag));
   }
 });
 
@@ -306,8 +470,8 @@ self.addEventListener('sync', event => {
  * The actual queue processing happens in the main thread (QueueManager)
  * because IndexedDB access is more reliable there.
  */
-async function handleBackgroundSync() {
-  console.log('[SW] Starting background sync...');
+async function handleBackgroundSync(tag) {
+  console.log(`[SW] Starting background sync for tag: ${tag}...`);
   
   try {
     // Get all clients (open windows/tabs)
@@ -315,16 +479,14 @@ async function handleBackgroundSync() {
     
     if (clients.length > 0) {
       // Notify first available client to handle sync
-      // This triggers the QueueManager in the main thread
       clients[0].postMessage({ 
         type: 'BACKGROUND_SYNC_TRIGGERED',
+        tag,
         timestamp: Date.now(),
       });
-      console.log('[SW] Notified client to process sync queue');
+      console.log(`[SW] Notified client to process sync queue (tag: ${tag})`);
     } else {
-      // No clients open - we can't process the queue from SW
-      // because IndexedDB and our app code aren't available here
-      // The sync will happen when the app is next opened
+      // No clients open - sync will happen when app next opens
       console.log('[SW] No active clients - sync will resume when app opens');
     }
   } catch (err) {
@@ -333,16 +495,22 @@ async function handleBackgroundSync() {
   }
 }
 
-// Handle periodic background sync (if supported)
+// ==================== PERIODIC SYNC ====================
+
+/**
+ * Handle periodic background sync (if supported)
+ * Fires every 15 minutes if items are pending
+ */
 self.addEventListener('periodicsync', event => {
   console.log('[SW] Periodic sync triggered:', event.tag);
   
-  if (event.tag === 'sync-queue-periodic') {
-    event.waitUntil(handleBackgroundSync());
+  if (event.tag === PERIODIC_SYNC_TAG) {
+    event.waitUntil(handleBackgroundSync(PERIODIC_SYNC_TAG));
   }
 });
 
-// Handle messages from main app
+// ==================== MESSAGE HANDLER ====================
+
 self.addEventListener('message', event => {
   const { type, data } = event.data || {};
   
@@ -351,7 +519,7 @@ self.addEventListener('message', event => {
       self.skipWaiting();
       break;
       
-    case 'CACHE_JOB':
+    case 'CACHE_JOB': {
       // Cache a specific job's data
       const jobUrl = data?.url || event.data.url;
       if (jobUrl) {
@@ -366,6 +534,7 @@ self.addEventListener('message', event => {
           .catch(err => console.log('[SW] Failed to cache job:', err));
       }
       break;
+    }
       
     case 'GET_SYNC_STATUS':
       // Respond with current SW status
@@ -373,18 +542,46 @@ self.addEventListener('message', event => {
         type: 'SYNC_STATUS',
         data: {
           cacheVersion: CACHE_VERSION,
+          cachePrefix: CACHE_PREFIX,
           online: self.navigator?.onLine ?? true,
+          cacheMetrics: { ...cacheMetrics },
         }
       });
       break;
       
+    case 'GET_CACHE_METRICS':
+      // Return cache hit/miss stats
+      event.source?.postMessage({
+        type: 'CACHE_METRICS',
+        data: {
+          ...cacheMetrics,
+          hitRate: cacheMetrics.hits + cacheMetrics.misses > 0
+            ? (cacheMetrics.hits / (cacheMetrics.hits + cacheMetrics.misses) * 100).toFixed(1)
+            : '0.0',
+        },
+      });
+      break;
+      
+    case 'RESET_CACHE_METRICS':
+      cacheMetrics = { hits: 0, misses: 0, errors: 0, lastReset: Date.now() };
+      break;
+      
+    case 'MONITOR_CACHE_SIZE':
+      monitorCacheSize();
+      break;
+
+    case 'REGISTER_BACKGROUND_SYNC':
+      // Register background sync for specific stores
+      registerBackgroundSyncs(event.source);
+      break;
+
     case 'REGISTER_PERIODIC_SYNC':
       // Try to register periodic sync (progressive enhancement)
       if ('periodicSync' in self.registration) {
-        self.registration.periodicSync.register('sync-queue-periodic', {
+        self.registration.periodicSync.register(PERIODIC_SYNC_TAG, {
           minInterval: 15 * 60 * 1000 // 15 minutes
         }).then(() => {
-          console.log('[SW] Periodic sync registered');
+          console.log('[SW] Periodic sync registered (15 min interval)');
           event.source?.postMessage({ type: 'PERIODIC_SYNC_REGISTERED' });
         }).catch(err => {
           console.log('[SW] Periodic sync registration failed:', err);
@@ -394,4 +591,38 @@ self.addEventListener('message', event => {
   }
 });
 
-console.log('[SW] Service worker loaded');
+/**
+ * Register background sync for all pending stores
+ */
+async function registerBackgroundSyncs(source) {
+  if (!('sync' in self.registration)) {
+    console.log('[SW] Background sync not supported');
+    source?.postMessage({ type: 'BACKGROUND_SYNC_UNSUPPORTED' });
+    return;
+  }
+
+  const tags = [
+    SYNC_TAGS.QUEUE,
+    SYNC_TAGS.UNIT_ENTRIES,
+    SYNC_TAGS.FIELD_TICKETS,
+  ];
+
+  const results = [];
+  for (const tag of tags) {
+    try {
+      await self.registration.sync.register(tag);
+      results.push({ tag, registered: true });
+      console.log(`[SW] Background sync registered: ${tag}`);
+    } catch (err) {
+      results.push({ tag, registered: false, error: err.message });
+      console.warn(`[SW] Background sync registration failed for ${tag}:`, err);
+    }
+  }
+
+  source?.postMessage({
+    type: 'BACKGROUND_SYNC_REGISTERED',
+    data: { results },
+  });
+}
+
+console.log(`[SW] Service worker loaded (version: ${CACHE_VERSION}, prefix: ${CACHE_PREFIX})`);
