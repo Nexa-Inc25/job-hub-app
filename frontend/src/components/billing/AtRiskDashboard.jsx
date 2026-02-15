@@ -51,6 +51,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SendIcon from '@mui/icons-material/Send';
 import { useNavigate } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import api from '../../api';
@@ -194,6 +195,27 @@ const AtRiskDashboard = () => {
     setDeleteDialogOpen(false);
     setTicketToDelete(null);
   }, []);
+
+  // Workflow actions: submit for signature, approve
+  const handleSubmitForSignature = useCallback(async (ticket) => {
+    try {
+      await api.post(`/api/fieldtickets/${ticket._id}/submit`);
+      setSnackbar({ open: true, message: `Ticket ${ticket.ticketNumber} submitted for signature`, severity: 'success' });
+      fetchData();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to submit ticket', severity: 'error' });
+    }
+  }, [fetchData]);
+
+  const handleApprove = useCallback(async (ticket) => {
+    try {
+      await api.post(`/api/fieldtickets/${ticket._id}/approve`);
+      setSnackbar({ open: true, message: `Ticket ${ticket.ticketNumber} approved`, severity: 'success' });
+      fetchData();
+    } catch (err) {
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to approve ticket', severity: 'error' });
+    }
+  }, [fetchData]);
 
   // Use server-provided aging data with thresholds
   const agingMetrics = {
@@ -530,6 +552,17 @@ const AtRiskDashboard = () => {
                               <VisibilityIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
+                          {ticket.status === 'draft' && (
+                            <Tooltip title="Submit for Signature">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleSubmitForSignature(ticket)}
+                                sx={{ color: COLORS.warning }}
+                              >
+                                <SendIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           {ticket.status === 'pending_signature' && (
                             <Tooltip title="Get Signature">
                               <IconButton
@@ -545,7 +578,7 @@ const AtRiskDashboard = () => {
                             <Tooltip title="Approve">
                               <IconButton
                                 size="small"
-                                onClick={() => navigate(`/jobs/${ticket.jobId?._id || ticket.jobId}/field-ticket/${ticket._id}`)}
+                                onClick={() => handleApprove(ticket)}
                                 sx={{ color: COLORS.primary }}
                               >
                                 <CheckIcon fontSize="small" />
