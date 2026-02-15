@@ -4,566 +4,76 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import api from '../api';
 import {
   Container,
   Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Button,
-  TextField,
-  InputAdornment,
-  Chip,
   Box,
   Fab,
-  Paper,
   Divider,
-  IconButton,
   Menu,
   MenuItem,
   LinearProgress,
   Alert,
   Snackbar,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
   Tooltip,
+  FormControl,
+  InputLabel,
+  Select,
 } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
 import AddIcon from '@mui/icons-material/Add';
-import FilterIcon from '@mui/icons-material/FilterList';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ScheduleIcon from '@mui/icons-material/Schedule';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
-import PersonIcon from '@mui/icons-material/Person';
-import AssessmentIcon from '@mui/icons-material/Assessment';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import FolderIcon from '@mui/icons-material/Folder';
 import AssignIcon from '@mui/icons-material/AssignmentInd';
-import CalendarIcon from '@mui/icons-material/CalendarMonth';
-import FlipIcon from '@mui/icons-material/Flip';
-import ChatIcon from '@mui/icons-material/Chat';
-import ConstructionIcon from '@mui/icons-material/Construction';
-import BuildIcon from '@mui/icons-material/Build';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import TodayIcon from '@mui/icons-material/Today';
-import EventNoteIcon from '@mui/icons-material/EventNote';
 import BlockIcon from '@mui/icons-material/Block';
 import EventBusyIcon from '@mui/icons-material/EventBusy';
 import DownloadIcon from '@mui/icons-material/Download';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import DirectionsIcon from '@mui/icons-material/Directions';
-import Dialog from '@mui/material/Dialog';
-import { openDirections } from '../utils/navigation';
+import ScheduleIcon from '@mui/icons-material/Schedule';
+import CalendarIcon from '@mui/icons-material/CalendarMonth';
 import FeedbackButton from './FeedbackButton';
 import OfflineIndicator from './OfflineIndicator';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
-import DialogActions from '@mui/material/DialogActions';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
-import Select from '@mui/material/Select';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
-import Collapse from '@mui/material/Collapse';
 
-// Helper functions extracted to reduce component complexity
-const needsPreField = (status) => {
-  return ['new', 'assigned_to_gf', 'pending', 'pre_fielding', 'pre-field'].includes(status);
-};
+// Sub-components
+import { DashboardStats, DashboardFilters, DashboardJobList, DashboardCharts, DashboardSchedule } from './dashboard';
 
-const getDependencyStatusColor = (status) => {
-  const colorMap = {
-    'not_required': 'success',
-    'scheduled': 'info',
-    'required': 'warning',
-    'check': 'default'
-  };
-  return colorMap[status] || 'default';
-};
-
-// Get contrast-safe chip styling for dependency status
-const getDependencyChipSx = (status) => {
-  const baseStyles = { fontSize: '0.65rem', height: 20, fontWeight: 600 };
-  // Override colors that have poor contrast with outlined variant
-  if (status === 'warning' || status === 'required') {
-    return { ...baseStyles, borderColor: '#b45309', color: '#92400e', bgcolor: '#fef3c7' };
-  }
-  if (status === 'default' || status === 'check') {
-    return { ...baseStyles, borderColor: '#374151', color: '#1f2937', bgcolor: '#f3f4f6' };
-  }
-  return baseStyles;
-};
-
-const getDependencyStatusLabel = (status) => {
-  const labels = {
-    'required': 'REQUIRED',
-    'check': 'CHECK',
-    'scheduled': 'SCHEDULED',
-    'not_required': 'NOT REQUIRED',
-  };
-  return labels[status] || status;
-};
-
-const getDependencyTypeLabel = (type) => {
-  const labels = {
-    'usa': 'USA',
-    'vegetation': 'Vegetation',
-    'traffic_control': 'Traffic Control',
-    'no_parks': 'No Parks',
-    'cwc': 'CWC',
-    'afw_type': 'AFW Type',
-    'special_equipment': 'Special Equipment',
-    'civil': 'Civil'
-  };
-  return labels[type] || type;
-};
-
-// Pre-field checklist items - static data
-const preFieldItems = [
-  { key: 'usa', label: 'USA', description: 'Underground utility locate needed' },
-  { key: 'vegetation', label: 'Vegetation', description: 'Vegetation management needed' },
-  { key: 'traffic_control', label: 'Traffic Control', description: 'TC plan or flaggers needed' },
-  { key: 'no_parks', label: 'No Parks', description: 'No parks restriction applies' },
-  { key: 'cwc', label: 'CWC', description: 'CWC coordination required' },
-  { key: 'afw_type', label: 'AFW Type', description: 'AFW type specification (if CWC)' },
-  { key: 'special_equipment', label: 'Special Equipment', description: 'Special equipment needed' },
-  { key: 'civil', label: 'Civil', description: 'Trenching, boring, or excavation' },
-];
-
-// Status cycle for dependency toggling
-const statusCycle = ['required', 'check', 'scheduled', 'not_required'];
-
-// Status colors for new workflow + legacy statuses - extracted to reduce component complexity
-const STATUS_COLORS_MAP = {
-  'new': 'warning',
-  'assigned_to_gf': 'info',
-  'pre_fielding': 'info',
-  'scheduled': 'primary',
-  'stuck': 'error',
-  'in_progress': 'primary',
-  'pending_gf_review': 'warning',
-  'pending_qa_review': 'warning',
-  'pending_pm_approval': 'warning',
-  'ready_to_submit': 'success',
-  'submitted': 'success',
-  'go_back': 'error',
-  'billed': 'secondary',
-  'invoiced': 'default',
-  'pending': 'warning',
-  'pre-field': 'info',
-  'in-progress': 'primary',
-  'completed': 'success',
-};
-
-// Human-readable status labels - extracted to reduce component complexity
-const STATUS_LABELS_MAP = {
-  'new': 'New',
-  'assigned_to_gf': 'Assigned to GF',
-  'pre_fielding': 'Pre-Fielding',
-  'scheduled': 'Scheduled',
-  'stuck': 'Stuck',
-  'in_progress': 'In Progress',
-  'pending_gf_review': 'Awaiting GF Review',
-  'pending_qa_review': 'Awaiting QA Review',
-  'pending_pm_approval': 'Awaiting PM Approval',
-  'ready_to_submit': 'Ready to Submit',
-  'submitted': 'Submitted',
-  'go_back': 'Go-Back',
-  'billed': 'Billed',
-  'invoiced': 'Invoiced',
-  'pending': 'Pending',
-  'pre-field': 'Pre-Field',
-  'in-progress': 'In Progress',
-  'completed': 'Completed',
-};
-
-// Helper to get local date string (YYYY-MM-DD) from any date
-const getLocalDateString = (date) => {
-  const d = new Date(date);
-  return d.getFullYear() + '-' + 
-         String(d.getMonth() + 1).padStart(2, '0') + '-' + 
-         String(d.getDate()).padStart(2, '0');
-};
-
-// Initialize pre-field checklist for a job - extracted to reduce component complexity
-const createInitialChecklist = () => {
-  return preFieldItems.reduce((acc, item) => {
-    acc[item.key] = { checked: false, notes: '' };
-    return acc;
-  }, {});
-};
-
-// Check if user should see GF categorized view - extracted to reduce component complexity
-const shouldShowGFView = (userRole, isAdmin, filter, search) => {
-  const hasGFPermissions = userRole === 'gf' || userRole === 'admin' || userRole === 'pm' || isAdmin;
-  const isUnfilteredView = filter === 'all' && !search;
-  return hasGFPermissions && isUnfilteredView;
-};
-
-// Check if user can manage jobs (assign, mark stuck, etc.) - extracted for reuse
-const canManageJobs = (userRole, isAdmin, isSuperAdmin = false) => {
-  return isAdmin || isSuperAdmin || ['gf', 'pm'].includes(userRole);
-};
-
-// Check if job can be marked as stuck
-const canMarkAsStuck = (job) => {
-  if (!job || job.status === 'stuck') return false;
-  const terminalStatuses = ['ready_to_submit', 'submitted', 'billed', 'invoiced'];
-  return !terminalStatuses.includes(job.status);
-};
-
-// Get background color for EC tag type chips
-const getTagBackgroundColor = (tagType) => {
-  const colorMap = {
-    'A': '#d32f2f',
-    'E': '#f57c00',
-    'B': '#1976d2'
-  };
-  return colorMap[tagType];
-};
-
-// Get color for tag due date chip based on urgency
-const getTagDueDateColor = (dueDate) => {
-  const due = new Date(dueDate);
-  const now = new Date();
-  const oneWeekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  
-  if (due < now) return 'error';
-  if (due < oneWeekFromNow) return 'warning';
-  return 'default';
-};
-
-// Get display label for road access type
-const getRoadAccessLabel = (roadAccess) => {
-  const labelMap = {
-    'accessible': 'Road Access',
-    'backyard': 'Backyard'
-  };
-  return labelMap[roadAccess] || roadAccess;
-};
-
-// Get color for road access chip
-const getRoadAccessColor = (roadAccess) => {
-  const colorMap = {
-    'accessible': 'success',
-    'non-accessible': 'error'
-  };
-  return colorMap[roadAccess] || 'warning';
-};
-
-// Get welcome message
-const getWelcomeMessage = (userName) => {
-  if (!userName) return 'Welcome Back!';
-  const firstName = userName.split(' ')[0];
-  return `Welcome back, ${firstName}!`;
-};
-
-// Parse JWT token payload
-const parseTokenPayload = (token) => {
-  if (!token) return null;
-  try {
-    return JSON.parse(atob(token.split('.')[1]));
-  } catch {
-    console.error('Failed to parse auth token');
-    return null;
-  }
-};
-
-// Extract user permissions from token payload
-const extractUserPermissions = (payload) => {
-  if (!payload) {
-    return { isAdmin: false, isSuperAdmin: false, userRole: null, canApprove: false };
-  }
-  return {
-    isAdmin: payload.isAdmin || false,
-    isSuperAdmin: payload.isSuperAdmin || false,
-    userRole: payload.role || null,
-    canApprove: payload.canApprove || payload.isAdmin || ['gf', 'pm', 'admin'].includes(payload.role)
-  };
-};
-
-// Fetch user name from API if not in token
-const fetchUserName = (payload, setUserName) => {
-  if (!payload) {
-    setUserName('');
-    return;
-  }
-  if (payload.name) {
-    setUserName(payload.name);
-  } else {
-    api.get('/api/users/me')
-      .then(res => setUserName(res.data?.name || ''))
-      .catch(() => setUserName(''));
-  }
-};
-
-// Apply permissions to state
-const applyUserPermissions = (perms, setters) => {
-  setters.setIsAdmin(perms.isAdmin);
-  setters.setIsSuperAdmin(perms.isSuperAdmin);
-  setters.setUserRole(perms.userRole);
-  setters.setCanApprove(perms.canApprove);
-};
-
-// Fetch job details if not cached
-const fetchJobDetailsIfNeeded = async (jobId, jobDetails, setJobDetails) => {
-  if (jobDetails[jobId]) return;
-  try {
-    const response = await api.get(`/api/jobs/${jobId}/full-details`);
-    setJobDetails(prev => ({ ...prev, [jobId]: response.data }));
-  } catch (err) {
-    console.error('Error fetching job details:', err);
-  }
-};
-
-// Handle flipping to back side
-const handleFlipToBack = (jobId, job, jobDetails, callbacks) => {
-  const { setJobDetails, initChecklist } = callbacks;
-  if (job && needsPreField(job.status)) initChecklist(jobId);
-  fetchJobDetailsIfNeeded(jobId, jobDetails, setJobDetails);
-};
-
-// Handle card flip logic - separated to reduce component complexity
-const processCardFlip = (jobId, jobs, flippedCards, jobDetails, callbacks) => {
-  const { setFlippedCards, setJobDetails, initChecklist } = callbacks;
-  const isCurrentlyFlipped = flippedCards[jobId];
-  const job = jobs.find(j => j._id === jobId);
-  
-  setFlippedCards(prev => ({ ...prev, [jobId]: !isCurrentlyFlipped }));
-  
-  if (!isCurrentlyFlipped) {
-    handleFlipToBack(jobId, job, jobDetails, { setJobDetails, initChecklist });
-  }
-};
-
-// Extract assignment data from job - reduces component complexity
-const getAssignmentDataFromJob = (job) => {
-  const assignedToId = job?.assignedTo?._id || job?.assignedTo || '';
-  return {
-    assignedTo: assignedToId,
-    crewScheduledDate: job?.crewScheduledDate ? job.crewScheduledDate.split('T')[0] : '',
-    crewScheduledEndDate: job?.crewScheduledEndDate ? job.crewScheduledEndDate.split('T')[0] : '',
-    assignmentNotes: job?.assignmentNotes || ''
-  };
-};
-
-// Prepare assignment data for API - handles timezone issues
-const prepareAssignmentDataForApi = (assignmentData) => {
-  const dataToSend = { ...assignmentData };
-  if (dataToSend.crewScheduledDate) {
-    dataToSend.crewScheduledDate = new Date(dataToSend.crewScheduledDate + 'T12:00:00').toISOString();
-  }
-  if (dataToSend.crewScheduledEndDate) {
-    dataToSend.crewScheduledEndDate = new Date(dataToSend.crewScheduledEndDate + 'T12:00:00').toISOString();
-  }
-  return dataToSend;
-};
-
-// Empty assignment data - avoids recreation on each render
-const EMPTY_ASSIGNMENT_DATA = {
-  assignedTo: '',
-  crewScheduledDate: '',
-  crewScheduledEndDate: '',
-  assignmentNotes: ''
-};
-
-// Get display title for a job
-const getJobDisplayTitle = (job) => {
-  return job?.title || job?.pmNumber || 'this work order';
-};
-
-// Job categorization predicates - extracted to reduce cognitive complexity
-const isPreFieldingInProgress = (job) => 
-  ['pre_fielding', 'pre-field'].includes(job.status) && !job.assignedTo && !job.crewScheduledDate;
-
-const isPendingPreField = (job) => 
-  ['new', 'assigned_to_gf', 'pending'].includes(job.status);
-
-const needsScheduling = (job) => 
-  ['pre_fielding', 'pre-field'].includes(job.status) && job.assignedTo && !job.crewScheduledDate;
-
-const isStuck = (job) => job.status === 'stuck';
-
-const isScheduledForDate = (job, dateStr) => {
-  if (!job.crewScheduledDate) return false;
-  const schedDateStr = getLocalDateString(job.crewScheduledDate);
-  return schedDateStr === dateStr && ['scheduled', 'in_progress', 'in-progress'].includes(job.status);
-};
-
-const isScheduledAfterDate = (job, dateStr) => {
-  if (!job.crewScheduledDate) return false;
-  const schedDateStr = getLocalDateString(job.crewScheduledDate);
-  return schedDateStr > dateStr && ['scheduled', 'in_progress'].includes(job.status);
-};
-
-// Helper to save pre-field checklist items as dependencies
-const createDependenciesFromChecklist = async (jobId, checklist, preFieldItems) => {
-  const checkedItems = Object.entries(checklist).filter(([, value]) => value.checked);
-  for (const [key, value] of checkedItems) {
-    await api.post(`/api/jobs/${jobId}/dependencies`, {
-      type: key,
-      description: value.notes || preFieldItems.find(i => i.key === key)?.description || '',
-      status: 'required',
-      notes: value.notes
-    });
-  }
-  return checkedItems.length;
-};
-
-// Helper to capture pre-field checklist for AI training
-const capturePreFieldForAI = async (jobId, checklist) => {
-  try {
-    await api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist });
-    console.warn('[AI Training] Pre-field checklist captured for job', jobId);
-  } catch (error_) {
-    console.warn('[AI Training] Failed to capture pre-field data:', error_);
-  }
-};
-
-// Helper to render empty section message - reduces JSX conditionals
-const renderEmptySection = (message) => (
-  <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
-    {message}
-  </Typography>
-);
-
-/**
- * Helper to render EC Tag chips - extracted to reduce cognitive complexity
- */
-const renderECTagChips = (job) => {
-  const chips = [];
-  
-  if (job.ecTag?.tagType) {
-    chips.push(
-      <Chip 
-        key="ec-tag-type"
-        size="small" 
-        label={`${job.ecTag.tagType}-TAG`}
-        color={['A', 'E', 'emergency'].includes(job.ecTag.tagType) ? 'error' : 'default'}
-        sx={{ 
-          height: 22, 
-          fontWeight: 700,
-          bgcolor: getTagBackgroundColor(job.ecTag.tagType),
-          color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
-        }}
-      />
-    );
-  }
-  
-  if (job.ecTag?.tagDueDate) {
-    chips.push(
-      <Chip 
-        key="ec-due-date"
-        size="small" 
-        label={`Due: ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
-        color={getTagDueDateColor(job.ecTag.tagDueDate)}
-        variant="outlined"
-        sx={{ height: 22, fontWeight: 600 }}
-      />
-    );
-  }
-  
-  if (job.ecTag?.programType) {
-    chips.push(
-      <Chip 
-        key="ec-program"
-        size="small" 
-        label={job.ecTag.programCode || job.ecTag.programType.replace('-', ' ')}
-        variant="outlined"
-        sx={{ height: 22, fontSize: '0.65rem' }}
-      />
-    );
-  }
-  
-  return chips;
-};
-
-/**
- * Helper to render pre-field label chips - extracted to reduce cognitive complexity
- */
-const renderPreFieldChips = (job) => {
-  const chips = [];
-  const labels = job.preFieldLabels;
-  if (!labels) return chips;
-  
-  if (labels.constructionType) {
-    chips.push(
-      <Chip 
-        key="construction-type"
-        size="small" 
-        label={labels.constructionType.toUpperCase()}
-        sx={{ 
-          height: 22,
-          bgcolor: labels.constructionType === 'underground' ? '#795548' : '#4caf50',
-          color: 'white'
-        }}
-      />
-    );
-  }
-  
-  if (labels.roadAccess) {
-    chips.push(
-      <Chip 
-        key="road-access"
-        size="small" 
-        label={getRoadAccessLabel(labels.roadAccess)}
-        color={getRoadAccessColor(labels.roadAccess)}
-        variant="outlined"
-        sx={{ height: 22 }}
-      />
-    );
-  }
-  
-  if (labels.craneRequired) {
-    chips.push(
-      <Chip 
-        key="crane-required"
-        size="small" 
-        label={labels.craneType || 'CRANE'}
-        sx={{ height: 22, bgcolor: '#ff5722', color: 'white', fontWeight: 700 }}
-      />
-    );
-  }
-  
-  if (labels.poleWork) {
-    chips.push(
-      <Chip 
-        key="pole-work"
-        size="small" 
-        label={`Pole ${labels.poleWork}`}
-        variant="outlined"
-        sx={{ height: 22 }}
-      />
-    );
-  }
-  
-  return chips;
-};
-
-/**
- * Check if job has any EC tag or pre-field labels to display
- */
-const hasTagsOrLabels = (job) => 
-  job.ecTag?.tagType || job.ecTag?.tagDueDate || job.preFieldLabels;
-
-// Check if should show GF view - extracted from inline conditional
-const shouldRenderGFView = (loading, error, userRole, isAdmin, filter, search) => {
-  if (loading || error) return false;
-  return shouldShowGFView(userRole, isAdmin, filter, search);
-};
-
-// Check if should show standard view - extracted from inline conditional
-const shouldRenderStandardView = (loading, error, userRole, isAdmin, filter, search) => {
-  if (loading || error) return false;
-  return !shouldShowGFView(userRole, isAdmin, filter, search);
-};
+// Shared helpers
+import {
+  STATUS_LABELS_MAP,
+  parseTokenPayload,
+  extractUserPermissions,
+  getWelcomeMessage,
+  getJobDisplayTitle,
+  canManageJobs,
+  canMarkAsStuck,
+  shouldShowGFView,
+  createInitialChecklist,
+  getLocalDateString,
+  isPreFieldingInProgress,
+  isPendingPreField,
+  needsScheduling,
+  isStuck,
+  isScheduledForDate,
+  isScheduledAfterDate,
+  getAssignmentDataFromJob,
+  prepareAssignmentDataForApi,
+  EMPTY_ASSIGNMENT_DATA,
+  statusCycle,
+  getDependencyStatusLabel,
+  preFieldItems,
+} from './dashboard/dashboardHelpers';
 
 const Dashboard = () => {
+  // ---- State ----
   const [jobs, setJobs] = useState([]);
   const [filteredJobs, setFilteredJobs] = useState([]);
   const [search, setSearch] = useState('');
@@ -571,164 +81,173 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [anchorEl, setAnchorEl] = useState(null);
   const [jobMenuAnchor, setJobMenuAnchor] = useState(null);
   const [selectedJobId, setSelectedJobId] = useState(null);
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
   const [foremen, setForemen] = useState([]);
-  const [assignmentData, setAssignmentData] = useState({
-    assignedTo: '',
-    crewScheduledDate: '',
-    crewScheduledEndDate: '',
-    assignmentNotes: ''
-  });
+  const [assignmentData, setAssignmentData] = useState(EMPTY_ASSIGNMENT_DATA);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false); // Reserved for FieldLedger platform owners - used in applyUserPermissions
-  const [userRole, setUserRole] = useState(null); // crew, foreman, gf, pm, admin
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState('');
   const [canApprove, setCanApprove] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState([]);
-  const [flippedCards, setFlippedCards] = useState({}); // Track which cards are flipped
-  const [jobDetails, setJobDetails] = useState({}); // Cache full job details for flipped cards
-  const [preFieldChecklist, setPreFieldChecklist] = useState({}); // Pre-field checklist state per job
-  const [flipLock, setFlipLock] = useState(false); // Prevent rapid flipping
+  const [flippedCards, setFlippedCards] = useState({});
+  const [jobDetails, setJobDetails] = useState({});
+  const [preFieldChecklist, setPreFieldChecklist] = useState({});
+  const [flipLock, setFlipLock] = useState(false);
   const [stuckDialogOpen, setStuckDialogOpen] = useState(false);
   const [stuckReason, setStuckReason] = useState('');
   const [stuckJobId, setStuckJobId] = useState(null);
   const [depScheduleDialogOpen, setDepScheduleDialogOpen] = useState(false);
   const [depScheduleData, setDepScheduleData] = useState({ jobId: null, depId: null, date: '' });
-  // Cancel/Reschedule state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
-  const [cancelType, setCancelType] = useState('rescheduled'); // 'canceled' or 'rescheduled'
+  const [cancelType, setCancelType] = useState('rescheduled');
   const [cancelJobId, setCancelJobId] = useState(null);
+  const [expandedSections, setExpandedSections] = useState({
+    pendingPreField: true, needsScheduling: true, stuck: true, todaysWork: true, scheduled: false,
+  });
   const navigate = useNavigate();
 
-  // Check user role from token and fetch name if needed
+  // ---- Auth & permissions ----
   useEffect(() => {
     const payload = parseTokenPayload(localStorage.getItem('token'));
     const perms = extractUserPermissions(payload);
-    applyUserPermissions(perms, { setIsAdmin, setIsSuperAdmin, setUserRole, setCanApprove });
-    fetchUserName(payload, setUserName);
+    setIsAdmin(perms.isAdmin);
+    setIsSuperAdmin(perms.isSuperAdmin);
+    setUserRole(perms.userRole);
+    setCanApprove(perms.canApprove);
+    if (payload?.name) setUserName(payload.name);
+    else api.get('/api/users/me').then((res) => setUserName(res.data?.name || '')).catch(() => setUserName(''));
   }, []);
 
-  // Fetch pending approvals for GF/PM/Admin
+  // ---- Data fetching ----
+  const fetchJobs = useCallback(async () => {
+    try {
+      setLoading(true);
+      const url = search ? `/api/jobs?search=${encodeURIComponent(search)}` : '/api/jobs';
+      const response = await api.get(url);
+      setJobs(Array.isArray(response.data) ? response.data : []);
+      setError('');
+    } catch (err) {
+      console.error('Error fetching jobs:', err);
+      setError('Failed to load work orders');
+      if (err.response?.status === 401) { localStorage.removeItem('token'); navigate('/login'); }
+    } finally {
+      setLoading(false);
+    }
+  }, [navigate, search]);
+
   const fetchPendingApprovals = useCallback(async () => {
     if (!canApprove) return;
     try {
       const response = await api.get('/api/admin/pending-approvals');
       setPendingApprovals(response.data || []);
-    } catch (err) {
-      console.error('Error fetching pending approvals:', err);
-    }
+    } catch (err) { console.error('Error fetching pending approvals:', err); }
   }, [canApprove]);
 
   useEffect(() => {
-    if (canApprove) {
-      fetchPendingApprovals();
-    }
-  }, [canApprove, fetchPendingApprovals]);
+    const token = localStorage.getItem('token');
+    if (!token) { navigate('/login'); return; }
+    fetchJobs();
+  }, [navigate, fetchJobs]);
 
-  // Fetch foremen list for assignment
-  const fetchForemen = async () => {
-    try {
-      // api module automatically adds Authorization header
-      const response = await api.get('/api/users/foremen');
-      setForemen(response.data);
-    } catch (err) {
-      console.error('Error fetching foremen:', err);
-    }
+  useEffect(() => { if (canApprove) fetchPendingApprovals(); }, [canApprove, fetchPendingApprovals]);
+
+  // Extraction polling
+  useEffect(() => {
+    const extracting = jobs.filter((j) => j.aiExtractionStarted && !j.aiExtractionComplete);
+    if (extracting.length === 0) return;
+    const pollInterval = setInterval(() => fetchJobs(), 10000);
+    return () => clearInterval(pollInterval);
+  }, [jobs, fetchJobs]);
+
+  // Filter
+  const filterJobs = useCallback(() => {
+    let filtered = jobs;
+    if (filter !== 'all') filtered = filtered.filter((job) => job.status === filter);
+    setFilteredJobs(filtered);
+  }, [jobs, filter]);
+
+  useEffect(() => { filterJobs(); }, [filterJobs]);
+
+  // ---- GF Categories ----
+  const categorizeJobsForGF = useCallback(() => {
+    const todayStr = getLocalDateString(new Date());
+    return {
+      preFieldingInProgress: jobs.filter(isPreFieldingInProgress),
+      pendingPreField: jobs.filter(isPendingPreField),
+      needsScheduling: jobs.filter(needsScheduling),
+      stuck: jobs.filter(isStuck),
+      todaysWork: jobs.filter((j) => isScheduledForDate(j, todayStr)),
+      scheduled: jobs.filter((j) => isScheduledAfterDate(j, todayStr)),
+    };
+  }, [jobs]);
+
+  const gfCategories = categorizeJobsForGF();
+
+  // ---- Stats ----
+  const getJobStats = () => {
+    const total = filteredJobs.length;
+    const pending = filteredJobs.filter((j) => ['new', 'pending', 'assigned_to_gf'].includes(j.status)).length;
+    const preField = filteredJobs.filter((j) => ['pre_fielding', 'pre-field', 'scheduled'].includes(j.status)).length;
+    const inProgress = filteredJobs.filter((j) => ['in_progress', 'in-progress', 'pending_gf_review', 'pending_qa_review', 'pending_pm_approval'].includes(j.status)).length;
+    const completed = filteredJobs.filter((j) => ['ready_to_submit', 'submitted', 'billed', 'invoiced', 'completed'].includes(j.status)).length;
+    return { total, pending, inProgress, completed, preField };
   };
 
-  // Handle card flip - load full details on first flip
+  // ---- Handlers ----
+  const handleJobMenuClose = () => { setJobMenuAnchor(null); if (!assignDialogOpen) setSelectedJobId(null); };
+  const handleJobMenuOpen = (event, jobId) => { event.stopPropagation(); setJobMenuAnchor(event.currentTarget); setSelectedJobId(jobId); };
+
   const handleCardFlip = (jobId) => {
     if (flipLock) return;
     setFlipLock(true);
-    
-    processCardFlip(jobId, jobs, flippedCards, jobDetails, {
-      setFlippedCards,
-      setJobDetails,
-      initChecklist: initPreFieldChecklist
-    });
-    
+    setFlippedCards((prev) => ({ ...prev, [jobId]: !prev[jobId] }));
+    if (!flippedCards[jobId]) {
+      if (!jobDetails[jobId]) {
+        api.get(`/api/jobs/${jobId}/full-details`).then((res) => setJobDetails((prev) => ({ ...prev, [jobId]: res.data }))).catch(() => {});
+      }
+      if (!preFieldChecklist[jobId]) setPreFieldChecklist((prev) => ({ ...prev, [jobId]: createInitialChecklist() }));
+    }
     setTimeout(() => setFlipLock(false), 700);
   };
 
-  // Initialize pre-field checklist for a job - uses extracted helper
-  const initPreFieldChecklist = (jobId) => {
-    if (!preFieldChecklist[jobId]) {
-      setPreFieldChecklist(prev => ({ ...prev, [jobId]: createInitialChecklist() }));
-    }
-  };
-
-  // Handle pre-field checkbox toggle
   const handlePreFieldCheck = (jobId, key, checked) => {
-    setPreFieldChecklist(prev => ({
-      ...prev,
-      [jobId]: {
-        ...prev[jobId],
-        [key]: { ...prev[jobId]?.[key], checked, notes: prev[jobId]?.[key]?.notes || '' }
-      }
-    }));
+    setPreFieldChecklist((prev) => ({ ...prev, [jobId]: { ...prev[jobId], [key]: { ...prev[jobId]?.[key], checked, notes: prev[jobId]?.[key]?.notes || '' } } }));
   };
 
-  // Handle pre-field notes change
   const handlePreFieldNotes = (jobId, key, notes) => {
-    setPreFieldChecklist(prev => ({
-      ...prev,
-      [jobId]: {
-        ...prev[jobId],
-        [key]: { ...prev[jobId]?.[key], checked: prev[jobId]?.[key]?.checked || false, notes }
-      }
-    }));
+    setPreFieldChecklist((prev) => ({ ...prev, [jobId]: { ...prev[jobId], [key]: { ...prev[jobId]?.[key], checked: prev[jobId]?.[key]?.checked || false, notes } } }));
   };
 
-  // Save pre-field checklist and create dependencies - uses extracted helpers
   const handleSavePreField = async (jobId) => {
     const checklist = preFieldChecklist[jobId];
     if (!checklist) return;
-
     try {
-      const itemCount = await createDependenciesFromChecklist(jobId, checklist, preFieldItems);
-      capturePreFieldForAI(jobId, checklist);
+      const checkedItems = Object.entries(checklist).filter(([, v]) => v.checked);
+      for (const [key, value] of checkedItems) {
+        await api.post(`/api/jobs/${jobId}/dependencies`, { type: key, description: value.notes || preFieldItems.find((i) => i.key === key)?.description || '', status: 'required', notes: value.notes });
+      }
+      api.post(`/api/jobs/${jobId}/prefield-checklist`, { decisions: checklist }).catch(() => {});
       await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
       const response = await api.get('/api/jobs');
       setJobs(response.data);
-      setFlippedCards(prev => ({ ...prev, [jobId]: false }));
-      setSnackbar({ open: true, message: `Pre-field complete! ${itemCount} dependencies added.`, severity: 'success' });
+      setFlippedCards((prev) => ({ ...prev, [jobId]: false }));
+      setSnackbar({ open: true, message: `Pre-field complete! ${checkedItems.length} dependencies added.`, severity: 'success' });
     } catch (err) {
       console.error('Save pre-field error:', err);
       setSnackbar({ open: true, message: 'Failed to save pre-field data', severity: 'error' });
     }
   };
 
-  // Handle marking a job as stuck
-  const handleOpenStuckDialog = (jobId, e) => {
-    if (e) e.stopPropagation();
-    setStuckJobId(jobId);
-    setStuckReason('');
-    setStuckDialogOpen(true);
-    handleJobMenuClose();
-  };
-
   const handleMarkAsStuck = async () => {
     if (!stuckJobId || !stuckReason.trim()) return;
-    
     try {
-      await api.put(`/api/jobs/${stuckJobId}/status`, { 
-        status: 'stuck',
-        stuckReason: stuckReason.trim()
-      });
-      
-      // Refresh jobs
-      const response = await api.get('/api/jobs');
-      setJobs(response.data);
-      
-      setSnackbar({ 
-        open: true, 
-        message: 'Job marked as stuck', 
-        severity: 'warning' 
-      });
+      await api.put(`/api/jobs/${stuckJobId}/status`, { status: 'stuck', stuckReason: stuckReason.trim() });
+      setJobs((await api.get('/api/jobs')).data);
+      setSnackbar({ open: true, message: 'Job marked as stuck', severity: 'warning' });
       setStuckDialogOpen(false);
       setStuckJobId(null);
       setStuckReason('');
@@ -738,35 +257,23 @@ const Dashboard = () => {
     }
   };
 
-  // Handle opening cancel/reschedule dialog
-  const handleOpenCancelDialog = (jobId, e) => {
-    if (e) e.stopPropagation();
-    setCancelJobId(jobId);
-    setCancelReason('');
-    setCancelType('rescheduled');
-    setCancelDialogOpen(true);
-    handleJobMenuClose();
+  const handleUnstickJob = async (jobId, _e) => {
+    try {
+      await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
+      setJobs((await api.get('/api/jobs')).data);
+      setSnackbar({ open: true, message: 'Job moved back to Pre-Fielding', severity: 'success' });
+    } catch (err) {
+      console.error('Unstick job error:', err);
+      setSnackbar({ open: true, message: 'Failed to update job status', severity: 'error' });
+    }
   };
 
-  // Handle cancel/reschedule job
   const handleCancelJob = async () => {
     if (!cancelJobId || !cancelReason.trim()) return;
-    
     try {
-      await api.post(`/api/jobs/${cancelJobId}/cancel`, {
-        reason: cancelReason.trim(),
-        cancelType: cancelType
-      });
-      
-      // Refresh jobs
-      const response = await api.get('/api/jobs');
-      setJobs(response.data);
-      
-      setSnackbar({ 
-        open: true, 
-        message: cancelType === 'rescheduled' ? 'Job moved to needs scheduling' : 'Job canceled', 
-        severity: 'info' 
-      });
+      await api.post(`/api/jobs/${cancelJobId}/cancel`, { reason: cancelReason.trim(), cancelType });
+      setJobs((await api.get('/api/jobs')).data);
+      setSnackbar({ open: true, message: cancelType === 'rescheduled' ? 'Job moved to needs scheduling' : 'Job canceled', severity: 'info' });
       setCancelDialogOpen(false);
       setCancelJobId(null);
       setCancelReason('');
@@ -776,493 +283,123 @@ const Dashboard = () => {
     }
   };
 
-  // Handle unsticking a job (move back to pre_fielding or scheduled)
-  const handleUnstickJob = async (jobId, e) => {
-    if (e) e.stopPropagation();
-    
-    try {
-      await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
-      
-      // Refresh jobs
-      const response = await api.get('/api/jobs');
-      setJobs(response.data);
-      
-      setSnackbar({ 
-        open: true, 
-        message: 'Job moved back to Pre-Fielding', 
-        severity: 'success' 
-      });
-    } catch (err) {
-      console.error('Unstick job error:', err);
-      setSnackbar({ open: true, message: 'Failed to update job status', severity: 'error' });
-    }
-  };
-
-  // Cycle dependency status on click: required → check → scheduled (with date picker) → not_required → required
   const handleDependencyStatusClick = async (jobId, depId, currentStatus, e) => {
-    e.stopPropagation(); // Prevent card flip
-    
+    e.stopPropagation();
     const currentIndex = statusCycle.indexOf(currentStatus);
     const nextStatus = statusCycle[(currentIndex + 1) % statusCycle.length];
-    
-    // If moving to 'scheduled', open date picker dialog
     if (nextStatus === 'scheduled') {
-      setDepScheduleData({ 
-        jobId, 
-        depId, 
-        date: new Date().toISOString().split('T')[0] // Default to today
-      });
+      setDepScheduleData({ jobId, depId, date: new Date().toISOString().split('T')[0] });
       setDepScheduleDialogOpen(true);
       return;
     }
-    
     try {
       await api.put(`/api/jobs/${jobId}/dependencies/${depId}`, { status: nextStatus });
-      
-      // Update local cache
-      setJobDetails(prev => ({
-        ...prev,
-        [jobId]: {
-          ...prev[jobId],
-          dependencies: prev[jobId]?.dependencies?.map(dep => 
-            dep._id === depId ? { ...dep, status: nextStatus, scheduledDate: null } : dep
-          )
-        }
-      }));
-      
-      setSnackbar({ 
-        open: true, 
-        message: `Status changed to ${getDependencyStatusLabel(nextStatus)}`, 
-        severity: 'success' 
-      });
+      setJobDetails((prev) => ({ ...prev, [jobId]: { ...prev[jobId], dependencies: prev[jobId]?.dependencies?.map((d) => (d._id === depId ? { ...d, status: nextStatus, scheduledDate: null } : d)) } }));
+      setSnackbar({ open: true, message: `Status changed to ${getDependencyStatusLabel(nextStatus)}`, severity: 'success' });
     } catch (err) {
       console.error('Update dependency error:', err);
       setSnackbar({ open: true, message: 'Failed to update status', severity: 'error' });
     }
   };
 
-  // Save scheduled dependency with date
   const handleSaveDepSchedule = async () => {
     const { jobId, depId, date } = depScheduleData;
     if (!jobId || !depId || !date) return;
-    
     try {
-      // Create date at noon local time to avoid timezone issues
       const scheduledDate = new Date(date + 'T12:00:00');
-      
-      await api.put(`/api/jobs/${jobId}/dependencies/${depId}`, { 
-        status: 'scheduled',
-        scheduledDate: scheduledDate.toISOString()
-      });
-      
-      // Update local cache
-      setJobDetails(prev => ({
-        ...prev,
-        [jobId]: {
-          ...prev[jobId],
-          dependencies: prev[jobId]?.dependencies?.map(dep => 
-            dep._id === depId ? { ...dep, status: 'scheduled', scheduledDate: scheduledDate.toISOString() } : dep
-          )
-        }
-      }));
-      
-      setSnackbar({ 
-        open: true, 
-        message: `Scheduled for ${new Date(scheduledDate).toLocaleDateString()}`, 
-        severity: 'success' 
-      });
+      await api.put(`/api/jobs/${jobId}/dependencies/${depId}`, { status: 'scheduled', scheduledDate: scheduledDate.toISOString() });
+      setJobDetails((prev) => ({ ...prev, [jobId]: { ...prev[jobId], dependencies: prev[jobId]?.dependencies?.map((d) => (d._id === depId ? { ...d, status: 'scheduled', scheduledDate: scheduledDate.toISOString() } : d)) } }));
+      setSnackbar({ open: true, message: `Scheduled for ${scheduledDate.toLocaleDateString()}`, severity: 'success' });
       setDepScheduleDialogOpen(false);
-      setDepScheduleData({ jobId: null, depId: null, date: '' });
     } catch (err) {
       console.error('Schedule dependency error:', err);
       setSnackbar({ open: true, message: 'Failed to schedule dependency', severity: 'error' });
     }
   };
 
-  // Use extracted status maps
-  const statusColors = STATUS_COLORS_MAP;
-  const statusLabels = STATUS_LABELS_MAP;
-
-  // State for collapsible sections (GF View)
-  const [expandedSections, setExpandedSections] = useState({
-    pendingPreField: true,
-    needsScheduling: true,
-    stuck: true,
-    todaysWork: true,
-    scheduled: false,
-  });
-
-  // Toggle section expansion
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  // Categorize jobs for GF view - uses extracted predicates for reduced complexity
-  const categorizeJobsForGF = useCallback(() => {
-    const todayStr = getLocalDateString(new Date());
-    return {
-      preFieldingInProgress: jobs.filter(isPreFieldingInProgress),
-      pendingPreField: jobs.filter(isPendingPreField),
-      needsScheduling: jobs.filter(needsScheduling),
-      stuck: jobs.filter(isStuck),
-      todaysWork: jobs.filter(job => isScheduledForDate(job, todayStr)),
-      scheduled: jobs.filter(job => isScheduledAfterDate(job, todayStr)),
-    };
-  }, [jobs]);
-
-  const gfCategories = categorizeJobsForGF();
-
-  // Render a simple collapsible section header
-  const renderSectionHeader = (title, icon, count, sectionKey) => (
-    <Box 
-      sx={{ 
-        py: 1.5, 
-        px: 2,
-        mb: 1, 
-        cursor: 'pointer',
-        borderBottom: '1px solid',
-        borderColor: 'divider',
-        '&:hover': { bgcolor: 'action.hover' },
-        transition: 'background 0.2s ease',
-      }}
-      onClick={() => toggleSection(sectionKey)}
-    >
-      <Box display="flex" alignItems="center" justifyContent="space-between">
-        <Box display="flex" alignItems="center" gap={1}>
-          <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icon}</Box>
-          <Typography variant="subtitle1" component="h3" fontWeight="medium" color="text.primary">
-            {title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
-            ({count})
-          </Typography>
-        </Box>
-        <Box sx={{ color: 'text.secondary' }}>
-          {expandedSections[sectionKey] ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-        </Box>
-      </Box>
-    </Box>
-  );
-
-  const statusIcons = {
-    // New workflow statuses
-    'new': <ScheduleIcon />,
-    'assigned_to_gf': <DescriptionIcon />,
-    'pre_fielding': <DescriptionIcon />,
-    'scheduled': <ScheduleIcon />,
-    'stuck': <WarningIcon />,
-    'in_progress': <DescriptionIcon />,
-    'pending_gf_review': <ScheduleIcon />,
-    'pending_qa_review': <FactCheckIcon />,
-    'pending_pm_approval': <ScheduleIcon />,
-    'ready_to_submit': <CheckCircleIcon />,
-    'submitted': <CheckCircleIcon />,
-    'go_back': <WarningIcon />,
-    'billed': <CheckCircleIcon />,
-    'invoiced': <CheckCircleIcon />,
-    // Legacy statuses
-    'pending': <ScheduleIcon />,
-    'pre-field': <DescriptionIcon />,
-    'in-progress': <DescriptionIcon />,
-    'completed': <CheckCircleIcon />,
-  };
-
-  const fetchJobs = useCallback(async () => {
-    try {
-      setLoading(true);
-      const url = search ? `/api/jobs?search=${encodeURIComponent(search)}` : '/api/jobs';
-      // api module automatically adds Authorization header
-      const response = await api.get(url);
-      // Ensure we always have an array to prevent crashes
-      const jobsData = Array.isArray(response.data) ? response.data : [];
-      setJobs(jobsData);
-      setError('');
-    } catch (err) {
-      console.error('Error fetching jobs:', err);
-      setError('Failed to load work orders');
-      // Don't crash on error - keep existing jobs if any
-      if (err.response?.status === 401) {
-        localStorage.removeItem('token');
-        navigate('/login');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [navigate, search]);
-
-  const filterJobs = useCallback(() => {
-    // Backend already handles search filtering, only apply status filter client-side
-    let filtered = jobs;
-
-    // Apply status filter
-    if (filter !== 'all') {
-      filtered = filtered.filter(job => job.status === filter);
-    }
-
-    setFilteredJobs(filtered);
-  }, [jobs, filter]);
-
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    fetchJobs();
-  }, [navigate, fetchJobs]);
-
-  // Poll for extraction status on jobs that are still processing
-  useEffect(() => {
-    const jobsExtracting = jobs.filter(j => j.aiExtractionStarted && !j.aiExtractionComplete);
-    if (jobsExtracting.length === 0) return;
-    
-    const pollInterval = setInterval(() => {
-      fetchJobs();
-    }, 10000); // Poll every 10 seconds
-    
-    return () => clearInterval(pollInterval);
-  }, [jobs, fetchJobs]);
-
-  useEffect(() => {
-    filterJobs();
-  }, [filterJobs]);
-
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  // Job card menu handlers
-  const handleJobMenuOpen = (event, jobId) => {
-    event.stopPropagation();
-    setJobMenuAnchor(event.currentTarget);
-    setSelectedJobId(jobId);
-  };
-
-  const handleJobMenuClose = () => {
-    setJobMenuAnchor(null);
-    // Only clear selection if dialog is not open
-    if (!assignDialogOpen) {
-      setSelectedJobId(null);
-    }
-  };
-
   const handleDeleteJob = async () => {
     if (!selectedJobId) return;
-    const jobToDelete = jobs.find(j => j._id === selectedJobId);
-    const jobTitle = getJobDisplayTitle(jobToDelete);
-    if (!globalThis.confirm(`Are you sure you want to delete "${jobTitle}"? This action cannot be undone.`)) {
-      handleJobMenuClose();
-      return;
-    }
+    const jobTitle = getJobDisplayTitle(jobs.find((j) => j._id === selectedJobId));
+    if (!globalThis.confirm(`Are you sure you want to delete "${jobTitle}"?`)) { handleJobMenuClose(); return; }
     try {
       await api.delete(`/api/jobs/${selectedJobId}`);
-      setJobs(jobs.filter(job => job._id !== selectedJobId));
+      setJobs(jobs.filter((j) => j._id !== selectedJobId));
       setSnackbar({ open: true, message: 'Work order deleted successfully', severity: 'success' });
     } catch (err) {
       console.error('Error deleting job:', err);
-      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to delete work order', severity: 'error' });
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to delete', severity: 'error' });
     } finally {
       handleJobMenuClose();
     }
   };
 
-  const handleViewFiles = () => {
-    if (selectedJobId) {
-      // Foremen go to Close Out view, others to full file system
-      const path = (userRole === 'foreman' || userRole === 'crew') 
-        ? `/jobs/${selectedJobId}/closeout`
-        : `/jobs/${selectedJobId}/files`;
-      navigate(path);
-    }
-    handleJobMenuClose();
-  };
-
-  const handleViewDetails = () => {
-    if (selectedJobId) {
-      navigate(`/jobs/${selectedJobId}`);
-    }
-    handleJobMenuClose();
-  };
-
-  // Assignment handlers - use extracted helpers
   const handleOpenAssignDialog = () => {
-    fetchForemen();
-    const job = jobs.find(j => j._id === selectedJobId);
-    setAssignmentData(getAssignmentDataFromJob(job));
+    api.get('/api/users/foremen').then((res) => setForemen(res.data)).catch(() => {});
+    setAssignmentData(getAssignmentDataFromJob(jobs.find((j) => j._id === selectedJobId)));
     setAssignDialogOpen(true);
     setJobMenuAnchor(null);
   };
 
-  const handleCloseAssignDialog = () => {
-    setAssignDialogOpen(false);
-    setSelectedJobId(null);
-    setAssignmentData(EMPTY_ASSIGNMENT_DATA);
-  };
+  const handleCloseAssignDialog = () => { setAssignDialogOpen(false); setSelectedJobId(null); setAssignmentData(EMPTY_ASSIGNMENT_DATA); };
 
   const handleAssignJob = async () => {
     try {
-      const dataToSend = prepareAssignmentDataForApi(assignmentData);
-      await api.put(`/api/jobs/${selectedJobId}/assign`, dataToSend);
+      await api.put(`/api/jobs/${selectedJobId}/assign`, prepareAssignmentDataForApi(assignmentData));
       fetchJobs();
       setSnackbar({ open: true, message: 'Job assigned successfully', severity: 'success' });
       handleCloseAssignDialog();
     } catch (err) {
       console.error('Error assigning job:', err);
-      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to assign job', severity: 'error' });
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to assign', severity: 'error' });
     }
   };
 
-  // Update job status (workflow progression)
-  const handleUpdateStatus = async (newStatus, confirmMessage) => {
+  const handleUpdateStatus = async (newStatus) => {
     if (!selectedJobId) return;
-    
-    // Optional confirmation
-    if (confirmMessage && !globalThis.confirm(confirmMessage)) {
-      handleJobMenuClose();
-      return;
-    }
-    
     try {
       await api.put(`/api/jobs/${selectedJobId}/status`, { status: newStatus });
-      
-      // Update local state
-      setJobs(jobs.map(job => 
-        job._id === selectedJobId ? { ...job, status: newStatus } : job
-      ));
-      
-      setSnackbar({
-        open: true,
-        message: `Status updated to "${getStatusLabel(newStatus)}"`,
-        severity: 'success'
-      });
-      } catch (err) {
+      setJobs(jobs.map((j) => (j._id === selectedJobId ? { ...j, status: newStatus } : j)));
+      setSnackbar({ open: true, message: `Status updated to "${STATUS_LABELS_MAP[newStatus] || newStatus}"`, severity: 'success' });
+    } catch (err) {
       console.error('Error updating status:', err);
-      setSnackbar({
-        open: true,
-        message: err.response?.data?.error || 'Failed to update status',
-        severity: 'error'
-      });
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Failed to update status', severity: 'error' });
     } finally {
       handleJobMenuClose();
     }
   };
 
-  // Transition rules by role group
-  // Simplified workflow: Foreman → PM (skip GF/QA review)
-  const transitionRules = {
-    pmAdmin: {
-      new: { status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' },
-      pending: { status: 'assigned_to_gf', label: 'Assign to GF', icon: 'assign' },
-      // PM can approve from any review stage (simplified workflow)
-      pending_gf_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
-      pending_qa_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
-      pending_pm_approval: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
-      ready_to_submit: { status: 'submitted', label: 'Mark as Submitted', icon: 'submit' },
-      submitted: { status: 'billed', label: 'Mark as Billed', icon: 'bill' },
-      billed: { status: 'invoiced', label: 'Mark as Invoiced', icon: 'invoice' },
-    },
-    gf: {
-      assigned_to_gf: { status: 'pre_fielding', label: 'Start Pre-Field', icon: 'prefield' },
-      pre_fielding: { status: 'scheduled', label: 'Schedule Crew', icon: 'schedule' },
-      // GF can also approve directly to ready_to_submit (simplified workflow)
-      pending_gf_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
-    },
-    qa: {
-      pending_qa_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit', icon: 'approve' },
-    },
-    field: {
-      scheduled: { status: 'in_progress', label: 'Start Work', icon: 'start' },
-      in_progress: { status: 'pending_pm_approval', label: 'Submit for Review', icon: 'submit' },
-    },
+  const handleStartPreField = async (jobId) => {
+    try {
+      await api.put(`/api/jobs/${jobId}/status`, { status: 'pre_fielding' });
+      setJobs((await api.get('/api/jobs')).data);
+      if (!preFieldChecklist[jobId]) setPreFieldChecklist((prev) => ({ ...prev, [jobId]: createInitialChecklist() }));
+      setSnackbar({ open: true, message: 'Started pre-fielding', severity: 'success' });
+    } catch (err) {
+      console.error('Failed to start pre-field:', err);
+      setSnackbar({ open: true, message: 'Failed to start pre-field', severity: 'error' });
+    }
   };
 
-  // Get next available status transitions based on current status and role
+  // Transition rules
+  const transitionRules = {
+    pmAdmin: { new: { status: 'assigned_to_gf', label: 'Assign to GF' }, pending: { status: 'assigned_to_gf', label: 'Assign to GF' }, pending_gf_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit' }, pending_qa_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit' }, pending_pm_approval: { status: 'ready_to_submit', label: 'Approve & Ready to Submit' }, ready_to_submit: { status: 'submitted', label: 'Mark as Submitted' }, submitted: { status: 'billed', label: 'Mark as Billed' }, billed: { status: 'invoiced', label: 'Mark as Invoiced' } },
+    gf: { assigned_to_gf: { status: 'pre_fielding', label: 'Start Pre-Field' }, pre_fielding: { status: 'scheduled', label: 'Schedule Crew' }, pending_gf_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit' } },
+    qa: { pending_qa_review: { status: 'ready_to_submit', label: 'Approve & Ready to Submit' } },
+    field: { scheduled: { status: 'in_progress', label: 'Start Work' }, in_progress: { status: 'pending_pm_approval', label: 'Submit for Review' } },
+  };
+
   const getAvailableTransitions = (job) => {
     if (!job) return [];
     const { status } = job;
     const transitions = [];
-    
     const isPmAdmin = isAdmin || userRole === 'pm' || userRole === 'admin';
-    const isQAOrAbove = isPmAdmin || userRole === 'qa';
-    const isGfOrAbove = isPmAdmin || userRole === 'gf';
-    const isFieldOrAbove = isGfOrAbove || userRole === 'foreman' || userRole === 'crew';
-
-    if (isPmAdmin && transitionRules.pmAdmin[status]) {
-      transitions.push(transitionRules.pmAdmin[status]);
-      }
-    if (isQAOrAbove && transitionRules.qa[status]) {
-      transitions.push(transitionRules.qa[status]);
-      }
-    if (isGfOrAbove && transitionRules.gf[status]) {
-      transitions.push(transitionRules.gf[status]);
-    }
-    if (isFieldOrAbove && transitionRules.field[status]) {
-      transitions.push(transitionRules.field[status]);
-    }
-    
+    if (isPmAdmin && transitionRules.pmAdmin[status]) transitions.push(transitionRules.pmAdmin[status]);
+    if ((isPmAdmin || userRole === 'qa') && transitionRules.qa[status]) transitions.push(transitionRules.qa[status]);
+    if ((isPmAdmin || userRole === 'gf') && transitionRules.gf[status]) transitions.push(transitionRules.gf[status]);
+    if ((isPmAdmin || userRole === 'gf' || userRole === 'foreman' || userRole === 'crew') && transitionRules.field[status]) transitions.push(transitionRules.field[status]);
     return transitions;
   };
 
-  const handleCreateWorkOrder = () => {
-    navigate('/create-wo');
-  };
-
-  const handleEmergencyWO = () => {
-    navigate('/emergency-wo');
-  };
-
-  const getStatusColor = (status) => {
-    return statusColors[status] || 'default';
-  };
-
-  const getStatusIcon = (status) => {
-    return statusIcons[status] || <DescriptionIcon />;
-  };
-
-  const getStatusLabel = (status) => {
-    return statusLabels[status] || status?.replaceAll('_', ' ') || 'Unknown';
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return 'No date';
-    return new Date(dateString).toLocaleDateString();
-  };
-
-  const getJobStats = () => {
-    // Calculate stats from filteredJobs to match displayed results
-    // Group statuses into logical categories for the stats display
-    const total = filteredJobs.length;
-    
-    // "Pending" = new jobs awaiting assignment or pre-field
-    const pending = filteredJobs.filter(job => 
-      ['new', 'pending', 'assigned_to_gf'].includes(job.status)
-    ).length;
-    
-    // "Pre-Field" = being pre-fielded or scheduled
-    const preField = filteredJobs.filter(job => 
-      ['pre_fielding', 'pre-field', 'scheduled'].includes(job.status)
-    ).length;
-    
-    // "In Progress" = crew working or awaiting review (including QA review)
-    const inProgress = filteredJobs.filter(job => 
-      ['in_progress', 'in-progress', 'pending_gf_review', 'pending_qa_review', 'pending_pm_approval'].includes(job.status)
-    ).length;
-    
-    // "Completed" = ready to submit through invoiced
-    const completed = filteredJobs.filter(job => 
-      ['ready_to_submit', 'submitted', 'billed', 'invoiced', 'completed'].includes(job.status)
-    ).length;
-
-    return { total, pending, inProgress, completed, preField };
-  };
-
-  const stats = getJobStats();
-
-  // Get dashboard title based on user role
   const getDashboardTitle = () => {
     switch (userRole) {
       case 'foreman': return 'Field Dashboard';
@@ -1272,7 +409,6 @@ const Dashboard = () => {
     }
   };
 
-  // Get dashboard subtitle based on user role
   const getDashboardSubtitle = () => {
     switch (userRole) {
       case 'foreman': return "View and manage your crew's scheduled work";
@@ -1282,1625 +418,189 @@ const Dashboard = () => {
     }
   };
 
+  const showGFView = !loading && !error && shouldShowGFView(userRole, isAdmin, filter, search);
+  const showStandardView = !loading && !error && !showGFView;
+
+  // ---- Render ----
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Offline and Feedback indicators */}
       <Box sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 1000, display: 'flex', gap: 1 }}>
         <OfflineIndicator />
         <FeedbackButton />
       </Box>
 
       <Container maxWidth="xl" sx={{ py: 2 }}>
-        {/* Header Section */}
+        {/* Header */}
         <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
           <Box>
-            {/* Personalized Welcome Message */}
-            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-              {getWelcomeMessage(userName)}
-            </Typography>
-            <Typography variant="h6" component="h2" color="text.secondary" sx={{ mb: 0.5 }}>
-              {getDashboardTitle()}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {getDashboardSubtitle()}
-            </Typography>
+            <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">{getWelcomeMessage(userName)}</Typography>
+            <Typography variant="h6" component="h2" color="text.secondary" sx={{ mb: 0.5 }}>{getDashboardTitle()}</Typography>
+            <Typography variant="body2" color="text.secondary">{getDashboardSubtitle()}</Typography>
           </Box>
-
           <Box display="flex" gap={2} flexWrap="wrap">
-            {/* Export Jobs CSV */}
             <Tooltip title="Export jobs to CSV spreadsheet">
-            <Button
-              variant="outlined"
-                startIcon={<DownloadIcon />}
-                onClick={async () => {
-                  // SECURITY: Use fetch with Authorization header instead of token in URL
-                  // Token in URL would be logged in browser history, server logs, and referer headers
-                  try {
-                    const response = await api.get('/api/jobs/export/csv', {
-                      responseType: 'blob'
-                    });
-                    
-                    // Create download link from blob
-                    const blob = new Blob([response.data], { type: 'text/csv' });
-                    const url = globalThis.URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `jobs_export_${new Date().toISOString().split('T')[0]}.csv`;
-                    document.body.appendChild(link);
-                    link.click();
-                    link.remove();
-                    globalThis.URL.revokeObjectURL(url);
-                  } catch (err) {
-                    console.error('Export failed:', err);
-                    setSnackbar({ open: true, message: 'Export failed', severity: 'error' });
-                  }
-                }}
-              sx={{ borderRadius: 2 }}
-            >
-                Export
-            </Button>
+              <Button variant="outlined" startIcon={<DownloadIcon />} sx={{ borderRadius: 2 }} onClick={async () => {
+                try {
+                  const response = await api.get('/api/jobs/export/csv', { responseType: 'blob' });
+                  const blob = new Blob([response.data], { type: 'text/csv' });
+                  const url = globalThis.URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = `jobs_export_${new Date().toISOString().split('T')[0]}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  link.remove();
+                  globalThis.URL.revokeObjectURL(url);
+                } catch (err) { console.error('Export failed:', err); setSnackbar({ open: true, message: 'Export failed', severity: 'error' }); }
+              }}>Export</Button>
             </Tooltip>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<WarningIcon />}
-              onClick={handleEmergencyWO}
-              sx={{ borderRadius: 2 }}
-            >
-              Emergency WO
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleCreateWorkOrder}
-              sx={{ borderRadius: 2 }}
-            >
-              New Work Order
-            </Button>
+            <Button variant="outlined" color="error" startIcon={<WarningIcon />} onClick={() => navigate('/emergency-wo')} sx={{ borderRadius: 2 }}>Emergency WO</Button>
+            <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/create-wo')} sx={{ borderRadius: 2 }}>New Work Order</Button>
           </Box>
         </Box>
 
-      {/* Pending Approvals Alert - for GF/PM/Admin */}
-      {canApprove && pendingApprovals.length > 0 && (
-        <Alert 
-          severity="warning" 
-          sx={{ mb: 3, borderRadius: 2 }}
-          action={
-            <Button 
-              color="inherit" 
-              size="small"
-              onClick={() => {
-                // Navigate to first job with pending approval
-                if (pendingApprovals[0]?.jobId) {
-                  navigate(`/jobs/${pendingApprovals[0].jobId}/files`);
-                }
-              }}
-            >
-              Review Now
-            </Button>
-          }
-        >
-          <Typography variant="body2">
-            <strong>{pendingApprovals.length} document{pendingApprovals.length > 1 ? 's' : ''} awaiting approval</strong>
-            {' '}- Draft documents need GF/PM review before submission
-          </Typography>
-        </Alert>
-      )}
+        <DashboardCharts canApprove={canApprove} pendingApprovals={pendingApprovals} onReviewFirst={() => { if (pendingApprovals[0]?.jobId) navigate(`/jobs/${pendingApprovals[0].jobId}/files`); }} />
+        <DashboardStats stats={getJobStats()} />
+        <DashboardFilters search={search} onSearchChange={setSearch} filter={filter} onFilterChange={setFilter} />
 
-      {/* Stats Cards */}
-      <Grid container spacing={3} mb={4}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Total Orders
-                  </Typography>
-                  <Typography variant="h4" component="p" fontWeight="bold">
-                    {stats.total}
-                  </Typography>
-                </Box>
-                <AssessmentIcon sx={{ fontSize: 40, color: 'primary.main', opacity: 0.7 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+        {loading && (
+          <Box mb={4}>
+            <LinearProgress sx={{ borderRadius: 1, height: 8 }} />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Loading work orders...</Typography>
+          </Box>
+        )}
+        {error && <Alert severity="error" sx={{ mb: 4, borderRadius: 2 }}>{error}</Alert>}
 
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    In Progress
-                  </Typography>
-                  <Typography variant="h4" component="p" fontWeight="bold" color="info.main">
-                    {stats.inProgress}
-                  </Typography>
-                </Box>
-                <DescriptionIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Completed
-                  </Typography>
-                  <Typography variant="h4" component="p" fontWeight="bold" color="success.main">
-                    {stats.completed}
-                  </Typography>
-                </Box>
-                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ borderRadius: 2, boxShadow: 2 }}>
-            <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Pre-Field
-                  </Typography>
-                  <Typography variant="h4" component="p" fontWeight="bold" color="info.main">
-                    {stats.preField}
-                  </Typography>
-                </Box>
-                <FolderIcon sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Search and Filter Section */}
-      <Paper sx={{ p: 3, mb: 4, borderRadius: 2, boxShadow: 1 }}>
-        <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-          <TextField
-            id="search"
-            name="search"
-            fullWidth
-            variant="outlined"
-            placeholder="Search work orders by title, description, or client..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ maxWidth: 500 }}
+        {showGFView && (
+          <DashboardSchedule
+            categories={gfCategories}
+            expandedSections={expandedSections}
+            onToggleSection={(s) => setExpandedSections((prev) => ({ ...prev, [s]: !prev[s] }))}
+            userRole={userRole}
+            onScheduleJob={(jobId) => { setSelectedJobId(jobId); handleOpenAssignDialog(); }}
+            onStartPreField={handleStartPreField}
+            onUnstickJob={handleUnstickJob}
           />
+        )}
 
-          <Button
-            variant="outlined"
-            startIcon={<FilterIcon />}
-            onClick={handleMenuOpen}
-            sx={{ borderRadius: 2 }}
-          >
-            Filter: {filter === 'all' ? 'All Status' : filter.replace('_', ' ')}
-          </Button>
+        {showStandardView && (
+          <DashboardJobList
+            jobs={filteredJobs}
+            flippedCards={flippedCards}
+            jobDetails={jobDetails}
+            preFieldChecklist={preFieldChecklist}
+            userRole={userRole}
+            onCardFlip={handleCardFlip}
+            onJobMenuOpen={handleJobMenuOpen}
+            onPreFieldCheck={handlePreFieldCheck}
+            onPreFieldNotes={handlePreFieldNotes}
+            onSavePreField={handleSavePreField}
+            onDependencyStatusClick={handleDependencyStatusClick}
+            onCreateWorkOrder={() => navigate('/create-wo')}
+            search={search}
+            filter={filter}
+          />
+        )}
 
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleMenuClose}
-            disableRestoreFocus
-          >
-            <MenuItem onClick={() => { setFilter('all'); handleMenuClose(); }}>All Status</MenuItem>
-            <Divider />
-            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— New Jobs —</MenuItem>
-            <MenuItem onClick={() => { setFilter('new'); handleMenuClose(); }}>New</MenuItem>
-            <MenuItem onClick={() => { setFilter('assigned_to_gf'); handleMenuClose(); }}>Assigned to GF</MenuItem>
-            <Divider />
-            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— Pre-Field —</MenuItem>
-            <MenuItem onClick={() => { setFilter('pre_fielding'); handleMenuClose(); }}>Pre-Fielding</MenuItem>
-            <MenuItem onClick={() => { setFilter('scheduled'); handleMenuClose(); }}>Scheduled</MenuItem>
-            <Divider />
-            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— In Progress —</MenuItem>
-            <MenuItem onClick={() => { setFilter('in_progress'); handleMenuClose(); }}>In Progress</MenuItem>
-            <MenuItem onClick={() => { setFilter('pending_gf_review'); handleMenuClose(); }}>Awaiting GF Review</MenuItem>
-            <MenuItem onClick={() => { setFilter('pending_qa_review'); handleMenuClose(); }}>Awaiting QA Review</MenuItem>
-            <MenuItem onClick={() => { setFilter('pending_pm_approval'); handleMenuClose(); }}>Awaiting PM Approval</MenuItem>
-            <Divider />
-            <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem' }}>— Completed —</MenuItem>
-            <MenuItem onClick={() => { setFilter('ready_to_submit'); handleMenuClose(); }}>Ready to Submit</MenuItem>
-            <MenuItem onClick={() => { setFilter('submitted'); handleMenuClose(); }}>Submitted</MenuItem>
-            <MenuItem onClick={() => { setFilter('billed'); handleMenuClose(); }}>Billed</MenuItem>
-            <MenuItem onClick={() => { setFilter('invoiced'); handleMenuClose(); }}>Invoiced</MenuItem>
-            <Divider />
-            <MenuItem onClick={() => { setFilter('stuck'); handleMenuClose(); }}>
-              <BlockIcon fontSize="small" sx={{ mr: 1, color: 'error.main' }} />
-              Stuck
-            </MenuItem>
-          </Menu>
-        </Box>
-      </Paper>
+        {/* Create FAB */}
+        <Fab color="primary" aria-label="Create new work order" size="large" onClick={() => navigate('/create-wo')} sx={{ position: 'fixed', bottom: 24, right: 24, boxShadow: 3, minWidth: 56, minHeight: 56 }}>
+          <AddIcon />
+        </Fab>
 
-      {/* Loading State */}
-      {loading && (
-        <Box mb={4}>
-          <LinearProgress sx={{ borderRadius: 1, height: 8 }} />
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Loading work orders...
-          </Typography>
-        </Box>
-      )}
+        {/* Job Card Menu */}
+        <Menu anchorEl={jobMenuAnchor} open={Boolean(jobMenuAnchor)} onClose={handleJobMenuClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} disableRestoreFocus>
+          <MenuItem onClick={() => { if (selectedJobId) navigate(`/jobs/${selectedJobId}`); handleJobMenuClose(); }}><EditIcon fontSize="small" sx={{ mr: 1 }} />View Details</MenuItem>
+          <MenuItem onClick={() => { if (selectedJobId) navigate((userRole === 'foreman' || userRole === 'crew') ? `/jobs/${selectedJobId}/closeout` : `/jobs/${selectedJobId}/files`); handleJobMenuClose(); }}><FolderIcon fontSize="small" sx={{ mr: 1 }} />Open Files</MenuItem>
+          {canManageJobs(userRole, isAdmin, isSuperAdmin) && <MenuItem onClick={handleOpenAssignDialog}><AssignIcon fontSize="small" sx={{ mr: 1 }} />Assign to Foreman</MenuItem>}
+          {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && canMarkAsStuck(jobs.find((j) => j._id === selectedJobId)) && (
+            <MenuItem onClick={() => { setStuckJobId(selectedJobId); setStuckReason(''); setStuckDialogOpen(true); handleJobMenuClose(); }} sx={{ color: 'error.main' }}><BlockIcon fontSize="small" sx={{ mr: 1 }} />Mark as Stuck</MenuItem>
+          )}
+          {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && ['scheduled', 'in_progress', 'assigned_to_gf'].includes(jobs.find((j) => j._id === selectedJobId)?.status) && (
+            <MenuItem onClick={() => { setCancelJobId(selectedJobId); setCancelReason(''); setCancelType('rescheduled'); setCancelDialogOpen(true); handleJobMenuClose(); }} sx={{ color: 'warning.main' }}><EventBusyIcon fontSize="small" sx={{ mr: 1 }} />Cancel / Reschedule</MenuItem>
+          )}
+          {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && jobs.find((j) => j._id === selectedJobId)?.status === 'stuck' && (
+            <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}><CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />Resume Job</MenuItem>
+          )}
+          {selectedJobId && (() => {
+            const transitions = getAvailableTransitions(jobs.find((j) => j._id === selectedJobId));
+            if (transitions.length === 0) return null;
+            return (<><Divider /><MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem', py: 0.5 }}>— Update Status —</MenuItem>{transitions.map((t) => (<MenuItem key={t.status} onClick={() => handleUpdateStatus(t.status)} sx={{ color: 'primary.main' }}><CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />{t.label}</MenuItem>))}</>);
+          })()}
+          <Divider />
+          <MenuItem onClick={handleDeleteJob} sx={{ color: 'error.main' }}><DeleteIcon fontSize="small" sx={{ mr: 1 }} />Delete Work Order</MenuItem>
+        </Menu>
 
-      {/* Error State */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 4, borderRadius: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {/* Work Orders Grid - GF View vs Standard View */}
-      {/* Show GF categorized view for GF role, or Admin/PM who want the organized view */}
-      {shouldRenderGFView(loading, error, userRole, isAdmin, filter, search) && (
-        /* ========== GF CATEGORIZED VIEW ========== */
-        <Box>
-          {/* PRE-FIELDING IN PROGRESS - Show as flip cards at the top */}
-          {gfCategories.preFieldingInProgress.length > 0 && (
-            <Box sx={{ mb: 4 }}>
-              <Typography variant="h6" component="h3" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ConstructionIcon fontSize="small" color="primary" />
-                Pre-Fielding In Progress ({gfCategories.preFieldingInProgress.length})
-              </Typography>
-              <Grid container spacing={2}>
-                {gfCategories.preFieldingInProgress.map((job) => {
-                  const isFlipped = !!flippedCards[job._id];
-                  
-                  return (
-                    <Grid size={{ xs: 12, md: 6, lg: 4 }} key={job._id}>
-                      <Box sx={{ height: 420, position: 'relative' }}>
-                        {/* FRONT SIDE */}
-                        {!isFlipped && (
-                          <Card sx={{
-                            position: 'absolute',
-                            top: 0, left: 0, width: '100%', height: '100%',
-                            borderRadius: 2, boxShadow: 2,
-                            display: 'flex', flexDirection: 'column',
-                            border: '2px solid',
-                            borderColor: 'primary.main',
-                          }}>
-                            <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
-                              <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                                <Box flex={1}>
-                                  <Typography variant="h6" component="h4" gutterBottom sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                    {job.pmNumber || job.woNumber || job.title || 'Untitled'}
-                                  </Typography>
-                                  {job.address && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                      <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
-                                        📍 {job.address}
-                                      </Typography>
-                                      <Tooltip title="Get Directions">
-                                        <IconButton
-                                          size="small"
-                                          color="primary"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            e.preventDefault();
-                                            openDirections(job.address, job.city);
-                                          }}
-                                          sx={{ p: 0.5 }}
-                                        >
-                                          <DirectionsIcon fontSize="small" />
-                                        </IconButton>
-                                      </Tooltip>
-                                    </Box>
-                                  )}
-                                  {/* EC Tag & Pre-field Labels */}
-                                  {(job.ecTag?.tagType || job.preFieldLabels?.craneRequired) && (
-                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                                      {job.ecTag?.tagType && (
-                                        <Chip 
-                                          size="small" 
-                                          label={`${job.ecTag.tagType}-TAG`}
-                                          sx={{ 
-                                            height: 20, 
-                                            fontWeight: 700,
-                                            fontSize: '0.65rem',
-                                            bgcolor: getTagBackgroundColor(job.ecTag.tagType),
-                                            color: ['A', 'E', 'B'].includes(job.ecTag.tagType) ? 'white' : undefined
-                                          }}
-                                        />
-                                      )}
-                                      {job.ecTag?.tagDueDate && (
-                                        <Chip 
-                                          size="small" 
-                                          label={`Due ${new Date(job.ecTag.tagDueDate).toLocaleDateString()}`}
-                                          color={new Date(job.ecTag.tagDueDate) < new Date() ? 'error' : 'default'}
-                                          variant="outlined"
-                                          sx={{ height: 20, fontSize: '0.65rem' }}
-                                        />
-                                      )}
-                                      {job.preFieldLabels?.constructionType && (
-                                        <Chip 
-                                          size="small" 
-                                          label={job.preFieldLabels.constructionType.toUpperCase()}
-                                          sx={{ 
-                                            height: 20,
-                                            fontSize: '0.65rem',
-                                            bgcolor: job.preFieldLabels.constructionType === 'underground' ? '#795548' : '#4caf50',
-                                            color: 'white'
-                                          }}
-                                        />
-                                      )}
-                                      {job.preFieldLabels?.roadAccess && job.preFieldLabels.roadAccess !== 'accessible' && (
-                                        <Chip 
-                                          size="small" 
-                                          label={job.preFieldLabels.roadAccess === 'backyard' ? 'BACKYARD' : job.preFieldLabels.roadAccess.toUpperCase()}
-                                          color="warning"
-                                          sx={{ height: 20, fontSize: '0.65rem' }}
-                                        />
-                                      )}
-                                      {job.preFieldLabels?.craneRequired && (
-                                        <Chip 
-                                          size="small" 
-                                          label={job.preFieldLabels.craneType || 'CRANE'}
-                                          sx={{ height: 20, fontSize: '0.65rem', bgcolor: '#ff5722', color: 'white', fontWeight: 700 }}
-                                        />
-                                      )}
-                                    </Box>
-                                  )}
-                                  {/* Job Scope Summary from Face Sheet */}
-                                  {job.jobScope?.summary && (
-                                    <Typography 
-                                      variant="caption" 
-                                      sx={{ 
-                                        display: 'block',
-                                        mt: 0.5,
-                                        p: 0.75,
-                                        bgcolor: 'rgba(59, 130, 246, 0.15)',
-                                        borderRadius: 1,
-                                        color: 'text.primary',
-                                        lineHeight: 1.3
-                                      }}
-                                    >
-                                      {job.jobScope.summary}
-                                    </Typography>
-                                  )}
-                                </Box>
-                                <Chip label="PRE-FIELDING" color="primary" size="small" />
-                              </Box>
-                              
-                              {/* Workflow Info */}
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                {job.userId && (
-                                  <Typography variant="caption" color="text.secondary">
-                                    Created by {job.userId.name || job.userId.email}
-                                  </Typography>
-                                )}
-                                {job.dueDate && (
-                                  <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
-                                    ⏰ Due: {new Date(job.dueDate).toLocaleDateString()}
-                                  </Typography>
-                                )}
-                              </Box>
-                              
-                              {/* Dependencies Preview */}
-                              {job.dependencies?.length > 0 && (
-                                <Box sx={{ mt: 2 }}>
-                                  <Typography variant="caption" color="text.secondary" fontWeight="bold">Dependencies:</Typography>
-                                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                                    {job.dependencies.map((dep) => (
-                                      <Chip key={`${dep.type}-${dep.status}`} size="small" label={getDependencyTypeLabel(dep.type)} color={getDependencyStatusColor(dep.status)} variant="outlined" sx={getDependencyChipSx(dep.status)} />
-                                    ))}
-                                  </Box>
-                                </Box>
-                              )}
-                            </CardContent>
-                            <Divider />
-                            <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-                              <Tooltip title="Flip to see checklist">
-                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary" aria-label="Flip card">
-                                  <FlipIcon />
-                                </IconButton>
-                              </Tooltip>
-                              {/* Foremen see Close Out, PM/GF/Admin see full Files */}
-                              {userRole === 'foreman' || userRole === 'crew' ? (
-                                <Button size="small" component={Link} to={`/jobs/${job._id}/closeout`} color="success">Close Out</Button>
-                              ) : (
-                                <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                              )}
-                              <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
-                              <IconButton size="small" onClick={(e) => handleJobMenuOpen(e, job._id)} aria-label="Job options"><MoreVertIcon /></IconButton>
-                            </CardActions>
-                          </Card>
-                        )}
-                        
-                        {/* BACK SIDE - Pre-field Checklist */}
-                        {isFlipped && (
-                          <Card sx={{
-                            position: 'absolute',
-                            top: 0, left: 0, width: '100%', height: '100%',
-                            borderRadius: 2, boxShadow: 2,
-                            display: 'flex', flexDirection: 'column',
-                            bgcolor: 'background.paper',
-                          }}>
-                            <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
-                              <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                                <Typography variant="subtitle2" fontWeight="bold">
-                                  {job.pmNumber || job.woNumber || job.title}
-                                </Typography>
-                                <Chip label="PRE-FIELD" color="primary" size="small" sx={{ height: 20, fontSize: '0.65rem' }} />
-                              </Box>
-                              
-                              <Typography variant="caption" color="primary" fontWeight="bold" display="flex" alignItems="center" gap={0.5} mb={1}>
-                                <ConstructionIcon fontSize="small" />
-                                Pre-Field Checklist
-                              </Typography>
-                              <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                                {preFieldItems.map((item) => {
-                                  const isChecked = preFieldChecklist[job._id]?.[item.key]?.checked || false;
-                                  const notes = preFieldChecklist[job._id]?.[item.key]?.notes || '';
-                                  
-                                  return (
-                                    <Box key={item.key} sx={{ mb: 0.5 }}>
-                                      <FormControlLabel
-                                        control={
-                                          <Checkbox 
-                                            size="small"
-                                            checked={isChecked}
-                                            onChange={(e) => handlePreFieldCheck(job._id, item.key, e.target.checked)}
-                                            sx={{ py: 0 }}
-                                          />
-                                        }
-                                        label={<Typography variant="caption" fontWeight={isChecked ? 'bold' : 'normal'}>{item.label}</Typography>}
-                                        sx={{ m: 0, height: 24 }}
-                                      />
-                                      <Collapse in={isChecked}>
-                                        <TextField
-                                          id={`prefield-notes-${job._id}-${item.key}`}
-                                          name={`prefield-notes-${item.key}`}
-                                          size="small"
-                                          placeholder={`Details for ${item.label}...`}
-                                          value={notes}
-                                          onChange={(e) => handlePreFieldNotes(job._id, item.key, e.target.value)}
-                                          multiline rows={2} fullWidth
-                                          sx={{ ml: 3, mb: 1, '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 } }}
-                                        />
-                                      </Collapse>
-                                    </Box>
-                                  );
-                                })}
-                              </Box>
-                            </CardContent>
-                            <Divider />
-                            <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-                              <Tooltip title="Flip back">
-                                <IconButton size="small" onClick={() => handleCardFlip(job._id)} color="primary" aria-label="Flip card">
-                                  <FlipIcon />
-                                </IconButton>
-                              </Tooltip>
-                              <Button size="small" variant="contained" color="primary" onClick={() => handleSavePreField(job._id)} sx={{ borderRadius: 1, fontSize: '0.7rem' }}>
-                                Save & Schedule
-                              </Button>
-                              <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Full Details</Button>
-                            </CardActions>
-                          </Card>
-                        )}
-                      </Box>
-                    </Grid>
-                  );
-                })}
-              </Grid>
+        {/* Assignment Dialog */}
+        <Dialog open={assignDialogOpen} onClose={handleCloseAssignDialog} maxWidth="sm" fullWidth>
+          <DialogTitle><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><AssignIcon color="primary" />Assign Work Order to Foreman</Box></DialogTitle>
+          <DialogContent>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
+              <FormControl fullWidth>
+                <InputLabel id="assignTo-label">Assign To</InputLabel>
+                <Select id="assignTo" name="assignTo" labelId="assignTo-label" value={assignmentData.assignedTo} label="Assign To" onChange={(e) => setAssignmentData({ ...assignmentData, assignedTo: e.target.value })}>
+                  <MenuItem value=""><em>Unassigned</em></MenuItem>
+                  {foremen.map((f) => <MenuItem key={f._id} value={f._id}>{f.name || f.email} ({f.role})</MenuItem>)}
+                </Select>
+              </FormControl>
+              <TextField id="crewScheduledDate" name="crewScheduledDate" label="Crew Scheduled Date" type="date" value={assignmentData.crewScheduledDate} onChange={(e) => setAssignmentData({ ...assignmentData, crewScheduledDate: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField id="crewScheduledEndDate" name="crewScheduledEndDate" label="End Date (Optional)" type="date" value={assignmentData.crewScheduledEndDate} onChange={(e) => setAssignmentData({ ...assignmentData, crewScheduledEndDate: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth />
+              <TextField id="assignmentNotes" name="assignmentNotes" label="Assignment Notes" multiline rows={3} value={assignmentData.assignmentNotes} onChange={(e) => setAssignmentData({ ...assignmentData, assignmentNotes: e.target.value })} fullWidth />
             </Box>
-          )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseAssignDialog}>Cancel</Button>
+            <Button onClick={handleAssignJob} variant="contained" startIcon={<AssignIcon />} disabled={!assignmentData.assignedTo || !assignmentData.crewScheduledDate}>Assign Job</Button>
+          </DialogActions>
+        </Dialog>
 
-          {/* TODAY'S WORK */}
-          {renderSectionHeader("Today's Work", <TodayIcon fontSize="small" />, gfCategories.todaysWork.length, 'todaysWork')}
-          <Collapse in={expandedSections.todaysWork}>
-            {gfCategories.todaysWork.length === 0 ? renderEmptySection('No jobs scheduled for today') : (
-              <Box sx={{ mb: 2 }}>
-                {gfCategories.todaysWork.map((job) => (
-                  <Box 
-                    key={job._id} 
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between',
-                      py: 1, 
-                      px: 2, 
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight="medium" noWrap>
-                        {job.pmNumber || job.woNumber || job.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {job.address} {job.assignedTo && `• ${job.assignedTo.name || job.assignedTo.email}`}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      {userRole === 'foreman' || userRole === 'crew' ? (
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/closeout`} color="success">Close Out</Button>
-                      ) : (
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      )}
-                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Collapse>
+        {/* Stuck Dialog */}
+        <Dialog open={stuckDialogOpen} onClose={() => setStuckDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle><Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}><BlockIcon />Mark Job as Stuck</Box></DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Use this when a job has a design discrepancy, missing materials, or other blocking issue.</Typography>
+            <TextField id="stuckReason" name="stuckReason" label="Reason for Delay" multiline rows={3} value={stuckReason} onChange={(e) => setStuckReason(e.target.value)} fullWidth required sx={{ mt: 1 }} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setStuckDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleMarkAsStuck} variant="contained" color="error" startIcon={<BlockIcon />} disabled={!stuckReason.trim()}>Mark as Stuck</Button>
+          </DialogActions>
+        </Dialog>
 
-          {/* STUCK JOBS */}
-          {gfCategories.stuck.length > 0 && (
-            <>
-              {renderSectionHeader("Stuck", <BlockIcon fontSize="small" />, gfCategories.stuck.length, 'stuck')}
-              <Collapse in={expandedSections.stuck}>
-                <Box sx={{ mb: 2 }}>
-                  {gfCategories.stuck.map((job) => (
-                    <Box 
-                      key={job._id} 
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between',
-                        py: 1, 
-                        px: 2, 
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        bgcolor: 'error.50',
-                        '&:hover': { bgcolor: 'error.100' },
-                      }}
-                    >
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" fontWeight="medium" noWrap color="error.main">
-                          {job.pmNumber || job.woNumber || job.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap>
-                          {job.stuckReason || job.address}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Button size="small" color="success" onClick={(e) => handleUnstickJob(job._id, e)}>Resume</Button>
-                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              </Collapse>
-            </>
-          )}
-
-          {/* NEEDS SCHEDULING */}
-          {renderSectionHeader("Needs Scheduling", <EventNoteIcon fontSize="small" />, gfCategories.needsScheduling.length, 'needsScheduling')}
-          <Collapse in={expandedSections.needsScheduling}>
-            {gfCategories.needsScheduling.length === 0 ? renderEmptySection('All pre-fielded jobs are scheduled') : (
-              <Box sx={{ mb: 2 }}>
-                {gfCategories.needsScheduling.map((job) => (
-                  <Box 
-                    key={job._id} 
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between',
-                      py: 1, 
-                      px: 2, 
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" fontWeight="medium" noWrap>
-                          {job.pmNumber || job.woNumber || job.title}
-                        </Typography>
-                        {job.cancelType && (
-                          <Chip 
-                            size="small" 
-                            label={job.cancelType === 'rescheduled' ? 'Rescheduled' : 'Canceled'}
-                            color={job.cancelType === 'rescheduled' ? 'warning' : 'error'}
-                            sx={{ height: 18, fontSize: '0.65rem' }}
-                          />
-                        )}
-                      </Box>
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {(() => {
-                          if (job.cancelReason) {
-                            const truncated = job.cancelReason.substring(0, 50);
-                            return job.cancelReason.length > 50 ? `${truncated}...` : truncated;
-                          }
-                          return job.address;
-                        })()}
-                        {!job.cancelReason && job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Button size="small" onClick={() => { setSelectedJobId(job._id); handleOpenAssignDialog(); }}>Schedule</Button>
-                      <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Collapse>
-
-          {/* PENDING PRE-FIELD */}
-          {renderSectionHeader("Pending Pre-Field", <ScheduleIcon fontSize="small" />, gfCategories.pendingPreField.length, 'pendingPreField')}
-          <Collapse in={expandedSections.pendingPreField}>
-            {gfCategories.pendingPreField.length === 0 ? renderEmptySection('No jobs pending pre-field') : (
-              <Box sx={{ mb: 2 }}>
-                {gfCategories.pendingPreField.map((job) => (
-                  <Box 
-                    key={job._id} 
-                    sx={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'space-between',
-                      py: 1, 
-                      px: 2, 
-                      borderBottom: '1px solid',
-                      borderColor: 'divider',
-                      '&:hover': { bgcolor: 'action.hover' },
-                    }}
-                  >
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" fontWeight="medium" noWrap>
-                        {job.pmNumber || job.woNumber || job.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap>
-                        {job.address}
-                        {job.dueDate && ` • Due: ${new Date(job.dueDate).toLocaleDateString()}`}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Button 
-                        size="small" 
-                        variant="outlined"
-                        color="primary"
-                        onClick={async () => {
-                          try {
-                            await api.put(`/api/jobs/${job._id}/status`, { status: 'pre_fielding' });
-                            const response = await api.get('/api/jobs');
-                            setJobs(response.data);
-                            // Initialize checklist for this job
-                            initPreFieldChecklist(job._id);
-                            setSnackbar({ open: true, message: 'Started pre-fielding', severity: 'success' });
-                          } catch (error) {
-                            console.error('Failed to start pre-field:', error);
-                            setSnackbar({ open: true, message: 'Failed to start pre-field', severity: 'error' });
-                          }
-                        }}
-                      >
-                        Start Pre-Field
-                      </Button>
-                      <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                      <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </Collapse>
-
-          {/* SCHEDULED (Future) */}
-          {gfCategories.scheduled.length > 0 && (
-            <>
-              {renderSectionHeader("Scheduled", <CalendarIcon fontSize="small" />, gfCategories.scheduled.length, 'scheduled')}
-              <Collapse in={expandedSections.scheduled}>
-                <Box sx={{ mb: 2 }}>
-                  {gfCategories.scheduled.map((job) => (
-                    <Box 
-                      key={job._id} 
-                      sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between',
-                        py: 1, 
-                        px: 2, 
-                        borderBottom: '1px solid',
-                        borderColor: 'divider',
-                        '&:hover': { bgcolor: 'action.hover' },
-                      }}
-                    >
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="body2" fontWeight="medium" noWrap>
-                          {job.pmNumber || job.woNumber || job.title}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap>
-                          {new Date(job.crewScheduledDate).toLocaleDateString()} • {job.assignedTo?.name || job.assignedTo?.email || 'Unassigned'}
-                          {job.address && ` • ${job.address}`}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details"><MoreVertIcon fontSize="small" /></IconButton>
-                      </Box>
-                    </Box>
-                  ))}
-                </Box>
-              </Collapse>
-            </>
-          )}
-        </Box>
-      )}
-      
-      {shouldRenderStandardView(loading, error, userRole, isAdmin, filter, search) && (
-        /* ========== STANDARD VIEW (for non-GF or filtered/searched) ========== */
-        <Grid container spacing={3}>
-          {filteredJobs.length === 0 ? (
-            <Grid size={12}>
-              <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 2, boxShadow: 1 }}>
-                <DescriptionIcon sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" component="h3" gutterBottom>
-                  No work orders found
-                </Typography>
-                <Typography variant="body2" color="text.secondary" mb={3}>
-                  {search || filter !== 'all'
-                    ? 'Try adjusting your search or filter criteria'
-                    : 'Get started by creating your first work order'
-                  }
-                </Typography>
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={handleCreateWorkOrder}
-                  sx={{ borderRadius: 2 }}
-                >
-                  Create Work Order
-                </Button>
-              </Paper>
-            </Grid>
-          ) : (
-            filteredJobs.map((job) => {
-              const isFlipped = !!flippedCards[job._id];
-              const details = jobDetails[job._id] || job;
-              
-              return (
-              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={job._id}>
-                {/* Flip Card Container - No animation, just show/hide */}
-                <Box sx={{ height: 420, position: 'relative' }}>
-                  {/* Show front or back based on flip state */}
-                  {/* FRONT SIDE - only render when not flipped */}
-                  {!isFlipped && (
-                    <Card 
-                      onClick={() => navigate(`/jobs/${job._id}/details`)}
-                      sx={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: '100%',
-                        borderRadius: 2,
-                        boxShadow: 2,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                        transition: 'box-shadow 0.2s, transform 0.1s',
-                        '&:hover': {
-                          boxShadow: 4,
-                        },
-                        '&:active': {
-                          transform: 'scale(0.99)',
-                        },
-                      }}
-                    >
-                      <CardContent sx={{ flexGrow: 1, overflow: 'auto' }}>
-                        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                          <Box flex={1}>
-                            <Typography variant="h6" component="h3" gutterBottom sx={{
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {job.title || 'Untitled Work Order'}
-                            </Typography>
-                            {job.client && (
-                              <Typography variant="body2" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
-                                <PersonIcon fontSize="small" />
-                                {job.client}
-                              </Typography>
-                            )}
-                          </Box>
-                          <Chip
-                            icon={getStatusIcon(job.status)}
-                            label={getStatusLabel(job.status)}
-                            color={getStatusColor(job.status)}
-                            size="small"
-                            variant="filled"
-                          />
-                        </Box>
-
-                        {job.description && (
-                          <Typography variant="body2" color="text.secondary" sx={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            mb: 2
-                          }}>
-                            {job.description}
-                          </Typography>
-                        )}
-
-                        {/* EC Tag & Pre-field Labels - Critical info for crews */}
-                        {hasTagsOrLabels(job) && (
-                          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                            {renderECTagChips(job)}
-                            {renderPreFieldChips(job)}
-                          </Box>
-                        )}
-
-                        {/* Job Scope Summary from Face Sheet */}
-                        {job.jobScope?.summary && (
-                          <Box sx={{ 
-                            p: 1, 
-                            mb: 1.5, 
-                            bgcolor: 'rgba(59, 130, 246, 0.12)', 
-                            borderRadius: 1,
-                            borderLeft: '3px solid',
-                            borderColor: '#3b82f6'
-                          }}>
-                            <Typography variant="caption" sx={{ fontWeight: 600, color: 'info.dark', display: 'block', mb: 0.5 }}>
-                              📋 Scope
-                            </Typography>
-                            <Typography variant="caption" color="text.primary" sx={{ lineHeight: 1.4 }}>
-                              {job.jobScope.summary}
-                            </Typography>
-                            {(job.jobScope.workType || job.jobScope.footage) && (
-                              <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-                                {job.jobScope.workType && (
-                                  <Chip size="small" label={job.jobScope.workType} sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#e0f2fe', color: '#0c4a6e', fontWeight: 500 }} />
-                                )}
-                                {job.jobScope.footage && (
-                                  <Chip size="small" label={`${job.jobScope.footage} ft`} sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#fef3c7', color: '#78350f', fontWeight: 500 }} />
-                                )}
-                                {job.jobScope.voltage && (
-                                  <Chip size="small" label={job.jobScope.voltage} sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#fee2e2', color: '#7f1d1d', fontWeight: 500 }} />
-                                )}
-                              </Box>
-                            )}
-                          </Box>
-                        )}
-
-                        {/* Workflow Info */}
-                        <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          {/* Created By */}
-                          <Typography variant="caption" color="text.secondary" display="flex" alignItems="center" gap={0.5}>
-                            Created: {formatDate(job.createdAt)}
-                            {job.userId && (
-                              <span style={{ fontWeight: 'bold' }}>
-                                {' '}by {job.userId.name || job.userId.email || 'Unknown'}
-                                {job.userId._id && <span style={{ opacity: 0.6 }}> ({job.userId._id.toString().slice(-6)})</span>}
-                              </span>
-                            )}
-                          </Typography>
-                          
-                          {/* Pre-fielded By */}
-                          {job.preFieldDate && (
-                            <Typography variant="caption" color="info.main" display="flex" alignItems="center" gap={0.5}>
-                              🔍 Pre-fielded: {formatDate(job.preFieldDate)}
-                              {job.assignedToGF && (
-                                <span style={{ fontWeight: 'bold' }}>
-                                  {' '}by {job.assignedToGF.name || job.assignedToGF.email || 'GF'}
-                                  {job.assignedToGF._id && <span style={{ opacity: 0.6 }}> ({job.assignedToGF._id.toString().slice(-6)})</span>}
-                                </span>
-                              )}
-                            </Typography>
-                          )}
-                          
-                          {/* Scheduled For */}
-                          {job.crewScheduledDate && (
-                            <Typography variant="caption" color="primary.main" display="flex" alignItems="center" gap={0.5}>
-                              📅 Scheduled: {formatDate(job.crewScheduledDate)}
-                              {job.assignedTo && (
-                                <span style={{ fontWeight: 'bold' }}>
-                                  {' '}→ {job.assignedTo.name || job.assignedTo.email || 'Crew'}
-                                  {job.assignedTo._id && <span style={{ opacity: 0.6 }}> ({job.assignedTo._id.toString().slice(-6)})</span>}
-                                </span>
-                              )}
-                            </Typography>
-                          )}
-                          
-                          {/* Due Date */}
-                          {job.dueDate && (
-                            <Typography variant="caption" color={new Date(job.dueDate) < new Date() ? 'error.main' : 'text.secondary'} display="flex" alignItems="center" gap={0.5}>
-                              ⏰ Due: {formatDate(job.dueDate)}
-                            </Typography>
-                          )}
-                        </Box>
-                        
-                        {/* Quick Dependencies Preview */}
-                        {job.dependencies?.length > 0 && (
-                          <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                            {job.dependencies.slice(0, 3).map((dep) => (
-                              <Chip 
-                                key={`${dep.type}-${dep.status}`}
-                                size="small"
-                                label={getDependencyTypeLabel(dep.type)}
-                                color={getDependencyStatusColor(dep.status)}
-                                variant="outlined"
-                                sx={getDependencyChipSx(dep.status)}
-                              />
-                            ))}
-                            {job.dependencies.length > 3 && (
-                              <Chip 
-                                size="small"
-                                label={`+${job.dependencies.length - 3}`}
-                                variant="outlined"
-                                sx={{ fontSize: '0.65rem', height: 20 }}
-                              />
-                            )}
-                          </Box>
-                        )}
-                        
-                        {/* AI Extraction Status */}
-                        {job.aiExtractionStarted && !job.aiExtractionComplete && (
-                          <Box sx={{ mt: 1 }}>
-                            <Typography variant="caption" color="primary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                              <ScheduleIcon fontSize="small" sx={{ animation: 'spin 2s linear infinite', '@keyframes spin': { '0%': { transform: 'rotate(0deg)' }, '100%': { transform: 'rotate(360deg)' } } }} />
-                              Extracting assets...
-                            </Typography>
-                            <LinearProgress sx={{ mt: 0.5, borderRadius: 1 }} />
-                          </Box>
-                        )}
-                      </CardContent>
-
-                      <Divider />
-
-                      <CardActions sx={{ justifyContent: 'space-between', px: 2 }} onClick={(e) => e.stopPropagation()}>
-                        <Tooltip title="Flip card for details">
-                          <IconButton 
-                            size="small"
-                            onClick={() => handleCardFlip(job._id)}
-                            color="primary"
-                          >
-                            <FlipIcon />
-                          </IconButton>
-                        </Tooltip>
-                        {/* Foremen/crew see Close Out, others see Files */}
-                        {userRole === 'foreman' || userRole === 'crew' ? (
-                          <Button size="small" component={Link} to={`/jobs/${job._id}/closeout`} color="success">Close Out</Button>
-                        ) : (
-                          <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>Files</Button>
-                        )}
-                        <Button size="small" component={Link} to={`/jobs/${job._id}/details`}>Details</Button>
-                        <IconButton 
-                          size="small"
-                          onClick={(e) => handleJobMenuOpen(e, job._id)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      </CardActions>
-                    </Card>
-                  )}
-
-                  {/* BACK SIDE - only render when flipped */}
-                  {isFlipped && (
-                    <Card sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      borderRadius: 2,
-                      boxShadow: 2,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      bgcolor: 'background.paper',
-                    }}>
-                      <CardContent sx={{ flexGrow: 1, overflow: 'auto', py: 1 }}>
-                        {/* Header */}
-                        <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                          <Typography variant="subtitle2" fontWeight="bold" sx={{ 
-                            overflow: 'hidden', 
-                            textOverflow: 'ellipsis', 
-                            whiteSpace: 'nowrap',
-                            maxWidth: '70%'
-                          }}>
-                            {job.pmNumber || job.woNumber || job.title}
-                          </Typography>
-                          <Chip
-                            label={getStatusLabel(job.status)}
-                            color={getStatusColor(job.status)}
-                            size="small"
-                            sx={{ height: 20, fontSize: '0.65rem' }}
-                          />
-                        </Box>
-
-                        {/* CONDITIONAL: Pre-Field Checklist OR Dependencies View */}
-                        {needsPreField(job.status) ? (
-                          /* PRE-FIELD CHECKLIST */
-                          <Box>
-                            <Typography variant="caption" color="primary" fontWeight="bold" display="flex" alignItems="center" gap={0.5} mb={1}>
-                              <ConstructionIcon fontSize="small" />
-                              Pre-Field Checklist
-                            </Typography>
-                            <Box sx={{ maxHeight: 300, overflow: 'auto' }}>
-                              {preFieldItems.map((item) => {
-                                const isChecked = preFieldChecklist[job._id]?.[item.key]?.checked || false;
-                                const notes = preFieldChecklist[job._id]?.[item.key]?.notes || '';
-                                
-                                return (
-                                  <Box key={item.key} sx={{ mb: 0.5 }}>
-                                    <FormControlLabel
-                                      control={
-                                        <Checkbox 
-                                          size="small"
-                                          checked={isChecked}
-                                          onChange={(e) => handlePreFieldCheck(job._id, item.key, e.target.checked)}
-                                          sx={{ py: 0 }}
-                                        />
-                                      }
-                                      label={
-                                        <Typography variant="caption" fontWeight={isChecked ? 'bold' : 'normal'}>
-                                          {item.label}
-                                        </Typography>
-                                      }
-                                      sx={{ m: 0, height: 24 }}
-                                    />
-                                    <Collapse in={isChecked}>
-                                      <TextField
-                                        id={`prefield-notes-main-${job._id}-${item.key}`}
-                                        name={`prefield-notes-main-${item.key}`}
-                                        size="small"
-                                        placeholder={`Details for ${item.label}...`}
-                                        value={notes}
-                                        onChange={(e) => handlePreFieldNotes(job._id, item.key, e.target.value)}
-                                        multiline
-                                        rows={2}
-                                        fullWidth
-                                        sx={{ 
-                                          ml: 3, 
-                                          mb: 1,
-                                          '& .MuiInputBase-input': { fontSize: '0.75rem', py: 0.5 }
-                                        }}
-                                      />
-                                    </Collapse>
-                                  </Box>
-                                );
-                              })}
-                            </Box>
-                          </Box>
-                        ) : (
-                          /* DEPENDENCIES/SCHEDULE VIEW (for pre-fielded jobs) */
-                          <>
-                            {/* Schedule Info */}
-                            <Paper variant="outlined" sx={{ p: 1, mb: 1, bgcolor: 'action.hover' }}>
-                              <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
-                                <CalendarIcon fontSize="small" />
-                                Schedule
-                              </Typography>
-                              <Box sx={{ mt: 0.5, pl: 2 }}>
-                                {details.crewScheduledDate ? (
-                                  <Typography variant="caption" display="block">
-                                    🗓️ Scheduled: {formatDate(details.crewScheduledDate)}
-                                  </Typography>
-                                ) : (
-                                  <Typography variant="caption" color="text.secondary" display="block">
-                                    Not scheduled
-                                  </Typography>
-                                )}
-                                {details.dueDate && (
-                                  <Typography variant="caption" display="block" color={new Date(details.dueDate) < new Date() ? 'error.main' : 'text.secondary'}>
-                                    ⏰ Due: {formatDate(details.dueDate)}
-                                  </Typography>
-                                )}
-                                {details.assignedTo && (
-                                  <Typography variant="caption" display="block">
-                                    👷 Crew: {details.assignedTo.name || details.assignedTo.email || 'Assigned'}
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Paper>
-
-                            {/* Dependencies */}
-                            <Paper variant="outlined" sx={{ p: 1, mb: 1 }}>
-                              <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
-                                <BuildIcon fontSize="small" />
-                                Dependencies ({details.dependencies?.length || 0})
-                              </Typography>
-                              <Box sx={{ mt: 0.5, maxHeight: 80, overflow: 'auto' }}>
-                                {details.dependencies && details.dependencies.length > 0 ? (
-                                  details.dependencies.map((dep, i) => (
-                                    <Box key={dep._id || i} display="flex" alignItems="center" gap={0.5} mb={0.5} flexWrap="wrap">
-                                      <Chip 
-                                        size="small"
-                                        label={getDependencyTypeLabel(dep.type)}
-                                        variant="outlined"
-                                        sx={{ fontSize: '0.6rem', height: 18 }}
-                                      />
-                                      <Tooltip title="Click to change status" arrow>
-                                        <Chip 
-                                          size="small"
-                                          label={getDependencyStatusLabel(dep.status)}
-                                          color={getDependencyStatusColor(dep.status)}
-                                          onClick={(e) => handleDependencyStatusClick(job._id, dep._id, dep.status, e)}
-                                          sx={{ 
-                                            fontSize: '0.55rem', 
-                                            height: 16, 
-                                            fontWeight: 'bold',
-                                            cursor: 'pointer',
-                                            '&:hover': { opacity: 0.8 }
-                                          }}
-                                        />
-                                      </Tooltip>
-                                      {dep.ticketNumber && (
-                                        <Typography variant="caption" color="text.secondary">
-                                          #{dep.ticketNumber}
-                                        </Typography>
-                                      )}
-                                      {dep.scheduledDate && (
-                                        <Typography variant="caption" color="text.secondary">
-                                          {new Date(dep.scheduledDate).toLocaleDateString()}
-                                        </Typography>
-                                      )}
-                                    </Box>
-                                  ))
-                                ) : (
-                                  <Typography variant="caption" color="text.secondary">
-                                    No dependencies tracked
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Paper>
-
-                            {/* Recent Notes Preview */}
-                            <Paper variant="outlined" sx={{ p: 1 }}>
-                              <Typography variant="caption" color="text.secondary" fontWeight="bold" display="flex" alignItems="center" gap={0.5}>
-                                <ChatIcon fontSize="small" />
-                                Notes ({details.notes?.length || 0})
-                              </Typography>
-                              <Box sx={{ mt: 0.5, maxHeight: 50, overflow: 'auto' }}>
-                                {details.notes && details.notes.length > 0 ? (
-                                  details.notes.slice(-2).map((note) => (
-                                    <Typography key={note._id || note.createdAt} variant="caption" display="block" sx={{ 
-                                      overflow: 'hidden', 
-                                      textOverflow: 'ellipsis', 
-                                      whiteSpace: 'nowrap' 
-                                    }}>
-                                      <strong>{note.userName || 'User'}:</strong> {note.message}
-                                    </Typography>
-                                  ))
-                                ) : (
-                                  <Typography variant="caption" color="text.secondary">
-                                    No notes yet
-                                  </Typography>
-                                )}
-                              </Box>
-                            </Paper>
-                          </>
-                        )}
-                      </CardContent>
-
-                      <Divider />
-
-                      <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-                        <Tooltip title="Flip back">
-                          <IconButton 
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCardFlip(job._id);
-                            }}
-                            color="primary"
-                          >
-                            <FlipIcon />
-                          </IconButton>
-                        </Tooltip>
-                        
-                        {/* Show "Save Pre-Field" for jobs needing pre-field, otherwise "Full Details" */}
-                        {needsPreField(job.status) ? (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="primary"
-                            onClick={() => handleSavePreField(job._id)}
-                            sx={{ borderRadius: 1, fontSize: '0.7rem' }}
-                          >
-                            Save Pre-Field
-                          </Button>
-                        ) : (
-                          <Button
-                            size="small"
-                            component={Link}
-                            to={`/jobs/${job._id}/details`}
-                            sx={{ borderRadius: 1 }}
-                          >
-                            Full Details
-                          </Button>
-                        )}
-                        
-                        <IconButton 
-                          size="small"
-                          onClick={(e) => handleJobMenuOpen(e, job._id)}
-                        >
-                          <MoreVertIcon />
-                        </IconButton>
-                      </CardActions>
-                    </Card>
-                  )}
-                </Box>
-              </Grid>
-            );})
-          )}
-        </Grid>
-      )}
-
-      {/* Floating Action Button for Quick Create */}
-      <Fab
-        color="primary"
-        aria-label="Create new work order"
-        size="large"
-        onClick={handleCreateWorkOrder}
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          boxShadow: 3,
-          // Ensure minimum 48x48 touch target (large = 56x56)
-          minWidth: 56,
-          minHeight: 56
-        }}
-      >
-        <AddIcon />
-      </Fab>
-
-      {/* Job Card Menu */}
-      <Menu
-        anchorEl={jobMenuAnchor}
-        open={Boolean(jobMenuAnchor)}
-        onClose={handleJobMenuClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        disableRestoreFocus
-      >
-        <MenuItem onClick={handleViewDetails}>
-          <EditIcon fontSize="small" sx={{ mr: 1 }} />
-          View Details
-        </MenuItem>
-        <MenuItem onClick={handleViewFiles}>
-          <FolderIcon fontSize="small" sx={{ mr: 1 }} />
-          Open Files
-        </MenuItem>
-        {canManageJobs(userRole, isAdmin, isSuperAdmin) && (
-          <MenuItem onClick={handleOpenAssignDialog}>
-            <AssignIcon fontSize="small" sx={{ mr: 1 }} />
-            Assign to Foreman
-          </MenuItem>
-        )}
-        
-        {/* Mark as Stuck option for GF/PM/Admin */}
-        {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && canMarkAsStuck(jobs.find(j => j._id === selectedJobId)) && (
-            <MenuItem onClick={(e) => handleOpenStuckDialog(selectedJobId, e)} sx={{ color: 'error.main' }}>
-              <BlockIcon fontSize="small" sx={{ mr: 1 }} />
-              Mark as Stuck
-            </MenuItem>
-        )}
-        
-        {/* Cancel/Reschedule option for scheduled/in_progress jobs */}
-        {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && (() => {
-          const job = jobs.find(j => j._id === selectedJobId);
-          const canCancel = ['scheduled', 'in_progress', 'assigned_to_gf'].includes(job?.status);
-          if (!canCancel) return null;
-          return (
-            <MenuItem onClick={(e) => handleOpenCancelDialog(selectedJobId, e)} sx={{ color: 'warning.main' }}>
-              <EventBusyIcon fontSize="small" sx={{ mr: 1 }} />
-              Cancel / Reschedule
-            </MenuItem>
-          );
-        })()}
-        
-        {/* Unstick option for stuck jobs */}
-        {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && jobs.find(j => j._id === selectedJobId)?.status === 'stuck' && (
-            <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}>
-              <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
-              Resume Job
-            </MenuItem>
-        )}
-        
-        {/* Workflow Status Transitions */}
-        {selectedJobId && (() => {
-          const job = jobs.find(j => j._id === selectedJobId);
-          const transitions = getAvailableTransitions(job);
-          if (transitions.length === 0) return null;
-          return (
-            <>
-              <Divider />
-              <MenuItem disabled sx={{ opacity: 0.7, fontSize: '0.75rem', py: 0.5 }}>
-                — Update Status —
-              </MenuItem>
-              {transitions.map((t) => (
-                <MenuItem 
-                  key={t.status} 
-                  onClick={() => handleUpdateStatus(t.status)}
-                  sx={{ color: 'primary.main' }}
-                >
-                  <CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />
-                  {t.label}
-                </MenuItem>
-              ))}
-            </>
-          );
-        })()}
-        
-        <Divider />
-        <MenuItem onClick={handleDeleteJob} sx={{ color: 'error.main' }}>
-          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
-          Delete Work Order
-        </MenuItem>
-      </Menu>
-
-      {/* Assignment Dialog */}
-      <Dialog open={assignDialogOpen} onClose={handleCloseAssignDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <AssignIcon color="primary" />
-            Assign Work Order to Foreman
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
-            {/* Show job info and due date */}
-            {selectedJobId && (() => {
-              const job = jobs.find(j => j._id === selectedJobId);
-              return job ? (
-                <Alert severity="info" sx={{ mb: 1 }}>
-                  <Typography variant="subtitle2">
-                    <strong>{job.pmNumber || job.woNumber || 'Work Order'}</strong>
-                    {job.address && ` - ${job.address}`}
-                  </Typography>
-                  {job.dueDate && (
-                    <Typography variant="body2" color="warning.main">
-                      <strong>Due By:</strong> {new Date(job.dueDate).toLocaleDateString()}
-                    </Typography>
-                  )}
-                </Alert>
-              ) : null;
-            })()}
-            
-            <FormControl fullWidth>
-              <InputLabel id="assignTo-label">Assign To</InputLabel>
-              <Select
-                id="assignTo"
-                name="assignTo"
-                labelId="assignTo-label"
-                value={assignmentData.assignedTo}
-                label="Assign To"
-                onChange={(e) => setAssignmentData({ ...assignmentData, assignedTo: e.target.value })}
-              >
-                <MenuItem value="">
-                  <em>Unassigned</em>
-                </MenuItem>
-                {foremen.map((foreman) => (
-                  <MenuItem key={foreman._id} value={foreman._id}>
-                    {foreman.name || foreman.email} ({foreman.role})
-                  </MenuItem>
-                ))}
+        {/* Cancel/Reschedule Dialog */}
+        <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><EventBusyIcon color="warning" />Cancel or Reschedule Job</Box></DialogTitle>
+          <DialogContent>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>This will move the job back to &quot;Needs Scheduling&quot; status.</Typography>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="cancel-type-label">Action Type</InputLabel>
+              <Select labelId="cancel-type-label" id="cancelType" value={cancelType} label="Action Type" onChange={(e) => setCancelType(e.target.value)}>
+                <MenuItem value="rescheduled"><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><ScheduleIcon fontSize="small" color="info" />Reschedule</Box></MenuItem>
+                <MenuItem value="canceled"><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><BlockIcon fontSize="small" color="error" />Cancel</Box></MenuItem>
               </Select>
             </FormControl>
-            
-            <TextField
-              id="crewScheduledDate"
-              name="crewScheduledDate"
-              label="Crew Scheduled Date"
-              type="date"
-              value={assignmentData.crewScheduledDate}
-              onChange={(e) => setAssignmentData({ ...assignmentData, crewScheduledDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              helperText="When the crew will work on this job"
-              fullWidth
-            />
-            
-            <TextField
-              id="crewScheduledEndDate"
-              name="crewScheduledEndDate"
-              label="End Date (Optional - for multi-day jobs)"
-              type="date"
-              value={assignmentData.crewScheduledEndDate}
-              onChange={(e) => setAssignmentData({ ...assignmentData, crewScheduledEndDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            
-            <TextField
-              id="assignmentNotes"
-              name="assignmentNotes"
-              label="Assignment Notes"
-              multiline
-              rows={3}
-              value={assignmentData.assignmentNotes}
-              onChange={(e) => setAssignmentData({ ...assignmentData, assignmentNotes: e.target.value })}
-              placeholder="Add any special instructions or notes for the foreman..."
-              fullWidth
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseAssignDialog}>Cancel</Button>
-          <Button 
-            onClick={handleAssignJob} 
-            variant="contained" 
-            startIcon={<AssignIcon />}
-            disabled={!assignmentData.assignedTo || !assignmentData.crewScheduledDate}
-          >
-            Assign Job
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <TextField id="cancelReason" name="cancelReason" label="Reason" multiline rows={3} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} fullWidth required />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCancelDialogOpen(false)}>Back</Button>
+            <Button onClick={handleCancelJob} variant="contained" color={cancelType === 'canceled' ? 'error' : 'warning'} disabled={!cancelReason.trim()}>{cancelType === 'rescheduled' ? 'Reschedule Job' : 'Cancel Job'}</Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* Mark as Stuck Dialog */}
-      <Dialog open={stuckDialogOpen} onClose={() => setStuckDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'error.main' }}>
-            <BlockIcon />
-            Mark Job as Stuck
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Use this when a job has a design discrepancy, missing materials, utility issue, 
-            or any problem that will delay completion.
-          </Typography>
-          <TextField
-            id="stuckReason"
-            name="stuckReason"
-            label="Reason for Delay"
-            multiline
-            rows={3}
-            value={stuckReason}
-            onChange={(e) => setStuckReason(e.target.value)}
-            placeholder="Describe the issue blocking this job..."
-            fullWidth
-            required
-            sx={{ mt: 1 }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setStuckDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={handleMarkAsStuck} 
-            variant="contained" 
-            color="error"
-            startIcon={<BlockIcon />}
-            disabled={!stuckReason.trim()}
-          >
-            Mark as Stuck
-          </Button>
-        </DialogActions>
-      </Dialog>
+        {/* Dependency Schedule Dialog */}
+        <Dialog open={depScheduleDialogOpen} onClose={() => setDepScheduleDialogOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle><Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><CalendarIcon color="primary" />Schedule Dependency</Box></DialogTitle>
+          <DialogContent>
+            <TextField id="depScheduleDate" name="depScheduleDate" label="Scheduled Date" type="date" value={depScheduleData.date} onChange={(e) => setDepScheduleData({ ...depScheduleData, date: e.target.value })} InputLabelProps={{ shrink: true }} fullWidth required sx={{ mt: 1 }} />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setDepScheduleDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveDepSchedule} variant="contained" startIcon={<CalendarIcon />} disabled={!depScheduleData.date}>Schedule</Button>
+          </DialogActions>
+        </Dialog>
 
-      {/* Cancel/Reschedule Dialog */}
-      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <EventBusyIcon color="warning" />
-            Cancel or Reschedule Job
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            This will move the job back to &quot;Needs Scheduling&quot; status. The crew schedule will be cleared
-            and the GF will need to reschedule when ready.
-          </Typography>
-          
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel id="cancel-type-label">Action Type</InputLabel>
-            <Select
-              labelId="cancel-type-label"
-              id="cancelType"
-              value={cancelType}
-              label="Action Type"
-              onChange={(e) => setCancelType(e.target.value)}
-            >
-              <MenuItem value="rescheduled">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ScheduleIcon fontSize="small" color="info" />
-                  Reschedule - Move to a different date
-                </Box>
-              </MenuItem>
-              <MenuItem value="canceled">
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BlockIcon fontSize="small" color="error" />
-                  Cancel - Customer/utility canceled work
-                </Box>
-              </MenuItem>
-            </Select>
-          </FormControl>
-          
-          <TextField
-            id="cancelReason"
-            name="cancelReason"
-            label="Reason"
-            multiline
-            rows={3}
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            placeholder={cancelType === 'rescheduled' 
-              ? "Why does this job need to be rescheduled? (e.g., customer not available, equipment issue, weather)"
-              : "Why was this job canceled? (e.g., customer canceled, utility hold, no longer needed)"
-            }
-            fullWidth
-            required
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCancelDialogOpen(false)}>Back</Button>
-          <Button 
-            onClick={handleCancelJob} 
-            variant="contained" 
-            color={cancelType === 'canceled' ? 'error' : 'warning'}
-            startIcon={cancelType === 'canceled' ? <BlockIcon /> : <EventBusyIcon />}
-            disabled={!cancelReason.trim()}
-          >
-            {cancelType === 'rescheduled' ? 'Reschedule Job' : 'Cancel Job'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Schedule Dependency Dialog */}
-      <Dialog open={depScheduleDialogOpen} onClose={() => setDepScheduleDialogOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CalendarIcon color="primary" />
-            Schedule Dependency
-          </Box>
-        </DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            When is this scheduled for?
-          </Typography>
-          <TextField
-            id="depScheduleDate"
-            name="depScheduleDate"
-            label="Scheduled Date"
-            type="date"
-            value={depScheduleData.date}
-            onChange={(e) => setDepScheduleData({ ...depScheduleData, date: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            fullWidth
-            required
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDepScheduleDialogOpen(false)}>Cancel</Button>
-          <Button 
-            onClick={handleSaveDepSchedule} 
-            variant="contained" 
-            startIcon={<CalendarIcon />}
-            disabled={!depScheduleData.date}
-          >
-            Schedule
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+        <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+          <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} sx={{ width: '100%' }}>{snackbar.message}</Alert>
+        </Snackbar>
       </Container>
     </Box>
   );
