@@ -1105,6 +1105,186 @@ router.post('/classify-pages', async (req, res) => {
 });
 
 // ============================================================================
+// PAGE CLASSIFICATION
+// ============================================================================
+
+const { classifyPages } = require('../services/asbuilt/PageClassifier');
+const r2Storage = require('../utils/storage');
+
+/**
+ * POST /classify
+ * Classify each page of a job's uploaded package PDF by content.
+ * Stores the result on the job record so the wizard knows which pages
+ * belong to which document section — regardless of upload order.
+ */
+router.post('/classify', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const jobId = sanitizeObjectId(req.body.jobId);
+    if (!jobId) {
+      return res.status(400).json({ error: 'Valid jobId is required' });
+    }
+
+    const job = await Job.findOne({ _id: jobId, companyId: user.companyId });
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Find the job package PDF — look for the main PDF in the job file system
+    // Priority: explicit pdfKey in body > job.packagePdfKey > first PDF in root/Job Package folder
+    let pdfBuffer = null;
+    let pdfKey = sanitizeString(req.body.pdfKey) || job.packagePdfKey || null;
+
+    if (pdfKey && r2Storage.isR2Configured()) {
+      // Load from R2
+      try {
+        const fileData = await r2Storage.getFileStream(pdfKey);
+        if (fileData?.stream) {
+          const chunks = [];
+          for await (const chunk of fileData.stream) {
+            chunks.push(chunk);
+          }
+          pdfBuffer = Buffer.concat(chunks);
+        }
+      } catch (r2Err) {
+        console.warn('[AsBuilt:Classify] Failed to load PDF from R2:', r2Err.message);
+      }
+    }
+
+    if (!pdfBuffer) {
+      // Search job folders for a PDF file (likely the job package)
+      const allDocs = [];
+      for (const folder of job.folders || []) {
+        for (const doc of folder.documents || []) {
+          if (doc.name?.toLowerCase().endsWith('.pdf') && doc.r2Key) {
+            allDocs.push(doc);
+          }
+        }
+        for (const sf of folder.subfolders || []) {
+          for (const doc of sf.documents || []) {
+            if (doc.name?.toLowerCase().endsWith('.pdf') && doc.r2Key) {
+              allDocs.push(doc);
+            }
+          }
+        }
+      }
+
+      // Prefer the largest PDF (job packages are typically the biggest file)
+      if (allDocs.length > 0) {
+        const bestDoc = allDocs.sort((a, b) => (b.size || 0) - (a.size || 0))[0];
+        pdfKey = bestDoc.r2Key;
+        try {
+          const fileData = await r2Storage.getFileStream(pdfKey);
+          if (fileData?.stream) {
+            const chunks = [];
+            for await (const chunk of fileData.stream) {
+              chunks.push(chunk);
+            }
+            pdfBuffer = Buffer.concat(chunks);
+          }
+        } catch (r2Err) {
+          console.warn('[AsBuilt:Classify] Failed to load PDF from R2:', r2Err.message);
+        }
+      }
+    }
+
+    if (!pdfBuffer) {
+      return res.status(404).json({ error: 'No job package PDF found. Upload the job package first.' });
+    }
+
+    // Load utility config for detection keywords
+    const utilityCode = sanitizeString(req.body.utilityCode)?.toUpperCase() || 'PGE';
+    const config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    if (!config?.pageRanges?.length) {
+      return res.status(400).json({ error: `No page classification config found for utility: ${utilityCode}` });
+    }
+
+    // Run classification
+    const classification = await classifyPages(pdfBuffer, config.pageRanges);
+
+    // Save to job
+    job.packageClassification = classification;
+    job.packageClassifiedAt = new Date();
+    if (pdfKey) job.packagePdfKey = pdfKey;
+    await job.save();
+
+    // Build summary for response
+    const summary = {};
+    for (const c of classification) {
+      if (!summary[c.sectionType]) {
+        summary[c.sectionType] = { pages: [], confidence: c.confidence };
+      }
+      summary[c.sectionType].pages.push(c.pageIndex);
+    }
+
+    res.json({
+      success: true,
+      totalPages: classification.length,
+      classified: classification.filter(c => c.sectionType !== 'other').length,
+      unclassified: classification.filter(c => c.sectionType === 'other').length,
+      summary,
+      classification,
+    });
+  } catch (err) {
+    console.error('[AsBuilt:Classify] Error:', err);
+    res.status(500).json({ error: 'Failed to classify job package pages' });
+  }
+});
+
+/**
+ * GET /classify/:jobId
+ * Get the stored page classification for a job.
+ */
+router.get('/classify/:jobId', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const jobId = sanitizeObjectId(req.params.jobId);
+    if (!jobId) {
+      return res.status(400).json({ error: 'Valid jobId is required' });
+    }
+
+    const job = await Job.findOne({ _id: jobId, companyId: user.companyId })
+      .select('packageClassification packageClassifiedAt packagePdfKey')
+      .lean();
+
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    if (!job.packageClassification?.length) {
+      return res.status(404).json({ error: 'Job package has not been classified yet' });
+    }
+
+    const summary = {};
+    for (const c of job.packageClassification) {
+      if (!summary[c.sectionType]) {
+        summary[c.sectionType] = { pages: [], confidence: c.confidence };
+      }
+      summary[c.sectionType].pages.push(c.pageIndex);
+    }
+
+    res.json({
+      classifiedAt: job.packageClassifiedAt,
+      pdfKey: job.packagePdfKey,
+      totalPages: job.packageClassification.length,
+      summary,
+      classification: job.packageClassification,
+    });
+  } catch (err) {
+    console.error('[AsBuilt:Classify] Error:', err);
+    res.status(500).json({ error: 'Failed to get classification' });
+  }
+});
+
+// ============================================================================
 // AS-BUILT WIZARD SUBMISSION ENDPOINTS
 // ============================================================================
 

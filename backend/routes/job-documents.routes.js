@@ -18,6 +18,59 @@ const User = require('../models/User');
 const r2Storage = require('../utils/storage');
 const { logDocument, logExport } = require('../middleware/auditLogger');
 const mongoose = require('mongoose');
+const { classifyPages } = require('../services/asbuilt/PageClassifier');
+const UtilityAsBuiltConfig = require('../models/UtilityAsBuiltConfig');
+
+/**
+ * Auto-classify a job package PDF in the background after upload.
+ * Only runs if the PDF has 5+ pages (likely a job package, not a single form).
+ * Non-blocking — errors are logged but don't affect the upload.
+ */
+async function tryAutoClassifyJobPackage(jobId, pdfR2Key) {
+  try {
+    if (!r2Storage.isR2Configured() || !pdfR2Key) return;
+
+    // Load PDF from R2
+    const fileData = await r2Storage.getFileStream(pdfR2Key);
+    if (!fileData?.stream) return;
+
+    const chunks = [];
+    for await (const chunk of fileData.stream) {
+      chunks.push(chunk);
+    }
+    const pdfBuffer = Buffer.concat(chunks);
+
+    // Quick page count check — skip small PDFs (single forms, not job packages)
+    const { PDFDocument } = require('pdf-lib');
+    const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+    if (pdfDoc.getPageCount() < 5) return;
+
+    // Load utility config (default to PG&E for now)
+    const job = await Job.findById(jobId).select('utilityId companyId').lean();
+    if (!job) return;
+
+    // Try to find the utility config — fall back to PGE
+    const config = await UtilityAsBuiltConfig.findOne({ isActive: true }).lean();
+    if (!config?.pageRanges?.length) return;
+
+    // Run classification
+    const classification = await classifyPages(pdfBuffer, config.pageRanges);
+
+    // Save to job (atomic update to avoid version conflicts with concurrent saves)
+    await Job.findByIdAndUpdate(jobId, {
+      $set: {
+        packageClassification: classification,
+        packageClassifiedAt: new Date(),
+        packagePdfKey: pdfR2Key,
+      },
+    });
+
+    const classifiedCount = classification.filter(c => c.sectionType !== 'other').length;
+    console.log(`[AutoClassify] Job ${jobId}: ${classifiedCount}/${classification.length} pages classified`);
+  } catch (err) {
+    console.warn('[AutoClassify] Failed:', err.message);
+  }
+}
 const { validateUrl } = require('../utils/urlValidator');
 
 // Optional dependencies (may not be installed)
@@ -236,6 +289,15 @@ router.post('/:id/folders/:folderName/upload', upload.array('files', 10), async 
     }
     
     res.json({ message: 'Files uploaded successfully', documents: uploadedDocs });
+
+    // Auto-classify if a multi-page PDF was uploaded (likely a job package)
+    const pdfDocs = uploadedDocs.filter(d => d.type === 'pdf' && d.r2Key);
+    if (pdfDocs.length > 0) {
+      // Fire async — don't block the upload response
+      tryAutoClassifyJobPackage(job._id, pdfDocs[0].r2Key).catch(err => {
+        console.warn('[AutoClassify] Background classification failed:', err.message);
+      });
+    }
   } catch (err) {
     console.error('Upload error:', err);
     res.status(500).json({ error: 'Upload failed', details: err.message });

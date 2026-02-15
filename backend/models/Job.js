@@ -485,6 +485,20 @@ const jobSchema = new mongoose.Schema({
     extractedAt: { type: Date, default: Date.now }
   }],
   
+  // === JOB PACKAGE PAGE CLASSIFICATION ===
+  // Content-based classification of each page in the uploaded job package PDF.
+  // Pages are identified by text content (detection keywords), not page number,
+  // so the system works even when pages are uploaded out of order.
+  packageClassification: [{
+    pageIndex: { type: Number, required: true },    // 0-based page index in the PDF
+    sectionType: { type: String, required: true },  // Matches UtilityAsBuiltConfig pageRanges.sectionType
+    confidence: { type: String, enum: ['high', 'medium', 'low'], default: 'low' },
+    detectedKeyword: String,                        // Which keyword matched
+    textSnippet: String,                            // First 100 chars of page text for debugging
+  }],
+  packageClassifiedAt: Date,
+  packagePdfKey: String,                            // R2 key of the classified job package PDF
+  
   // === JOB NOTES/CHAT (company internal communication) ===
   notes: [{
     message: { type: String, required: true },
