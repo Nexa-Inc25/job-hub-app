@@ -34,6 +34,7 @@ import CameraIcon from '@mui/icons-material/CameraAlt';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckIcon from '@mui/icons-material/Check';
 import WarningIcon from '@mui/icons-material/Warning';
+import DrawIcon from '@mui/icons-material/Draw';
 import { useGeolocation } from '../../hooks/useGeolocation';
 import GPSPhotoCapture from './GPSPhotoCapture';
 import SignatureCapture from './SignatureCapture';
@@ -91,6 +92,9 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
   const [internalNotes, setInternalNotes] = useState('');
   const [markupRate, setMarkupRate] = useState(0);
 
+  // Ticket status (needed to show signature section for pending_signature)
+  const [ticketStatus, setTicketStatus] = useState(null);
+
   // UI state
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -123,6 +127,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
     api.get(`/api/fieldtickets/${ticketId}`)
       .then(res => {
         const t = res.data;
+        if (t.status) setTicketStatus(t.status);
         if (t.changeReason) setChangeReason(t.changeReason);
         if (t.changeDescription) setChangeDescription(t.changeDescription);
         if (t.workDate) setWorkDate(new Date(t.workDate).toISOString().split('T')[0]);
@@ -217,6 +222,25 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
 
   const handleCancel = () => { if (onCancel) { onCancel(); } else { navigate(-1); } };
 
+  // Handle inspector signature submission
+  const handleSignatureComplete = async (signatureResult) => {
+    try {
+      await api.post(`/api/fieldtickets/${ticketId}/sign`, {
+        signatureData: signatureResult.signatureData,
+        signerName: signatureResult.signerName,
+        signerTitle: signatureResult.signerTitle,
+        signerCompany: signatureResult.signerCompany,
+        signerEmployeeId: signatureResult.signerEmployeeId,
+        signatureLocation: signatureResult.signatureLocation,
+      });
+      setTicketStatus('signed');
+      setShowSignature(false);
+      if (onSuccess) { onSuccess(); } else { navigate('/billing/change-orders'); }
+    } catch (err) {
+      throw new Error(err.response?.data?.error || 'Failed to save signature');
+    }
+  };
+
   if (loadingJob || loadingTicket) {
     return (<Box sx={{ bgcolor: COLORS.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress sx={{ color: COLORS.primary }} /></Box>);
   }
@@ -301,6 +325,41 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
             <TextField label="Internal Notes" value={internalNotes} onChange={(e) => setInternalNotes(e.target.value)} multiline rows={2} fullWidth placeholder="Notes for internal use only..." InputProps={{ sx: { bgcolor: COLORS.surfaceLight, color: COLORS.text } }} InputLabelProps={{ sx: { color: COLORS.textSecondary } }} />
           </CardContent>
         </Card>
+
+        {/* Inspector Signature Section - shown when ticket is pending_signature */}
+        {ticketStatus === 'pending_signature' && (
+          <Card sx={{ mb: 2, bgcolor: COLORS.surface, border: `2px solid ${COLORS.warning}` }}>
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <DrawIcon sx={{ color: COLORS.warning }} />
+                <Typography variant="subtitle1" sx={{ color: COLORS.text, fontWeight: 600 }}>
+                  Inspector Signature Required
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ color: COLORS.textSecondary, mb: 2 }}>
+                This change order is ready for the inspector to review and sign.
+                Hand the device to the inspector to collect their signature.
+              </Typography>
+              <Button
+                variant="contained"
+                fullWidth
+                size="large"
+                startIcon={<DrawIcon />}
+                onClick={() => setShowSignature(true)}
+                sx={{
+                  bgcolor: COLORS.warning,
+                  color: COLORS.bg,
+                  fontWeight: 700,
+                  fontSize: '1rem',
+                  minHeight: 56,
+                  '&:hover': { bgcolor: COLORS.warning, filter: 'brightness(0.9)' },
+                }}
+              >
+                Collect Inspector Signature
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </Box>
 
       {/* Fixed Bottom Bar */}
@@ -313,7 +372,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
 
       {/* Dialogs */}
       <GPSPhotoCapture open={showCamera} onClose={() => setShowCamera(false)} onCapture={(photoData) => { setPhotos([...photos, photoData]); setShowCamera(false); }} photoType="work_in_progress" />
-      <SignatureCapture open={showSignature} onClose={() => setShowSignature(false)} onComplete={() => setShowSignature(false)} title="Inspector Signature" requireName={true} requireCompany={true} showGPS={true} />
+      <SignatureCapture open={showSignature} onClose={() => setShowSignature(false)} onComplete={handleSignatureComplete} title="Inspector Signature" requireName={true} requireCompany={true} showGPS={true} />
     </Box>
   );
 };

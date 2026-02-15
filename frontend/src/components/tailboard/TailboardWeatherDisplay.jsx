@@ -11,7 +11,7 @@ import {
 import WeatherIcon from '@mui/icons-material/WbSunny';
 
 const TailboardWeatherDisplay = ({ value, onChange, weatherLoading, weatherData, weatherError, onRefresh, disabled }) => {
-  const isUnavailable = !weatherData || weatherData?.mock || weatherData?.source === 'placeholder' || weatherData?.source === 'error';
+  const isUnavailable = weatherData?.mock || weatherData?.source === 'placeholder' || weatherData?.source === 'error';
   const allowManualEntry = isUnavailable && !disabled;
 
   const iconColor = (() => {
