@@ -68,13 +68,15 @@ const calcMaterialTotal = (entries) => entries.reduce((sum, e) => { const b = e.
 const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }) => {
   const COLORS = useAppColors();
   const { position } = useGeolocation();
-  const { jobId: urlJobId } = useParams();
+  const { jobId: urlJobId, ticketId } = useParams();
   const navigate = useNavigate();
   const jobId = propJobId || urlJobId;
+  const isEditMode = Boolean(ticketId);
 
   // Job data state
   const [job, setJob] = useState(propJob || null);
   const [loadingJob, setLoadingJob] = useState(!propJob && !!jobId);
+  const [loadingTicket, setLoadingTicket] = useState(isEditMode);
 
   // Form state
   const [changeReason, setChangeReason] = useState('');
@@ -113,6 +115,36 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
         .finally(() => setLoadingJob(false));
     }
   }, [propJob, jobId]);
+
+  // Fetch existing field ticket when editing
+  useEffect(() => {
+    if (!ticketId) return;
+    setLoadingTicket(true);
+    api.get(`/api/fieldtickets/${ticketId}`)
+      .then(res => {
+        const t = res.data;
+        if (t.changeReason) setChangeReason(t.changeReason);
+        if (t.changeDescription) setChangeDescription(t.changeDescription);
+        if (t.workDate) setWorkDate(new Date(t.workDate).toISOString().split('T')[0]);
+        if (t.workStartTime) setWorkStartTime(t.workStartTime);
+        if (t.workEndTime) setWorkEndTime(t.workEndTime);
+        if (t.laborEntries?.length) setLaborEntries(t.laborEntries);
+        if (t.equipmentEntries?.length) setEquipmentEntries(t.equipmentEntries);
+        if (t.materialEntries?.length) setMaterialEntries(t.materialEntries);
+        if (t.photos?.length) setPhotos(t.photos);
+        if (t.internalNotes) setInternalNotes(t.internalNotes);
+        if (t.markupRate != null) setMarkupRate(t.markupRate);
+        // Populate job data from the populated jobId if we don't have it yet
+        if (t.jobId && typeof t.jobId === 'object' && !job) {
+          setJob(t.jobId);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load field ticket:', err);
+        setError('Failed to load field ticket');
+      })
+      .finally(() => setLoadingTicket(false));
+  }, [ticketId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Acquire GPS location
   const acquireLocation = async () => {
@@ -174,7 +206,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
 
   const handleCancel = () => { if (onCancel) { onCancel(); } else { navigate(-1); } };
 
-  if (loadingJob) {
+  if (loadingJob || loadingTicket) {
     return (<Box sx={{ bgcolor: COLORS.bg, minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress sx={{ color: COLORS.primary }} /></Box>);
   }
   if (!jobId) {
@@ -187,7 +219,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
       <Box sx={{ bgcolor: COLORS.surface, p: 2, borderBottom: `1px solid ${COLORS.border}`, position: 'sticky', top: 0, zIndex: 10 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
-            <Typography variant="h6" sx={{ color: COLORS.text, fontWeight: 600 }}>T&M Field Ticket</Typography>
+            <Typography variant="h6" sx={{ color: COLORS.text, fontWeight: 600 }}>{isEditMode ? 'Review Field Ticket' : 'T&M Field Ticket'}</Typography>
             <Typography variant="body2" sx={{ color: COLORS.textSecondary }}>WO: {job?.woNumber || job?.pmNumber || 'N/A'}</Typography>
           </Box>
           <Chip icon={<WarningIcon />} label="Extra Work" sx={{ bgcolor: COLORS.warning, color: COLORS.bg, fontWeight: 600 }} />
@@ -264,7 +296,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
       <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, bgcolor: COLORS.surface, borderTop: `1px solid ${COLORS.border}`, p: 2, display: 'flex', gap: 2 }}>
         <Button onClick={handleCancel} sx={{ flex: 1, color: COLORS.textSecondary, minHeight: 44 }}>Cancel</Button>
         <Button variant="contained" onClick={handleSubmit} disabled={submitting} startIcon={submitting ? <CircularProgress size={20} /> : <CheckIcon />} sx={{ flex: 2, bgcolor: COLORS.primary, color: COLORS.bg, fontWeight: 600, minHeight: 44, '&:hover': { bgcolor: COLORS.primaryDark }, '&:disabled': { bgcolor: COLORS.border } }}>
-          {submitting ? 'Saving...' : `Create Ticket ($${grandTotal.toFixed(2)})`}
+          {submitting ? 'Saving...' : `${isEditMode ? 'Update' : 'Create'} Ticket ($${grandTotal.toFixed(2)})`}
         </Button>
       </Box>
 
