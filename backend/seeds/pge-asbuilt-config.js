@@ -502,6 +502,147 @@ function getPGEConfig() {
       },
     ],
 
+    // FDA Grid Map — maps equipment selections to checkbox positions on the FDA sheet
+    // The form has 4 columns of categories, each with rows of (condition → action)
+    // and New/Priority/Comp status checkboxes per row.
+    // Y positions are measured from bottom of page. X positions from left edge.
+    // These are initial estimates — calibrate against a real scanned EC tag.
+    fdaGrid: {
+      pageOffset: 1,     // FDA grid is on page 2 of the EC tag section
+      checkboxSize: 8,   // Each checkbox is roughly 8pt square
+
+      // Action columns — the primary action selected for each item
+      actionColumns: [
+        { columnName: 'Repair', x: 145 },
+        { columnName: 'Replace', x: 190 },
+        { columnName: 'Install', x: 235 },
+        { columnName: 'Adjust', x: 275 },
+        { columnName: 'Remove', x: 235 },
+        { columnName: 'Clean', x: 275 },
+        { columnName: 'Overhaul', x: 275 },
+        { columnName: 'Test', x: 275 },
+        { columnName: 'Trim', x: 275 },
+      ],
+
+      // Status checkboxes — offset from the row's base x position
+      statusCheckboxes: [
+        { label: 'New', xOffset: 315 },
+        { label: 'Priority', xOffset: 340 },
+        { label: 'Comp', xOffset: 365 },
+      ],
+
+      // Grid rows — (category, condition) → Y position
+      // Column 1 (leftmost): Anchor, Animal Mitigation, Bird Protection, Bonding, CB Pole, etc.
+      rows: [
+        // Anchor
+        { category: 'Anchor', condition: 'Broken/Damaged', y: 748 },
+        { category: 'Anchor', condition: 'Corroded', y: 735 },
+        { category: 'Anchor', condition: 'Missing', y: 710 },
+        { category: 'Anchor', condition: 'Soil/Eroded/Graded', y: 697 },
+
+        // Pole (column 4 — rightmost, different x base)
+        { category: 'Pole', condition: 'Broken/Damaged', y: 470 },
+        { category: 'Pole', condition: 'Burnt', y: 445 },
+        { category: 'Pole', condition: 'Clearance Impaired', y: 432 },
+        { category: 'Pole', condition: 'Decayed/Rotten', y: 420 },
+        { category: 'Pole', condition: 'Leaning', y: 355 },
+        { category: 'Pole', condition: 'Overloaded', y: 342 },
+        { category: 'Pole', condition: 'Soil/Eroded/Graded', y: 317 },
+        { category: 'Pole', condition: 'Woodpecker Damage', y: 305 },
+
+        // Conductor (column 2)
+        { category: 'Conductor', condition: 'Broken/Damaged', y: 748 },
+        { category: 'Conductor', condition: 'Broken Splice', y: 723 },
+        { category: 'Conductor', condition: 'Burnt', y: 710 },
+        { category: 'Conductor', condition: 'Clearance Impaired', y: 685 },
+        { category: 'Conductor', condition: 'COPPER OVER ALUMINUM', y: 550 },
+        { category: 'Conductor', condition: 'Insulation Deteriorated', y: 538 },
+
+        // Ground (column 3)
+        { category: 'Ground', condition: 'Broken/Damaged', y: 748 },
+        { category: 'Ground', condition: 'Exposed', y: 723 },
+        { category: 'Ground', condition: 'Missing', y: 710 },
+        { category: 'Ground', condition: 'Temp Differential', y: 697 },
+
+        // Crossarm (column 2)
+        { category: 'Crossarm', condition: 'Broken/Damaged', y: 470 },
+        { category: 'Crossarm', condition: 'Burnt', y: 457 },
+        { category: 'Crossarm', condition: 'Decayed/Rotten', y: 432 },
+
+        // Cutout (column 2)
+        { category: 'Cutout', condition: 'Broken/Damaged', y: 400 },
+        { category: 'Cutout', condition: 'Clearance Impaired', y: 387 },
+        { category: 'Cutout', condition: 'Flashed', y: 375 },
+        { category: 'Cutout', condition: 'Temp Differential', y: 362 },
+
+        // Fuse (column 2)
+        { category: 'Fuse', condition: 'Broken/Damaged', y: 280 },
+        { category: 'Fuse', condition: 'Clearance Impaired', y: 267 },
+        { category: 'Fuse', condition: 'Flashed', y: 255 },
+        { category: 'Fuse', condition: 'Temp Differential', y: 242 },
+
+        // Insulator (column 3)
+        { category: 'Insulator', condition: 'Broken/Damaged', y: 495 },
+        { category: 'Insulator', condition: 'Flashed', y: 483 },
+        { category: 'Insulator', condition: 'Primary Squatter', y: 470 },
+        { category: 'Insulator', condition: 'Secondary Squatter', y: 457 },
+        { category: 'Insulator', condition: 'Temp Differential', y: 445 },
+
+        // High Sign (column 3)
+        { category: 'High Sign', condition: 'Broken/Damaged', y: 520 },
+        { category: 'High Sign', condition: 'Missing', y: 507 },
+
+        // Hardware/Framing (column 3)
+        { category: 'Hardware/Framing', condition: 'Bird Prot Required', y: 470 },
+        { category: 'Hardware/Framing', condition: 'Birdcage', y: 457 },
+        { category: 'Hardware/Framing', condition: 'Broken/Damaged', y: 445 },
+        { category: 'Hardware/Framing', condition: 'Loose', y: 420 },
+        { category: 'Hardware/Framing', condition: 'Missing', y: 407 },
+
+        // OH Facility (column 4)
+        { category: 'OH Facility', condition: 'Bird Prot Required', y: 748 },
+        { category: 'OH Facility', condition: 'Customer Related', y: 735 },
+        { category: 'OH Facility', condition: 'Graffiti', y: 697 },
+        { category: 'OH Facility', condition: 'Idle Facilities', y: 685 },
+        { category: 'OH Facility', condition: 'Limited Access', y: 660 },
+
+        // Recloser/Sectionalizer (column 4)
+        { category: 'Recloser/Sectionalizer', condition: 'Broken/Damaged', y: 275 },
+        { category: 'Recloser/Sectionalizer', condition: 'Excessive Operation', y: 262 },
+        { category: 'Recloser/Sectionalizer', condition: 'Flashed', y: 250 },
+        { category: 'Recloser/Sectionalizer', condition: 'Leaks/Seeps/Weeps', y: 237 },
+        { category: 'Recloser/Sectionalizer', condition: 'Temp Differential', y: 225 },
+
+        // Capacitor (column 1)
+        { category: 'Capacitor', condition: 'Broken/Damaged', y: 455 },
+        { category: 'Capacitor', condition: 'Burnt', y: 430 },
+        { category: 'Capacitor', condition: 'Leaks/Seeps/Weeps', y: 405 },
+        { category: 'Capacitor', condition: 'Temp Differential', y: 380 },
+
+        // Booster/Regulator (column 1)
+        { category: 'Booster/Regulator', condition: 'Broken/Damaged', y: 520 },
+        { category: 'Booster/Regulator', condition: 'Burnt', y: 495 },
+        { category: 'Booster/Regulator', condition: 'Excessive Operation', y: 483 },
+        { category: 'Booster/Regulator', condition: 'Leaks/Seeps/Weeps', y: 470 },
+        { category: 'Booster/Regulator', condition: 'Temp Differential', y: 445 },
+      ],
+
+      // Emergency cause checkboxes (bottom-left of form)
+      emergencyCauses: [
+        { label: 'Animal', x: 55, y: 175 },
+        { label: 'Equip Failed', x: 55, y: 162 },
+        { label: 'Lightning', x: 55, y: 149 },
+        { label: 'Third Party', x: 55, y: 136 },
+        { label: 'Tree Contact', x: 55, y: 123 },
+        { label: 'Unknown', x: 55, y: 110 },
+        { label: 'Bird', x: 145, y: 175 },
+        { label: 'Fire', x: 145, y: 162 },
+        { label: 'Pole Rotten', x: 145, y: 149 },
+        { label: 'Tree Branch', x: 145, y: 136 },
+        { label: 'Tree Fell', x: 145, y: 123 },
+      ],
+    },
+
     colorConventions: [
       { color: 'red', hex: '#CC0000', label: 'Red', meaning: 'Removed / Changed from design / Demolished', shortcut: 'R' },
       { color: 'blue', hex: '#0000CC', label: 'Blue', meaning: 'New installation / Added / As-built', shortcut: 'B' },

@@ -164,6 +164,45 @@ const documentCompletionSchema = new mongoose.Schema({
   fields: [completionFieldSchema],
 }, { _id: false });
 
+/**
+ * FDA Grid Map - maps equipment selections to checkbox positions on the FDA sheet.
+ * The FDA form is a large matrix: rows = (category + condition), columns = (action + New/Priority/Comp).
+ * Instead of defining hundreds of individual fields, we define the grid structure
+ * so the stamp engine can compute the position from the foreman's selections.
+ */
+const fdaGridColumnSchema = new mongoose.Schema({
+  columnName: { type: String, required: true },  // e.g., 'Repair', 'Replace', 'Install', 'Adjust'
+  x: { type: Number, required: true },           // X position of this column's checkbox
+}, { _id: false });
+
+const fdaGridRowSchema = new mongoose.Schema({
+  category: { type: String, required: true },     // e.g., 'Anchor', 'Conductor', 'Ground', 'Pole'
+  condition: { type: String, required: true },     // e.g., 'Broken/Damaged', 'Missing', 'Corroded'
+  y: { type: Number, required: true },            // Y position of this row
+}, { _id: false });
+
+const fdaGridCheckboxSchema = new mongoose.Schema({
+  label: { type: String, required: true },         // e.g., 'New', 'Priority', 'Comp'
+  xOffset: { type: Number, required: true },       // X offset from action column
+}, { _id: false });
+
+const fdaGridSchema = new mongoose.Schema({
+  pageOffset: { type: Number, default: 1 },       // Which page the FDA grid is on (usually page 2 of EC tag)
+  checkboxSize: { type: Number, default: 10 },    // Size of each checkbox in points
+  // The grid columns (actions): Repair, Replace, Install, Adjust, etc.
+  actionColumns: [fdaGridColumnSchema],
+  // Status checkboxes after each action: New, Priority, Comp
+  statusCheckboxes: [fdaGridCheckboxSchema],
+  // All rows in the grid: (category, condition) → y position
+  rows: [fdaGridRowSchema],
+  // Emergency cause checkboxes (bottom-left of form)
+  emergencyCauses: [{
+    label: { type: String, required: true },
+    x: { type: Number, required: true },
+    y: { type: Number, required: true },
+  }],
+}, { _id: false });
+
 /** Validation rule */
 const validationRuleSchema = new mongoose.Schema({
   code: { type: String, required: true },
@@ -257,6 +296,9 @@ const utilityAsBuiltConfigSchema = new mongoose.Schema({
 
   /** Document completion field requirements */
   documentCompletions: [documentCompletionSchema],
+
+  /** FDA grid checkbox mapping (for EC tag FDA sheet) */
+  fdaGrid: fdaGridSchema,
 
   /** UTVAC / pre-submission validation rules */
   validationRules: [validationRuleSchema],
