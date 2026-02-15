@@ -628,7 +628,7 @@ describe('ForemanCloseOut Component', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Daily Tailboard')).toBeInTheDocument();
-        expect(screen.getByText('Completed')).toBeInTheDocument();
+        expect(screen.getByText('Completed today')).toBeInTheDocument();
       });
     });
 
@@ -643,7 +643,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Safety'));
       
       await waitFor(() => {
-        expect(screen.getByText('2 crew members')).toBeInTheDocument();
+        expect(screen.getByText('2 crew')).toBeInTheDocument();
       });
     });
 
@@ -658,7 +658,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Safety'));
       
       await waitFor(() => {
-        expect(screen.getByText('3 hazards identified')).toBeInTheDocument();
+        expect(screen.getByText('3 hazards')).toBeInTheDocument();
       });
     });
 
@@ -704,7 +704,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Safety'));
       
       await waitFor(() => {
-        expect(screen.getByText('Not Started')).toBeInTheDocument();
+        expect(screen.getByText('Required before starting work')).toBeInTheDocument();
         expect(screen.getByText('Start Tailboard')).toBeInTheDocument();
       });
     });
@@ -1060,9 +1060,9 @@ describe('ForemanCloseOut Component', () => {
       
       await user.click(screen.getByText('Safety'));
       
-      // Should show Not Started since no tailboard
+      // Should show default text since no tailboard
       await waitFor(() => {
-        expect(screen.getByText('Not Started')).toBeInTheDocument();
+        expect(screen.getByText('Required before starting work')).toBeInTheDocument();
       });
     });
 
@@ -1248,7 +1248,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Safety'));
       
       await waitFor(() => {
-        expect(screen.getByText('1 crew member')).toBeInTheDocument();
+        expect(screen.getByText('1 crew')).toBeInTheDocument();
       });
     });
 
@@ -1284,7 +1284,7 @@ describe('ForemanCloseOut Component', () => {
       await user.click(screen.getByText('Safety'));
       
       await waitFor(() => {
-        expect(screen.queryByText(/hazards identified/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/hazards/)).not.toBeInTheDocument();
       });
     });
 
