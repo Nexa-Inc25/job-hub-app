@@ -524,7 +524,7 @@ const AtRiskDashboard = () => {
                           <Tooltip title="View Details">
                             <IconButton
                               size="small"
-                              onClick={() => navigate(`/billing/field-tickets/${ticket._id}`)}
+                              onClick={() => navigate(`/jobs/${ticket.jobId?._id || ticket.jobId}/field-ticket/${ticket._id}`)}
                               sx={{ color: COLORS.textSecondary }}
                             >
                               <VisibilityIcon fontSize="small" />
@@ -534,7 +534,7 @@ const AtRiskDashboard = () => {
                             <Tooltip title="Get Signature">
                               <IconButton
                                 size="small"
-                                onClick={() => navigate(`/billing/field-tickets/${ticket._id}/sign`)}
+                                onClick={() => navigate(`/jobs/${ticket.jobId?._id || ticket.jobId}/field-ticket/${ticket._id}`)}
                                 sx={{ color: COLORS.warning }}
                               >
                                 <SignatureIcon fontSize="small" />
@@ -545,7 +545,7 @@ const AtRiskDashboard = () => {
                             <Tooltip title="Approve">
                               <IconButton
                                 size="small"
-                                onClick={() => navigate(`/billing/field-tickets/${ticket._id}/approve`)}
+                                onClick={() => navigate(`/jobs/${ticket.jobId?._id || ticket.jobId}/field-ticket/${ticket._id}`)}
                                 sx={{ color: COLORS.primary }}
                               >
                                 <CheckIcon fontSize="small" />
