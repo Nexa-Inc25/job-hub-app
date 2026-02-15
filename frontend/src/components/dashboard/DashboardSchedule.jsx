@@ -30,6 +30,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CalendarIcon from '@mui/icons-material/CalendarMonth';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import DescriptionIcon from '@mui/icons-material/Description';
 
 const renderEmptySection = (message) => (
   <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
@@ -125,6 +126,37 @@ const DashboardSchedule = ({
 
   return (
     <Box>
+      {/* PRE-FIELDING IN PROGRESS */}
+      {categories.preFieldingInProgress.length > 0 && (
+        <>
+          <SectionHeader
+            title="Pre-Fielding In Progress"
+            icon={<DescriptionIcon fontSize="small" />}
+            count={categories.preFieldingInProgress.length}
+            expanded={expandedSections.preFieldingInProgress !== false}
+            onToggle={() => onToggleSection('preFieldingInProgress')}
+          />
+          <Collapse in={expandedSections.preFieldingInProgress !== false}>
+            {categories.preFieldingInProgress.map((job) => (
+              <JobRow
+                key={job._id}
+                job={job}
+                actions={
+                  <>
+                    <Button size="small" component={Link} to={`/jobs/${job._id}/files`} variant="outlined" color="primary">
+                      Pre-Field
+                    </Button>
+                    <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                }
+              />
+            ))}
+          </Collapse>
+        </>
+      )}
+
       {/* TODAY'S WORK */}
       <SectionHeader
         title="Today's Work"
