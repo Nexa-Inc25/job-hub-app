@@ -282,6 +282,44 @@ function getPGEConfig() {
             position: { pageOffset: 0, x: 350, y: 560, width: 180, height: 40, fontSize: 10 },
             zoomRegion: { x: 300, y: 540, width: 280, height: 70 },
           },
+          // FDA (Facility Data Attributes) checkboxes on the EC tag form
+          // These confirm equipment data has been recorded for GIS/SAP
+          {
+            fieldName: 'fdaPoleComplete', label: 'Pole Data Complete', type: 'checkbox', required: false,
+            helpText: 'Check if pole FDA attributes have been recorded (species, class, height, year)',
+            position: { pageOffset: 1, x: 55, y: 690, width: 12, height: 12, fontSize: 10 },
+            zoomRegion: { x: 40, y: 670, width: 300, height: 50 },
+          },
+          {
+            fieldName: 'fdaConductorComplete', label: 'Conductor Data Complete', type: 'checkbox', required: false,
+            helpText: 'Check if conductor FDA attributes have been recorded (material, size, phase)',
+            position: { pageOffset: 1, x: 55, y: 665, width: 12, height: 12, fontSize: 10 },
+            zoomRegion: { x: 40, y: 645, width: 300, height: 50 },
+          },
+          {
+            fieldName: 'fdaTransformerComplete', label: 'Transformer Data Complete', type: 'checkbox', required: false,
+            helpText: 'Check if transformer FDA attributes have been recorded (kVA, serial, type)',
+            position: { pageOffset: 1, x: 55, y: 640, width: 12, height: 12, fontSize: 10 },
+            zoomRegion: { x: 40, y: 620, width: 300, height: 50 },
+          },
+          {
+            fieldName: 'fdaSwitchgearComplete', label: 'Switchgear Data Complete', type: 'checkbox', required: false,
+            helpText: 'Check if switchgear/device FDA attributes have been recorded',
+            position: { pageOffset: 1, x: 55, y: 615, width: 12, height: 12, fontSize: 10 },
+            zoomRegion: { x: 40, y: 595, width: 300, height: 50 },
+          },
+          {
+            fieldName: 'fdaServiceComplete', label: 'Service Data Complete', type: 'checkbox', required: false,
+            helpText: 'Check if service/meter FDA attributes have been recorded',
+            position: { pageOffset: 1, x: 55, y: 590, width: 12, height: 12, fontSize: 10 },
+            zoomRegion: { x: 40, y: 570, width: 300, height: 50 },
+          },
+          {
+            fieldName: 'fdaUgComplete', label: 'Underground Data Complete', type: 'checkbox', required: false,
+            helpText: 'Check if underground FDA attributes have been recorded (cable type, conduit)',
+            position: { pageOffset: 1, x: 55, y: 565, width: 12, height: 12, fontSize: 10 },
+            zoomRegion: { x: 40, y: 545, width: 300, height: 50 },
+          },
         ],
       },
       {
