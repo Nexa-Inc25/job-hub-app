@@ -150,7 +150,7 @@ const createTailboard = async (req, res) => {
       foremanName: user.name,
       generalForemanId,
       generalForemanName,
-      inspector,
+      inspector: inspector || null,
       inspectorName,
       eicName,
       eicPhone,
@@ -274,7 +274,8 @@ const updateTailboard = async (req, res) => {
 
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
-        tailboard[field] = req.body[field];
+        // Convert empty string to null for enum fields
+        tailboard[field] = (field === 'inspector' && req.body[field] === '') ? null : req.body[field];
       }
     });
 
