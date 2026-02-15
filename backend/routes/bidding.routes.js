@@ -295,6 +295,51 @@ router.get('/compare/:jobId', async (req, res) => {
 
 /**
  * @swagger
+ * /api/bidding/accuracy:
+ *   get:
+ *     summary: Get company-wide bid accuracy trend data
+ *     description: Shows how accurately bids match actual costs across jobs
+ *     tags: [Bidding]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: days
+ *         schema:
+ *           type: integer
+ *         description: Number of days of history (default 365)
+ *     responses:
+ *       200:
+ *         description: Bid accuracy data and monthly trend
+ */
+router.get('/accuracy', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    // Require PM, GF, or Admin role
+    if (!['pm', 'gf', 'admin'].includes(user.role) && !req.isAdmin) {
+      return res.status(403).json({ error: 'Not authorized to view bid accuracy' });
+    }
+
+    const days = sanitizeInt(req.query.days, 365, 730);
+
+    const accuracy = await biddingService.getCompanyBidAccuracy(
+      user.companyId,
+      { days }
+    );
+
+    res.json(accuracy);
+  } catch (err) {
+    console.error('Error getting bid accuracy:', err);
+    res.status(500).json({ error: 'Failed to get bid accuracy data' });
+  }
+});
+
+/**
+ * @swagger
  * /api/bidding/suggest/{itemCode}:
  *   get:
  *     summary: Get AI-suggested bid price for an item

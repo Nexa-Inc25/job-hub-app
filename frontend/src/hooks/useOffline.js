@@ -17,6 +17,27 @@ import { useState, useEffect, useCallback } from 'react';
 import offlineStorage from '../utils/offlineStorage';
 import syncManager from '../utils/syncManager';
 
+/**
+ * Simple hook that returns current online status.
+ * Used by useOptimisticSync and other consumers that only need connectivity state.
+ */
+export function useOnlineStatus() {
+  const [online, setOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    globalThis.addEventListener('online', goOnline);
+    globalThis.addEventListener('offline', goOffline);
+    return () => {
+      globalThis.removeEventListener('online', goOnline);
+      globalThis.removeEventListener('offline', goOffline);
+    };
+  }, []);
+
+  return online;
+}
+
 export function useOffline() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isSyncing, setIsSyncing] = useState(false);

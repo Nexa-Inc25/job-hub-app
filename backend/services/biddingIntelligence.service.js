@@ -485,11 +485,130 @@ async function compareBidToActual(companyId, jobId) {
   };
 }
 
+/**
+ * Get company-wide bid accuracy trend data
+ * @param {string} companyId - Company ID
+ * @param {Object} dateRange - { start, end } or { days }
+ * @returns {Promise<Object>} Bid accuracy stats and trend
+ */
+async function getCompanyBidAccuracy(companyId, dateRange = {}) {
+  const { days = 365 } = dateRange;
+  const start = dateRange.start ? new Date(dateRange.start) : new Date(Date.now() - days * 86400000);
+  const end = dateRange.end ? new Date(dateRange.end) : new Date();
+
+  // Get all completed jobs within the date range that have bid values
+  const jobs = await Job.find({
+    companyId,
+    $or: [
+      { estimatedValue: { $gt: 0 } },
+      { contractValue: { $gt: 0 } },
+    ],
+    createdAt: { $gte: start, $lte: end },
+  }).lean();
+
+  if (jobs.length === 0) {
+    return {
+      hasData: false,
+      jobCount: 0,
+      message: 'No jobs with bid/contract values found in the date range',
+    };
+  }
+
+  // Gather variance for each job
+  const jobResults = [];
+  for (const job of jobs) {
+    const bidTotal = job.estimatedValue || job.contractValue || 0;
+    if (bidTotal <= 0) continue;
+
+    // Get actuals
+    const [unitEntries, tickets] = await Promise.all([
+      UnitEntry.aggregate([
+        { $match: { jobId: job._id, companyId: new mongoose.Types.ObjectId(companyId), status: { $in: ['approved', 'invoiced', 'paid'] } } },
+        { $group: { _id: null, total: { $sum: { $multiply: ['$quantity', '$unitPrice'] } } } },
+      ]),
+      FieldTicket.aggregate([
+        { $match: { jobId: job._id, companyId: new mongoose.Types.ObjectId(companyId), status: { $in: ['approved', 'billed', 'paid'] } } },
+        { $group: { _id: null, total: { $sum: '$totalAmount' } } },
+      ]),
+    ]);
+
+    const actualTotal = (unitEntries[0]?.total || 0) + (tickets[0]?.total || 0);
+    const variance = actualTotal - bidTotal;
+    const variancePercent = (variance / bidTotal) * 100;
+
+    jobResults.push({
+      jobId: job._id,
+      pmNumber: job.pmNumber,
+      woNumber: job.woNumber,
+      bidTotal: Math.round(bidTotal * 100) / 100,
+      actualTotal: Math.round(actualTotal * 100) / 100,
+      variance: Math.round(variance * 100) / 100,
+      variancePercent: Math.round(variancePercent * 10) / 10,
+      createdAt: job.createdAt,
+    });
+  }
+
+  if (jobResults.length === 0) {
+    return { hasData: false, jobCount: 0, message: 'No jobs with actuals found' };
+  }
+
+  // Aggregate stats
+  const totalBid = jobResults.reduce((s, j) => s + j.bidTotal, 0);
+  const totalActual = jobResults.reduce((s, j) => s + j.actualTotal, 0);
+  const avgVariancePercent = jobResults.reduce((s, j) => s + j.variancePercent, 0) / jobResults.length;
+  const underBudgetCount = jobResults.filter(j => j.variance < 0).length;
+  const overBudgetCount = jobResults.filter(j => j.variance > 0).length;
+  const onBudgetCount = jobResults.filter(j => j.variance === 0).length;
+
+  // Monthly trend: group by month
+  const monthMap = {};
+  for (const j of jobResults) {
+    const d = new Date(j.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    if (!monthMap[key]) {
+      monthMap[key] = { month: key, bidTotal: 0, actualTotal: 0, jobCount: 0, varianceSum: 0 };
+    }
+    monthMap[key].bidTotal += j.bidTotal;
+    monthMap[key].actualTotal += j.actualTotal;
+    monthMap[key].jobCount += 1;
+    monthMap[key].varianceSum += j.variancePercent;
+  }
+
+  const trend = Object.values(monthMap)
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .map(m => ({
+      month: m.month,
+      bidTotal: Math.round(m.bidTotal * 100) / 100,
+      actualTotal: Math.round(m.actualTotal * 100) / 100,
+      avgVariancePercent: Math.round((m.varianceSum / m.jobCount) * 10) / 10,
+      jobCount: m.jobCount,
+    }));
+
+  return {
+    hasData: true,
+    dateRange: { start: start.toISOString(), end: end.toISOString() },
+    jobCount: jobResults.length,
+    summary: {
+      totalBid: Math.round(totalBid * 100) / 100,
+      totalActual: Math.round(totalActual * 100) / 100,
+      totalVariance: Math.round((totalActual - totalBid) * 100) / 100,
+      avgVariancePercent: Math.round(avgVariancePercent * 10) / 10,
+      underBudgetCount,
+      overBudgetCount,
+      onBudgetCount,
+      accuracy: Math.round((1 - Math.abs(avgVariancePercent) / 100) * 1000) / 10, // % accuracy
+    },
+    trend,
+    jobs: jobResults,
+  };
+}
+
 module.exports = {
   getItemCostAnalysis,
   getCompanyAnalytics,
   generateBidEstimate,
   getProductivityRates,
   compareBidToActual,
+  getCompanyBidAccuracy,
 };
 

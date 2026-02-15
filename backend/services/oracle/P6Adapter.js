@@ -15,6 +15,8 @@
  */
 
 const axios = require('axios');
+const log = require('../../utils/logger');
+const { createCircuitBreaker } = require('../../utils/circuitBreaker');
 
 class P6Adapter {
   constructor(config = {}) {
@@ -26,14 +28,56 @@ class P6Adapter {
     
     this.accessToken = null;
     this.tokenExpiry = null;
+    this.adapterName = 'P6';
+    
+    // Circuit breaker: open after 5 consecutive failures, half-open after 30s
+    this.breaker = createCircuitBreaker('oracle-p6', {
+      failureThreshold: 5,
+      resetTimeout: 30000,
+    });
     
     // API client
     this.client = axios.create({
-      timeout: 30000,
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
+    });
+  }
+  
+  /**
+   * Execute a function with retry (exponential backoff) and circuit breaker
+   * 3 retries with 1s, 2s, 4s delays
+   */
+  async _executeWithRetry(fn, operation) {
+    const retryDelays = [1000, 2000, 4000];
+    const maxAttempts = retryDelays.length + 1;
+    
+    return this.breaker.execute(async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          if (attempt > 1) {
+            const delay = retryDelays[attempt - 2];
+            log.info({ adapter: this.adapterName, operation, attempt, delayMs: delay }, 'Retrying after delay');
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          const startTime = Date.now();
+          const result = await fn();
+          const durationMs = Date.now() - startTime;
+          log.info({ adapter: this.adapterName, operation, attempt, durationMs }, 'Request succeeded');
+          return result;
+        } catch (error) {
+          lastError = error;
+          log.warn({ adapter: this.adapterName, operation, attempt, err: error }, 'Request attempt failed');
+          if (attempt === maxAttempts) {
+            log.error({ adapter: this.adapterName, operation, attempts: maxAttempts, err: error }, 'All retries exhausted');
+            throw error;
+          }
+        }
+      }
+      throw lastError;
     });
   }
   
@@ -76,7 +120,7 @@ class P6Adapter {
       
       return this.accessToken;
     } catch (error) {
-      console.error('[P6Adapter] Authentication failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Authentication failed');
       throw new Error(`P6 authentication failed: ${error.message}`);
     }
   }
@@ -99,13 +143,13 @@ class P6Adapter {
    * @param {string} projectCode - P6 project code
    */
   async getProject(projectCode) {
-    console.log(`[P6Adapter] Getting project ${projectCode}`);
+    log.info({ adapter: this.adapterName, projectCode }, 'Getting project');
     
     if (!this.isConfigured()) {
       return this.mockProjectResponse(projectCode);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       const response = await this.client.get(
@@ -124,11 +168,7 @@ class P6Adapter {
       }
       
       return response.data[0];
-      
-    } catch (error) {
-      console.error('[P6Adapter] Get project failed:', error.message);
-      throw error;
-    }
+    }, 'getProject');
   }
   
   /**
@@ -138,13 +178,13 @@ class P6Adapter {
    * @param {Object} filter - Optional filter criteria
    */
   async getActivities(projectCode, filter = {}) {
-    console.log(`[P6Adapter] Getting activities for project ${projectCode}`);
+    log.info({ adapter: this.adapterName, projectCode }, 'Getting activities');
     
     if (!this.isConfigured()) {
       return this.mockActivitiesResponse(projectCode);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const project = await this.getProject(projectCode);
       
@@ -168,11 +208,7 @@ class P6Adapter {
       );
       
       return response.data || [];
-      
-    } catch (error) {
-      console.error('[P6Adapter] Get activities failed:', error.message);
-      throw error;
-    }
+    }, 'getActivities');
   }
   
   /**
@@ -189,13 +225,13 @@ class P6Adapter {
   async updateActivityProgress(options) {
     const { projectCode, activityCode, percentComplete, actualStartDate, actualFinishDate, customFields = {} } = options;
     
-    console.log(`[P6Adapter] Updating activity ${activityCode} in project ${projectCode}`);
+    log.info({ adapter: this.adapterName, projectCode, activityCode }, 'Updating activity progress');
     
     if (!this.isConfigured()) {
       return this.mockProgressResponse(options);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       // Get activity
@@ -257,11 +293,7 @@ class P6Adapter {
         percentComplete: updatePayload.PercentComplete,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[P6Adapter] Update activity failed:', error.message);
-      throw new Error(`Activity update failed: ${error.message}`);
-    }
+    }, 'updateActivityProgress');
   }
   
   /**
@@ -288,9 +320,10 @@ class P6Adapter {
   async addProjectDocument(options) {
     const { projectCode, fileName, category = 'As-Built', fileContent } = options;
     
-    console.log(`[P6Adapter] Adding document ${fileName} to project ${projectCode}`);
+    log.info({ adapter: this.adapterName, projectCode, fileName }, 'Adding project document');
     
     if (!this.isConfigured()) {
+      log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
       return {
         success: true,
         mock: true,
@@ -299,7 +332,7 @@ class P6Adapter {
       };
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const project = await this.getProject(projectCode);
       
@@ -326,11 +359,7 @@ class P6Adapter {
         fileName,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[P6Adapter] Document upload failed:', error.message);
-      throw error;
-    }
+    }, 'addProjectDocument');
   }
   
   /**
@@ -339,9 +368,10 @@ class P6Adapter {
   async updateResourceAssignment(options) {
     const { projectCode, activityCode, resourceCode, actualUnits, actualHours } = options;
     
-    console.log(`[P6Adapter] Updating resource ${resourceCode} on activity ${activityCode}`);
+    log.info({ adapter: this.adapterName, activityCode, resourceCode }, 'Updating resource assignment');
     
     if (!this.isConfigured()) {
+      log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
       return {
         success: true,
         mock: true,
@@ -349,7 +379,7 @@ class P6Adapter {
       };
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       // Get activity
@@ -391,11 +421,7 @@ class P6Adapter {
         actualHours,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[P6Adapter] Resource assignment failed:', error.message);
-      throw error;
-    }
+    }, 'updateResourceAssignment');
   }
   
   /**
@@ -403,9 +429,10 @@ class P6Adapter {
    * (For P6 Professional import)
    */
   async exportProjectXER(projectCode) {
-    console.log(`[P6Adapter] Exporting XER for project ${projectCode}`);
+    log.info({ adapter: this.adapterName, projectCode }, 'Exporting XER');
     
     if (!this.isConfigured()) {
+      log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
       return {
         success: true,
         mock: true,
@@ -414,7 +441,7 @@ class P6Adapter {
       };
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const project = await this.getProject(projectCode);
       
@@ -437,11 +464,7 @@ class P6Adapter {
         fileName: `${projectCode}_export.xer`,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[P6Adapter] XER export failed:', error.message);
-      throw error;
-    }
+    }, 'exportProjectXER');
   }
   
   /**
@@ -498,7 +521,7 @@ class P6Adapter {
    * High-level method for full workflow
    */
   async processAsBuiltCompletion(submission) {
-    console.log(`[P6Adapter] Processing as-built for P6: ${submission.pmNumber}`);
+    log.info({ adapter: this.adapterName, pmNumber: submission.pmNumber }, 'Processing as-built completion');
     
     const results = {
       pmNumber: submission.pmNumber,
@@ -549,7 +572,7 @@ class P6Adapter {
         results.activityUpdates.push(asbuiltResult);
       } catch {
         // Non-critical if this activity doesn't exist
-        console.log(`[P6Adapter] As-built activity not found (may not exist)`);
+        log.debug({ adapter: this.adapterName, projectCode }, 'As-built activity not found (may not exist)');
       }
       
       // 3. Upload as-built documents
@@ -575,7 +598,7 @@ class P6Adapter {
       return results;
       
     } catch (error) {
-      console.error('[P6Adapter] Processing failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Processing failed');
       results.success = false;
       results.errors.push({ type: 'general', error: error.message });
       return results;

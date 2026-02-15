@@ -12,7 +12,7 @@
  */
 
 const DB_NAME = 'fieldledger-offline';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 // Store names
 const STORES = {
@@ -22,6 +22,7 @@ const STORES = {
   USER_DATA: 'userData',
   PENDING_UNITS: 'pendingUnitEntries',  // New store for offline unit entries
   CACHED_PRICEBOOKS: 'cachedPriceBooks', // Cached price book for offline rate lookup
+  CONFLICT_HISTORY: 'conflictHistory',   // Conflict resolution audit trail
 };
 
 let db = null;
@@ -105,6 +106,17 @@ export async function initOfflineDB() {
         });
         pbStore.createIndex('utilityId', 'utilityId', { unique: false });
         pbStore.createIndex('status', 'status', { unique: false });
+      }
+
+      // Conflict history for audit trail
+      if (!database.objectStoreNames.contains(STORES.CONFLICT_HISTORY)) {
+        const conflictStore = database.createObjectStore(STORES.CONFLICT_HISTORY, { 
+          keyPath: 'id', 
+          autoIncrement: true 
+        });
+        conflictStore.createIndex('offlineId', 'offlineId', { unique: false });
+        conflictStore.createIndex('resolution', 'resolution', { unique: false });
+        conflictStore.createIndex('resolvedAt', 'resolvedAt', { unique: false });
       }
     };
   });
@@ -617,6 +629,133 @@ export async function getSyncStats() {
   };
 }
 
+// ==================== CONFLICT HISTORY ====================
+
+/**
+ * Save a conflict record for audit trail
+ * @param {Object} conflictData - Conflict details
+ * @param {string} conflictData.offlineId - Offline item ID
+ * @param {string} conflictData.type - Item type (unit_entry, field_ticket, etc.)
+ * @param {Object} conflictData.localData - Local version
+ * @param {Object} conflictData.serverData - Server version
+ * @param {string} conflictData.resolution - Resolution choice (keep_local, keep_server, merge)
+ * @param {Object} [conflictData.mergedData] - Merged result (if merge resolution)
+ * @param {string[]} [conflictData.conflictingFields] - List of fields that conflicted
+ */
+export async function saveConflictRecord(conflictData) {
+  await initOfflineDB();
+  
+  const record = {
+    ...conflictData,
+    resolvedAt: new Date().toISOString(),
+  };
+
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.CONFLICT_HISTORY, 'readwrite');
+    const request = store.add(record);
+    request.onsuccess = () => resolve({ ...record, id: request.result });
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Get conflict history for an offline item
+ */
+export async function getConflictHistory(offlineId) {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.CONFLICT_HISTORY);
+    if (offlineId) {
+      const index = store.index('offlineId');
+      const request = index.getAll(offlineId);
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    } else {
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error);
+    }
+  });
+}
+
+/**
+ * Get all conflict records
+ */
+export async function getAllConflicts() {
+  await initOfflineDB();
+  
+  return new Promise((resolve, reject) => {
+    const store = getStore(STORES.CONFLICT_HISTORY);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+/**
+ * Compare local and server data field-by-field for merge UI
+ * @param {Object} localData - Local version
+ * @param {Object} serverData - Server version
+ * @returns {Object} Diff with conflicting fields and their values
+ */
+export function compareFields(localData, serverData) {
+  const allKeys = new Set([
+    ...Object.keys(localData || {}),
+    ...Object.keys(serverData || {}),
+  ]);
+  
+  // Skip internal / metadata keys
+  const skipKeys = new Set([
+    '_id', '__v', 'offlineId', 'syncStatus', 'syncAttempts',
+    'lastSyncError', 'lastSyncAttempt', 'createdAt', 'updatedAt',
+    '_cachedAt', 'checksum', 'deviceSignature',
+  ]);
+
+  const conflicts = [];
+  const unchanged = [];
+
+  for (const key of allKeys) {
+    if (skipKeys.has(key)) continue;
+    
+    const localVal = localData?.[key];
+    const serverVal = serverData?.[key];
+    
+    // Deep compare for objects/arrays
+    const localStr = JSON.stringify(localVal);
+    const serverStr = JSON.stringify(serverVal);
+    
+    if (localStr !== serverStr) {
+      conflicts.push({ field: key, local: localVal, server: serverVal });
+    } else {
+      unchanged.push(key);
+    }
+  }
+
+  return { conflicts, unchanged, hasConflicts: conflicts.length > 0 };
+}
+
+/**
+ * Merge local and server data with per-field choices
+ * @param {Object} localData - Local version
+ * @param {Object} serverData - Server version
+ * @param {Object} fieldChoices - Map of field -> 'local' | 'server'
+ * @returns {Object} Merged data
+ */
+export function mergeFieldChoices(localData, serverData, fieldChoices) {
+  // Start with server data as base (server wins for unspecified fields)
+  const merged = { ...serverData };
+  
+  for (const [field, choice] of Object.entries(fieldChoices)) {
+    if (choice === 'local' && localData?.[field] !== undefined) {
+      merged[field] = localData[field];
+    }
+    // 'server' is already the default
+  }
+  
+  return merged;
+}
+
 const offlineStorageExports = {
   initOfflineDB,
   queueOperation,
@@ -647,6 +786,12 @@ const offlineStorageExports = {
   getPendingSyncItems,
   markSynced,
   getSyncStats,
+  // Conflict resolution
+  saveConflictRecord,
+  getConflictHistory,
+  getAllConflicts,
+  compareFields,
+  mergeFieldChoices,
 };
 
 export default offlineStorageExports;

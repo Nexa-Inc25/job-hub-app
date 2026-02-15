@@ -12,6 +12,7 @@
  */
 
 const axios = require('axios');
+const log = require('../utils/logger');
 
 // Simple in-memory cache (15 minute TTL)
 const cache = new Map();
@@ -71,12 +72,12 @@ async function getCurrentWeather(latitude, longitude) {
   const cached = cache.get(cacheKey);
   
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    console.log('[Weather] Cache hit for', cacheKey);
+    log.debug({ cacheKey }, 'Weather cache hit');
     return { ...cached.data, source: 'cache' };
   }
 
   try {
-    console.log('[Weather] Fetching weather for', latitude, longitude);
+    log.info({ latitude, longitude }, 'Fetching weather');
     
     const response = await axios.get(
       'https://api.openweathermap.org/data/2.5/weather',
@@ -132,11 +133,11 @@ async function getCurrentWeather(latitude, longitude) {
 
     return weather;
   } catch (error) {
-    console.error('[Weather] API error:', error.message);
+    log.error({ err: error }, 'Weather API error');
     
     // Return cached data if available (even if expired)
     if (cached) {
-      console.log('[Weather] Returning stale cache due to error');
+      log.info({ cacheKey }, 'Returning stale cache due to error');
       return { ...cached.data, source: 'stale_cache', error: error.message };
     }
     
@@ -154,50 +155,120 @@ async function getCurrentWeather(latitude, longitude) {
 }
 
 /**
+ * Calculate heat index from temperature (°F) and relative humidity (%)
+ * Uses the Rothfusz regression equation (NWS standard)
+ * @param {number} tempF - Temperature in Fahrenheit
+ * @param {number} rh - Relative humidity percentage
+ * @returns {number} Heat index in Fahrenheit
+ */
+function calculateHeatIndex(tempF, rh) {
+  // Simple formula for temps below 80°F
+  if (tempF < 80) {
+    return tempF;
+  }
+  
+  // Rothfusz regression
+  let hi = -42.379
+    + 2.04901523 * tempF
+    + 10.14333127 * rh
+    - 0.22475541 * tempF * rh
+    - 0.00683783 * tempF * tempF
+    - 0.05481717 * rh * rh
+    + 0.00122874 * tempF * tempF * rh
+    + 0.00085282 * tempF * rh * rh
+    - 0.00000199 * tempF * tempF * rh * rh;
+  
+  // Adjustments for low/high humidity
+  if (rh < 13 && tempF >= 80 && tempF <= 112) {
+    hi -= ((13 - rh) / 4) * Math.sqrt((17 - Math.abs(tempF - 95)) / 17);
+  } else if (rh > 85 && tempF >= 80 && tempF <= 87) {
+    hi += ((rh - 85) / 10) * ((87 - tempF) / 5);
+  }
+  
+  return Math.round(hi);
+}
+
+/**
  * Check if conditions are potentially hazardous
  * @param {Object} weather - Weather data
- * @returns {Object} Hazard assessment
+ * @returns {Object} Hazard assessment with combined score and stop-work recommendation
  */
 function assessHazards(weather) {
   const hazards = [];
+  let stopWorkRecommended = false;
   
   // Guard against null values - null < 32 is true in JS due to coercion to 0
   const temp = weather.temperature;
   const wind = weather.windSpeed;
+  const humidity = weather.humidity;
   
+  // === COLD ===
   if (temp !== null && temp !== undefined && temp < 32) {
     hazards.push({ type: 'cold', severity: 'warning', message: 'Freezing temperatures' });
   }
+  
+  // === HEAT (basic temperature) ===
   if (temp !== null && temp !== undefined && temp > 100) {
     hazards.push({ type: 'heat', severity: 'warning', message: 'Extreme heat' });
   }
-  if (wind !== null && wind !== undefined && wind > 25) {
-    hazards.push({ type: 'wind', severity: 'warning', message: 'High winds' });
+  
+  // === HEAT INDEX (combined temp + humidity) ===
+  if (temp !== null && temp !== undefined && humidity !== null && humidity !== undefined) {
+    const heatIndex = calculateHeatIndex(temp, humidity);
+    if (heatIndex > 105) {
+      hazards.push({ type: 'heat_index', severity: 'danger', message: `Heat index ${heatIndex}°F — STOP WORK recommended` });
+      stopWorkRecommended = true;
+    } else if (heatIndex > 90) {
+      hazards.push({ type: 'heat_index', severity: 'warning', message: `Heat index ${heatIndex}°F — frequent breaks required` });
+    }
   }
-  if (wind !== null && wind !== undefined && wind > 40) {
-    hazards.push({ type: 'wind', severity: 'danger', message: 'Dangerous wind speeds' });
+  
+  // === WIND (tiered) ===
+  if (wind !== null && wind !== undefined) {
+    if (wind >= 35) {
+      hazards.push({ type: 'wind', severity: 'danger', message: `Wind ${wind} mph — STOP WORK recommended` });
+      stopWorkRecommended = true;
+    } else if (wind >= 25) {
+      hazards.push({ type: 'wind', severity: 'warning', message: `Wind ${wind} mph — CAUTION for elevated work` });
+    }
   }
+  
+  // === VISIBILITY ===
   if (weather.visibility !== null && weather.visibility !== undefined && weather.visibility < 0.5) {
     hazards.push({ type: 'visibility', severity: 'warning', message: 'Low visibility' });
   }
+  
+  // === PRECIPITATION ===
   if (weather.precipitation !== null && weather.precipitation !== undefined && weather.precipitation > 0.1) {
     hazards.push({ type: 'precipitation', severity: 'info', message: 'Active precipitation' });
   }
   
-  // Check condition codes for storms/severe weather
+  // === CONDITION CODES (storms / severe weather) ===
   if (weather.conditionCode) {
     const code = weather.conditionCode;
-    if (code >= 200 && code < 300) {
-      hazards.push({ type: 'storm', severity: 'danger', message: 'Thunderstorm conditions' });
+    // Lightning / thunderstorm: codes 200-232 = HIGH severity
+    if (code >= 200 && code <= 232) {
+      hazards.push({ type: 'lightning', severity: 'danger', message: 'Thunderstorm / lightning — STOP WORK recommended' });
+      stopWorkRecommended = true;
     }
     if (code >= 600 && code < 700) {
       hazards.push({ type: 'snow', severity: 'warning', message: 'Snow/ice conditions' });
     }
   }
   
+  // === COMBINED HAZARD SCORE (0-100) ===
+  // Each hazard type contributes to the score; danger = 30, warning = 15, info = 5
+  const severityWeights = { info: 5, warning: 15, danger: 30 };
+  const hazardScore = Math.min(
+    100,
+    hazards.reduce((score, h) => score + (severityWeights[h.severity] || 0), 0)
+  );
+  
   return {
     hasHazards: hazards.length > 0,
     hazards,
+    hazardScore,
+    stopWorkRecommended,
     maxSeverity: hazards.reduce((max, h) => {
       const order = { info: 0, warning: 1, danger: 2 };
       return order[h.severity] > order[max] ? h.severity : max;
@@ -286,6 +357,7 @@ function shouldBlockWork(weather) {
 module.exports = {
   getCurrentWeather,
   assessHazards,
+  calculateHeatIndex,
   createWeatherLogEntry,
   formatWeatherString,
   shouldBlockWork,

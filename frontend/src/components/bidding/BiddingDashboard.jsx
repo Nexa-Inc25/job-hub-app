@@ -46,6 +46,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import BuildIcon from '@mui/icons-material/Build';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
+import CompareArrowsIcon from '@mui/icons-material/CompareArrows';
 import api from '../../api';
 import CostAnalysisChart from './CostAnalysisChart';
 import { useAppColors } from '../shared/themeUtils';
@@ -117,14 +118,19 @@ const BiddingDashboard = () => {
   const [error, setError] = useState(null);
   const [dateRange, setDateRange] = useState(365);
   const [analytics, setAnalytics] = useState(null);
+  const [bidAccuracy, setBidAccuracy] = useState(null);
 
   // Fetch analytics data
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await api.get(`/api/bidding/analytics?dateRange=${dateRange}`);
-      setAnalytics(response.data);
+      const [analyticsRes, accuracyRes] = await Promise.all([
+        api.get(`/api/bidding/analytics?dateRange=${dateRange}`),
+        api.get(`/api/bidding/accuracy?days=${dateRange}`).catch(() => ({ data: null })),
+      ]);
+      setAnalytics(analyticsRes.data);
+      setBidAccuracy(accuracyRes.data);
     } catch (err) {
       console.error('Error fetching analytics:', err);
       setError(err.response?.data?.error || 'Failed to load analytics');
@@ -299,6 +305,91 @@ const BiddingDashboard = () => {
               <CostAnalysisChart data={analytics.monthlyTrend} />
             </CardContent>
           </Card>
+
+          {/* Bid vs Actual Variance */}
+          {bidAccuracy?.hasData && (
+            <Card sx={{ bgcolor: COLORS.surface, mb: 3 }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: COLORS.text, fontWeight: 600 }}>
+                    <CompareArrowsIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    Bid vs Actual Variance
+                  </Typography>
+                  <Chip
+                    label={`${bidAccuracy.summary.accuracy}% accuracy`}
+                    sx={{
+                      bgcolor: bidAccuracy.summary.accuracy >= 90 ? COLORS.primary : bidAccuracy.summary.accuracy >= 75 ? COLORS.warning : COLORS.error,
+                      color: COLORS.bg,
+                    }}
+                  />
+                </Box>
+
+                {/* Summary stats */}
+                <Grid container spacing={2} sx={{ mb: 2 }}>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Avg Variance</Typography>
+                      <Typography variant="h6" sx={{ color: bidAccuracy.summary.avgVariancePercent <= 0 ? COLORS.primary : COLORS.error, fontWeight: 600 }}>
+                        {bidAccuracy.summary.avgVariancePercent > 0 ? '+' : ''}{bidAccuracy.summary.avgVariancePercent}%
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Under Budget</Typography>
+                      <Typography variant="h6" sx={{ color: COLORS.primary, fontWeight: 600 }}>
+                        {bidAccuracy.summary.underBudgetCount}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Over Budget</Typography>
+                      <Typography variant="h6" sx={{ color: COLORS.error, fontWeight: 600 }}>
+                        {bidAccuracy.summary.overBudgetCount}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid size={{ xs: 6, md: 3 }}>
+                    <Box sx={{ textAlign: 'center', p: 1.5, bgcolor: COLORS.surfaceLight, borderRadius: 2 }}>
+                      <Typography variant="caption" sx={{ color: COLORS.textSecondary }}>Jobs Analyzed</Typography>
+                      <Typography variant="h6" sx={{ color: COLORS.text, fontWeight: 600 }}>
+                        {bidAccuracy.jobCount}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+
+                {/* Variance trend bars */}
+                {bidAccuracy.trend?.length > 0 && (
+                  <Box sx={{ display: 'flex', alignItems: 'flex-end', height: 120, gap: '4px', px: 1 }}>
+                    {bidAccuracy.trend.map((item) => {
+                      const maxAbs = Math.max(...bidAccuracy.trend.map(t => Math.abs(t.avgVariancePercent)), 1);
+                      const barHeight = (Math.abs(item.avgVariancePercent) / maxAbs) * 100;
+                      const isOver = item.avgVariancePercent > 0;
+                      return (
+                        <Box key={item.month} sx={{ flex: 1, textAlign: 'center' }}>
+                          <Box
+                            sx={{
+                              height: Math.max(barHeight, 4),
+                              bgcolor: isOver ? COLORS.error : COLORS.primary,
+                              borderRadius: '4px 4px 0 0',
+                              opacity: 0.8,
+                              mx: 'auto',
+                              maxWidth: 48,
+                            }}
+                          />
+                          <Typography variant="caption" sx={{ color: COLORS.textSecondary, fontSize: '0.6rem' }}>
+                            {item.month.split('-')[1]}
+                          </Typography>
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Top Items Table */}
           <Card sx={{ bgcolor: COLORS.surface }}>

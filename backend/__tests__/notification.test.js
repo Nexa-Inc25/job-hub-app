@@ -227,5 +227,96 @@ describe('Notification Service', () => {
     const found = await Notification.findById(notification._id);
     expect(found).not.toBeNull();
   });
+
+  test('notifyUser sets deliveryStatus to pending', async () => {
+    const notification = await notificationService.notifyUser({
+      userId: mockUserId,
+      companyId: mockCompanyId,
+      type: 'system',
+      title: 'Test Delivery',
+      message: 'Testing delivery status',
+    });
+
+    expect(notification.deliveryStatus).toBe('pending');
+  });
+});
+
+describe('Notification Grouping', () => {
+  test('should collapse 5+ notifications of same type within window', () => {
+    const now = Date.now();
+    const notifications = Array.from({ length: 6 }, (_, i) => ({
+      _id: `notif-${i}`,
+      type: 'unit_submitted',
+      title: `Unit Submitted ${i}`,
+      message: `Unit ${i} submitted`,
+      createdAt: new Date(now - i * 1000), // 1 second apart
+    }));
+
+    const grouped = notificationService.groupNotifications(notifications);
+
+    expect(grouped).toHaveLength(1);
+    expect(grouped[0]._grouped).toBe(true);
+    expect(grouped[0]._groupCount).toBe(6);
+    expect(grouped[0].title).toContain('6');
+  });
+
+  test('should not group fewer than 5 notifications', () => {
+    const now = Date.now();
+    const notifications = Array.from({ length: 3 }, (_, i) => ({
+      _id: `notif-${i}`,
+      type: 'unit_submitted',
+      title: `Unit Submitted ${i}`,
+      message: `Unit ${i} submitted`,
+      createdAt: new Date(now - i * 1000),
+    }));
+
+    const grouped = notificationService.groupNotifications(notifications);
+
+    expect(grouped).toHaveLength(3);
+    expect(grouped[0]._grouped).toBeUndefined();
+  });
+
+  test('should group different types separately', () => {
+    const now = Date.now();
+    const notifications = [
+      ...Array.from({ length: 5 }, (_, i) => ({
+        _id: `approved-${i}`,
+        type: 'unit_approved',
+        title: `Approved ${i}`,
+        message: `test`,
+        createdAt: new Date(now - i * 1000),
+      })),
+      ...Array.from({ length: 5 }, (_, i) => ({
+        _id: `submitted-${i}`,
+        type: 'unit_submitted',
+        title: `Submitted ${i}`,
+        message: `test`,
+        createdAt: new Date(now - i * 1000),
+      })),
+    ];
+
+    const grouped = notificationService.groupNotifications(notifications);
+
+    expect(grouped).toHaveLength(2);
+    expect(grouped.every(g => g._grouped)).toBe(true);
+  });
+
+  test('should not group notifications outside time window', () => {
+    const now = Date.now();
+    
+    const notifications = Array.from({ length: 6 }, (_, i) => ({
+      _id: `notif-${i}`,
+      type: 'unit_submitted',
+      title: `Unit Submitted ${i}`,
+      message: `test`,
+      // Spread across 2 minutes (outside 1-minute window)
+      createdAt: new Date(now - i * 30 * 1000),
+    }));
+
+    const grouped = notificationService.groupNotifications(notifications);
+
+    // Should NOT be grouped since they span > 1 minute
+    expect(grouped).toHaveLength(6);
+  });
 });
 

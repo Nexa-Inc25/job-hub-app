@@ -64,6 +64,14 @@ const notificationSchema = new mongoose.Schema({
   read: { type: Boolean, default: false, index: true },
   readAt: Date,
   
+  // Delivery tracking
+  deliveryStatus: { 
+    type: String, 
+    enum: ['pending', 'delivered', 'failed'],
+    default: 'pending',
+  },
+  deliveredAt: Date,
+  
   // Timestamps
   createdAt: { type: Date, default: Date.now, index: true },
   
