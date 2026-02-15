@@ -44,7 +44,7 @@ import FeedbackButton from './FeedbackButton';
 import OfflineIndicator from './OfflineIndicator';
 
 // Sub-components
-import { DashboardStats, DashboardFilters, DashboardJobList, DashboardCharts, DashboardSchedule } from './dashboard';
+import { DashboardStats, DashboardFilters, DashboardJobList, DashboardCharts, DashboardSchedule } from './dashboard/index';
 
 // Shared helpers
 import {
