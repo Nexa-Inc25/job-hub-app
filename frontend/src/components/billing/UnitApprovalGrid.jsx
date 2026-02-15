@@ -410,7 +410,7 @@ const UnitApprovalGrid = ({
         return actions;
       },
     },
-  ], [expandedRows, handleToggleExpand, onSubmit, onApprove, onDispute, onDelete]);
+  ].filter(Boolean), [expandedRows, handleToggleExpand, onSubmit, onApprove, onDispute, onDelete]);
 
   // Get selected unit for detail panel
   const expandedUnit = useMemo(() => {
@@ -548,8 +548,10 @@ const UnitApprovalGrid = ({
       {/* DataGrid */}
       <Box sx={{ flex: 1, p: 2 }}>
         <DataGrid
-          rows={filteredUnits}
+          rows={filteredUnits || []}
           columns={columns}
+          columnVisibilityModel={{}}
+          autosizeOnMount={false}
           getRowId={(row) => row._id}
           loading={loading}
           checkboxSelection
