@@ -116,6 +116,25 @@ const symbolLibrarySchema = new mongoose.Schema({
   symbols: [symbolSchema],
 }, { _id: false });
 
+/** Position on a PDF page for auto-stamping a field value */
+const fieldPositionSchema = new mongoose.Schema({
+  pageOffset: { type: Number, default: 0 },     // Which page within the section (0 = first)
+  x: { type: Number, required: true },           // Points from left edge
+  y: { type: Number, required: true },           // Points from bottom edge (PDF coords)
+  width: { type: Number, default: 200 },         // Max width of text box
+  height: { type: Number, default: 14 },         // Height (used for signatures/checkboxes)
+  fontSize: { type: Number, default: 10 },       // Font size for stamped text
+  align: { type: String, enum: ['left', 'center', 'right'], default: 'left' },
+}, { _id: false });
+
+/** Zoom region — the area of the PDF page shown to the foreman during guided fill */
+const zoomRegionSchema = new mongoose.Schema({
+  x: { type: Number, required: true },
+  y: { type: Number, required: true },
+  width: { type: Number, required: true },
+  height: { type: Number, required: true },
+}, { _id: false });
+
 /** Completion field configuration — what the foreman fills on each form */
 const completionFieldSchema = new mongoose.Schema({
   fieldName: { type: String, required: true },
@@ -130,6 +149,12 @@ const completionFieldSchema = new mongoose.Schema({
   autoFillFrom: { type: String },
   // For select type
   options: [{ type: String }],
+  // Position on the PDF page for auto-stamping (Phase 1)
+  position: fieldPositionSchema,
+  // Zoom region shown in the guided fill UI (Phase 3)
+  zoomRegion: zoomRegionSchema,
+  // Help text shown to foreman during guided fill
+  helpText: { type: String },
 }, { _id: false });
 
 /** Document completion configuration */
@@ -241,6 +266,9 @@ const utilityAsBuiltConfigSchema = new mongoose.Schema({
 
   /** Color conventions for redline/blueline markup */
   colorConventions: [colorConventionSchema],
+
+  /** Required document order for the final assembled package */
+  documentOrder: [{ type: String }],
 
   // Metadata
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
