@@ -720,7 +720,7 @@ router.delete('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Can only delete draft tickets' });
     }
 
-    const { reason } = req.body;
+    const reason = req.body?.reason;
     ticket.isDeleted = true;
     ticket.deletedAt = new Date();
     ticket.deletedBy = user._id;
