@@ -15,6 +15,8 @@
  */
 
 const axios = require('axios');
+const log = require('../../utils/logger');
+const { createCircuitBreaker } = require('../../utils/circuitBreaker');
 
 class P6Adapter {
   constructor(config = {}) {
@@ -26,14 +28,56 @@ class P6Adapter {
     
     this.accessToken = null;
     this.tokenExpiry = null;
+    this.adapterName = 'P6';
+    
+    // Circuit breaker: open after 5 consecutive failures, half-open after 30s
+    this.breaker = createCircuitBreaker('oracle-p6', {
+      failureThreshold: 5,
+      resetTimeout: 30000,
+    });
     
     // API client
     this.client = axios.create({
-      timeout: 30000,
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
+    });
+  }
+  
+  /**
+   * Execute a function with retry (exponential backoff) and circuit breaker
+   * 3 retries with 1s, 2s, 4s delays
+   */
+  async _executeWithRetry(fn, operation) {
+    const retryDelays = [1000, 2000, 4000];
+    const maxAttempts = retryDelays.length + 1;
+    
+    return this.breaker.execute(async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          if (attempt > 1) {
+            const delay = retryDelays[attempt - 2];
+            log.info({ adapter: this.adapterName, operation, attempt, delayMs: delay }, 'Retrying after delay');
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          const startTime = Date.now();
+          const result = await fn();
+          const durationMs = Date.now() - startTime;
+          log.info({ adapter: this.adapterName, operation, attempt, durationMs }, 'Request succeeded');
+          return result;
+        } catch (error) {
+          lastError = error;
+          log.warn({ adapter: this.adapterName, operation, attempt, err: error }, 'Request attempt failed');
+          if (attempt === maxAttempts) {
+            log.error({ adapter: this.adapterName, operation, attempts: maxAttempts, err: error }, 'All retries exhausted');
+            throw error;
+          }
+        }
+      }
+      throw lastError;
     });
   }
   
@@ -76,7 +120,7 @@ class P6Adapter {
       
       return this.accessToken;
     } catch (error) {
-      console.error('[P6Adapter] Authentication failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Authentication failed');
       throw new Error(`P6 authentication failed: ${error.message}`);
     }
   }
@@ -99,13 +143,13 @@ class P6Adapter {
    * @param {string} projectCode - P6 project code
    */
   async getProject(projectCode) {
-    console.log(`[P6Adapter] Getting project ${projectCode}`);
+    log.info({ adapter: this.adapterName, projectCode }, 'Getting project');
     
     if (!this.isConfigured()) {
       return this.mockProjectResponse(projectCode);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       const response = await this.client.get(
@@ -124,11 +168,7 @@ class P6Adapter {
       }
       
       return response.data[0];
-      
-    } catch (error) {
-      console.error('[P6Adapter] Get project failed:', error.message);
-      throw error;
-    }
+    }, 'getProject');
   }
   
   /**

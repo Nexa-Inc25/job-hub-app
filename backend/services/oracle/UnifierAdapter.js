@@ -14,6 +14,8 @@
  */
 
 const axios = require('axios');
+const log = require('../../utils/logger');
+const { createCircuitBreaker } = require('../../utils/circuitBreaker');
 
 class UnifierAdapter {
   constructor(config = {}) {
@@ -24,14 +26,56 @@ class UnifierAdapter {
     
     this.accessToken = null;
     this.tokenExpiry = null;
+    this.adapterName = 'Unifier';
+    
+    // Circuit breaker: open after 5 consecutive failures, half-open after 30s
+    this.breaker = createCircuitBreaker('oracle-unifier', {
+      failureThreshold: 5,
+      resetTimeout: 30000,
+    });
     
     // API client
     this.client = axios.create({
-      timeout: 30000,
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
+    });
+  }
+  
+  /**
+   * Execute a function with retry (exponential backoff) and circuit breaker
+   * 3 retries with 1s, 2s, 4s delays
+   */
+  async _executeWithRetry(fn, operation) {
+    const retryDelays = [1000, 2000, 4000];
+    const maxAttempts = retryDelays.length + 1;
+    
+    return this.breaker.execute(async () => {
+      let lastError;
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          if (attempt > 1) {
+            const delay = retryDelays[attempt - 2];
+            log.info({ adapter: this.adapterName, operation, attempt, delayMs: delay }, 'Retrying after delay');
+            await new Promise(resolve => setTimeout(resolve, delay));
+          }
+          const startTime = Date.now();
+          const result = await fn();
+          const durationMs = Date.now() - startTime;
+          log.info({ adapter: this.adapterName, operation, attempt, durationMs }, 'Request succeeded');
+          return result;
+        } catch (error) {
+          lastError = error;
+          log.warn({ adapter: this.adapterName, operation, attempt, err: error }, 'Request attempt failed');
+          if (attempt === maxAttempts) {
+            log.error({ adapter: this.adapterName, operation, attempts: maxAttempts, err: error }, 'All retries exhausted');
+            throw error;
+          }
+        }
+      }
+      throw lastError;
     });
   }
   
@@ -70,7 +114,7 @@ class UnifierAdapter {
       
       return this.accessToken;
     } catch (error) {
-      console.error('[UnifierAdapter] Authentication failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Authentication failed');
       throw new Error(`Unifier authentication failed: ${error.message}`);
     }
   }
@@ -99,14 +143,14 @@ class UnifierAdapter {
   async uploadDocument(options) {
     const { projectNumber, folderPath, fileName, fileContent, metadata = {} } = options;
     
-    console.log(`[UnifierAdapter] Uploading ${fileName} to project ${projectNumber}`);
+    log.info({ adapter: this.adapterName, projectNumber, fileName }, 'Uploading document');
     
     if (!this.isConfigured()) {
       // Return mock response for demo/unconfigured environments
       return this.mockUploadResponse(options);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       
       // Step 1: Get project shell ID
@@ -148,11 +192,7 @@ class UnifierAdapter {
         url: response.data.url,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[UnifierAdapter] Upload failed:', error.message);
-      throw new Error(`Document upload to Unifier failed: ${error.message}`);
-    }
+    }, 'uploadDocument');
   }
   
   /**
@@ -166,13 +206,13 @@ class UnifierAdapter {
   async createBPRecord(options) {
     const { projectNumber, bpName, recordData } = options;
     
-    console.log(`[UnifierAdapter] Creating ${bpName} record for project ${projectNumber}`);
+    log.info({ adapter: this.adapterName, projectNumber, bpName }, 'Creating BP record');
     
     if (!this.isConfigured()) {
       return this.mockBPResponse(options);
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const shellId = await this.getShellId(projectNumber, headers);
       
@@ -205,18 +245,14 @@ class UnifierAdapter {
         status: response.data.status,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[UnifierAdapter] BP record creation failed:', error.message);
-      throw new Error(`Unifier BP record creation failed: ${error.message}`);
-    }
+    }, 'createBPRecord');
   }
   
   /**
    * Update project status/milestone
    */
   async updateProjectStatus(projectNumber, status, milestone) {
-    console.log(`[UnifierAdapter] Updating project ${projectNumber} status to ${status}`);
+    log.info({ adapter: this.adapterName, projectNumber, status }, 'Updating project status');
     
     if (!this.isConfigured()) {
       return {
@@ -228,7 +264,7 @@ class UnifierAdapter {
       };
     }
     
-    try {
+    return this._executeWithRetry(async () => {
       const headers = await this.getHeaders();
       const shellId = await this.getShellId(projectNumber, headers);
       
@@ -250,11 +286,7 @@ class UnifierAdapter {
         newStatus: status,
         timestamp: new Date().toISOString()
       };
-      
-    } catch (error) {
-      console.error('[UnifierAdapter] Status update failed:', error.message);
-      throw error;
-    }
+    }, 'updateProjectStatus');
   }
   
   /**
@@ -340,7 +372,7 @@ class UnifierAdapter {
    * Mock response for unconfigured/demo environments
    */
   mockUploadResponse(_options) {
-    console.log('[UnifierAdapter] Using mock response (adapter not configured)');
+    log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
     return {
       success: true,
       mock: true,
@@ -352,7 +384,7 @@ class UnifierAdapter {
   }
   
   mockBPResponse(_options) {
-    console.log('[UnifierAdapter] Using mock response (adapter not configured)');
+    log.debug({ adapter: this.adapterName }, 'Using mock response (adapter not configured)');
     return {
       success: true,
       mock: true,
@@ -368,7 +400,7 @@ class UnifierAdapter {
    * High-level method that handles the full workflow
    */
   async submitAsBuiltPackage(submission) {
-    console.log(`[UnifierAdapter] Submitting as-built package for ${submission.pmNumber}`);
+    log.info({ adapter: this.adapterName, pmNumber: submission.pmNumber }, 'Submitting as-built package');
     
     const results = {
       projectNumber: submission.pmNumber,
@@ -430,7 +462,7 @@ class UnifierAdapter {
       return results;
       
     } catch (error) {
-      console.error('[UnifierAdapter] Package submission failed:', error.message);
+      log.error({ adapter: this.adapterName, err: error }, 'Package submission failed');
       results.success = false;
       results.errors.push({ type: 'general', error: error.message });
       return results;
