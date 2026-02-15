@@ -832,6 +832,7 @@ router.post('/rules/seed-pge', async (req, res) => {
 
 const UtilityAsBuiltConfig = require('../models/UtilityAsBuiltConfig');
 const { getPGEConfig } = require('../seeds/pge-asbuilt-config');
+const { getSCEConfig } = require('../seeds/sce-asbuilt-config');
 
 /**
  * Get or auto-seed utility config. Uses findOneAndUpdate with upsert
@@ -843,17 +844,21 @@ const { getPGEConfig } = require('../seeds/pge-asbuilt-config');
 async function getOrSeedConfig(utilityCode) {
   let config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
   
-  if (utilityCode === 'PGE') {
-    const seed = getPGEConfig();
-    
+  // Auto-seed supported utilities
+  const seedMap = { PGE: getPGEConfig, SCE: getSCEConfig };
+  const seedFn = seedMap[utilityCode];
+
+  if (seedFn) {
+    const seed = seedFn();
+
     // Check if config needs updating (version mismatch or doesn't exist)
-    const needsUpdate = !config || 
+    const needsUpdate = !config ||
       config.procedureVersion !== seed.procedureVersion ||
       config.workTypes?.length !== seed.workTypes?.length;
-    
+
     if (needsUpdate) {
       config = await UtilityAsBuiltConfig.findOneAndUpdate(
-        { utilityCode: 'PGE' },
+        { utilityCode },
         { $set: seed },
         { upsert: true, new: true }
       );
@@ -1029,7 +1034,7 @@ router.post('/classify-pages', async (req, res) => {
     }
 
     // Extract text from each page using pdf-parse (lazy loaded)
-    const pdfUtils = (() => {
+    const _pdfUtils = (() => {
       try { return require('../utils/pdfUtils'); }
       catch { return null; }
     })();
@@ -1052,7 +1057,6 @@ router.post('/classify-pages', async (req, res) => {
     }
 
     // Parse PDF and get text per page
-    let pageTexts = [];
     try {
       const pdfParse = require('pdf-parse');
       // pdf-parse doesn't give per-page text easily, so use pdfjs-dist if available
@@ -1231,21 +1235,6 @@ router.post('/wizard/submit', async (req, res) => {
         if (existingIdx !== -1) {
           closeOutFolder.documents.splice(existingIdx, 1);
         }
-
-        // Build summary of completed wizard steps for review
-        const stepData = submission.stepData || {};
-        const completedSteps = submission.completedSteps || {};
-        const summary = {
-          workType: submission.workType,
-          completedSteps: Object.keys(completedSteps).filter(k => completedSteps[k]),
-          ecTag: stepData.ec_tag || null,
-          billingForm: stepData.billing_form || null,
-          ccsc: stepData.ccsc || null,
-          fda: stepData.fda || null,
-          sketch: stepData.sketch || null,
-          utvacScore: validation.score,
-          submittedAt: new Date().toISOString(),
-        };
 
         // Save reference document pointing to the AsBuiltSubmission
         closeOutFolder.documents.push({

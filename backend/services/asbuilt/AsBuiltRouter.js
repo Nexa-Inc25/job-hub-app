@@ -321,16 +321,22 @@ class AsBuiltRouter {
         // Get adapter for destination
         const adapter = await this.getAdapter(section.destination);
         
-        // Deliver
+        // Deliver — adapters return { success, details } or legacy { referenceId }
         const result = await adapter.deliver(submission, section, i);
+        const refId = result.referenceId || result.details?.referenceId;
+        
+        // Adapters may signal failure via result.success === false instead of throwing
+        if (result.success === false) {
+          throw new Error(result.details?.error || 'Adapter delivery failed');
+        }
         
         section.deliveryStatus = 'delivered';
         section.deliveredAt = new Date();
-        section.externalReferenceId = result.referenceId;
+        section.externalReferenceId = refId;
         section.deliveryAttempts++;
         
         submission.addAuditEntry('section_delivered', 
-          `Delivered to ${section.destination}. Ref: ${result.referenceId}`, null, i);
+          `Delivered to ${section.destination}. Ref: ${refId}`, null, i);
         
       } catch (error) {
         section.deliveryStatus = 'failed';
@@ -418,15 +424,20 @@ class AsBuiltRouter {
         
         const adapter = await this.getAdapter(section.destination);
         const result = await adapter.deliver(submission, section, i);
+        const refId = result.referenceId || result.details?.referenceId;
+        
+        if (result.success === false) {
+          throw new Error(result.details?.error || 'Adapter delivery failed');
+        }
         
         section.deliveryStatus = 'delivered';
         section.deliveredAt = new Date();
-        section.externalReferenceId = result.referenceId;
+        section.externalReferenceId = refId;
         section.deliveryAttempts++;
         section.deliveryError = null;
         
         submission.addAuditEntry('section_delivered', 
-          `Retry successful. Ref: ${result.referenceId}`, null, i);
+          `Retry successful. Ref: ${refId}`, null, i);
         
       } catch (error) {
         section.deliveryStatus = 'failed';
