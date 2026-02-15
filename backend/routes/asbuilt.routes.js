@@ -1109,6 +1109,7 @@ router.post('/classify-pages', async (req, res) => {
 // ============================================================================
 
 const { classifyPages } = require('../services/asbuilt/PageClassifier');
+const { stampSection, stampFdaGrid, extractPages } = require('../services/asbuilt/PdfStamper');
 const r2Storage = require('../utils/storage');
 
 /**
@@ -1281,6 +1282,179 @@ router.get('/classify/:jobId', async (req, res) => {
   } catch (err) {
     console.error('[AsBuilt:Classify] Error:', err);
     res.status(500).json({ error: 'Failed to get classification' });
+  }
+});
+
+// ============================================================================
+// SECTION FILL (AUTO-STAMP)
+// ============================================================================
+
+/**
+ * POST /sections/:sectionType/fill
+ * Extract the relevant pages for a document section from the classified
+ * job package PDF, auto-stamp all configured fields, and return the
+ * filled PDF. This is the core of the guided completion engine.
+ *
+ * Body: { jobId, manualValues?, fdaSelections?, utilityCode? }
+ */
+router.post('/sections/:sectionType/fill', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).lean();
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const { sectionType } = req.params;
+    const jobId = sanitizeObjectId(req.body.jobId);
+    if (!jobId) {
+      return res.status(400).json({ error: 'Valid jobId is required' });
+    }
+
+    const job = await Job.findOne({ _id: jobId, companyId: user.companyId }).lean();
+    if (!job) {
+      return res.status(404).json({ error: 'Job not found' });
+    }
+
+    // Verify job package has been classified
+    if (!job.packageClassification?.length || !job.packagePdfKey) {
+      return res.status(400).json({ error: 'Job package has not been classified. Upload the PDF and run classification first.' });
+    }
+
+    // Load utility config
+    const utilityCode = sanitizeString(req.body.utilityCode)?.toUpperCase() || 'PGE';
+    const config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    if (!config) {
+      return res.status(400).json({ error: `No config found for utility: ${utilityCode}` });
+    }
+
+    // Find the completion field definitions for this section
+    const sectionConfig = config.documentCompletions?.find(dc => dc.sectionType === sectionType);
+    if (!sectionConfig) {
+      return res.status(400).json({ error: `No completion fields configured for section: ${sectionType}` });
+    }
+
+    // Find which pages belong to this section from the classification
+    const sectionPages = job.packageClassification
+      .filter(c => c.sectionType === sectionType)
+      .map(c => c.pageIndex)
+      .sort((a, b) => a - b);
+
+    if (sectionPages.length === 0) {
+      return res.status(404).json({ error: `No pages classified as '${sectionType}' in this job package` });
+    }
+
+    // Load the full job package PDF from R2
+    let pdfBuffer = null;
+    if (r2Storage.isR2Configured()) {
+      try {
+        const fileData = await r2Storage.getFileStream(job.packagePdfKey);
+        if (fileData?.stream) {
+          const chunks = [];
+          for await (const chunk of fileData.stream) {
+            chunks.push(chunk);
+          }
+          pdfBuffer = Buffer.concat(chunks);
+        }
+      } catch (r2Err) {
+        console.error('[AsBuilt:Fill] Failed to load PDF from R2:', r2Err.message);
+      }
+    }
+
+    if (!pdfBuffer) {
+      return res.status(404).json({ error: 'Could not load job package PDF from storage' });
+    }
+
+    // Extract just the section's pages
+    let sectionPdf = await extractPages(pdfBuffer, sectionPages);
+
+    // Build the data context for auto-fill resolution
+    const Company = require('../models/Company');
+    const company = await Company.findById(user.companyId).select('name').lean();
+
+    const context = {
+      job,
+      user,
+      company,
+      timesheet: req.body.timesheetData || {},
+      lme: req.body.lmeData || {},
+      manualValues: req.body.manualValues || {},
+    };
+
+    // Stamp the completion fields
+    sectionPdf = await stampSection(sectionPdf, sectionConfig.fields, context);
+
+    // If this is the EC tag section and there are FDA selections, stamp the grid too
+    if (sectionType === 'ec_tag' && config.fdaGrid && req.body.fdaSelections?.length) {
+      // Extract the FDA pages (they're at the end of the EC tag section)
+      sectionPdf = await stampFdaGrid(sectionPdf, config.fdaGrid, req.body.fdaSelections);
+    }
+
+    // Return the stamped PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${sectionType}_filled.pdf"`);
+    res.send(sectionPdf);
+  } catch (err) {
+    console.error('[AsBuilt:Fill] Error:', err);
+    res.status(500).json({ error: 'Failed to fill section' });
+  }
+});
+
+/**
+ * GET /sections/:sectionType/pages/:jobId
+ * Get just the raw (unstamped) pages for a section, for preview.
+ */
+router.get('/sections/:sectionType/pages/:jobId', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).lean();
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const jobId = sanitizeObjectId(req.params.jobId);
+    const { sectionType } = req.params;
+    if (!jobId) return res.status(400).json({ error: 'Valid jobId is required' });
+
+    const job = await Job.findOne({ _id: jobId, companyId: user.companyId })
+      .select('packageClassification packagePdfKey')
+      .lean();
+
+    if (!job?.packageClassification?.length || !job.packagePdfKey) {
+      return res.status(404).json({ error: 'Job package not classified' });
+    }
+
+    const sectionPages = job.packageClassification
+      .filter(c => c.sectionType === sectionType)
+      .map(c => c.pageIndex)
+      .sort((a, b) => a - b);
+
+    if (sectionPages.length === 0) {
+      return res.status(404).json({ error: `No pages for section: ${sectionType}` });
+    }
+
+    // Load PDF from R2
+    let pdfBuffer = null;
+    if (r2Storage.isR2Configured()) {
+      const fileData = await r2Storage.getFileStream(job.packagePdfKey);
+      if (fileData?.stream) {
+        const chunks = [];
+        for await (const chunk of fileData.stream) {
+          chunks.push(chunk);
+        }
+        pdfBuffer = Buffer.concat(chunks);
+      }
+    }
+
+    if (!pdfBuffer) {
+      return res.status(404).json({ error: 'Could not load PDF from storage' });
+    }
+
+    const sectionPdf = await extractPages(pdfBuffer, sectionPages);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${sectionType}_pages.pdf"`);
+    res.send(sectionPdf);
+  } catch (err) {
+    console.error('[AsBuilt:Pages] Error:', err);
+    res.status(500).json({ error: 'Failed to extract section pages' });
   }
 });
 
