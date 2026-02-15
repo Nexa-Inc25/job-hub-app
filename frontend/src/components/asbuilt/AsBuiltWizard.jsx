@@ -41,8 +41,9 @@ import ECTagCompletion from './ECTagCompletion';
 import CCSCChecklist from './CCSCChecklist';
 import FDAAttributeForm from './FDAAttributeForm';
 import BillingCompletionForm from './BillingCompletionForm';
+import GuidedFill from './GuidedFill';
 
-// Lazy-load PDF editor — only needed when foreman opens a form page
+// Lazy-load PDF editor — only needed when foreman opens a form page (sketch markup)
 const PDFFormEditor = React.lazy(() => import('../PDFFormEditor'));
 
 /**
@@ -473,74 +474,90 @@ const AsBuiltWizard = ({
           />
         );
 
-      // PDF form steps (face sheet, equipment info)
+      // Guided fill steps (face sheet, equipment info) — field-by-field completion
       case 'face_sheet':
-      case 'equipment_info':
+      case 'equipment_info': {
+        // Find the field definitions for this section from utility config
+        const sectionConfig = utilityConfig?.documentCompletions?.find(dc => dc.sectionType === step.key);
+        const sectionFields = sectionConfig?.fields || [];
+
+        if (sectionFields.length > 0) {
+          return (
+            <Box>
+              {/* Crew Materials reference for equipment info step */}
+              {step.key === 'equipment_info' && job?.crewMaterials?.length > 0 && (
+                <Paper variant="outlined" sx={{ p: 2, mb: 1.5, borderColor: 'info.main' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                    Crew Materials from Job Package ({job.crewMaterials.length} items)
+                  </Typography>
+                  <Box sx={{ maxHeight: 160, overflow: 'auto' }}>
+                    {job.crewMaterials.map((mat, idx) => (
+                      <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+                        <Typography variant="caption" sx={{ flex: 1 }}>
+                          <strong>{mat.mCode}</strong> — {mat.description}
+                        </Typography>
+                        <Typography variant="caption" sx={{ ml: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {mat.quantity} {mat.unit}
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </Paper>
+              )}
+
+              <GuidedFill
+                sectionType={step.key}
+                sectionLabel={step.label}
+                fields={sectionFields}
+                context={{
+                  job: job || {},
+                  user: user || {},
+                  company: {},
+                  timesheet: { totalHours: timesheetHours },
+                  lme: lmeData || {},
+                }}
+                onComplete={(data) => markStepComplete(step.key, data)}
+                onBack={() => setActiveStep(prev => Math.max(prev - 1, 0))}
+              />
+
+              {completedSteps[step.key] && (
+                <Alert severity="success" sx={{ mt: 2 }}>
+                  {step.label} completed.
+                </Alert>
+              )}
+            </Box>
+          );
+        }
+
+        // Fallback: if no field config, show the old PDF editor
         return (
           <Box>
-            {/* Auto-fill info banner */}
-            <Alert severity="success" sx={{ mb: 1 }}>
-              <strong>Auto-filled:</strong> PM# {job?.pmNumber || '—'} | {job?.address || '—'} | {new Date().toLocaleDateString()} | {user?.name || user?.email || '—'}
+            <Alert severity="info" sx={{ mb: 1 }} variant="outlined">
+              <strong>{step.label}</strong> — Fill in fields on the PDF form below.
             </Alert>
-
-            {/* Crew Materials reference for equipment info step */}
-            {step.key === 'equipment_info' && job?.crewMaterials?.length > 0 && (
-              <Paper variant="outlined" sx={{ p: 2, mb: 1.5, borderColor: 'info.main' }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                  Crew Materials from Job Package ({job.crewMaterials.length} items)
-                </Typography>
-                <Box sx={{ maxHeight: 160, overflow: 'auto' }}>
-                  {job.crewMaterials.map((mat, idx) => (
-                    <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-                      <Typography variant="caption" sx={{ flex: 1 }}>
-                        <strong>{mat.mCode}</strong> — {mat.description}
-                      </Typography>
-                      <Typography variant="caption" sx={{ ml: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                        {mat.quantity} {mat.unit}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Box>
-              </Paper>
-            )}
-
             {jobPackagePdfUrl ? (
-              <Box sx={{ minHeight: 500 }}>
-                <Alert severity="info" sx={{ mb: 1 }} variant="outlined">
-                  <strong>{step.label}</strong> — Scroll to find this form in the job package.
-                  Use the toolbar tools to fill in fields, check boxes, and sign. Tap <strong>Save</strong> when done.
-                </Alert>
-                <React.Suspense fallback={<CircularProgress />}>
-                  <PDFFormEditor
-                    pdfUrl={jobPackagePdfUrl}
-                    jobInfo={{
-                      pmNumber: job?.pmNumber,
-                      woNumber: job?.woNumber,
-                      notificationNumber: job?.notificationNumber,
-                      address: job?.address,
-                      city: job?.city,
-                      userName: user?.name,
-                      userEmail: user?.email,
-                      userLanId: user?.lanId || user?.username || (user?.email ? user.email.split('@')[0] : ''),
-                    }}
-                    documentName={step.label}
-                    onSave={(base64, name) => handlePdfFormSave(step.key, base64, name)}
-                  />
-                </React.Suspense>
-              </Box>
+              <React.Suspense fallback={<CircularProgress />}>
+                <PDFFormEditor
+                  pdfUrl={jobPackagePdfUrl}
+                  jobInfo={{
+                    pmNumber: job?.pmNumber,
+                    woNumber: job?.woNumber,
+                    address: job?.address,
+                    userName: user?.name,
+                    userLanId: user?.lanId || user?.username || '',
+                  }}
+                  documentName={step.label}
+                  onSave={(base64, name) => handlePdfFormSave(step.key, base64, name)}
+                />
+              </React.Suspense>
             ) : (
               <Alert severity="warning">
-                No job package PDF found. Upload the job package from the Job File System first,
-                then return to the wizard.
-              </Alert>
-            )}
-            {completedSteps[step.key] && (
-              <Alert severity="success" sx={{ mt: 2 }}>
-                {step.label} saved.
+                No job package PDF found. Upload from the Job File System first.
               </Alert>
             )}
           </Box>
         );
+      }
 
       // Billing form — native Exhibit B form (replaces PDF annotation)
       case 'billing_form':
