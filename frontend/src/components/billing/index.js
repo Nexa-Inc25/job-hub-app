@@ -24,6 +24,9 @@ export { default as BillingDashboard } from './BillingDashboard';
 export { default as DisputeDialog, CreateDisputeDialog, ResolveDisputeDialog, DISPUTE_CATEGORIES, RESOLUTION_ACTIONS } from './DisputeDialog';
 export { default as BillingAnalytics } from './BillingAnalytics';
 export { default as PriceBookAdmin } from './PriceBookAdmin';
+export { default as PriceBookImport } from './PriceBookImport';
+export { default as PriceBookItemEditor } from './PriceBookItemEditor';
+export { default as PriceBookVersionHistory } from './PriceBookVersionHistory';
 
 // Field Ticket (T&M / Change Order) Components
 export { default as FieldTicketForm } from './FieldTicketForm';

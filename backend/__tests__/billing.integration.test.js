@@ -1284,5 +1284,782 @@ describe('Billing Integration Tests', () => {
       expect(finalUnit1.status).toBe('paid');
     });
   });
+
+  // ==========================================================================
+  // BATCH UNIT ENTRY TESTS
+  // ==========================================================================
+
+  describe('Batch Unit Entry', () => {
+    let priceBook;
+
+    beforeEach(async () => {
+      priceBook = await PriceBook.create({
+        name: 'Batch Test PB',
+        utilityId: testData.utility._id,
+        companyId: testData.company._id,
+        effectiveDate: new Date('2026-01-01'),
+        status: 'active',
+        items: [
+          { itemCode: 'BATCH-1', description: 'Batch Item 1', category: 'civil', unit: 'LF', unitPrice: 20, isActive: true },
+          { itemCode: 'BATCH-2', description: 'Batch Item 2', category: 'electrical', unit: 'EA', unitPrice: 500, isActive: true }
+        ]
+      });
+    });
+
+    test('POST /api/billing/units/batch creates multiple entries', async () => {
+      const item1 = priceBook.items[0];
+      const item2 = priceBook.items[1];
+
+      const res = await request(app)
+        .post('/api/billing/units/batch')
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({
+          entries: [
+            {
+              jobId: testData.job._id.toString(),
+              priceBookId: priceBook._id.toString(),
+              priceBookItemId: item1._id.toString(),
+              quantity: 100,
+              workDate: '2026-01-20',
+              location: { latitude: 37.7749, longitude: -122.4194, accuracy: 5 },
+              performedBy: { tier: 'prime', workCategory: 'civil' },
+              photos: [{ url: 'https://example.com/b1.jpg', fileName: 'b1.jpg', photoType: 'after', capturedAt: new Date() }]
+            },
+            {
+              jobId: testData.job._id.toString(),
+              priceBookId: priceBook._id.toString(),
+              priceBookItemId: item2._id.toString(),
+              quantity: 3,
+              workDate: '2026-01-21',
+              location: { latitude: 37.7750, longitude: -122.4195, accuracy: 8 },
+              performedBy: { tier: 'prime', workCategory: 'electrical' },
+              photos: [{ url: 'https://example.com/b2.jpg', fileName: 'b2.jpg', photoType: 'after', capturedAt: new Date() }]
+            }
+          ]
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.total).toBe(2);
+      expect(res.body.succeeded).toBe(2);
+      expect(res.body.failed).toBe(0);
+      expect(res.body.results[0].success).toBe(true);
+      expect(res.body.results[0].totalAmount).toBe(2000); // 100 * 20
+      expect(res.body.results[1].totalAmount).toBe(1500); // 3 * 500
+    });
+
+    test('Batch returns per-entry errors for invalid entries', async () => {
+      const item1 = priceBook.items[0];
+
+      const res = await request(app)
+        .post('/api/billing/units/batch')
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({
+          entries: [
+            {
+              jobId: testData.job._id.toString(),
+              priceBookId: priceBook._id.toString(),
+              priceBookItemId: item1._id.toString(),
+              quantity: 50,
+              workDate: '2026-01-20',
+              location: { latitude: 37.7749, longitude: -122.4194, accuracy: 5 },
+              performedBy: { tier: 'prime', workCategory: 'civil' },
+              photos: [{ url: 'https://example.com/ok.jpg', fileName: 'ok.jpg', photoType: 'after', capturedAt: new Date() }]
+            },
+            {
+              // Missing required fields
+              jobId: testData.job._id.toString(),
+              quantity: 10
+            }
+          ]
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.succeeded).toBe(1);
+      expect(res.body.failed).toBe(1);
+      expect(res.body.results[0].success).toBe(true);
+      expect(res.body.results[1].success).toBe(false);
+    });
+
+    test('Batch rejects empty entries array', async () => {
+      const res = await request(app)
+        .post('/api/billing/units/batch')
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({ entries: [] });
+
+      expect(res.status).toBe(400);
+    });
+
+    test('Batch enforces max 50 entries', async () => {
+      const entries = Array.from({ length: 51 }, () => ({ jobId: 'fake' }));
+
+      const res = await request(app)
+        .post('/api/billing/units/batch')
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({ entries });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toMatch(/maximum 50/i);
+    });
+  });
+
+  // ==========================================================================
+  // PRICE BOOK VERSIONING TESTS
+  // ==========================================================================
+
+  describe('Price Book Versioning', () => {
+    let activePriceBook;
+
+    beforeEach(async () => {
+      activePriceBook = await PriceBook.create({
+        name: 'V1 Rate Sheet',
+        utilityId: testData.utility._id,
+        companyId: testData.company._id,
+        effectiveDate: new Date('2026-01-01'),
+        version: 1,
+        status: 'active',
+        items: [
+          { itemCode: 'VER-001', description: 'Version Test Item', category: 'civil', unit: 'LF', unitPrice: 25, isActive: true },
+          { itemCode: 'VER-002', description: 'Version Test Item 2', category: 'electrical', unit: 'EA', unitPrice: 100, isActive: true }
+        ]
+      });
+    });
+
+    test('POST /api/pricebooks/:id/new-version creates a new draft from active', async () => {
+      const res = await request(app)
+        .post(`/api/pricebooks/${activePriceBook._id}/new-version`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ effectiveDate: '2026-07-01' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.status).toBe('draft');
+      expect(res.body.version).toBe(2);
+      expect(res.body.supersedes).toBe(activePriceBook._id.toString());
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body.items[0].itemCode).toBe('VER-001');
+      expect(res.body.items[0].unitPrice).toBe(25);
+    });
+
+    test('New version can be activated to supersede source', async () => {
+      // Create new version
+      const versionRes = await request(app)
+        .post(`/api/pricebooks/${activePriceBook._id}/new-version`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ effectiveDate: '2026-07-01' });
+
+      const newVersionId = versionRes.body._id;
+
+      // Activate it
+      const activateRes = await request(app)
+        .post(`/api/pricebooks/${newVersionId}/activate`)
+        .set('Authorization', `Bearer ${testData.pmToken}`);
+
+      expect(activateRes.status).toBe(200);
+      expect(activateRes.body.status).toBe('active');
+
+      // Original should be superseded
+      const original = await PriceBook.findById(activePriceBook._id);
+      expect(original.status).toBe('superseded');
+    });
+
+    test('GET /api/pricebooks/:id/versions returns version chain', async () => {
+      // Create v2
+      const v2Res = await request(app)
+        .post(`/api/pricebooks/${activePriceBook._id}/new-version`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ effectiveDate: '2026-07-01' });
+
+      // Activate v2
+      await request(app)
+        .post(`/api/pricebooks/${v2Res.body._id}/activate`)
+        .set('Authorization', `Bearer ${testData.pmToken}`);
+
+      // Get version history from v2
+      const historyRes = await request(app)
+        .get(`/api/pricebooks/${v2Res.body._id}/versions`)
+        .set('Authorization', `Bearer ${testData.pmToken}`);
+
+      expect(historyRes.status).toBe(200);
+      expect(historyRes.body.versions.length).toBeGreaterThanOrEqual(2);
+    });
+
+    test('Foreman cannot create versions (403)', async () => {
+      const res = await request(app)
+        .post(`/api/pricebooks/${activePriceBook._id}/new-version`)
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({ effectiveDate: '2026-07-01' });
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  // ==========================================================================
+  // FBDI EXPORT COLUMN ORDERING TESTS
+  // ==========================================================================
+
+  describe('FBDI Export Column Ordering', () => {
+    test('toOracleFBDI() header columns match spec', async () => {
+      const claim = await Claim.create({
+        companyId: testData.company._id,
+        jobId: testData.job._id,
+        claimType: 'progress',
+        lineItems: [{
+          unitEntryId: new mongoose.Types.ObjectId(),
+          lineNumber: 1,
+          itemCode: 'TEST-001',
+          description: 'Test Item',
+          quantity: 10,
+          unit: 'EA',
+          unitPrice: 100,
+          totalAmount: 1000
+        }],
+        subtotal: 1000,
+        totalAmount: 1000,
+        amountDue: 1000,
+        createdBy: testData.pmUser._id
+      });
+
+      const fbdi = claim.toOracleFBDI();
+
+      // Verify header column ordering matches Oracle FBDI spec
+      const expectedHeaderCols = [
+        'INVOICE_NUM', 'VENDOR_NUM', 'VENDOR_SITE_CODE', 'INVOICE_AMOUNT',
+        'INVOICE_DATE', 'INVOICE_TYPE_LOOKUP_CODE', 'SOURCE', 'ORG_ID',
+        'DESCRIPTION', 'TERMS_NAME', 'GL_DATE', 'INVOICE_CURRENCY_CODE',
+        'EXCHANGE_RATE', 'EXCHANGE_RATE_TYPE', 'EXCHANGE_DATE', 'PO_NUMBER',
+        'ATTRIBUTE1', 'ATTRIBUTE2', 'ATTRIBUTE3', 'ATTRIBUTE4', 'ATTRIBUTE_CATEGORY'
+      ];
+
+      expect(fbdi.headerColumns).toEqual(expectedHeaderCols);
+      expect(fbdi.header).toHaveLength(expectedHeaderCols.length);
+    });
+
+    test('toOracleFBDI() line columns match spec', async () => {
+      const claim = await Claim.create({
+        companyId: testData.company._id,
+        jobId: testData.job._id,
+        claimType: 'progress',
+        lineItems: [{
+          unitEntryId: new mongoose.Types.ObjectId(),
+          lineNumber: 1,
+          itemCode: 'TEST-001',
+          description: 'Test Item',
+          quantity: 10,
+          unit: 'EA',
+          unitPrice: 100,
+          totalAmount: 1000
+        }],
+        subtotal: 1000,
+        totalAmount: 1000,
+        amountDue: 1000,
+        createdBy: testData.pmUser._id
+      });
+
+      const fbdi = claim.toOracleFBDI();
+
+      const expectedLineCols = [
+        'INVOICE_NUM', 'LINE_NUMBER', 'LINE_TYPE_LOOKUP_CODE', 'AMOUNT',
+        'QUANTITY_INVOICED', 'UNIT_PRICE', 'DESCRIPTION', 'DIST_CODE_COMBINATION_ID',
+        'PROJECT_ID', 'TASK_ID', 'EXPENDITURE_TYPE', 'EXPENDITURE_ITEM_DATE',
+        'EXPENDITURE_ORGANIZATION_ID', 'LINE_ATTRIBUTE1', 'LINE_ATTRIBUTE2',
+        'LINE_ATTRIBUTE3', 'LINE_ATTRIBUTE4', 'LINE_ATTRIBUTE5', 'LINE_ATTRIBUTE6',
+        'LINE_ATTRIBUTE_CATEGORY'
+      ];
+
+      expect(fbdi.lineColumns).toEqual(expectedLineCols);
+      expect(fbdi.lines).toHaveLength(1);
+      expect(fbdi.lines[0]).toHaveLength(expectedLineCols.length);
+    });
+
+    test('FBDI header data maps to correct columns', async () => {
+      const claim = await Claim.create({
+        companyId: testData.company._id,
+        jobId: testData.job._id,
+        claimNumber: 'CLM-2026-FBDI-001',
+        claimType: 'progress',
+        oracle: {
+          businessUnit: 'PGE-ELEC',
+          paymentTerms: 'Net 45'
+        },
+        lineItems: [{
+          unitEntryId: new mongoose.Types.ObjectId(),
+          lineNumber: 1,
+          itemCode: 'X-001',
+          description: 'Export Test',
+          quantity: 5,
+          unit: 'EA',
+          unitPrice: 200,
+          totalAmount: 1000
+        }],
+        subtotal: 1000,
+        totalAmount: 1000,
+        amountDue: 1000,
+        createdBy: testData.pmUser._id
+      });
+
+      const fbdi = claim.toOracleFBDI();
+
+      // header[0] = INVOICE_NUM
+      expect(fbdi.header[0]).toBe('CLM-2026-FBDI-001');
+      // header[5] = INVOICE_TYPE_LOOKUP_CODE
+      expect(fbdi.header[5]).toBe('Standard');
+      // header[6] = SOURCE
+      expect(fbdi.header[6]).toBe('FieldLedger');
+      // header[7] = ORG_ID (maps to oracle.businessUnit)
+      expect(fbdi.header[7]).toBe('PGE-ELEC');
+      // header[9] = TERMS_NAME
+      expect(fbdi.header[9]).toBe('Net 45');
+      // header[11] = INVOICE_CURRENCY_CODE
+      expect(fbdi.header[11]).toBe('USD');
+      // header[18] = ATTRIBUTE3 (Claim ID)
+      expect(fbdi.header[18]).toBe('CLM-2026-FBDI-001');
+      // header[20] = ATTRIBUTE_CATEGORY
+      expect(fbdi.header[20]).toBe('CONTRACTOR_INVOICE');
+    });
+  });
+
+  // ==========================================================================
+  // toOraclePayload() FIELD MAPPING TESTS
+  // ==========================================================================
+
+  describe('toOraclePayload() Field Mapping', () => {
+    test('Maps all required Oracle REST fields', async () => {
+      const claim = await Claim.create({
+        companyId: testData.company._id,
+        jobId: testData.job._id,
+        claimNumber: 'CLM-2026-ORA-001',
+        claimType: 'progress',
+        oracle: {
+          vendorId: 'VENDOR-999',
+          vendorSiteId: 'SITE-001',
+          vendorName: 'Test Contractor',
+          businessUnit: 'PGE-GAS',
+          legalEntity: 'PGE-CORP',
+          paymentTerms: 'Net 30',
+          projectNumber: 'PM-55555',
+          taskNumber: 'T-100',
+          expenditureType: 'Contract Labor'
+        },
+        lineItems: [{
+          unitEntryId: new mongoose.Types.ObjectId(),
+          lineNumber: 1,
+          itemCode: 'ORA-ITEM',
+          description: 'Oracle Mapping Test',
+          quantity: 10,
+          unit: 'LF',
+          unitPrice: 50,
+          totalAmount: 500,
+          workDate: new Date('2026-01-15'),
+          performedByTier: 'sub',
+          subContractorName: 'Sub Co',
+          workCategory: 'civil',
+          hasGPS: true,
+          photoCount: 2
+        }],
+        subtotal: 500,
+        totalAmount: 500,
+        amountDue: 500,
+        createdBy: testData.pmUser._id
+      });
+
+      const payload = claim.toOraclePayload();
+
+      // Header fields
+      expect(payload.InvoiceNumber).toBe('CLM-2026-ORA-001');
+      expect(payload.InvoiceAmount).toBe(500);
+      expect(payload.InvoiceCurrencyCode).toBe('USD');
+      expect(payload.InvoiceType).toBe('Standard');
+      expect(payload.InvoiceSource).toBe('FieldLedger');
+      expect(payload.VendorId).toBe('VENDOR-999');
+      expect(payload.VendorSiteId).toBe('SITE-001');
+      expect(payload.BusinessUnit).toBe('PGE-GAS');
+      expect(payload.LegalEntityIdentifier).toBe('PGE-CORP');
+      expect(payload.PaymentTerms).toBe('Net 30');
+
+      // DFF attributes
+      expect(payload.AttributeCategory).toBe('CONTRACTOR_INVOICE');
+      expect(payload.Attribute3).toBe('CLM-2026-ORA-001');
+
+      // Line items
+      expect(payload.invoiceLines).toHaveLength(1);
+      const line = payload.invoiceLines[0];
+      expect(line.LineNumber).toBe(1);
+      expect(line.LineType).toBe('Item');
+      expect(line.Amount).toBe(500);
+      expect(line.Quantity).toBe(10);
+      expect(line.UnitPrice).toBe(50);
+      expect(line.ProjectNumber).toBe('PM-55555');
+      expect(line.TaskNumber).toBe('T-100');
+      expect(line.ExpenditureType).toBe('Contract Labor');
+      expect(line.LineAttributeCategory).toBe('UNIT_PRICE_ITEM');
+      expect(line.LineAttribute1).toBe('ORA-ITEM');
+      expect(line.LineAttribute3).toBe('sub');
+      expect(line.LineAttribute4).toBe('Sub Co');
+      expect(line.LineAttribute5).toBe('civil');
+    });
+  });
+
+  // ==========================================================================
+  // DISPUTE WORKFLOW TESTS
+  // ==========================================================================
+
+  describe('Dispute Workflow', () => {
+    let priceBook;
+
+    beforeEach(async () => {
+      priceBook = await PriceBook.create({
+        name: 'Dispute Test PB',
+        utilityId: testData.utility._id,
+        companyId: testData.company._id,
+        effectiveDate: new Date('2026-01-01'),
+        status: 'active',
+        items: [
+          { itemCode: 'DISP-1', description: 'Dispute Test Item', category: 'civil', unit: 'LF', unitPrice: 30, isActive: true }
+        ]
+      });
+    });
+
+    test('Create → Submit → Dispute → Resolve (accept)', async () => {
+      const item = priceBook.items[0];
+
+      // Create unit
+      const createRes = await request(app)
+        .post('/api/billing/units')
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({
+          jobId: testData.job._id.toString(),
+          priceBookId: priceBook._id.toString(),
+          priceBookItemId: item._id.toString(),
+          quantity: 50,
+          workDate: '2026-01-20',
+          location: { latitude: 37.7749, longitude: -122.4194, accuracy: 5 },
+          performedBy: { tier: 'prime', workCategory: 'civil' },
+          photos: [{ url: 'https://example.com/d1.jpg', fileName: 'd1.jpg', photoType: 'after', capturedAt: new Date() }]
+        });
+
+      expect(createRes.status).toBe(201);
+      const unitId = createRes.body._id;
+
+      // Submit
+      await request(app)
+        .post(`/api/billing/units/${unitId}/submit`)
+        .set('Authorization', `Bearer ${testData.foremanToken}`);
+
+      // Dispute by GF
+      const disputeRes = await request(app)
+        .post(`/api/billing/units/${unitId}/dispute`)
+        .set('Authorization', `Bearer ${testData.gfToken}`)
+        .send({ reason: 'Quantity seems too high', category: 'quantity' });
+
+      expect(disputeRes.status).toBe(200);
+      expect(disputeRes.body.status).toBe('disputed');
+      expect(disputeRes.body.isDisputed).toBe(true);
+      expect(disputeRes.body.disputeReason).toBe('Quantity seems too high');
+
+      // Verify unit appears in disputed list
+      const disputedRes = await request(app)
+        .get('/api/billing/units/disputed')
+        .set('Authorization', `Bearer ${testData.pmToken}`);
+
+      expect(disputedRes.status).toBe(200);
+      expect(disputedRes.body.length).toBeGreaterThanOrEqual(1);
+
+      // Resolve dispute - accept as-is
+      const resolveRes = await request(app)
+        .post(`/api/billing/units/${unitId}/resolve-dispute`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ resolution: 'Verified on-site, quantity confirmed', action: 'accept' });
+
+      expect(resolveRes.status).toBe(200);
+      expect(resolveRes.body.unit.status).toBe('approved');
+      expect(resolveRes.body.unit.isDisputed).toBe(false);
+    });
+
+    test('Dispute → Resolve with quantity adjustment', async () => {
+      const item = priceBook.items[0];
+
+      // Create submitted unit
+      const unit = await UnitEntry.create({
+        jobId: testData.job._id,
+        companyId: testData.company._id,
+        priceBookId: priceBook._id,
+        priceBookItemId: item._id,
+        itemCode: item.itemCode,
+        description: item.description,
+        category: item.category,
+        quantity: 100,
+        unit: 'LF',
+        unitPrice: 30,
+        totalAmount: 3000,
+        workDate: new Date(),
+        location: { latitude: 37.7749, longitude: -122.4194 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://example.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id,
+        status: 'submitted',
+        isDisputed: true,
+        disputedAt: new Date(),
+        disputedBy: testData.gfUser._id,
+        disputeReason: 'Actual measurement is 80 LF',
+        disputeCategory: 'quantity'
+      });
+
+      // Resolve with adjustment
+      const resolveRes = await request(app)
+        .post(`/api/billing/units/${unit._id}/resolve-dispute`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({
+          resolution: 'Adjusted based on field measurement',
+          action: 'adjust',
+          adjustedQuantity: 80,
+          adjustedReason: 'Verified at 80 LF by tape measure'
+        });
+
+      expect(resolveRes.status).toBe(200);
+      expect(resolveRes.body.unit.quantity).toBe(80);
+      expect(resolveRes.body.unit.totalAmount).toBe(2400); // 80 * 30
+      expect(resolveRes.body.unit.status).toBe('approved');
+
+      // Verify adjustment was logged
+      const updated = await UnitEntry.findById(unit._id);
+      expect(updated.adjustments).toHaveLength(1);
+      expect(updated.adjustments[0].originalQuantity).toBe(100);
+      expect(updated.adjustments[0].newQuantity).toBe(80);
+    });
+
+    test('Dispute → Void removes unit from billing', async () => {
+      const item = priceBook.items[0];
+
+      const unit = await UnitEntry.create({
+        jobId: testData.job._id,
+        companyId: testData.company._id,
+        priceBookId: priceBook._id,
+        priceBookItemId: item._id,
+        itemCode: item.itemCode,
+        description: item.description,
+        category: item.category,
+        quantity: 50,
+        unit: 'LF',
+        unitPrice: 30,
+        totalAmount: 1500,
+        workDate: new Date(),
+        location: { latitude: 37.7749, longitude: -122.4194 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://example.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id,
+        status: 'submitted',
+        isDisputed: true,
+        disputedAt: new Date(),
+        disputedBy: testData.gfUser._id,
+        disputeReason: 'Duplicate entry'
+      });
+
+      const resolveRes = await request(app)
+        .post(`/api/billing/units/${unit._id}/resolve-dispute`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ resolution: 'Confirmed duplicate - voiding', action: 'void' });
+
+      expect(resolveRes.status).toBe(200);
+
+      const voided = await UnitEntry.findById(unit._id);
+      expect(voided.isDeleted).toBe(true);
+      expect(voided.status).toBe('draft');
+    });
+
+    test('Dispute → Resubmit sends back to foreman', async () => {
+      const item = priceBook.items[0];
+
+      const unit = await UnitEntry.create({
+        jobId: testData.job._id,
+        companyId: testData.company._id,
+        priceBookId: priceBook._id,
+        priceBookItemId: item._id,
+        itemCode: item.itemCode,
+        description: item.description,
+        category: item.category,
+        quantity: 50,
+        unit: 'LF',
+        unitPrice: 30,
+        totalAmount: 1500,
+        workDate: new Date(),
+        location: { latitude: 37.7749, longitude: -122.4194 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://example.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id,
+        status: 'submitted',
+        isDisputed: true,
+        disputedAt: new Date(),
+        disputedBy: testData.gfUser._id,
+        disputeReason: 'Photos unclear'
+      });
+
+      const resolveRes = await request(app)
+        .post(`/api/billing/units/${unit._id}/resolve-dispute`)
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ resolution: 'Need clearer photos', action: 'resubmit' });
+
+      expect(resolveRes.status).toBe(200);
+
+      const resubmitted = await UnitEntry.findById(unit._id);
+      expect(resubmitted.status).toBe('draft');
+      expect(resubmitted.isDisputed).toBe(false);
+    });
+
+    test('Foreman cannot resolve disputes (403)', async () => {
+      const item = priceBook.items[0];
+
+      const unit = await UnitEntry.create({
+        jobId: testData.job._id,
+        companyId: testData.company._id,
+        priceBookId: priceBook._id,
+        priceBookItemId: item._id,
+        itemCode: item.itemCode,
+        description: item.description,
+        category: item.category,
+        quantity: 50,
+        unit: 'LF',
+        unitPrice: 30,
+        totalAmount: 1500,
+        workDate: new Date(),
+        location: { latitude: 37.7749, longitude: -122.4194 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://example.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id,
+        status: 'submitted',
+        isDisputed: true,
+        disputedAt: new Date(),
+        disputedBy: testData.gfUser._id,
+        disputeReason: 'Test'
+      });
+
+      const res = await request(app)
+        .post(`/api/billing/units/${unit._id}/resolve-dispute`)
+        .set('Authorization', `Bearer ${testData.foremanToken}`)
+        .send({ resolution: 'I resolve this', action: 'accept' });
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  // ==========================================================================
+  // IMPROVED CLAIM GENERATION TESTS
+  // ==========================================================================
+
+  describe('Improved Claim Generation Validation', () => {
+    let priceBook;
+
+    beforeEach(async () => {
+      priceBook = await PriceBook.create({
+        name: 'Claim Validation PB',
+        utilityId: testData.utility._id,
+        companyId: testData.company._id,
+        effectiveDate: new Date('2026-01-01'),
+        status: 'active',
+        items: [
+          { itemCode: 'CV-1', description: 'Claim Val Item', category: 'civil', unit: 'LF', unitPrice: 50, isActive: true }
+        ]
+      });
+    });
+
+    test('Rejects claim with mix of approved and non-approved units', async () => {
+      const item = priceBook.items[0];
+
+      const approved = await UnitEntry.create({
+        jobId: testData.job._id, companyId: testData.company._id,
+        priceBookId: priceBook._id, priceBookItemId: item._id,
+        itemCode: 'CV-1', description: 'Item', category: 'civil',
+        quantity: 10, unit: 'LF', unitPrice: 50, totalAmount: 500,
+        workDate: new Date(), location: { latitude: 37, longitude: -122 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://x.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id, status: 'approved'
+      });
+
+      const verified = await UnitEntry.create({
+        jobId: testData.job._id, companyId: testData.company._id,
+        priceBookId: priceBook._id, priceBookItemId: item._id,
+        itemCode: 'CV-1', description: 'Item', category: 'civil',
+        quantity: 10, unit: 'LF', unitPrice: 50, totalAmount: 500,
+        workDate: new Date(), location: { latitude: 37, longitude: -122 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://x.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id, status: 'verified'
+      });
+
+      const res = await request(app)
+        .post('/api/billing/claims')
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ unitIds: [approved._id.toString(), verified._id.toString()] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.details).toBeDefined();
+      expect(res.body.details.notApproved).toHaveLength(1);
+    });
+
+    test('Rejects claim with units already on another claim', async () => {
+      const item = priceBook.items[0];
+      const existingClaimId = new mongoose.Types.ObjectId();
+
+      const alreadyClaimed = await UnitEntry.create({
+        jobId: testData.job._id, companyId: testData.company._id,
+        priceBookId: priceBook._id, priceBookItemId: item._id,
+        itemCode: 'CV-1', description: 'Item', category: 'civil',
+        quantity: 10, unit: 'LF', unitPrice: 50, totalAmount: 500,
+        workDate: new Date(), location: { latitude: 37, longitude: -122 },
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://x.com/p.jpg', fileName: 'p.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id, status: 'approved',
+        claimId: existingClaimId
+      });
+
+      const res = await request(app)
+        .post('/api/billing/claims')
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ unitIds: [alreadyClaimed._id.toString()] });
+
+      expect(res.status).toBe(400);
+      expect(res.body.details.alreadyClaimed).toHaveLength(1);
+    });
+
+    test('Claim creation generates verification metrics', async () => {
+      const item = priceBook.items[0];
+
+      const unit1 = await UnitEntry.create({
+        jobId: testData.job._id, companyId: testData.company._id,
+        priceBookId: priceBook._id, priceBookItemId: item._id,
+        itemCode: 'CV-1', description: 'Item', category: 'civil',
+        quantity: 10, unit: 'LF', unitPrice: 50, totalAmount: 500,
+        workDate: new Date(), location: { latitude: 37, longitude: -122, accuracy: 5 },
+        gpsQuality: 'high',
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://x.com/p1.jpg', fileName: 'p1.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id, status: 'approved'
+      });
+
+      const unit2 = await UnitEntry.create({
+        jobId: testData.job._id, companyId: testData.company._id,
+        priceBookId: priceBook._id, priceBookItemId: item._id,
+        itemCode: 'CV-1', description: 'Item', category: 'civil',
+        quantity: 20, unit: 'LF', unitPrice: 50, totalAmount: 1000,
+        workDate: new Date(), location: { latitude: 37, longitude: -122, accuracy: 5 },
+        gpsQuality: 'high',
+        performedBy: { tier: 'prime', workCategory: 'civil' },
+        photos: [{ url: 'https://x.com/p2.jpg', fileName: 'p2.jpg', capturedAt: new Date() }],
+        enteredBy: testData.foremanUser._id, status: 'approved'
+      });
+
+      const res = await request(app)
+        .post('/api/billing/claims')
+        .set('Authorization', `Bearer ${testData.pmToken}`)
+        .send({ unitIds: [unit1._id.toString(), unit2._id.toString()] });
+
+      expect(res.status).toBe(201);
+
+      // Fetch with verification metrics (populated by pre-save)
+      const claim = await Claim.findById(res.body._id);
+      expect(claim.verificationMetrics.totalUnits).toBe(2);
+      expect(claim.verificationMetrics.photoComplianceRate).toBeGreaterThan(0);
+      expect(claim.verificationMetrics.gpsComplianceRate).toBeGreaterThan(0);
+    });
+  });
 });
 
