@@ -106,6 +106,8 @@ const TailboardForm = () => {
         if (res.data.workStatus?.blocked) setWeatherError(`Warning: ${res.data.workStatus.reason}`);
       }
     } catch (err) {
+      // Mark weather as unavailable so manual entry is enabled
+      setWeatherData({ source: 'error', mock: true });
       if (err.code === 1) setWeatherError('Location permission denied');
       else if (err.code === 2) setWeatherError('Location unavailable');
       else if (err.code === 3) setWeatherError('Location timeout');
