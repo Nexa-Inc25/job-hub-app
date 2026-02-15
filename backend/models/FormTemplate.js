@@ -16,6 +16,44 @@ const fieldBoundsSchema = new mongoose.Schema({
   height: { type: Number, required: true }, // Field height in PDF points
 }, { _id: false });
 
+// Validation rules per field
+const validationRuleSchema = new mongoose.Schema({
+  // Required field validation
+  required: { type: Boolean, default: false },
+  requiredMessage: { type: String, default: 'This field is required' },
+
+  // Format pattern (regex string)
+  pattern: { type: String, default: '' },
+  patternMessage: { type: String, default: 'Invalid format' },
+
+  // Preset format shortcuts (applied before custom pattern)
+  formatPreset: {
+    type: String,
+    enum: ['none', 'date', 'phone', 'email', 'number', 'zipcode'],
+    default: 'none'
+  },
+
+  // Length constraints
+  minLength: { type: Number, default: 0 },
+  maxLength: { type: Number, default: 0 },  // 0 = no limit
+
+  // Numeric range constraints (for number fields)
+  min: { type: Number, default: null },
+  max: { type: Number, default: null },
+
+  // Cross-field validation references
+  // e.g. { field: 'end_date', operator: 'gt', message: 'End date must be after start date' }
+  crossFieldRules: [{
+    field: { type: String, required: true },    // Other field name to compare against
+    operator: {
+      type: String,
+      enum: ['gt', 'gte', 'lt', 'lte', 'eq', 'neq'],
+      required: true
+    },
+    message: { type: String, default: 'Cross-field validation failed' },
+  }],
+}, { _id: false });
+
 // Individual form field definition
 const formFieldSchema = new mongoose.Schema({
   id: { type: String, required: true },           // Unique field identifier (e.g., "field_1")
@@ -33,6 +71,7 @@ const formFieldSchema = new mongoose.Schema({
   required: { type: Boolean, default: false },
   defaultValue: { type: String },
   dateFormat: { type: String, default: 'MM/DD/YYYY' }, // For date fields
+  validation: { type: validationRuleSchema, default: () => ({}) },
 }, { _id: false });
 
 // Page dimensions for coordinate mapping
@@ -141,6 +180,116 @@ formTemplateSchema.statics.findActiveForCompany = function(companyId) {
     companyId, 
     status: 'active' 
   }).sort({ name: 1 });
+};
+
+// Preset format regex patterns
+const FORMAT_PRESETS = {
+  date: /^\d{1,2}\/\d{1,2}\/\d{2,4}$|^\d{4}-\d{2}-\d{2}$/,
+  phone: /^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/,
+  email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  number: /^-?\d+(\.\d+)?$/,
+  zipcode: /^\d{5}(-\d{4})?$/,
+};
+
+/**
+ * Validate a set of field values against this template's validation rules.
+ *
+ * @param {Object} fieldValues - Map of fieldName → value
+ * @returns {{ valid: boolean, errors: Array<{ field: string, message: string }> }}
+ */
+formTemplateSchema.methods.validateFieldValues = function(fieldValues) {
+  const errors = [];
+
+  for (const field of this.fields) {
+    const rules = field.validation;
+    if (!rules) continue;
+
+    const value = fieldValues[field.name];
+    const isEmpty = value === null || value === undefined || String(value).trim() === '';
+
+    // Required check
+    if ((rules.required || field.required) && isEmpty) {
+      errors.push({ field: field.name, message: rules.requiredMessage || 'This field is required' });
+      continue; // skip other checks if empty & required
+    }
+
+    // Skip remaining validations if empty and not required
+    if (isEmpty) continue;
+
+    const strVal = String(value).trim();
+
+    // Format preset check
+    if (rules.formatPreset && rules.formatPreset !== 'none') {
+      const regex = FORMAT_PRESETS[rules.formatPreset];
+      if (regex && !regex.test(strVal)) {
+        errors.push({ field: field.name, message: `Invalid ${rules.formatPreset} format` });
+      }
+    }
+
+    // Custom pattern check
+    if (rules.pattern) {
+      try {
+        const regex = new RegExp(rules.pattern);
+        if (!regex.test(strVal)) {
+          errors.push({ field: field.name, message: rules.patternMessage || 'Invalid format' });
+        }
+      } catch {
+        // Invalid regex pattern stored — skip
+      }
+    }
+
+    // Length constraints
+    if (rules.minLength > 0 && strVal.length < rules.minLength) {
+      errors.push({ field: field.name, message: `Minimum length is ${rules.minLength} characters` });
+    }
+    if (rules.maxLength > 0 && strVal.length > rules.maxLength) {
+      errors.push({ field: field.name, message: `Maximum length is ${rules.maxLength} characters` });
+    }
+
+    // Numeric range
+    if (rules.min !== null && rules.min !== undefined) {
+      const num = Number(value);
+      if (!isNaN(num) && num < rules.min) {
+        errors.push({ field: field.name, message: `Value must be at least ${rules.min}` });
+      }
+    }
+    if (rules.max !== null && rules.max !== undefined) {
+      const num = Number(value);
+      if (!isNaN(num) && num > rules.max) {
+        errors.push({ field: field.name, message: `Value must be at most ${rules.max}` });
+      }
+    }
+
+    // Cross-field validation
+    if (rules.crossFieldRules?.length > 0) {
+      for (const rule of rules.crossFieldRules) {
+        const otherValue = fieldValues[rule.field];
+        if (otherValue === null || otherValue === undefined) continue;
+
+        const a = Number(value) || new Date(value).getTime();
+        const b = Number(otherValue) || new Date(otherValue).getTime();
+
+        if (isNaN(a) || isNaN(b)) continue;
+
+        let passed = true;
+        switch (rule.operator) {
+          case 'gt':  passed = a > b; break;
+          case 'gte': passed = a >= b; break;
+          case 'lt':  passed = a < b; break;
+          case 'lte': passed = a <= b; break;
+          case 'eq':  passed = a === b; break;
+          case 'neq': passed = a !== b; break;
+          default: break;
+        }
+
+        if (!passed) {
+          errors.push({ field: field.name, message: rule.message || `Cross-field validation failed with ${rule.field}` });
+        }
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
 };
 
 const FormTemplate = mongoose.model('FormTemplate', formTemplateSchema);
