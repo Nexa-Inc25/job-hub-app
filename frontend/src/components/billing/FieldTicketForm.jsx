@@ -197,7 +197,15 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
       const response = isEditMode
         ? await api.put(`/api/fieldtickets/${ticketId}`, ticketData)
         : await api.post('/api/fieldtickets', ticketData);
-      if (onSuccess) { onSuccess(response.data); } else { navigate(`/jobs/${jobId}`); }
+      if (onSuccess) {
+        onSuccess(response.data);
+      } else if (isEditMode) {
+        // After updating, go back to Change Orders dashboard
+        navigate('/billing/change-orders');
+      } else {
+        // After creating, go to the job page
+        navigate(`/jobs/${jobId}`);
+      }
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} field ticket:`, err);
       setError(err.response?.data?.error || `Failed to ${isEditMode ? 'update' : 'create'} field ticket`);
