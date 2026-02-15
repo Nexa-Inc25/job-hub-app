@@ -166,26 +166,18 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
     if (!changeReason) { setError('Please select a reason for the extra work'); return; }
     if (!changeDescription.trim()) { setError('Please describe the extra work'); return; }
     if (laborEntries.length === 0 && equipmentEntries.length === 0 && materialEntries.length === 0) { setError('Please add at least one labor, equipment, or material entry'); return; }
-    if (photos.length === 0) { setError('Please add at least one photo documenting the extra work'); return; }
+    if (!isEditMode && photos.length === 0) { setError('Please add at least one photo documenting the extra work'); return; }
     if (!jobId) { setError('Job ID is missing. Please try again from the job details page.'); return; }
 
     setSubmitting(true);
     setError(null);
 
     try {
-      let location = null;
-      try { location = await acquireLocation(); } catch (geoErr) { console.warn('GPS acquisition failed:', geoErr); }
-      if (!location) { setError('GPS location is required. Please enable location services and try again.'); setSubmitting(false); return; }
-
+      // Build the update payload (no GPS/location needed for edits - already captured on creation)
       const ticketData = {
-        jobId: String(jobId),
-        changeReason,
         changeDescription,
-        workDate,
         workStartTime,
         workEndTime,
-        location,
-        locationDescription: job?.address || '',
         laborEntries: laborEntries.map(e => ({ ...e, totalAmount: (e.regularHours * e.regularRate) + (e.overtimeHours * (e.overtimeRate || e.regularRate * 1.5)) + (e.doubleTimeHours * (e.doubleTimeRate || e.regularRate * 2)) })),
         equipmentEntries: equipmentEntries.map(e => ({ ...e, totalAmount: (e.hours * e.hourlyRate) + (e.standbyHours * (e.standbyRate || e.hourlyRate * 0.5)) })),
         materialEntries: materialEntries.map(e => ({ ...e, totalAmount: (e.quantity * e.unitCost) * (1 + (e.markup || 0) / 100) })),
@@ -194,17 +186,26 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
         internalNotes,
       };
 
-      const response = isEditMode
-        ? await api.put(`/api/fieldtickets/${ticketId}`, ticketData)
-        : await api.post('/api/fieldtickets', ticketData);
-      if (onSuccess) {
-        onSuccess(response.data);
-      } else if (isEditMode) {
-        // After updating, go back to Change Orders dashboard
-        navigate('/billing/change-orders');
+      if (isEditMode) {
+        await api.put(`/api/fieldtickets/${ticketId}`, ticketData);
+        if (onSuccess) { onSuccess(); } else { navigate('/billing/change-orders'); }
       } else {
-        // After creating, go to the job page
-        navigate(`/jobs/${jobId}`);
+        // New ticket: also requires GPS, jobId, and full metadata
+        let location = null;
+        try { location = await acquireLocation(); } catch (geoErr) { console.warn('GPS acquisition failed:', geoErr); }
+        if (!location) { setError('GPS location is required. Please enable location services and try again.'); setSubmitting(false); return; }
+
+        const createData = {
+          ...ticketData,
+          jobId: String(jobId),
+          changeReason,
+          workDate,
+          location,
+          locationDescription: job?.address || '',
+        };
+
+        const response = await api.post('/api/fieldtickets', createData);
+        if (onSuccess) { onSuccess(response.data); } else { navigate(`/jobs/${jobId}`); }
       }
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} field ticket:`, err);
