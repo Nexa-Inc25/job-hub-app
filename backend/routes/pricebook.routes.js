@@ -705,6 +705,207 @@ router.post('/:id/activate', async (req, res) => {
 
 /**
  * @swagger
+ * /api/pricebooks/{id}/new-version:
+ *   post:
+ *     summary: Create a new draft version from an existing price book
+ *     description: |
+ *       Copies all items from the source price book into a new draft version.
+ *       The new version's `supersedes` field references the source.
+ *       When the new version is activated, the source is automatically superseded.
+ *     tags: [PriceBook]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Source price book ID to version from
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               effectiveDate:
+ *                 type: string
+ *                 format: date
+ *                 description: New version effective date (defaults to today)
+ *               expiresAt:
+ *                 type: string
+ *                 format: date
+ *                 description: New version expiration date
+ *               name:
+ *                 type: string
+ *                 description: Override name (defaults to source name + version)
+ *     responses:
+ *       201:
+ *         description: New draft version created
+ */
+router.post('/:id/new-version', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    if (!req.isAdmin && user.role !== 'pm') {
+      return res.status(403).json({ error: 'Only admins and PMs can create price book versions' });
+    }
+
+    const sourceId = sanitizeObjectId(req.params.id);
+    if (!sourceId) {
+      return res.status(400).json({ error: 'Invalid price book ID' });
+    }
+
+    const source = await PriceBook.findOne({
+      _id: sourceId,
+      companyId: user.companyId
+    });
+
+    if (!source) {
+      return res.status(404).json({ error: 'Price book not found' });
+    }
+
+    const { effectiveDate, expiresAt, name } = req.body;
+
+    // Copy items from source (plain objects)
+    const copiedItems = source.items.map(item => ({
+      itemCode: item.itemCode,
+      description: item.description,
+      shortDescription: item.shortDescription,
+      category: item.category,
+      subcategory: item.subcategory,
+      workType: item.workType,
+      unit: item.unit,
+      unitPrice: item.unitPrice,
+      laborRate: item.laborRate,
+      materialRate: item.materialRate,
+      equipmentRate: item.equipmentRate,
+      laborIncluded: item.laborIncluded,
+      materialIncluded: item.materialIncluded,
+      requiresPhoto: item.requiresPhoto,
+      requiresGPS: item.requiresGPS,
+      minQuantity: item.minQuantity,
+      maxQuantity: item.maxQuantity,
+      oracleItemId: item.oracleItemId,
+      oracleExpenseAccount: item.oracleExpenseAccount,
+      oracleExpenditureType: item.oracleExpenditureType,
+      sapMaterialNumber: item.sapMaterialNumber,
+      sapGLAccount: item.sapGLAccount,
+      isActive: item.isActive,
+      notes: item.notes
+    }));
+
+    const newVersion = await PriceBook.create({
+      name: name || `${source.name} (v${source.version + 1})`,
+      utilityId: source.utilityId,
+      companyId: user.companyId,
+      contractNumber: source.contractNumber,
+      version: source.version + 1,
+      effectiveDate: effectiveDate ? new Date(effectiveDate) : new Date(),
+      expirationDate: expiresAt ? new Date(expiresAt) : source.expirationDate,
+      items: copiedItems,
+      supersedes: source._id,
+      importSource: 'copy',
+      importedBy: user._id,
+      importedAt: new Date(),
+      changeLog: [{
+        userId: user._id,
+        action: 'versioned',
+        details: `New version created from ${source.name} (v${source.version})`
+      }]
+    });
+
+    res.status(201).json(newVersion);
+  } catch (err) {
+    console.error('Error creating price book version:', err);
+    res.status(500).json({ error: 'Failed to create price book version' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/pricebooks/{id}/versions:
+ *   get:
+ *     summary: Get version history for a price book lineage
+ *     description: Returns the chain of superseded versions leading to the current book.
+ *     tags: [PriceBook]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Array of price book versions
+ */
+router.get('/:id/versions', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const priceBookId = sanitizeObjectId(req.params.id);
+    if (!priceBookId) {
+      return res.status(400).json({ error: 'Invalid price book ID' });
+    }
+
+    const priceBook = await PriceBook.findOne({
+      _id: priceBookId,
+      companyId: user.companyId
+    });
+
+    if (!priceBook) {
+      return res.status(404).json({ error: 'Price book not found' });
+    }
+
+    // Walk the supersession chain in both directions
+    const versions = [];
+
+    // Walk backwards through supersedes chain
+    let current = priceBook;
+    while (current.supersedes) {
+      const prev = await PriceBook.findById(current.supersedes)
+        .select('-items')
+        .lean();
+      if (!prev) break;
+      versions.unshift(prev);
+      current = prev;
+    }
+
+    // Add the requested book
+    const selfData = await PriceBook.findById(priceBookId).select('-items').lean();
+    versions.push(selfData);
+
+    // Walk forward through supersededBy chain
+    current = priceBook;
+    while (current.supersededBy) {
+      const next = await PriceBook.findById(current.supersededBy)
+        .select('-items')
+        .lean();
+      if (!next) break;
+      versions.push(next);
+      current = next;
+    }
+
+    res.json({
+      currentId: priceBookId,
+      versions
+    });
+  } catch (err) {
+    console.error('Error getting version history:', err);
+    res.status(500).json({ error: 'Failed to get version history' });
+  }
+});
+
+/**
+ * @swagger
  * /api/pricebooks/{id}:
  *   delete:
  *     summary: Delete draft price book
