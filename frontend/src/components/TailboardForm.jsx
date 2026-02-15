@@ -25,6 +25,10 @@ import {
 import { STANDARD_PPE, SPECIAL_MITIGATIONS, UG_CHECKLIST_ITEMS, INSPECTOR_OPTIONS } from './tailboard/constants';
 import { populateFormFromTailboard } from './tailboard/utils';
 
+// Stable TextField wrapper - defined outside component to prevent focus loss on re-render
+// eslint-disable-next-line react/prop-types
+const F = ({ disabled, ...props }) => <TextField size="small" disabled={disabled} fullWidth {...props} />;
+
 const TailboardForm = () => {
   const { jobId } = useParams();
   const navigate = useNavigate();
@@ -173,7 +177,7 @@ const TailboardForm = () => {
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><CircularProgress /></Box>;
   const canSubmit = (hazards.length > 0 || hazardsDescription.trim().length > 0) && crewMembers.length > 0;
-  const F = (props) => <TextField size="small" disabled={isCompleted} fullWidth {...props} />;
+  const d = isCompleted; // shorthand for disabled prop
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2 }, maxWidth: 900, mx: 'auto' }}>
@@ -187,25 +191,25 @@ const TailboardForm = () => {
           {isCompleted && <Chip label="Completed" color="success" icon={<CheckCircleIcon />} />}
         </Box>
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid size={{ xs: 6, sm: 3 }}><F label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><F label="Start Time" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><F label="PM#" value={pmNumber} onChange={e => setPmNumber(e.target.value)} placeholder="Project #" /></Grid>
-          <Grid size={{ xs: 6, sm: 3 }}><F label="Circuit#" value={circuit} onChange={e => setCircuit(e.target.value)} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><F disabled={d} label="Date" type="date" value={date} onChange={e => setDate(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><F disabled={d} label="Start Time" type="time" value={startTime} onChange={e => setStartTime(e.target.value)} InputLabelProps={{ shrink: true }} /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><F disabled={d} label="PM#" value={pmNumber} onChange={e => setPmNumber(e.target.value)} placeholder="Project #" /></Grid>
+          <Grid size={{ xs: 6, sm: 3 }}><F disabled={d} label="Circuit#" value={circuit} onChange={e => setCircuit(e.target.value)} /></Grid>
         </Grid>
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid size={{ xs: 12, sm: 6 }}><F label="General Foreman" value={generalForemanName} onChange={e => setGeneralForemanName(e.target.value)} /></Grid>
+          <Grid size={{ xs: 12, sm: 6 }}><F disabled={d} label="General Foreman" value={generalForemanName} onChange={e => setGeneralForemanName(e.target.value)} /></Grid>
           <Grid size={{ xs: 6, sm: 3 }}>
             <FormControl fullWidth size="small"><InputLabel>Inspector</InputLabel>
               <Select value={inspector} onChange={e => setInspector(e.target.value)} label="Inspector" disabled={isCompleted}>
                 <MenuItem value="">None</MenuItem>{INSPECTOR_OPTIONS.map(o => <MenuItem key={o.id} value={o.id}>{o.label}</MenuItem>)}
               </Select></FormControl>
           </Grid>
-          {inspector === 'other' && <Grid size={{ xs: 6, sm: 3 }}><F label="Inspector Name" value={inspectorName} onChange={e => setInspectorName(e.target.value)} /></Grid>}
+          {inspector === 'other' && <Grid size={{ xs: 6, sm: 3 }}><F disabled={d} label="Inspector Name" value={inspectorName} onChange={e => setInspectorName(e.target.value)} /></Grid>}
         </Grid>
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid size={{ xs: 6, sm: 4 }}><F label="EIC Name" value={eicName} onChange={e => setEicName(e.target.value)} placeholder="Employee In Charge" /></Grid>
-          <Grid size={{ xs: 6, sm: 4 }}><F label="EIC Phone" value={eicPhone} onChange={e => setEicPhone(e.target.value)} /></Grid>
-          <Grid size={{ xs: 12, sm: 4 }}><F label="Show Up Yard Location" value={showUpYardLocation} onChange={e => setShowUpYardLocation(e.target.value)} /></Grid>
+          <Grid size={{ xs: 6, sm: 4 }}><F disabled={d} label="EIC Name" value={eicName} onChange={e => setEicName(e.target.value)} placeholder="Employee In Charge" /></Grid>
+          <Grid size={{ xs: 6, sm: 4 }}><F disabled={d} label="EIC Phone" value={eicPhone} onChange={e => setEicPhone(e.target.value)} /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><F disabled={d} label="Show Up Yard Location" value={showUpYardLocation} onChange={e => setShowUpYardLocation(e.target.value)} /></Grid>
         </Grid>
         <TailboardWeatherDisplay value={weatherConditions} weatherLoading={weatherLoading} weatherData={weatherData} weatherError={weatherError} onRefresh={fetchWeather} disabled={isCompleted} />
       </Paper>
@@ -231,9 +235,9 @@ const TailboardForm = () => {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}><HospitalIcon color="error" /><Typography variant="subtitle1" sx={{ fontWeight: 600 }}>Emergency Information</Typography></Box>
         <Grid container spacing={2}>
-          <Grid size={{ xs: 12, sm: 4 }}><F label="Emergency Contact" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} /></Grid>
-          <Grid size={{ xs: 12, sm: 4 }}><F label="Emergency Phone" value={emergencyPhone} onChange={e => setEmergencyPhone(e.target.value)} placeholder="911" /></Grid>
-          <Grid size={{ xs: 12, sm: 4 }}><F label="Nearest Hospital" value={nearestHospital} onChange={e => setNearestHospital(e.target.value)} placeholder="Hospital name" /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><F disabled={d} label="Emergency Contact" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><F disabled={d} label="Emergency Phone" value={emergencyPhone} onChange={e => setEmergencyPhone(e.target.value)} placeholder="911" /></Grid>
+          <Grid size={{ xs: 12, sm: 4 }}><F disabled={d} label="Nearest Hospital" value={nearestHospital} onChange={e => setNearestHospital(e.target.value)} placeholder="Hospital name" /></Grid>
         </Grid>
       </Paper>
       <Paper sx={{ p: 2, mb: 2 }}>
