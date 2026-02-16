@@ -210,7 +210,7 @@ const FieldTicketForm = ({ jobId: propJobId, job: propJob, onSuccess, onCancel }
         };
 
         const response = await api.post('/api/fieldtickets', createData);
-        if (onSuccess) { onSuccess(response.data); } else { navigate(`/jobs/${jobId}/close-out`); }
+        if (onSuccess) { onSuccess(response.data); } else { navigate(`/jobs/${jobId}/closeout`); }
       }
     } catch (err) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} field ticket:`, err);
