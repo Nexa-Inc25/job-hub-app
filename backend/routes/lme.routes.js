@@ -851,9 +851,12 @@ router.post('/', authenticateUser, async (req, res) => {
                  craft.toLowerCase().includes(r.classification.toLowerCase())
           );
           if (rate) {
-            const st = (entry.stHours || 0) * rate.totalBurdenedRate;
-            const ot = (entry.otHours || 0) * rate.totalBurdenedRate * 1.5;
-            const dt = (entry.dtHours || 0) * rate.totalBurdenedRate * 2;
+            const stRate = rate.totalBurdenedRate;
+            const otRate = rate.overtimeRate || stRate * 1.5;
+            const dtRate = rate.doubleTimeRate || stRate * 2;
+            const st = (entry.stHours || 0) * stRate;
+            const ot = (entry.otHours || 0) * otRate;
+            const dt = (entry.dtHours || 0) * dtRate;
             entry.totalAmount = Math.round((st + ot + dt) * 100) / 100;
             entry.appliedRate = rate.totalBurdenedRate;
             laborTotal += entry.totalAmount;

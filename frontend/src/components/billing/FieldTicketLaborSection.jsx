@@ -64,6 +64,8 @@ async function getWorkerRoles() {
         value: r.classification.toLowerCase().replace(/\s+/g, '_'),
         label: r.classification,
         rate: r.totalBurdenedRate,
+        overtimeRate: r.overtimeRate || 0,
+        doubleTimeRate: r.doubleTimeRate || 0,
       }));
       // Add 'other' fallback
       cachedWorkerRoles.push({ value: 'other', label: 'Other', rate: 65 });
@@ -88,9 +90,11 @@ getWorkerRoles();
  */
 const LaborEntry = ({ entry, onChange, onRemove }) => {
   const COLORS = useAppColors();
+  const otRate = entry.overtimeRate || entry.regularRate * 1.5;
+  const dtRate = entry.doubleTimeRate || entry.regularRate * 2;
   const total = (entry.regularHours * entry.regularRate) +
-                (entry.overtimeHours * (entry.overtimeRate || entry.regularRate * 1.5)) +
-                (entry.doubleTimeHours * (entry.doubleTimeRate || entry.regularRate * 2));
+                (entry.overtimeHours * otRate) +
+                (entry.doubleTimeHours * dtRate);
 
   return (
     <Card sx={{ mb: 2, bgcolor: COLORS.surface }}>
@@ -128,7 +132,9 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
                 onChange({
                   ...entry,
                   role: e.target.value,
-                  regularRate: newRole?.rate || entry.regularRate
+                  regularRate: newRole?.rate || entry.regularRate,
+                  overtimeRate: newRole?.overtimeRate || 0,
+                  doubleTimeRate: newRole?.doubleTimeRate || 0,
                 });
               }}
               sx={{ bgcolor: COLORS.surfaceLight, color: COLORS.text }}

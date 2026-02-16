@@ -48,8 +48,10 @@ const fringeBreakdownSchema = new mongoose.Schema({
 // IBEW labor classification rate
 const laborRateSchema = new mongoose.Schema({
   classification: { type: String, required: true }, // 'Journeyman Lineman', 'Foreman', 'General Foreman'
-  baseWage: { type: Number, required: true },       // 72.26
-  totalBurdenedRate: { type: Number, required: true }, // ~156.83 (all-in billable rate)
+  baseWage: { type: Number, required: true },       // 72.26 (base wage before fringes)
+  totalBurdenedRate: { type: Number, required: true }, // 156.83 (ST all-in billable rate)
+  overtimeRate: { type: Number, default: 0 },       // 235.74 (OT all-in billable rate, NOT simply ST × 1.5)
+  doubleTimeRate: { type: Number, default: 0 },     // 314.66 (DT all-in billable rate, NOT simply ST × 2)
   fringes: fringeBreakdownSchema,
 }, { _id: false });
 

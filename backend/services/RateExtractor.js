@@ -177,8 +177,13 @@ function extractLaborRates(text) {
   // Join the text into one string for pattern matching across line breaks
   const joined = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
 
-  // Known classifications and their typical burdened rates from the crew rate tables
-  // We look for the classification name followed by a dollar amount
+  // The crew rate page has ST rates first, then OT rates in a second block.
+  // Known IBEW ST rates from PG&E MSA (extracted from actual crew rate table):
+  // Classification name appears, then the hourly rate with $ on a nearby line.
+  //
+  // Strategy: find ALL dollar amounts with $ suffix, then map them to
+  // classifications based on the known order they appear in the table.
+
   const classifications = [
     'Journeyman Lineman',
     'General Foreman',
@@ -186,39 +191,68 @@ function extractLaborRates(text) {
     'Cable Splicer Foreman',
     'Cable Splicer',
     'Underground Foreman',
-    'Apprentice Lineman',
-    'Equipment Operator',
     'Groundman',
-    'Heavy Line Equipment Operator',
     'Line Equipment Man',
   ];
 
-  const seenClassifications = new Set();
+  // Extract all amounts with trailing $ from the joined text
+  const allAmounts = [];
+  const amountRegex = /(\d[\d,]*\.\d{2})\s*\$/g;
+  let amountMatch;
+  while ((amountMatch = amountRegex.exec(joined)) !== null) {
+    allAmounts.push(parseFloat(amountMatch[1].replace(/,/g, '')));
+  }
+
+  // Known ST rates appear as the IBEW Hourly Rate column.
+  // These are the rates that match each classification (first occurrence in the table).
+  // They're typically in the range $90-200 for individual rates.
+  const stRates = {};
+  const otRates = {};
 
   for (const classification of classifications) {
-    // Search for the classification name followed eventually by a dollar amount
     const escapedName = classification.replace(/\s+/g, '\\s+');
-    const regex = new RegExp(`${escapedName}\\s*[\\d,.\\s$]{0,80}?(\\d[\\d,]*\\.\\d{2})\\s*\\$?`, 'i');
-    const match = joined.match(regex);
-    if (!match) continue;
-    if (seenClassifications.has(classification)) continue;
-    seenClassifications.add(classification);
+    // Find all occurrences of this classification
+    const regex = new RegExp(escapedName, 'gi');
+    const matches = [...joined.matchAll(regex)];
 
-    const firstAmount = parseFloat(match[1].replace(/,/g, ''));
-    if (isNaN(firstAmount) || firstAmount <= 0) continue;
+    if (matches.length === 0) continue;
 
-    // The first dollar amount near the classification is typically the burdened hourly rate
-    // For crew rate tables: this is the all-in rate (base + fringes + OH&P)
-    // For individual rate sheets: this is the base wage
-    // Heuristic: if > 100, it's likely burdened; if < 100, it's base wage
-    const isBurdened = firstAmount > 100;
-    const baseWage = isBurdened ? Math.round(firstAmount / 2.17 * 100) / 100 : firstAmount;
-    const totalBurdened = isBurdened ? firstAmount : Math.round(firstAmount * 2.17 * 100) / 100;
+    // After the classification name, find the next dollar amount
+    for (const m of matches) {
+      const afterText = joined.substring(m.index + m[0].length, m.index + m[0].length + 200);
+      const rateMatch = afterText.match(/(\d[\d,]*\.\d{2})\s*\$/);
+      if (rateMatch) {
+        const rate = parseFloat(rateMatch[1].replace(/,/g, ''));
+        // Burdened rates are typically $90-300, base wages are $40-90
+        // Prefer burdened rates (from crew rate tables)
+        if (rate > 90 && rate < 400) {
+          if (!stRates[classification]) {
+            stRates[classification] = rate;
+          } else if (!otRates[classification] && rate > stRates[classification] * 1.2) {
+            // OT rate should be noticeably higher than ST (at least 1.2x)
+            otRates[classification] = rate;
+          }
+        }
+      }
+    }
+  }
+
+  for (const classification of classifications) {
+    const stRate = stRates[classification];
+    if (!stRate) continue;
+
+    const otRate = otRates[classification] || Math.round(stRate * 1.5 * 100) / 100;
+    // DT is typically OT + (OT - ST) or roughly ST * 2
+    const dtRate = otRates[classification]
+      ? Math.round((otRate + (otRate - stRate)) * 100) / 100
+      : Math.round(stRate * 2 * 100) / 100;
 
     rates.push({
       classification,
-      baseWage,
-      totalBurdenedRate: totalBurdened,
+      baseWage: stRate,
+      totalBurdenedRate: stRate,
+      overtimeRate: otRate,
+      doubleTimeRate: dtRate,
       fringes: {
         healthWelfare: 0,
         pension: 0,
@@ -425,11 +459,16 @@ async function extractRatesFromMSA(pdfBuffer) {
       result.unitRates.push(...unitRates);
     }
 
-    // Labor rate pages (contain IBEW classifications)
-    if (upperText.includes('JOURNEYMAN') && upperText.includes('FOREMAN') && upperText.includes('BASE WAGE')) {
+    // Labor rate pages — prefer crew rate tables (have IBEW Hourly Rate ST + subtotals)
+    // over individual rate sheets (have Base Wage which is lower)
+    if (upperText.includes('JOURNEYMAN') && upperText.includes('FOREMAN')) {
+      const isCrewRateTable = upperText.includes('MAN CREW') || upperText.includes('SUB TOTAL');
       const laborRates = extractLaborRates(text);
-      if (laborRates.length > result.laborRates.length) {
-        result.laborRates = laborRates; // Keep the best extraction
+      // Prefer crew rate table extraction (burdened rates) over individual sheet (base wages)
+      if (laborRates.length > 0) {
+        if (isCrewRateTable || result.laborRates.length === 0) {
+          result.laborRates = laborRates;
+        }
       }
     }
 

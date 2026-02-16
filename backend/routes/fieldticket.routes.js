@@ -618,8 +618,8 @@ router.post('/', async (req, res) => {
             );
             if (rate) {
               if (!entry.regularRate) entry.regularRate = rate.totalBurdenedRate;
-              if (!entry.overtimeRate) entry.overtimeRate = Math.round(rate.totalBurdenedRate * 1.5 * 100) / 100;
-              if (!entry.doubleTimeRate) entry.doubleTimeRate = Math.round(rate.totalBurdenedRate * 2 * 100) / 100;
+              if (!entry.overtimeRate) entry.overtimeRate = rate.overtimeRate || Math.round(rate.totalBurdenedRate * 1.5 * 100) / 100;
+              if (!entry.doubleTimeRate) entry.doubleTimeRate = rate.doubleTimeRate || Math.round(rate.totalBurdenedRate * 2 * 100) / 100;
             }
           }
         }
