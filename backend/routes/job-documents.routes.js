@@ -339,9 +339,32 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
     }
     
     const file = req.file;
-    const ext = path.extname(file.originalname).toLowerCase();
-    const isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic'].includes(ext);
+    let ext = path.extname(file.originalname).toLowerCase();
+    const isHeic = ext === '.heic' || ext === '.heif' || file.mimetype === 'image/heic' || file.mimetype === 'image/heif';
+    const isPhoto = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.heic', '.heif'].includes(ext);
     const timestamp = Date.now();
+
+    // Convert HEIC to JPEG (iPhone photos can't be displayed in browsers)
+    let fileToUpload = file.path;
+    if (isHeic && heicConvert) {
+      try {
+        console.log('Converting HEIC to JPEG:', file.originalname);
+        const inputBuffer = fs.readFileSync(file.path);
+        const outputBuffer = await heicConvert({
+          buffer: inputBuffer,
+          format: 'JPEG',
+          quality: 0.9,
+        });
+        const jpegPath = file.path.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
+        fs.writeFileSync(jpegPath, Buffer.from(outputBuffer));
+        fileToUpload = jpegPath;
+        ext = '.jpg';
+        console.log('HEIC converted successfully');
+      } catch (convertErr) {
+        console.error('Failed to convert HEIC:', convertErr.message);
+        // Fall through — upload as-is
+      }
+    }
     
     // Generate filename
     const pmNumber = job.pmNumber || 'NOPM';
@@ -363,18 +386,18 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
     if (r2Storage.isR2Configured()) {
       try {
         const folderPath = subfolder ? `${folder}/${subfolder}` : folder;
-        const result = await r2Storage.uploadJobFile(file.path, id, folderPath, newFilename);
+        const result = await r2Storage.uploadJobFile(fileToUpload, id, folderPath, newFilename);
         docUrl = r2Storage.getPublicUrl(result.key);
         r2Key = result.key;
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
+        // Clean up temp files
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        if (fileToUpload !== file.path && fs.existsSync(fileToUpload)) fs.unlinkSync(fileToUpload);
       } catch (uploadErr) {
         console.error('R2 upload failed:', uploadErr.message);
       }
     } else {
       const destPath = path.join(__dirname, 'uploads', newFilename);
-      fs.renameSync(file.path, destPath);
+      fs.renameSync(fileToUpload, destPath);
     }
     
     // Ensure folder/subfolder structure exists before atomic push
