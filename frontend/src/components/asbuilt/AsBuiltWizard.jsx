@@ -482,28 +482,28 @@ const AsBuiltWizard = ({
         const sectionFields = sectionConfig?.fields || [];
 
         if (sectionFields.length > 0) {
-          return (
-            <Box>
-              {/* Crew Materials reference for equipment info step */}
-              {step.key === 'equipment_info' && job?.crewMaterials?.length > 0 && (
-                <Paper variant="outlined" sx={{ p: 2, mb: 1.5, borderColor: 'info.main' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                    Crew Materials from Job Package ({job.crewMaterials.length} items)
-                  </Typography>
-                  <Box sx={{ maxHeight: 160, overflow: 'auto' }}>
-                    {job.crewMaterials.map((mat, idx) => (
-                      <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-                        <Typography variant="caption" sx={{ flex: 1 }}>
-                          <strong>{mat.mCode}</strong> — {mat.description}
-                        </Typography>
-                        <Typography variant="caption" sx={{ ml: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {mat.quantity} {mat.unit}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Paper>
-              )}
+        return (
+          <Box>
+            {/* Crew Materials reference for equipment info step */}
+            {step.key === 'equipment_info' && job?.crewMaterials?.length > 0 && (
+              <Paper variant="outlined" sx={{ p: 2, mb: 1.5, borderColor: 'info.main' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
+                  Crew Materials from Job Package ({job.crewMaterials.length} items)
+                </Typography>
+                <Box sx={{ maxHeight: 160, overflow: 'auto' }}>
+                  {job.crewMaterials.map((mat, idx) => (
+                    <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+                      <Typography variant="caption" sx={{ flex: 1 }}>
+                        <strong>{mat.mCode}</strong> — {mat.description}
+                      </Typography>
+                      <Typography variant="caption" sx={{ ml: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                        {mat.quantity} {mat.unit}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              </Paper>
+            )}
 
               <GuidedFill
                 sectionType={step.key}
@@ -532,24 +532,24 @@ const AsBuiltWizard = ({
         // Fallback: if no field config, show the old PDF editor
         return (
           <Box>
-            <Alert severity="info" sx={{ mb: 1 }} variant="outlined">
+                <Alert severity="info" sx={{ mb: 1 }} variant="outlined">
               <strong>{step.label}</strong> — Fill in fields on the PDF form below.
-            </Alert>
+                </Alert>
             {jobPackagePdfUrl ? (
-              <React.Suspense fallback={<CircularProgress />}>
-                <PDFFormEditor
-                  pdfUrl={jobPackagePdfUrl}
-                  jobInfo={{
-                    pmNumber: job?.pmNumber,
-                    woNumber: job?.woNumber,
-                    address: job?.address,
-                    userName: user?.name,
+                <React.Suspense fallback={<CircularProgress />}>
+                  <PDFFormEditor
+                    pdfUrl={jobPackagePdfUrl}
+                    jobInfo={{
+                      pmNumber: job?.pmNumber,
+                      woNumber: job?.woNumber,
+                      address: job?.address,
+                      userName: user?.name,
                     userLanId: user?.lanId || user?.username || '',
-                  }}
-                  documentName={step.label}
-                  onSave={(base64, name) => handlePdfFormSave(step.key, base64, name)}
-                />
-              </React.Suspense>
+                    }}
+                    documentName={step.label}
+                    onSave={(base64, name) => handlePdfFormSave(step.key, base64, name)}
+                  />
+                </React.Suspense>
             ) : (
               <Alert severity="warning">
                 No job package PDF found. Upload from the Job File System first.
@@ -578,13 +578,15 @@ const AsBuiltWizard = ({
           ?.filter(c => c.sectionType === 'construction_sketch')
           ?.map(c => c.pageIndex) || [];
         const hasClassifiedSketch = classifiedSketchPages.length > 0 && job?.packagePdfKey;
-        const hasSketches = hasClassifiedSketch || hasPreExtractedSketches || hasSketchPdf;
+        // Fall back to full job package PDF if no classification exists
+        const hasJobPackagePdf = !!jobPackagePdfUrl;
+        const hasSketches = hasClassifiedSketch || hasPreExtractedSketches || hasSketchPdf || hasJobPackagePdf;
 
         // Build sketch PDF URL from classified pages (section-specific, not full PDF)
         const apiBase = import.meta.env.VITE_API_URL || '';
         const sketchSectionUrl = hasClassifiedSketch
           ? `${apiBase}/api/asbuilt/sections/construction_sketch/pages/${job._id}`
-          : sketchPdfUrl;
+          : (sketchPdfUrl || jobPackagePdfUrl);
 
         // Color conventions for markup toolbar
         const colorConventions = utilityConfig?.colorConventions || [
@@ -596,7 +598,7 @@ const AsBuiltWizard = ({
         return (
           <Box>
             {/* Color convention legend */}
-            <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
+                <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
               <strong>Markup Colors:</strong>{' '}
               {colorConventions.map(c => (
                 <span key={c.color} style={{ marginRight: 12 }}>
@@ -604,41 +606,44 @@ const AsBuiltWizard = ({
                   {' = '}{c.meaning}
                 </span>
               ))}
-            </Alert>
+                </Alert>
 
             {/* Show pre-extracted sketch thumbnails for reference */}
             {hasPreExtractedSketches && (
-              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
-                {job.constructionSketches.map((sketch, idx) => (
-                  <Box
-                    key={sketch._id || `sketch-${idx}`}
-                    sx={{
+                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+                  {job.constructionSketches.map((sketch, idx) => (
+                    <Box
+                      key={sketch._id || `sketch-${idx}`}
+                      sx={{
                       border: '2px solid', borderColor: 'primary.light', borderRadius: 2,
                       overflow: 'hidden', cursor: 'pointer',
-                      '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
-                    }}
-                    onClick={() => {
+                        '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+                      }}
+                      onClick={() => {
                       const url = sketch.url || (sketch.r2Key ? `${apiBase}/api/files/${sketch.r2Key}` : '');
-                      if (url) globalThis.open(url, '_blank');
-                    }}
-                  >
-                    <img
+                        if (url) globalThis.open(url, '_blank');
+                      }}
+                    >
+                      <img
                       src={sketch.url || (sketch.r2Key ? `${apiBase}/api/files/${sketch.r2Key}` : '')}
-                      alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
-                      loading="lazy"
+                        alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
+                        loading="lazy"
                       style={{ width: 180, height: 140, objectFit: 'contain', backgroundColor: '#f5f5f5' }}
-                    />
-                  </Box>
-                ))}
+                      />
+                    </Box>
+                  ))}
               </Box>
             )}
 
             {/* Inline PDF editor for sketch markup — shows ONLY sketch pages */}
             {sketchSectionUrl ? (
               <Box sx={{ minHeight: 500, mb: 2 }}>
-                <Alert severity="success" sx={{ mb: 1 }} variant="outlined">
-                  <strong>Construction Sketch</strong> — {classifiedSketchPages.length || '?'} page{classifiedSketchPages.length !== 1 ? 's' : ''}.
-                  Use red for removed, blue for new, black for existing. Tap <strong>Save</strong> when done.
+                <Alert severity={hasClassifiedSketch ? 'success' : 'info'} sx={{ mb: 1 }} variant="outlined">
+                  <strong>Construction Sketch</strong> —{' '}
+                  {hasClassifiedSketch
+                    ? `${classifiedSketchPages.length} sketch page${classifiedSketchPages.length !== 1 ? 's' : ''} identified.`
+                    : 'Showing full job package. Scroll to the sketch pages.'}
+                  {' '}Use red for removed, blue for new, black for existing. Tap <strong>Save</strong> when done.
                 </Alert>
                 <React.Suspense fallback={<CircularProgress />}>
                   <PDFFormEditor
@@ -661,33 +666,33 @@ const AsBuiltWizard = ({
                 </React.Suspense>
               </Box>
             ) : (
-              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                {hasSketches && (
-                  <Button
-                    variant="contained"
-                    startIcon={<EditIcon />}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              {hasSketches && (
+                <Button
+                  variant="contained"
+                  startIcon={<EditIcon />}
                     onClick={() => { if (onOpenSketchEditor) onOpenSketchEditor(); }}
-                    sx={{ flex: 1, py: 1.5, fontWeight: 700 }}
-                  >
-                    Open Sketch Markup Editor
-                  </Button>
-                )}
+                  sx={{ flex: 1, py: 1.5, fontWeight: 700 }}
+                >
+                  Open Sketch Markup Editor
+                </Button>
+              )}
               </Box>
             )}
 
             {/* Built As Designed option */}
-            {selectedWorkType?.allowBuiltAsDesigned && (
-              <Button
-                variant="outlined"
-                color="success"
+              {selectedWorkType?.allowBuiltAsDesigned && (
+                <Button
+                  variant="outlined"
+                  color="success"
                 fullWidth
-                startIcon={<CheckCircleIcon />}
-                onClick={handleSketchBuiltAsDesigned}
+                  startIcon={<CheckCircleIcon />}
+                  onClick={handleSketchBuiltAsDesigned}
                 sx={{ py: 1.5, fontWeight: 700, mb: 2 }}
-              >
+                >
                 Built As Designed (No Redlines Needed)
-              </Button>
-            )}
+                </Button>
+              )}
 
             {!hasSketches && (
               <Alert severity="info">
