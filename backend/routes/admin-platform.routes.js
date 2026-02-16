@@ -685,4 +685,66 @@ router.delete('/cleanup-emergency-jobs', async (req, res) => {
   }
 });
 
+// ============================================================================
+// USER MANAGEMENT
+// ============================================================================
+
+/**
+ * DELETE /admin/users/:id
+ * Deactivate a user (soft delete — preserves data for audit trail).
+ * Only company admins can deactivate users in their own company.
+ */
+router.delete('/users/:id', async (req, res) => {
+  try {
+    const adminUser = await User.findById(req.userId);
+    if (!adminUser?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+    if (!req.isAdmin && !adminUser.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    const targetUserId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(targetUserId)) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    // Prevent self-deactivation
+    if (targetUserId === req.userId) {
+      return res.status(400).json({ error: 'Cannot deactivate your own account' });
+    }
+
+    const targetUser = await User.findById(targetUserId);
+    if (!targetUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Ensure admin can only deactivate users in their own company
+    if (String(targetUser.companyId) !== String(adminUser.companyId) && !adminUser.isSuperAdmin) {
+      return res.status(403).json({ error: 'Cannot deactivate users from another company' });
+    }
+
+    // Soft deactivate
+    targetUser.isActive = false;
+    targetUser.deactivatedAt = new Date();
+    targetUser.deactivatedBy = req.userId;
+    await targetUser.save();
+
+    // Decrement company seat count
+    try {
+      await Company.findByIdAndUpdate(targetUser.companyId, {
+        $inc: { 'subscription.seatsUsed': -1 },
+      });
+    } catch (seatErr) {
+      console.warn('Failed to decrement seat count:', seatErr.message);
+    }
+
+    console.log(`[Admin] User deactivated: ${targetUser.name} (${targetUser.email}) by ${adminUser.name}`);
+    res.json({ success: true, message: `User ${targetUser.name} has been deactivated` });
+  } catch (err) {
+    console.error('Error deactivating user:', err);
+    res.status(500).json({ error: 'Failed to deactivate user' });
+  }
+});
+
 module.exports = router;
