@@ -57,26 +57,24 @@ const CloseOutPhotos = ({ jobId, photos, onPhotoAdded, onPhotoDeleted }) => {
         }
       }
 
-      // Upload all photos in parallel (not one-by-one)
-      const uploads = files.map((file) => {
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('folder', 'ACI');
-        formData.append('subfolder', 'GF Audit');
-        formData.append('photoType', source === 'camera' ? 'field_capture' : 'uploaded');
-        if (gpsCoords) {
-          formData.append('latitude', gpsCoords.lat);
-          formData.append('longitude', gpsCoords.lng);
+      // Upload photos sequentially to avoid OOM from concurrent HEIC conversions
+      for (const file of files) {
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('folder', 'ACI');
+          formData.append('subfolder', 'GF Audit');
+          formData.append('photoType', source === 'camera' ? 'field_capture' : 'uploaded');
+          if (gpsCoords) {
+            formData.append('latitude', gpsCoords.lat);
+            formData.append('longitude', gpsCoords.lng);
+          }
+          const res = await api.post(`/api/jobs/${jobId}/upload`, formData);
+          if (res.data?.document) onPhotoAdded(res.data.document);
+        } catch (err) {
+          console.error('Photo upload failed:', err);
         }
-        return api
-          .post(`/api/jobs/${jobId}/upload`, formData)
-          .then((res) => {
-            if (res.data?.document) onPhotoAdded(res.data.document);
-          })
-          .catch((err) => console.error('Photo upload failed:', err));
-      });
-
-      await Promise.all(uploads);
+      }
     } catch (err) {
       console.error('Photo upload failed:', err);
     } finally {
