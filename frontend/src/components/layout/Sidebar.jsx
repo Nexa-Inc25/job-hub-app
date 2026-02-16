@@ -120,6 +120,13 @@ const getNavItems = (role, isDemo = false) => {
       hideInDemo: true,
     },
     {
+      title: 'Contract Rates',
+      href: '/admin/msa-rates',
+      icon: DollarSign,
+      roles: ['admin', 'super_admin'],
+      hideInDemo: true,
+    },
+    {
       title: 'Settings',
       href: '/admin/procedures',
       icon: Settings,
