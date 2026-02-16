@@ -573,86 +573,133 @@ const AsBuiltWizard = ({
       case 'sketch': {
         const hasPreExtractedSketches = job?.constructionSketches?.length > 0;
         const hasSketchPdf = !!sketchPdfUrl;
-        const hasSketches = hasPreExtractedSketches || hasSketchPdf;
+        // Check if classified sketch pages exist
+        const classifiedSketchPages = job?.packageClassification
+          ?.filter(c => c.sectionType === 'construction_sketch')
+          ?.map(c => c.pageIndex) || [];
+        const hasClassifiedSketch = classifiedSketchPages.length > 0 && job?.packagePdfKey;
+        const hasSketches = hasClassifiedSketch || hasPreExtractedSketches || hasSketchPdf;
+
+        // Build sketch PDF URL from classified pages (section-specific, not full PDF)
+        const apiBase = import.meta.env.VITE_API_URL || '';
+        const sketchSectionUrl = hasClassifiedSketch
+          ? `${apiBase}/api/asbuilt/sections/construction_sketch/pages/${job._id}`
+          : sketchPdfUrl;
+
+        // Color conventions for markup toolbar
+        const colorConventions = utilityConfig?.colorConventions || [
+          { color: 'red', hex: '#CC0000', label: 'Red', meaning: 'Removed / Changed' },
+          { color: 'blue', hex: '#0000CC', label: 'Blue', meaning: 'New installation' },
+          { color: 'black', hex: '#000000', label: 'Black', meaning: 'Existing / No change' },
+        ];
+
         return (
           <Box>
-            {/* Show pre-extracted construction sketch images from upload */}
+            {/* Color convention legend */}
+            <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
+              <strong>Markup Colors:</strong>{' '}
+              {colorConventions.map(c => (
+                <span key={c.color} style={{ marginRight: 12 }}>
+                  <span style={{ color: c.hex, fontWeight: 700 }}>{'\u25A0'} {c.label}</span>
+                  {' = '}{c.meaning}
+                </span>
+              ))}
+            </Alert>
+
+            {/* Show pre-extracted sketch thumbnails for reference */}
             {hasPreExtractedSketches && (
-              <Box sx={{ mb: 2 }}>
-                <Alert severity="info" variant="outlined" sx={{ mb: 1.5 }}>
-                  {job.constructionSketches.length} sketch page{job.constructionSketches.length > 1 ? 's' : ''} extracted from the job package.
-                  Review below, then mark up or confirm &ldquo;Built As Designed.&rdquo;
-                </Alert>
-                <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
-                  {job.constructionSketches.map((sketch, idx) => (
-                    <Box
-                      key={sketch._id || `sketch-${idx}`}
-                      sx={{
-                        border: '2px solid',
-                        borderColor: 'primary.light',
-                        borderRadius: 2,
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
-                      }}
-                      onClick={() => {
-                        const url = sketch.url || (sketch.r2Key
-                          ? `${import.meta.env.VITE_API_URL || ''}/api/files/${sketch.r2Key}`
-                          : '');
-                        if (url) globalThis.open(url, '_blank');
-                      }}
-                    >
-                      <img
-                        src={sketch.url || (sketch.r2Key
-                          ? `${import.meta.env.VITE_API_URL || ''}/api/files/${sketch.r2Key}`
-                          : '')}
-                        alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
-                        loading="lazy"
-                        style={{ width: 200, height: 160, objectFit: 'contain', backgroundColor: '#f5f5f5' }}
-                      />
-                    </Box>
-                  ))}
-                </Box>
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+                {job.constructionSketches.map((sketch, idx) => (
+                  <Box
+                    key={sketch._id || `sketch-${idx}`}
+                    sx={{
+                      border: '2px solid', borderColor: 'primary.light', borderRadius: 2,
+                      overflow: 'hidden', cursor: 'pointer',
+                      '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+                    }}
+                    onClick={() => {
+                      const url = sketch.url || (sketch.r2Key ? `${apiBase}/api/files/${sketch.r2Key}` : '');
+                      if (url) globalThis.open(url, '_blank');
+                    }}
+                  >
+                    <img
+                      src={sketch.url || (sketch.r2Key ? `${apiBase}/api/files/${sketch.r2Key}` : '')}
+                      alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
+                      loading="lazy"
+                      style={{ width: 180, height: 140, objectFit: 'contain', backgroundColor: '#f5f5f5' }}
+                    />
+                  </Box>
+                ))}
               </Box>
             )}
 
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              {hasSketches && (
-                <Button
-                  variant="contained"
-                  startIcon={<EditIcon />}
-                  onClick={() => {
-                    if (onOpenSketchEditor) onOpenSketchEditor();
-                  }}
-                  sx={{ flex: 1, py: 1.5, fontWeight: 700 }}
-                >
-                  Open Sketch Markup Editor
-                </Button>
-              )}
-              {selectedWorkType?.allowBuiltAsDesigned && (
-                <Button
-                  variant="outlined"
-                  color="success"
-                  startIcon={<CheckCircleIcon />}
-                  onClick={handleSketchBuiltAsDesigned}
-                  sx={{ flex: 1, py: 1.5, fontWeight: 700 }}
-                >
-                  Built As Designed
-                </Button>
-              )}
-            </Box>
+            {/* Inline PDF editor for sketch markup — shows ONLY sketch pages */}
+            {sketchSectionUrl ? (
+              <Box sx={{ minHeight: 500, mb: 2 }}>
+                <Alert severity="success" sx={{ mb: 1 }} variant="outlined">
+                  <strong>Construction Sketch</strong> — {classifiedSketchPages.length || '?'} page{classifiedSketchPages.length !== 1 ? 's' : ''}.
+                  Use red for removed, blue for new, black for existing. Tap <strong>Save</strong> when done.
+                </Alert>
+                <React.Suspense fallback={<CircularProgress />}>
+                  <PDFFormEditor
+                    pdfUrl={sketchSectionUrl}
+                    jobInfo={{
+                      pmNumber: job?.pmNumber,
+                      woNumber: job?.woNumber,
+                      address: job?.address,
+                      userName: user?.name,
+                    }}
+                    documentName="Construction Sketch"
+                    onSave={(base64, name) => {
+                      markStepComplete('sketch', {
+                        pdfSaved: true,
+                        documentName: name,
+                        savedAt: new Date().toISOString(),
+                      });
+                    }}
+                  />
+                </React.Suspense>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                {hasSketches && (
+                  <Button
+                    variant="contained"
+                    startIcon={<EditIcon />}
+                    onClick={() => { if (onOpenSketchEditor) onOpenSketchEditor(); }}
+                    sx={{ flex: 1, py: 1.5, fontWeight: 700 }}
+                  >
+                    Open Sketch Markup Editor
+                  </Button>
+                )}
+              </Box>
+            )}
+
+            {/* Built As Designed option */}
+            {selectedWorkType?.allowBuiltAsDesigned && (
+              <Button
+                variant="outlined"
+                color="success"
+                fullWidth
+                startIcon={<CheckCircleIcon />}
+                onClick={handleSketchBuiltAsDesigned}
+                sx={{ py: 1.5, fontWeight: 700, mb: 2 }}
+              >
+                Built As Designed (No Redlines Needed)
+              </Button>
+            )}
+
             {!hasSketches && (
               <Alert severity="info">
-                No construction sketch found in the job package. If this job has a sketch,
-                upload it first from the Job File System.
+                No construction sketch found. Upload the job package PDF first — the system will
+                automatically identify the sketch pages.
               </Alert>
             )}
             {completedSteps.sketch && (
               <Alert severity="success" icon={<CheckCircleIcon />}>
                 {stepData.sketch?.builtAsDesigned
                   ? 'Marked as "Built As Designed" — no redlines needed.'
-                  : `Sketch markup saved (${stepData.sketch?.strokeCount || 0} strokes, ${stepData.sketch?.lineCount || 0} lines, ${stepData.sketch?.symbolCount || 0} symbols)`
-                }
+                  : 'Sketch markup saved.'}
               </Alert>
             )}
           </Box>
