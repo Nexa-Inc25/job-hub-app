@@ -731,16 +731,50 @@ const AsBuiltWizard = ({
           />
         );
 
-      case 'review':
+      case 'review': {
+        const completedCount = steps.slice(0, -1).filter(s => completedSteps[s.key]).length;
+        const totalSteps = steps.length - 1; // exclude the review step itself
+        const completionPct = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+
         return (
           <Box>
-            {/* Step summary */}
-            <List>
+            {/* Completion score header */}
+            <Paper sx={{ p: 2, mb: 2, textAlign: 'center', bgcolor: completionPct === 100 ? 'success.50' : 'warning.50' }}>
+              <Typography variant="h3" fontWeight={700} color={completionPct === 100 ? 'success.main' : 'warning.main'}>
+                {completionPct}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {completedCount} of {totalSteps} sections completed
+              </Typography>
+            </Paper>
+
+            {/* Section-by-section summary with data preview */}
+            <List sx={{ mb: 2 }}>
               {steps.slice(0, -1).map(s => {
                 const done = completedSteps[s.key];
+                const data = stepData[s.key] || {};
+                // Show key auto-filled values for completed sections
+                const previewValues = [];
+                if (done && data.values) {
+                  Object.entries(data.values).slice(0, 3).forEach(([key, val]) => {
+                    if (val) previewValues.push(`${key}: ${val}`);
+                  });
+                }
+                if (done && data.builtAsDesigned) previewValues.push('Built As Designed');
+                if (done && data.completionType) previewValues.push(data.completionType);
+                if (done && data.actualHours) previewValues.push(`${data.actualHours} hrs`);
+
                 return (
-                  <ListItem key={s.key} sx={{ py: 0.5 }}>
-                    <ListItemIcon>
+                  <ListItem
+                    key={s.key}
+                    sx={{
+                      py: 1, px: 1.5, mb: 0.5, borderRadius: 1,
+                      bgcolor: done ? 'success.50' : 'grey.50',
+                      border: '1px solid',
+                      borderColor: done ? 'success.light' : 'grey.200',
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36 }}>
                       {done
                         ? <CheckCircleIcon color="success" />
                         : <RadioButtonUncheckedIcon color="disabled" />
@@ -748,12 +782,16 @@ const AsBuiltWizard = ({
                     </ListItemIcon>
                     <ListItemText
                       primary={s.label}
-                      secondary={done ? 'Completed' : 'Not completed'}
-                      primaryTypographyProps={{ fontWeight: done ? 400 : 600 }}
+                      secondary={done
+                        ? (previewValues.length > 0 ? previewValues.join(' | ') : 'Completed')
+                        : 'Not completed — tap to go back'
+                      }
+                      primaryTypographyProps={{ fontWeight: 600, fontSize: '0.9rem' }}
+                      secondaryTypographyProps={{ fontSize: '0.75rem' }}
                     />
                     {!done && (
-                      <Button size="small" onClick={() => setActiveStep(steps.indexOf(s))}>
-                        Go to step
+                      <Button size="small" variant="outlined" onClick={() => setActiveStep(steps.indexOf(s))}>
+                        Go
                       </Button>
                     )}
                   </ListItem>
@@ -761,9 +799,33 @@ const AsBuiltWizard = ({
               })}
             </List>
 
+            {/* Auto-filled data summary */}
+            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+              <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                Auto-Filled Data (Stamped onto Job Package)
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.5 }}>
+                {[
+                  { label: 'PM #', value: job?.pmNumber },
+                  { label: 'WO #', value: job?.woNumber },
+                  { label: 'Notification #', value: job?.notificationNumber },
+                  { label: 'Address', value: job?.address },
+                  { label: 'Foreman', value: user?.name },
+                  { label: 'LAN ID', value: user?.lanId || user?.username },
+                  { label: 'Date', value: new Date().toLocaleDateString() },
+                  { label: 'Work Type', value: selectedWorkType?.label },
+                ].filter(item => item.value).map(item => (
+                  <Box key={item.label} sx={{ display: 'flex', gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>{item.label}:</Typography>
+                    <Typography variant="caption" fontWeight={600}>{item.value}</Typography>
+                  </Box>
+                ))}
+              </Box>
+            </Paper>
+
             <Divider sx={{ my: 2 }} />
 
-            {/* Validation */}
+            {/* Validation results */}
             {reviewValidation.errors.length > 0 && (
               <Alert severity="error" sx={{ mb: 2 }} icon={<ErrorIcon />}>
                 <AlertTitle>Cannot Submit</AlertTitle>
@@ -782,8 +844,23 @@ const AsBuiltWizard = ({
             )}
             {reviewValidation.valid && reviewValidation.warnings.length === 0 && (
               <Alert severity="success" sx={{ mb: 2 }}>
-                All required steps completed. Ready to submit.
+                All required steps completed. Your data will be stamped onto the original job package PDF.
               </Alert>
+            )}
+
+            {/* What happens next */}
+            {reviewValidation.valid && (
+              <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'info.50', borderColor: 'info.light' }}>
+                <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 0.5 }}>
+                  What happens when you submit:
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  1. Your data is stamped onto the original job package PDF{'\n'}
+                  2. FDA checkboxes are auto-checked based on your selections{'\n'}
+                  3. The completed PDF is saved to Close Out Documents{'\n'}
+                  4. Job status advances to GF Review
+                </Typography>
+              </Paper>
             )}
 
             {/* Submit button */}
@@ -795,12 +872,13 @@ const AsBuiltWizard = ({
               startIcon={<SendIcon />}
               onClick={() => setSubmitDialogOpen(true)}
               disabled={!reviewValidation.valid || loading}
-              sx={{ py: 1.5, fontWeight: 700, fontSize: '1rem' }}
+              sx={{ py: 2, fontWeight: 700, fontSize: '1.1rem', borderRadius: 2 }}
             >
               Submit As-Built Package
             </Button>
           </Box>
         );
+      }
 
       default:
         return <Typography color="text.secondary">Step not configured.</Typography>;
