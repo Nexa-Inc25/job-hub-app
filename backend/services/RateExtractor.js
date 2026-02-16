@@ -47,11 +47,13 @@ async function extractPageText(pdfDoc, pageIndex) {
 
 /**
  * Parse dollar amounts from a text string.
- * Handles formats: $9,888.04, 9888.04, $15.50
+ * Handles formats: $9,888.04, 9888.04, 9,888.04$, $15.50
+ * PG&E MSA format puts $ AFTER the number: "9,888.04$"
  */
 function parseDollarAmounts(text) {
-  const matches = text.match(/\$?\s*[\d,]+\.\d{2}/g) || [];
-  return matches.map(m => parseFloat(m.replace(/[$,\s]/g, '')));
+  // Match: optional $, digits with commas, decimal, optional trailing $
+  const matches = text.match(/\$?\s*[\d,]+\.\d{2}\s*\$?/g) || [];
+  return matches.map(m => parseFloat(m.replace(/[$,\s]/g, ''))).filter(n => !isNaN(n) && n > 0);
 }
 
 /**
@@ -64,44 +66,85 @@ function parsePercent(text) {
 
 /**
  * Extract unit rates from a rate sheet page.
- * These pages have headers like "07 Pole Replacement" and rows with
- * ref codes, descriptions, and dollar amounts per division.
+ * PG&E MSA format: ref code + description on one line, dollar amounts on the NEXT line.
+ * Example:
+ *   "07-1Pole"
+ *   "9,888.04$  9,888.04$  ..."
  */
 function extractUnitRatesFromPage(text, workType) {
   const rates = [];
   const lines = text.split('\n').filter(l => l.trim());
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
     // Look for lines starting with a ref code pattern (e.g., "07-1", "08S-1", "56A-1")
-    const refMatch = line.match(/^(\d{2}[A-Z]?-\d+[A-Z]?)\s*/);
+    const refMatch = line.match(/^(\d{2}[A-Z]?-\d+[A-Z]?)\s*(.*)/);
     if (!refMatch) continue;
 
     const refCode = refMatch[1];
-    const rest = line.substring(refMatch[0].length);
+    const descPart = refMatch[2].trim();
 
-    // Extract dollar amounts from the line
-    const amounts = parseDollarAmounts(rest);
+    // PG&E format: ref code line, then description+UOM line, then %  line, then amounts line
+    // Look ahead up to 5 lines for dollar amounts, description, UOM, labor %
+    let amounts = [];
+    let laborPct = 0;
+    let uom = 'Each';
+    let description = descPart || '';
+
+    for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+      const checkLine = lines[j].trim();
+
+      // Dollar amounts line (many amounts with $ signs)
+      const lineAmounts = parseDollarAmounts(checkLine);
+      if (lineAmounts.length > 3) {
+        amounts = lineAmounts;
+        break;
+      }
+
+      // Labor percent line (just a percentage)
+      if (/^\d{1,3}%$/.test(checkLine)) {
+        laborPct = parsePercent(checkLine);
+        continue;
+      }
+
+      // Description + UOM line (e.g., "Pole Replacement - Type 1Each")
+      if (/[A-Za-z]/.test(checkLine) && !checkLine.startsWith('$') && lineAmounts.length === 0) {
+        if (!description && checkLine.length > 3) {
+          description = checkLine;
+        } else if (description.length < 5) {
+          description = checkLine;
+        }
+        // Check for UOM at end of description
+        if (/Each\s*$/i.test(checkLine)) uom = 'Each';
+        if (/Foot\s*$/i.test(checkLine) || /Per\s+Foot/i.test(checkLine)) uom = 'Foot';
+        if (/Lump\s*Sum/i.test(checkLine)) uom = 'Lump Sum';
+        if (/Hourly\s*$/i.test(checkLine) || /Per\s+Hour/i.test(checkLine)) uom = 'Hourly';
+        if (/Per\s+Day/i.test(checkLine)) uom = 'Daily';
+        if (/Per\s+Run/i.test(checkLine)) uom = 'Per Run';
+        if (/Cost\s*Plus/i.test(checkLine)) uom = 'Cost Plus';
+      }
+
+      // Stop if we hit another ref code
+      if (/^\d{2}[A-Z]?-\d/.test(checkLine)) break;
+    }
+
     if (amounts.length === 0) continue;
 
-    // Try to extract description and labor percent
-    const laborPct = parsePercent(rest);
+    // Clean up description
+    description = description
+      .replace(/Each\s*$/i, '')
+      .replace(/Foot\s*$/i, '')
+      .replace(/Hourly\s*$/i, '')
+      .replace(/Per\s+(Day|Run|Foot|Hour)\s*$/i, '')
+      .replace(/Lump\s*Sum\s*$/i, '')
+      .trim() || refCode;
 
-    // Extract description — text between ref code and first dollar sign or percentage
-    const descMatch = rest.match(/^([A-Za-z][^$%]*?)(?:\d|Each|Foot|Lump|\$)/);
-    const description = descMatch ? descMatch[1].trim() : refCode;
-
-    // Extract unit of measure
-    let uom = 'Each';
-    if (/foot|feet|ft/i.test(rest)) uom = 'Foot';
-    if (/lump\s*sum/i.test(rest)) uom = 'Lump Sum';
-    if (/hourly|hour|hr/i.test(rest)) uom = 'Hourly';
-    if (/cost\s*plus/i.test(rest)) uom = 'Cost Plus';
-
-    // Map amounts to divisions (amounts appear in division order)
+    // Map amounts to divisions
     const regionRates = [];
-    for (let i = 0; i < Math.min(amounts.length, PGE_DIVISIONS.length); i++) {
-      if (amounts[i] > 0) {
-        regionRates.push({ division: PGE_DIVISIONS[i], rate: amounts[i] });
+    for (let k = 0; k < Math.min(amounts.length, PGE_DIVISIONS.length); k++) {
+      if (amounts[k] > 0) {
+        regionRates.push({ division: PGE_DIVISIONS[k], rate: amounts[k] });
       }
     }
 
@@ -122,60 +165,71 @@ function extractUnitRatesFromPage(text, workType) {
 
 /**
  * Extract IBEW labor classification rates.
- * These pages have columns: Classification, Base Wage, Fringes..., Total
+ * PG&E MSA format: classifications and amounts are on separate lines,
+ * sometimes split across multiple lines (e.g., "Journeyman" then "Lineman").
+ *
+ * Strategy: join all text, find classification names, then grab the next
+ * dollar amount as the burdened rate (from crew rate tables).
  */
 function extractLaborRates(text) {
   const rates = [];
 
-  // Known classifications to look for
+  // Join the text into one string for pattern matching across line breaks
+  const joined = text.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+
+  // Known classifications and their typical burdened rates from the crew rate tables
+  // We look for the classification name followed by a dollar amount
   const classifications = [
-    'Journeyman Lineman', 'General Foreman', 'Foreman',
-    'Cable Splicer Foreman', 'Cable Splicer', 'Underground Foreman',
-    'Apprentice Lineman', 'Equipment Operator', 'Groundman',
-    'Heavy Line Equipment Operator', 'Line Equipment Man',
+    'Journeyman Lineman',
+    'General Foreman',
+    'Foreman',
+    'Cable Splicer Foreman',
+    'Cable Splicer',
+    'Underground Foreman',
+    'Apprentice Lineman',
+    'Equipment Operator',
+    'Groundman',
+    'Heavy Line Equipment Operator',
+    'Line Equipment Man',
   ];
 
+  const seenClassifications = new Set();
+
   for (const classification of classifications) {
-    // Find lines containing the classification name
+    // Search for the classification name followed eventually by a dollar amount
     const escapedName = classification.replace(/\s+/g, '\\s+');
-    const regex = new RegExp(`${escapedName}[\\s\\S]{0,500}`, 'i');
-    const match = text.match(regex);
+    const regex = new RegExp(`${escapedName}\\s*[\\d,.\\s$]{0,80}?(\\d[\\d,]*\\.\\d{2})\\s*\\$?`, 'i');
+    const match = joined.match(regex);
     if (!match) continue;
+    if (seenClassifications.has(classification)) continue;
+    seenClassifications.add(classification);
 
-    const segment = match[0];
-    const amounts = parseDollarAmounts(segment);
+    const firstAmount = parseFloat(match[1].replace(/,/g, ''));
+    if (isNaN(firstAmount) || firstAmount <= 0) continue;
 
-    if (amounts.length >= 1) {
-      // First amount is typically the base wage
-      const baseWage = amounts[0];
+    // The first dollar amount near the classification is typically the burdened hourly rate
+    // For crew rate tables: this is the all-in rate (base + fringes + OH&P)
+    // For individual rate sheets: this is the base wage
+    // Heuristic: if > 100, it's likely burdened; if < 100, it's base wage
+    const isBurdened = firstAmount > 100;
+    const baseWage = isBurdened ? Math.round(firstAmount / 2.17 * 100) / 100 : firstAmount;
+    const totalBurdened = isBurdened ? firstAmount : Math.round(firstAmount * 2.17 * 100) / 100;
 
-      // Total burdened rate is typically the last large amount, or calculate from known patterns
-      // In PG&E MSAs: total ≈ base × 2.17 (typical burden multiplier)
-      let totalBurdened = amounts.length > 5 ? amounts[amounts.length - 1] : baseWage * 2.17;
-
-      // If we have the known rates from the crew rate tables, use those
-      if (classification === 'Journeyman Lineman' && amounts.length > 1) {
-        // Try to find the ~156 range number
-        const burdenedCandidate = amounts.find(a => a > baseWage * 1.5 && a < baseWage * 3);
-        if (burdenedCandidate) totalBurdened = burdenedCandidate;
-      }
-
-      rates.push({
-        classification,
-        baseWage,
-        totalBurdenedRate: Math.round(totalBurdened * 100) / 100,
-        fringes: {
-          healthWelfare: amounts[1] || 0,
-          pension: amounts[2] || 0,
-          payrollTaxes: 0,
-          insurance: 0,
-          overheadProfit: 0,
-          training: 0,
-          subsistence: 0,
-          other: 0,
-        },
-      });
-    }
+    rates.push({
+      classification,
+      baseWage,
+      totalBurdenedRate: totalBurdened,
+      fringes: {
+        healthWelfare: 0,
+        pension: 0,
+        payrollTaxes: 0,
+        insurance: 0,
+        overheadProfit: 0,
+        training: 0,
+        subsistence: 0,
+        other: 0,
+      },
+    });
   }
 
   return rates;
@@ -183,40 +237,53 @@ function extractLaborRates(text) {
 
 /**
  * Extract crew composition rates.
- * These pages have tables like "Table 1: Straight Time Crew Rates: 4-Man Crew"
+ * PG&E MSA format: text is heavily split across lines.
+ * We look for classification names followed by dollar amounts.
+ * The crew rate tables have the burdened hourly rate (e.g., 156.83$)
+ * and then subtotals for each crew config (e.g., 470.48, 627.31).
+ *
+ * Strategy: find all dollar amounts on the page, find classification
+ * names, and correlate them. The subtotals (crew config rates) are
+ * the larger amounts that represent full crew hourly costs.
  */
 function extractCrewRates(text) {
   const rates = [];
+  const allAmounts = parseDollarAmounts(text);
+  if (allAmounts.length === 0) return rates;
 
-  // Look for crew rate sections
-  const crewSections = text.split(/Table\s+\d+[A-Z]?:/i).filter(s => s.trim());
+  // Detect crew sizes mentioned
+  const crewSizes = [];
+  const sizeMatches = text.matchAll(/(\d)\s*[-‐]\s*Man\s+Crew/gi);
+  for (const m of sizeMatches) {
+    const size = parseInt(m[1]);
+    if (!crewSizes.includes(size)) crewSizes.push(size);
+  }
+  if (crewSizes.length === 0) return rates;
 
-  for (const section of crewSections) {
-    // Detect crew size
-    const sizeMatch = section.match(/(\d)\s*[-‐]\s*Man\s+Crew/i);
-    if (!sizeMatch) continue;
-    const crewSize = parseInt(sizeMatch[1]);
+  // Find subtotal amounts — these are the crew config rates
+  // They're typically the amounts > $200 that represent full crew hourly costs
+  // Each classification's burdened rate (e.g., 156.83) appears first,
+  // then subtotals for configs (e.g., 470.48 = 3 × 156.83)
+  const crewSubtotals = allAmounts.filter(a => a > 200 && a < 5000);
 
-    // Find dollar amounts — these are crew rates
-    const amounts = parseDollarAmounts(section);
-    if (amounts.length === 0) continue;
-
-    // Look for crew configurations (#1, #2, #3, #4)
+  // Group subtotals into configs of 4 (configs #1-#4)
+  for (const crewSize of crewSizes) {
     for (let config = 1; config <= 4; config++) {
-      const configLabel = `${crewSize}-Man Crew #${config}`;
-      // Each config's rate is at a predictable position in the amounts array
-      const rateIdx = (config - 1);
-      if (rateIdx < amounts.length) {
+      const idx = (config - 1);
+      if (idx < crewSubtotals.length) {
+        const stRate = crewSubtotals[idx];
         rates.push({
           crewSize,
-          crewConfig: configLabel,
-          straightTimeRate: amounts[rateIdx] || 0,
-          overtimeRate: Math.round((amounts[rateIdx] || 0) * 1.4 * 100) / 100, // Approximate OT
-          doubleTimeRate: Math.round((amounts[rateIdx] || 0) * 1.8 * 100) / 100, // Approximate DT
+          crewConfig: `${crewSize}-Man Crew #${config}`,
+          straightTimeRate: stRate,
+          overtimeRate: Math.round(stRate * 1.4 * 100) / 100,
+          doubleTimeRate: Math.round(stRate * 1.8 * 100) / 100,
           composition: [],
         });
       }
     }
+    // Shift past the used subtotals for this crew size
+    crewSubtotals.splice(0, 4);
   }
 
   return rates;
@@ -224,25 +291,57 @@ function extractCrewRates(text) {
 
 /**
  * Extract equipment rates.
- * These pages have columns: #, Equipment, Description, Weight, Hourly, Daily, Weekly, Monthly
+ * PG&E MSA format: lines have "#EquipmentDescription" followed by rates.
+ * Some lines have the description and amounts together, others split.
+ * Amounts use trailing $ format: "15.50$", "155.00$", "775.00$"
  */
 function extractEquipmentRates(text) {
   const rates = [];
   const lines = text.split('\n').filter(l => l.trim());
 
-  for (const line of lines) {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
     // Look for lines starting with a number (equipment index)
-    const idxMatch = line.match(/^(\d{1,3})\s*/);
+    const idxMatch = line.match(/^(\d{1,3})([A-Za-z])/);
     if (!idxMatch) continue;
 
-    const rest = line.substring(idxMatch[0].length);
-    const amounts = parseDollarAmounts(rest);
+    // Extract description — everything after the index number until dollar amounts
+    const fullLine = line.substring(idxMatch[1].length);
+    let description = fullLine.replace(/[\d,]+\.\d{2}\s*\$?/g, '').trim();
+
+    // Also check next line for more description text
+    if (description.length < 5 && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (/^[A-Za-z]/.test(nextLine) && !parseDollarAmounts(nextLine).length) {
+        description += ' ' + nextLine;
+      }
+    }
+
+    // Clean up description
+    description = description
+      .replace(/\(\d+\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (description.length < 3) continue;
+
+    // Find amounts -- PG&E format has trailing $: "47.50$  475.00$  2,375.00$"
+    // The weight field is concatenated without $, so we split carefully
+    // Look for patterns: digits.2decimals$ (with trailing dollar sign)
+    const dollarMatches = line.match(/(\d[\d,]*\.\d{2})\s*\$/g) || [];
+    let amounts = dollarMatches.map(m => parseFloat(m.replace(/[$,\s]/g, ''))).filter(n => !isNaN(n) && n > 0);
+
+    // Also check next line
+    if (amounts.length === 0 && i + 1 < lines.length) {
+      const nextMatches = (lines[i + 1] || '').match(/(\d[\d,]*\.\d{2})\s*\$/g) || [];
+      amounts = nextMatches.map(m => parseFloat(m.replace(/[$,\s]/g, ''))).filter(n => !isNaN(n) && n > 0);
+    }
     if (amounts.length === 0) continue;
 
-    // Extract equipment description — text before first dollar amount
-    const descMatch = rest.match(/^([A-Za-z][^$]*?)(?:\d{2,}|\$)/);
-    const description = descMatch ? descMatch[1].trim() : `Equipment #${idxMatch[1]}`;
-    if (description.length < 3) continue;
+    // Filter out obviously wrong amounts (weight values parsed as rates)
+    // Equipment hourly rates are typically $5-500, daily $50-5000
+    amounts = amounts.filter(a => a < 10000);
 
     rates.push({
       equipmentType: description.substring(0, 100),
@@ -344,6 +443,47 @@ async function extractRatesFromMSA(pdfBuffer) {
     if (upperText.includes('EQUIPMENT') && (upperText.includes('HOURLY RATE') || upperText.includes('DAILY RATE') || upperText.includes('$/HR'))) {
       const equipmentRates = extractEquipmentRates(text);
       result.equipmentRates.push(...equipmentRates);
+    }
+  }
+
+  // If no crew rates extracted from tables, compute from labor rates
+  if (result.crewRates.length === 0 && result.laborRates.length > 0) {
+    const jlRate = result.laborRates.find(r => r.classification === 'Journeyman Lineman')?.totalBurdenedRate || 0;
+    const fmRate = result.laborRates.find(r => r.classification === 'Foreman')?.totalBurdenedRate || 0;
+    const gfRate = result.laborRates.find(r => r.classification === 'General Foreman')?.totalBurdenedRate || 0;
+    const gmRate = result.laborRates.find(r => r.classification === 'Groundman')?.totalBurdenedRate || 0;
+
+    if (jlRate > 0 && fmRate > 0) {
+      // Standard PG&E crew configurations
+      const configs = [
+        { size: 4, config: '4-Man Crew #1', comp: [{ classification: 'Journeyman Lineman', count: 3 }, { classification: 'Foreman', count: 1 }] },
+        { size: 4, config: '4-Man Crew #2', comp: [{ classification: 'Journeyman Lineman', count: 2 }, { classification: 'Foreman', count: 1 }, { classification: 'Groundman', count: 1 }] },
+        { size: 5, config: '5-Man Crew #1', comp: [{ classification: 'Journeyman Lineman', count: 4 }, { classification: 'Foreman', count: 1 }] },
+        { size: 5, config: '5-Man Crew #2', comp: [{ classification: 'Journeyman Lineman', count: 3 }, { classification: 'Foreman', count: 1 }, { classification: 'Groundman', count: 1 }] },
+        { size: 6, config: '6-Man Crew #1', comp: [{ classification: 'Journeyman Lineman', count: 5 }, { classification: 'Foreman', count: 1 }] },
+        { size: 6, config: '6-Man Crew #2', comp: [{ classification: 'Journeyman Lineman', count: 4 }, { classification: 'Foreman', count: 1 }, { classification: 'Groundman', count: 1 }] },
+      ];
+
+      const rateMap = { 'Journeyman Lineman': jlRate, 'Foreman': fmRate, 'General Foreman': gfRate, 'Groundman': gmRate };
+
+      for (const cfg of configs) {
+        let stRate = 0;
+        for (const member of cfg.comp) {
+          stRate += (rateMap[member.classification] || 0) * member.count;
+        }
+        // Add GF allocation (typically 0.33 of a GF per crew)
+        stRate += gfRate * 0.33;
+        stRate = Math.round(stRate * 100) / 100;
+
+        result.crewRates.push({
+          crewSize: cfg.size,
+          crewConfig: cfg.config,
+          straightTimeRate: stRate,
+          overtimeRate: Math.round(stRate * 1.5 * 100) / 100,
+          doubleTimeRate: Math.round(stRate * 2 * 100) / 100,
+          composition: cfg.comp,
+        });
+      }
     }
   }
 
