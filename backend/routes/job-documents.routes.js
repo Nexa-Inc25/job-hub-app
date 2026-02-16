@@ -377,23 +377,19 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
       fs.renameSync(file.path, destPath);
     }
     
-    // Find target folder and subfolder
-    let targetFolder = job.folders.find(f => f.name === folder);
+    // Ensure folder/subfolder structure exists before atomic push
+    const targetFolder = job.folders.find(f => f.name === folder);
     if (!targetFolder) {
-      targetFolder = { name: folder, documents: [], subfolders: [] };
-      job.folders.push(targetFolder);
-    }
-    
-    let targetDocs = targetFolder.documents;
-    if (subfolder) {
+      job.folders.push({ name: folder, documents: [], subfolders: subfolder ? [{ name: subfolder, documents: [], subfolders: [] }] : [] });
+      job.markModified('folders');
+      await job.save();
+    } else if (subfolder) {
       if (!targetFolder.subfolders) targetFolder.subfolders = [];
-      let subfolderObj = targetFolder.subfolders.find(sf => sf.name === subfolder);
-      if (!subfolderObj) {
-        subfolderObj = { name: subfolder, documents: [], subfolders: [] };
-        targetFolder.subfolders.push(subfolderObj);
+      if (!targetFolder.subfolders.find(sf => sf.name === subfolder)) {
+        targetFolder.subfolders.push({ name: subfolder, documents: [], subfolders: [] });
+        job.markModified('folders');
+        await job.save();
       }
-      if (!subfolderObj.documents) subfolderObj.documents = [];
-      targetDocs = subfolderObj.documents;
     }
     
     // Add document to folder
@@ -408,9 +404,18 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
       uploadDate: new Date(),
       uploadedBy: req.userId,
     };
-    targetDocs.push(newDoc);
-    
-    await job.save();
+    // Use atomic $push to avoid VersionError on concurrent uploads
+    const arrayPath = subfolder
+      ? `folders.$[folder].subfolders.$[sub].documents`
+      : `folders.$[folder].documents`;
+    const arrayFilters = [{ 'folder.name': folder }];
+    if (subfolder) arrayFilters.push({ 'sub.name': subfolder });
+
+    await Job.findByIdAndUpdate(
+      id,
+      { $push: { [arrayPath]: newDoc } },
+      { arrayFilters }
+    );
     
     console.log(`File uploaded: ${newFilename} to ${folder}/${subfolder || ''}`);
     res.status(201).json({ 
@@ -510,10 +515,31 @@ router.post('/:id/files', upload.single('file'), async (req, res) => {
       uploadDate: new Date(),
       uploadedBy: req.userId,
     };
-    targetDocs.push(newDoc);
-    
-    job.markModified('folders');
-    await job.save();
+
+    // Ensure folder/subfolder exist, then use atomic $push to avoid VersionError
+    // First ensure the folder structure exists
+    await Job.findByIdAndUpdate(id, {
+      $addToSet: { folders: { $each: [] } },
+    });
+
+    const arrayPath = subfolder
+      ? `folders.$[folder].subfolders.$[sub].documents`
+      : `folders.$[folder].documents`;
+    const arrayFilters = [{ 'folder.name': folder }];
+    if (subfolder) arrayFilters.push({ 'sub.name': subfolder });
+
+    try {
+      await Job.findByIdAndUpdate(
+        id,
+        { $push: { [arrayPath]: newDoc } },
+        { arrayFilters }
+      );
+    } catch (_atomicErr) {
+      // Fallback: if folder structure doesn't exist yet, use the loaded job
+      targetDocs.push(newDoc);
+      job.markModified('folders');
+      await job.save();
+    }
     
     console.log(`File saved: ${newFilename} to ${folder}/${subfolder || ''}`);
     res.status(201).json({ 
