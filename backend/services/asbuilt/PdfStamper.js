@@ -17,8 +17,28 @@
 const { PDFDocument, StandardFonts, rgb } = require('pdf-lib');
 const log = require('../../utils/logger');
 
-// Checkmark unicode and drawing
-const CHECKMARK = '\u2713';
+/**
+ * Draw a checkmark at (x, y) using path lines.
+ * pdf-lib standard fonts can't encode Unicode checkmarks,
+ * so we draw two lines forming a "✓" shape.
+ */
+function drawCheckmark(page, x, y, size = 10) {
+  const s = size * 0.8;
+  // Short descending stroke (bottom-left to bottom of check)
+  page.drawLine({
+    start: { x, y: y + s * 0.5 },
+    end: { x: x + s * 0.3, y },
+    thickness: 1.5,
+    color: rgb(0, 0, 0),
+  });
+  // Long ascending stroke (bottom of check to top-right)
+  page.drawLine({
+    start: { x: x + s * 0.3, y },
+    end: { x: x + s, y: y + s },
+    thickness: 1.5,
+    color: rgb(0, 0, 0),
+  });
+}
 
 /**
  * Resolve a dot-path value from a data context.
@@ -55,7 +75,6 @@ async function stampSection(pdfBuffer, fields, context = {}) {
 
   const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const pages = pdfDoc.getPages();
 
   const { manualValues = {} } = context;
@@ -83,13 +102,19 @@ async function stampSection(pdfBuffer, fields, context = {}) {
       if (field.type === 'checkbox') {
         // Draw a checkmark if value is truthy
         if (value) {
-          page.drawText(CHECKMARK, {
-            x,
-            y,
-            size: fontSize + 2,
-            font: boldFont,
-            color: rgb(0, 0, 0),
-          });
+          drawCheckmark(page, x, y, fontSize);
+          stamped++;
+        }
+      } else if (field.type === 'select' && field.optionPositions) {
+        // Select fields with optionPositions: draw checkmark at the selected option's position
+        const textValue = String(value);
+        const optPos = field.optionPositions[textValue];
+        if (optPos) {
+          drawCheckmark(page, optPos.x, optPos.y, fontSize);
+          stamped++;
+        } else {
+          // Fallback: write text at default position
+          page.drawText(textValue, { x, y, size: fontSize, font, color: rgb(0, 0, 0) });
           stamped++;
         }
       } else if (field.type === 'signature') {
@@ -175,9 +200,11 @@ async function stampFdaGrid(pdfBuffer, fdaGrid, fdaSelections = []) {
   if (!pdfBuffer || !fdaGrid || !fdaSelections.length) return pdfBuffer;
 
   const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
-  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
   const pages = pdfDoc.getPages();
   const checkSize = fdaGrid.checkboxSize || 8;
+
+  // Support both legacy (actionColumns) and new (columns) format
+  const useColumnLayout = Array.isArray(fdaGrid.columns);
 
   let checked = 0;
 
@@ -193,45 +220,58 @@ async function stampFdaGrid(pdfBuffer, fdaGrid, fdaSelections = []) {
       continue;
     }
 
-    // Find the action column
-    const actionCol = fdaGrid.actionColumns.find(c => c.columnName === action);
-    if (!actionCol) {
-      log.warn({ action }, '[PdfStamper:FDA] No matching action column');
-      continue;
-    }
-
     // Determine which page (relative to FDA start)
     const pageIdx = row.page || 0;
     if (pageIdx >= pages.length) continue;
     const page = pages[pageIdx];
 
-    // Draw checkmark at the action column position
-    page.drawText(CHECKMARK, {
-      x: actionCol.x,
-      y: row.y,
-      size: checkSize + 2,
-      font: boldFont,
-      color: rgb(0, 0, 0),
-    });
-    checked++;
+    if (useColumnLayout) {
+      // New column-based layout: each row has a `column` index (0-3)
+      const colIdx = row.column || 0;
+      const col = fdaGrid.columns[colIdx];
+      if (!col) {
+        log.warn({ colIdx, category }, '[PdfStamper:FDA] Invalid column index');
+        continue;
+      }
 
-    // Draw status checkboxes (New, Priority, Comp)
-    for (const statusCb of fdaGrid.statusCheckboxes || []) {
-      let shouldCheck = false;
-      if (statusCb.label === 'New' && isNew) shouldCheck = true;
-      if (statusCb.label === 'Comp' && complete) shouldCheck = true;
-      // Priority is pre-set by the utility — typically stamped from the tag's priority field
-      if (statusCb.label === 'Priority' && selection.priority) shouldCheck = true;
+      // Draw checkmark at the column's action x position
+      drawCheckmark(page, col.actionX, row.y, checkSize);
+      checked++;
 
-      if (shouldCheck) {
-        page.drawText(CHECKMARK, {
-          x: statusCb.xOffset,
-          y: row.y,
-          size: checkSize + 2,
-          font: boldFont,
-          color: rgb(0, 0, 0),
-        });
+      // Draw status checkboxes using column-specific x positions
+      if (isNew && col.newX) {
+        drawCheckmark(page, col.newX, row.y, checkSize);
         checked++;
+      }
+      if (selection.priority && col.priorityX) {
+        drawCheckmark(page, col.priorityX, row.y, checkSize);
+        checked++;
+      }
+      if (complete && col.compX) {
+        drawCheckmark(page, col.compX, row.y, checkSize);
+        checked++;
+      }
+    } else {
+      // Legacy format: actionColumns + statusCheckboxes
+      const actionCol = (fdaGrid.actionColumns || []).find(c => c.columnName === action);
+      if (!actionCol) {
+        log.warn({ action }, '[PdfStamper:FDA] No matching action column');
+        continue;
+      }
+
+      drawCheckmark(page, actionCol.x, row.y, checkSize);
+      checked++;
+
+      for (const statusCb of fdaGrid.statusCheckboxes || []) {
+        let shouldCheck = false;
+        if (statusCb.label === 'New' && isNew) shouldCheck = true;
+        if (statusCb.label === 'Comp' && complete) shouldCheck = true;
+        if (statusCb.label === 'Priority' && selection.priority) shouldCheck = true;
+
+        if (shouldCheck) {
+          drawCheckmark(page, statusCb.xOffset, row.y, checkSize);
+          checked++;
+        }
       }
     }
   }
@@ -241,13 +281,7 @@ async function stampFdaGrid(pdfBuffer, fdaGrid, fdaSelections = []) {
     const cause = fdaGrid.emergencyCauses.find(c => c.label === fdaSelections.emergencyCause);
     if (cause) {
       const emergencyPage = pages[0]; // Emergency checkboxes are on the first FDA page
-      emergencyPage.drawText(CHECKMARK, {
-        x: cause.x,
-        y: cause.y,
-        size: checkSize + 2,
-        font: boldFont,
-        color: rgb(0, 0, 0),
-      });
+      drawCheckmark(emergencyPage, cause.x, cause.y, checkSize);
       checked++;
     }
   }

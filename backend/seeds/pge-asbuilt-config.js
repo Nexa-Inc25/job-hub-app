@@ -172,31 +172,35 @@ function getPGEConfig() {
       { sectionType: 'ec_tag', label: 'EC Tag', start: 1, end: 2,
         detectionKeyword: 'Electric Overhead Tag', variableLength: true },
       { sectionType: 'face_sheet', label: 'PGE Face Sheet', start: 1, end: 3,
-        detectionKeyword: 'CREW FOREMAN SIGN-OFF SHEET' },
+        detectionKeyword: 'Contractor Face Sheet' },
       { sectionType: 'crew_instructions', label: 'Crew Instructions', start: 4, end: 6,
         detectionKeyword: 'CREW INSTRUCTIONS' },
       { sectionType: 'crew_materials', label: 'Crew Materials', start: 7, end: 7,
         detectionKeyword: 'CREW MATERIALS' },
       { sectionType: 'equipment_info', label: 'Electric Equipment/Pole Info', start: 8, end: 9,
-        detectionKeyword: 'SAP Equipment' },
+        detectionKeyword: 'Electric Equipment/Pole Information' },
       { sectionType: 'feedback_form', label: 'Construction Feedback Form', start: 10, end: 10,
         detectionKeyword: 'CONSTRUCTION FEEDBACK' },
       { sectionType: 'construction_sketch', label: 'Construction Sketch', start: 11, end: 14,
         detectionKeyword: 'SCALE:', variableLength: true },
       { sectionType: 'circuit_map', label: 'Circuit Map Change Sheet', start: 15, end: 15,
-        detectionKeyword: 'CIRCUIT MAP' },
+        detectionKeyword: 'Circuit Map Change Sheet' },
       { sectionType: 'permits', label: 'City Permits', start: 16, end: 21,
         detectionKeyword: 'PERMIT', variableLength: true },
       { sectionType: 'tcp', label: 'Traffic Control Plan', start: 22, end: 23,
         detectionKeyword: 'TRAFFIC CONTROL' },
       { sectionType: 'job_checklist', label: 'Electric Job Package Checklist', start: 24, end: 24,
         detectionKeyword: 'JOB PACKAGE CHECKLIST' },
+      { sectionType: 'unit_price_completion', label: 'Distribution Unit Price Completion Form', start: 25, end: 26,
+        detectionKeyword: 'Distribution Unit Price Completion Form' },
       { sectionType: 'billing_form', label: 'Pole Replacement Progress Billing', start: 27, end: 27,
-        detectionKeyword: 'PROGRESS BILLING' },
+        detectionKeyword: 'Progress Billing / Project Completion Form' },
       { sectionType: 'paving_form', label: 'Field Paving Form', start: 28, end: 29,
         detectionKeyword: 'PAVING FORM' },
+      { sectionType: 'cwc', label: 'Contractor Work Checklist', start: 30, end: 31,
+        detectionKeyword: 'Contractor Work Checklist' },
       { sectionType: 'ccsc', label: 'Construction Completion Standards Checklist', start: 32, end: 33,
-        detectionKeyword: 'Construction Completion Standards' },
+        detectionKeyword: 'Distribution Construction Completion' },
     ],
 
     workTypes: [
@@ -205,7 +209,7 @@ function getPGEConfig() {
         label: 'Estimated Work',
         description: 'Standard estimated jobs — pole replacement (07D), line extension, service upgrade, bare wire, etc.',
         requiredDocs: ['ec_tag', 'face_sheet', 'equipment_info', 'construction_sketch', 'ccsc', 'billing_form'],
-        optionalDocs: ['paving_form', 'permits', 'tcp', 'crew_instructions'],
+        optionalDocs: ['paving_form', 'permits', 'tcp', 'crew_instructions', 'unit_price_completion', 'cwc'],
         requiresSketchMarkup: true,
         allowBuiltAsDesigned: true,
       },
@@ -214,7 +218,7 @@ function getPGEConfig() {
         label: 'EC Tag Work',
         description: 'Electric corrective maintenance from EC tags — pole replacement, switch replacement, etc.',
         requiredDocs: ['ec_tag', 'equipment_info', 'construction_sketch', 'ccsc'],
-        optionalDocs: ['billing_form'],
+        optionalDocs: ['billing_form', 'unit_price_completion', 'cwc'],
         requiresSketchMarkup: true,
         allowBuiltAsDesigned: true,
       },
@@ -242,6 +246,8 @@ function getPGEConfig() {
 
     documentCompletions: [
       {
+        // EC Tag Completion — calibrated against FOREMAN_DOC_PM-46271318 (Letter 612x792)
+        // Page 1: Header + Item Details + Completion fields at bottom
         sectionType: 'ec_tag',
         label: 'EC Tag Completion',
         fields: [
@@ -249,254 +255,413 @@ function getPGEConfig() {
             fieldName: 'lanId', label: 'LAN ID', type: 'lanId', required: true,
             autoFillFrom: 'user.lanId',
             helpText: 'Your utility LAN ID (e.g., AB1C)',
-            position: { pageOffset: 0, x: 400, y: 710, width: 120, fontSize: 10 },
-            zoomRegion: { x: 320, y: 690, width: 260, height: 50 },
+            // "Completed or Canceled in Field By (LAN ID):" label at (21.25, 235.26)
+            // Fill area starts after label text
+            position: { pageOffset: 0, x: 205, y: 235, width: 150, fontSize: 9 },
+            zoomRegion: { x: 15, y: 220, width: 580, height: 40 },
           },
           {
             fieldName: 'completionDate', label: 'Completion Date', type: 'date', required: true,
             autoFillFrom: 'today',
-            position: { pageOffset: 0, x: 400, y: 685, width: 100, fontSize: 10 },
-            zoomRegion: { x: 320, y: 665, width: 260, height: 50 },
+            // "Complete or Cancel Date: ______________" at (21.25, 217.85)
+            position: { pageOffset: 0, x: 170, y: 218, width: 55, fontSize: 9 },
+            zoomRegion: { x: 15, y: 205, width: 320, height: 35 },
           },
           {
             fieldName: 'actualHours', label: 'Actual Hours', type: 'number', required: true,
             autoFillFrom: 'timesheet.totalHours',
             helpText: 'Total crew hours for this job (auto-filled from timesheet)',
-            position: { pageOffset: 0, x: 400, y: 660, width: 80, fontSize: 10 },
-            zoomRegion: { x: 320, y: 640, width: 260, height: 50 },
+            // "Actual Hours:" at (211.18, 217.85), fill at (270.71, 217.85)
+            position: { pageOffset: 0, x: 271, y: 218, width: 50, fontSize: 9 },
+            zoomRegion: { x: 205, y: 205, width: 130, height: 35 },
           },
           {
             fieldName: 'completionType', label: 'Status', type: 'select', required: true,
             options: ['Completed', 'Canceled', 'Found Completed Upon Arrival'],
-            position: { pageOffset: 0, x: 400, y: 635, width: 150, fontSize: 10 },
-            zoomRegion: { x: 320, y: 615, width: 260, height: 50 },
+            // Checkboxes at y≈197: Completed (130,197), Canceled (278,197), Found (416,197)
+            // Stamp text of the selected option next to its checkbox position
+            position: { pageOffset: 0, x: 130, y: 197, width: 10, fontSize: 9 },
+            zoomRegion: { x: 15, y: 185, width: 580, height: 30 },
+            // Checkbox positions for each option
+            optionPositions: {
+              'Completed': { x: 130, y: 197 },
+              'Canceled': { x: 278, y: 197 },
+              'Found Completed Upon Arrival': { x: 416, y: 197 },
+            },
           },
           {
             fieldName: 'crewType', label: 'Crew Type', type: 'select', required: true,
             options: ['PG&E Crew', 'T-Man', 'Contractor'],
-            position: { pageOffset: 0, x: 400, y: 610, width: 120, fontSize: 10 },
-            zoomRegion: { x: 320, y: 590, width: 260, height: 50 },
+            // Checkboxes at y≈218: PG&E Crew (385,218), T-Man (465,218), Contractor (519,218)
+            position: { pageOffset: 0, x: 385, y: 218, width: 10, fontSize: 9 },
+            zoomRegion: { x: 330, y: 205, width: 260, height: 35 },
+            optionPositions: {
+              'PG&E Crew': { x: 385, y: 218 },
+              'T-Man': { x: 465, y: 218 },
+              'Contractor': { x: 519, y: 218 },
+            },
           },
           {
             fieldName: 'signature', label: 'Signature', type: 'signature', required: true,
-            position: { pageOffset: 0, x: 350, y: 560, width: 180, height: 40, fontSize: 10 },
-            zoomRegion: { x: 300, y: 540, width: 280, height: 70 },
-          },
-          // FDA (Facility Data Attributes) checkboxes on the EC tag form
-          // These confirm equipment data has been recorded for GIS/SAP
-          {
-            fieldName: 'fdaPoleComplete', label: 'Pole Data Complete', type: 'checkbox', required: false,
-            helpText: 'Check if pole FDA attributes have been recorded (species, class, height, year)',
-            position: { pageOffset: 1, x: 55, y: 690, width: 12, height: 12, fontSize: 10 },
-            zoomRegion: { x: 40, y: 670, width: 300, height: 50 },
-          },
-          {
-            fieldName: 'fdaConductorComplete', label: 'Conductor Data Complete', type: 'checkbox', required: false,
-            helpText: 'Check if conductor FDA attributes have been recorded (material, size, phase)',
-            position: { pageOffset: 1, x: 55, y: 665, width: 12, height: 12, fontSize: 10 },
-            zoomRegion: { x: 40, y: 645, width: 300, height: 50 },
-          },
-          {
-            fieldName: 'fdaTransformerComplete', label: 'Transformer Data Complete', type: 'checkbox', required: false,
-            helpText: 'Check if transformer FDA attributes have been recorded (kVA, serial, type)',
-            position: { pageOffset: 1, x: 55, y: 640, width: 12, height: 12, fontSize: 10 },
-            zoomRegion: { x: 40, y: 620, width: 300, height: 50 },
-          },
-          {
-            fieldName: 'fdaSwitchgearComplete', label: 'Switchgear Data Complete', type: 'checkbox', required: false,
-            helpText: 'Check if switchgear/device FDA attributes have been recorded',
-            position: { pageOffset: 1, x: 55, y: 615, width: 12, height: 12, fontSize: 10 },
-            zoomRegion: { x: 40, y: 595, width: 300, height: 50 },
-          },
-          {
-            fieldName: 'fdaServiceComplete', label: 'Service Data Complete', type: 'checkbox', required: false,
-            helpText: 'Check if service/meter FDA attributes have been recorded',
-            position: { pageOffset: 1, x: 55, y: 590, width: 12, height: 12, fontSize: 10 },
-            zoomRegion: { x: 40, y: 570, width: 300, height: 50 },
-          },
-          {
-            fieldName: 'fdaUgComplete', label: 'Underground Data Complete', type: 'checkbox', required: false,
-            helpText: 'Check if underground FDA attributes have been recorded (cable type, conduit)',
-            position: { pageOffset: 1, x: 55, y: 565, width: 12, height: 12, fontSize: 10 },
-            zoomRegion: { x: 40, y: 545, width: 300, height: 50 },
+            // "Signature:" at (21.26, 173.11), fill underline at (69.44, 173.11)
+            position: { pageOffset: 0, x: 70, y: 160, width: 520, height: 25, fontSize: 10 },
+            zoomRegion: { x: 15, y: 150, width: 580, height: 40 },
           },
         ],
       },
       {
+        // Face Sheet Sign-Off — calibrated against Estimated_Job_Package.pdf page 2 (A4 595x842)
+        // Page 1 (pageOffset:0) = info/totals, Page 2 (pageOffset:1) = sign-off section
         sectionType: 'face_sheet',
         label: 'Face Sheet Completion',
         fields: [
+          // --- Sign-off checkboxes (page 2 of face sheet, pageOffset: 1) ---
           {
-            fieldName: 'pmNumber', label: 'PM/Order #', type: 'text', required: true,
-            autoFillFrom: 'job.pmNumber',
-            helpText: 'Project Management number from the job package',
-            position: { pageOffset: 0, x: 390, y: 695, width: 150, fontSize: 10 },
-            zoomRegion: { x: 300, y: 675, width: 280, height: 50 },
+            fieldName: 'builtAsDesigned', label: 'Built as Designed', type: 'checkbox', required: false,
+            helpText: 'Check if construction matches the design — no redlines needed',
+            // "Built as Designed" label at (12.78, 711.38), checkbox goes LEFT of text
+            position: { pageOffset: 1, x: 2, y: 711, width: 10, height: 10, fontSize: 10 },
+            zoomRegion: { x: 0, y: 695, width: 580, height: 50 },
           },
           {
-            fieldName: 'woNumber', label: 'Work Order #', type: 'text', required: false,
-            autoFillFrom: 'job.woNumber',
-            position: { pageOffset: 0, x: 390, y: 670, width: 150, fontSize: 10 },
-            zoomRegion: { x: 300, y: 650, width: 280, height: 50 },
+            fieldName: 'redlined', label: 'Redlined', type: 'checkbox', required: false,
+            helpText: 'Check if changes from design were made and marked in red on the sketch',
+            // "Redlined" label at (239.56, 711.38)
+            position: { pageOffset: 1, x: 228, y: 711, width: 10, height: 10, fontSize: 10 },
+            zoomRegion: { x: 0, y: 695, width: 580, height: 50 },
           },
           {
-            fieldName: 'notificationNumber', label: 'Notification #', type: 'text', required: false,
-            autoFillFrom: 'job.notificationNumber',
-            position: { pageOffset: 0, x: 390, y: 645, width: 150, fontSize: 10 },
-            zoomRegion: { x: 300, y: 625, width: 280, height: 50 },
+            fieldName: 'feedbackFormCompleted', label: 'Feedback Form completed', type: 'checkbox', required: false,
+            // "Feedback Form completed" label at (409.65, 711.38)
+            position: { pageOffset: 1, x: 398, y: 711, width: 10, height: 10, fontSize: 10 },
+            zoomRegion: { x: 0, y: 695, width: 580, height: 50 },
           },
+          // --- Foreman signature line (page 2) ---
           {
-            fieldName: 'address', label: 'Job Address', type: 'text', required: true,
-            autoFillFrom: 'job.address',
-            position: { pageOffset: 0, x: 120, y: 620, width: 350, fontSize: 9 },
-            zoomRegion: { x: 40, y: 600, width: 520, height: 50 },
-          },
-          {
-            fieldName: 'foremanName', label: 'Foreman Name', type: 'text', required: true,
-            autoFillFrom: 'user.name',
-            position: { pageOffset: 0, x: 120, y: 580, width: 200, fontSize: 10 },
-            zoomRegion: { x: 40, y: 560, width: 520, height: 50 },
+            fieldName: 'foremanSignature', label: 'Foreman Signature', type: 'signature', required: true,
+            // Between date separator (y≈686) and label "Foreman's Signature" (y=668.9)
+            position: { pageOffset: 1, x: 12, y: 678, width: 260, height: 22, fontSize: 10 },
+            zoomRegion: { x: 0, y: 660, width: 580, height: 55 },
           },
           {
             fieldName: 'foremanLanId', label: 'Foreman LAN ID', type: 'lanId', required: true,
             autoFillFrom: 'user.lanId',
-            position: { pageOffset: 0, x: 390, y: 580, width: 120, fontSize: 10 },
-            zoomRegion: { x: 300, y: 560, width: 280, height: 50 },
+            // "Lan ID" label at (296.22, 668.9), fill above
+            position: { pageOffset: 1, x: 296, y: 685, width: 130, fontSize: 10 },
+            zoomRegion: { x: 280, y: 665, width: 200, height: 45 },
           },
           {
-            fieldName: 'completionDate', label: 'Completion Date', type: 'date', required: true,
+            fieldName: 'foremanDate', label: 'Foreman Date', type: 'date', required: true,
             autoFillFrom: 'today',
-            position: { pageOffset: 0, x: 390, y: 555, width: 100, fontSize: 10 },
-            zoomRegion: { x: 300, y: 535, width: 280, height: 50 },
+            // "mm/dd/yy" labels at (469.14, 668.9), date separator "/" at (491.82, 685.88)
+            position: { pageOffset: 1, x: 469, y: 685, width: 100, fontSize: 10 },
+            zoomRegion: { x: 460, y: 665, width: 130, height: 45 },
+          },
+          // --- Supervisor signature line (page 2) ---
+          {
+            fieldName: 'supervisorSignature', label: 'Supervisor Signature', type: 'signature', required: false,
+            // Between date separator (y≈652) and label "Supervisor's Signature" (y=634.88)
+            position: { pageOffset: 1, x: 12, y: 644, width: 260, height: 22, fontSize: 10 },
+            zoomRegion: { x: 0, y: 626, width: 580, height: 55 },
           },
           {
-            fieldName: 'signature', label: 'Foreman Signature', type: 'signature', required: true,
-            position: { pageOffset: 0, x: 120, y: 520, width: 200, height: 40, fontSize: 10 },
-            zoomRegion: { x: 40, y: 500, width: 520, height: 70 },
+            fieldName: 'supervisorLanId', label: 'Supervisor LAN ID', type: 'lanId', required: false,
+            // "Lan ID" label at (296.22, 634.88), fill above
+            position: { pageOffset: 1, x: 296, y: 651, width: 130, fontSize: 10 },
+            zoomRegion: { x: 280, y: 631, width: 200, height: 45 },
+          },
+          {
+            fieldName: 'supervisorDate', label: 'Supervisor Date', type: 'date', required: false,
+            // "mm/dd/yy" at (469.14, 634.88)
+            position: { pageOffset: 1, x: 469, y: 651, width: 100, fontSize: 10 },
+            zoomRegion: { x: 460, y: 631, width: 130, height: 45 },
           },
         ],
       },
       {
+        // Equipment Info — calibrated against Electrical_Equipment_and_Pole_Informatio.pdf (Letter 612x792)
+        // "Electric Equipment/Pole Information" title at (202.14, 734.2)
+        // OH/UG Equipment table headers at y=665.12: LOC.#, EQP.#, SIZE, INST., REM., SERIAL#, MFG., MFG.DATE
+        // Poles table headers at y=426.03: LOC.#, HEIGHT, CLASS, INST., REM., ABN., POLE NUMBER, JT.
         sectionType: 'equipment_info',
         label: 'Equipment Info Completion',
         fields: [
           {
             fieldName: 'oldPoleNumber', label: 'Old Pole #', type: 'text', required: false,
             helpText: 'SAP number of the pole being replaced (if applicable)',
-            position: { pageOffset: 0, x: 120, y: 700, width: 150, fontSize: 10 },
-            zoomRegion: { x: 40, y: 680, width: 520, height: 50 },
+            // Poles table REM. column at x≈219, first data row below header y=426
+            position: { pageOffset: 0, x: 325, y: 410, width: 150, fontSize: 9 },
+            zoomRegion: { x: 30, y: 395, width: 550, height: 40 },
           },
           {
             fieldName: 'newPoleNumber', label: 'New Pole #', type: 'text', required: false,
             helpText: 'SAP number of the new pole installed',
-            position: { pageOffset: 0, x: 350, y: 700, width: 150, fontSize: 10 },
-            zoomRegion: { x: 260, y: 680, width: 300, height: 50 },
+            // POLE NUMBER column at x≈325, INST. row
+            position: { pageOffset: 0, x: 325, y: 395, width: 150, fontSize: 9 },
+            zoomRegion: { x: 30, y: 380, width: 550, height: 40 },
           },
           {
             fieldName: 'poleHeight', label: 'Pole Height (ft)', type: 'number', required: false,
             helpText: 'Height of installed pole in feet',
-            position: { pageOffset: 0, x: 120, y: 670, width: 80, fontSize: 10 },
-            zoomRegion: { x: 40, y: 650, width: 260, height: 50 },
+            // HEIGHT column at x≈102
+            position: { pageOffset: 0, x: 102, y: 410, width: 35, fontSize: 9 },
+            zoomRegion: { x: 30, y: 395, width: 200, height: 40 },
           },
           {
             fieldName: 'poleClass', label: 'Pole Class', type: 'text', required: false,
             helpText: 'Class of pole (e.g., 2, 3, 4, 5)',
-            position: { pageOffset: 0, x: 250, y: 670, width: 80, fontSize: 10 },
-            zoomRegion: { x: 170, y: 650, width: 260, height: 50 },
+            // CLASS column at x≈145
+            position: { pageOffset: 0, x: 145, y: 410, width: 30, fontSize: 9 },
+            zoomRegion: { x: 100, y: 395, width: 130, height: 40 },
           },
           {
             fieldName: 'transformerSerial', label: 'Transformer Serial #', type: 'text', required: false,
             helpText: 'Serial number of new transformer (if applicable)',
-            position: { pageOffset: 0, x: 120, y: 600, width: 180, fontSize: 10 },
-            zoomRegion: { x: 40, y: 580, width: 520, height: 50 },
+            // OH/UG Equipment SERIAL# column at x≈318, first data row below y=665
+            position: { pageOffset: 0, x: 318, y: 648, width: 120, fontSize: 9 },
+            zoomRegion: { x: 30, y: 633, width: 550, height: 40 },
           },
           {
             fieldName: 'meterNumber', label: 'Meter #', type: 'text', required: false,
             helpText: 'Meter number (if service work)',
-            position: { pageOffset: 0, x: 350, y: 600, width: 150, fontSize: 10 },
-            zoomRegion: { x: 260, y: 580, width: 300, height: 50 },
+            // EQP.# column at x≈123
+            position: { pageOffset: 0, x: 123, y: 648, width: 50, fontSize: 9 },
+            zoomRegion: { x: 30, y: 633, width: 250, height: 40 },
           },
         ],
       },
       {
+        // CCSC — calibrated against FOREMAN_DOC page 10 (Rev 7, Letter 612x792)
+        // Also validated against standalone CCSC_FORM.pdf (Rev 6)
+        // Header: "PM/Order #" at (51.48, 715.32), "Location #" at (210, 715.32),
+        //   "Address or GPS:" at (297.72, 715.32)
+        // Footer: "LAN ID:" at (34.44, 80.64), "Date:" at (206.52, 80.64),
+        //   "Signature:" at (34.44, 64.32), "Crew Lead:" at (322.2, 95.04)
         sectionType: 'ccsc',
         label: 'CCSC Completion',
         fields: [
           {
             fieldName: 'pmNumber', label: 'PM/Order #', type: 'text', required: true,
             autoFillFrom: 'job.pmNumber',
-            position: { pageOffset: 0, x: 160, y: 755, width: 120, fontSize: 9 },
-            zoomRegion: { x: 40, y: 735, width: 300, height: 50 },
+            // "PM/Order # ____" at (51.48, 715.32) — fill after label ~x=105
+            position: { pageOffset: 0, x: 105, y: 715, width: 100, fontSize: 9 },
+            zoomRegion: { x: 40, y: 700, width: 260, height: 35 },
+          },
+          {
+            fieldName: 'locationNumber', label: 'Location #', type: 'text', required: false,
+            autoFillFrom: 'job.locationNumber',
+            // "Location # ___" at (210, 715.32) — fill after label ~x=250
+            position: { pageOffset: 0, x: 250, y: 715, width: 42, fontSize: 9 },
+            zoomRegion: { x: 200, y: 700, width: 100, height: 35 },
           },
           {
             fieldName: 'address', label: 'Address or GPS', type: 'text', required: true,
             autoFillFrom: 'job.address',
-            position: { pageOffset: 0, x: 350, y: 755, width: 200, fontSize: 9 },
-            zoomRegion: { x: 260, y: 735, width: 300, height: 50 },
+            // "Address or GPS: ___" at (297.72, 715.32) — fill after label ~x=378
+            position: { pageOffset: 0, x: 378, y: 715, width: 200, fontSize: 8 },
+            zoomRegion: { x: 290, y: 700, width: 300, height: 35 },
           },
           {
-            fieldName: 'foremanName', label: 'Crew Lead Name', type: 'text', required: true,
-            autoFillFrom: 'user.name',
-            position: { pageOffset: 0, x: 120, y: 100, width: 180, fontSize: 10 },
-            zoomRegion: { x: 40, y: 70, width: 520, height: 70 },
-          },
-          {
-            fieldName: 'comments', label: 'Comments', type: 'text', required: false,
-            helpText: 'Any notes about checklist items (optional)',
-            position: { pageOffset: 0, x: 120, y: 130, width: 400, fontSize: 9 },
-            zoomRegion: { x: 40, y: 110, width: 520, height: 50 },
-          },
-          {
-            fieldName: 'crewLeadSignature', label: 'Crew Lead Signature', type: 'signature', required: true,
-            position: { pageOffset: 0, x: 350, y: 80, width: 180, height: 35, fontSize: 10 },
-            zoomRegion: { x: 260, y: 55, width: 300, height: 70 },
+            fieldName: 'foremanLanId', label: 'LAN ID', type: 'lanId', required: true,
+            autoFillFrom: 'user.lanId',
+            // "LAN ID:" at (34.44, 80.64) — fill after label ~x=66
+            position: { pageOffset: 0, x: 66, y: 81, width: 100, fontSize: 9 },
+            zoomRegion: { x: 28, y: 60, width: 200, height: 40 },
           },
           {
             fieldName: 'completionDate', label: 'Date', type: 'date', required: true,
             autoFillFrom: 'today',
-            position: { pageOffset: 0, x: 120, y: 80, width: 100, fontSize: 10 },
-            zoomRegion: { x: 40, y: 55, width: 260, height: 70 },
+            // "Date:" at (206.52, 80.64) — fill after label ~x=228
+            position: { pageOffset: 0, x: 228, y: 81, width: 80, fontSize: 9 },
+            zoomRegion: { x: 200, y: 60, width: 120, height: 40 },
+          },
+          {
+            fieldName: 'crewLeadSignature', label: 'Crew Lead Signature', type: 'signature', required: true,
+            // "Signature:" at (34.44, 64.32) — fill after label ~x=75
+            position: { pageOffset: 0, x: 75, y: 48, width: 120, height: 25, fontSize: 10 },
+            zoomRegion: { x: 28, y: 35, width: 200, height: 50 },
+          },
+          {
+            fieldName: 'foremanName', label: 'Crew Lead Name', type: 'text', required: true,
+            autoFillFrom: 'user.name',
+            // Right column: "Crew Lead:" at (322.2, 95.04)
+            position: { pageOffset: 0, x: 400, y: 95, width: 180, fontSize: 9 },
+            zoomRegion: { x: 310, y: 80, width: 280, height: 35 },
+          },
+          {
+            fieldName: 'comments', label: 'Comments', type: 'text', required: false,
+            helpText: 'Any notes about checklist items (optional)',
+            // "COMMENTS" at (324, 196.08) — right column comments area
+            position: { pageOffset: 0, x: 324, y: 180, width: 250, fontSize: 8 },
+            zoomRegion: { x: 310, y: 165, width: 280, height: 50 },
           },
         ],
       },
       {
+        // Progress Billing — calibrated against FOREMAN_DOC page 7 (Letter 612x792)
+        // "Pole Replacement Progress Billing / Project Completion Form (Types 1-4)" at (75.6, 712.08)
         sectionType: 'billing_form',
         label: 'Progress Billing Completion',
         fields: [
           {
-            fieldName: 'pmNumber', label: 'PM #', type: 'text', required: true,
-            autoFillFrom: 'job.pmNumber',
-            position: { pageOffset: 0, x: 120, y: 730, width: 120, fontSize: 10 },
-            zoomRegion: { x: 40, y: 710, width: 300, height: 50 },
+            fieldName: 'contractorName', label: 'Contractor', type: 'text', required: true,
+            autoFillFrom: 'company.name',
+            // "Contractor:" at (75.6, 685.08) → fill at ~130
+            position: { pageOffset: 0, x: 130, y: 685, width: 200, fontSize: 10 },
+            zoomRegion: { x: 70, y: 670, width: 300, height: 30 },
           },
           {
-            fieldName: 'woNumber', label: 'WO #', type: 'text', required: false,
-            autoFillFrom: 'job.woNumber',
-            position: { pageOffset: 0, x: 350, y: 730, width: 120, fontSize: 10 },
-            zoomRegion: { x: 260, y: 710, width: 300, height: 50 },
+            fieldName: 'poNumber', label: 'Purchase Order #', type: 'text', required: false,
+            // "Purchase Order #:" at (75.6, 670.44) → fill at ~155
+            position: { pageOffset: 0, x: 155, y: 670, width: 150, fontSize: 10 },
+            zoomRegion: { x: 70, y: 655, width: 300, height: 30 },
+          },
+          {
+            fieldName: 'pmNumber', label: 'PM Order #', type: 'text', required: true,
+            autoFillFrom: 'job.pmNumber',
+            // "PM Order #:" at (75.6, 656.04) → fill at ~130
+            position: { pageOffset: 0, x: 130, y: 656, width: 150, fontSize: 10 },
+            zoomRegion: { x: 70, y: 641, width: 300, height: 30 },
+          },
+          {
+            fieldName: 'notificationNumber', label: 'Notification #', type: 'text', required: false,
+            autoFillFrom: 'job.notificationNumber',
+            // "Notification #:" at (75.6, 641.64) → fill at ~140
+            position: { pageOffset: 0, x: 140, y: 642, width: 150, fontSize: 10 },
+            zoomRegion: { x: 70, y: 627, width: 300, height: 30 },
+          },
+          {
+            fieldName: 'address', label: 'Address', type: 'text', required: true,
+            autoFillFrom: 'job.address',
+            // "Address:" at (75.6, 627.24) → fill at ~115
+            position: { pageOffset: 0, x: 115, y: 627, width: 400, fontSize: 9 },
+            zoomRegion: { x: 70, y: 612, width: 500, height: 30 },
+          },
+          {
+            fieldName: 'locationNumber', label: 'Location #', type: 'text', required: false,
+            autoFillFrom: 'job.locationNumber',
+            // "Location #:" at (75.6, 612.84) → fill at ~125
+            position: { pageOffset: 0, x: 125, y: 613, width: 150, fontSize: 10 },
+            zoomRegion: { x: 70, y: 598, width: 300, height: 30 },
+          },
+          {
+            fieldName: 'completionDate', label: 'Date', type: 'date', required: true,
+            autoFillFrom: 'today',
+            // "Date:" at (75.6, 598.44) → fill at ~100
+            position: { pageOffset: 0, x: 100, y: 598, width: 100, fontSize: 10 },
+            zoomRegion: { x: 70, y: 583, width: 300, height: 30 },
+          },
+          {
+            fieldName: 'contractorSignature', label: 'Contractor Signature', type: 'signature', required: true,
+            // "Contractor Representative Signed" at (339.96, 120.24) — line above
+            position: { pageOffset: 0, x: 330, y: 125, width: 200, height: 30, fontSize: 10 },
+            zoomRegion: { x: 320, y: 110, width: 250, height: 50 },
+          },
+          {
+            fieldName: 'contractorPrintedName', label: 'Contractor Printed Name', type: 'text', required: true,
+            autoFillFrom: 'user.name',
+            // "Contractor Printed Name" at (357.24, 84.24) — line above
+            position: { pageOffset: 0, x: 340, y: 95, width: 200, fontSize: 10 },
+            zoomRegion: { x: 320, y: 75, width: 250, height: 35 },
+          },
+        ],
+      },
+      {
+        // Unit Price Completion Form — calibrated against FOREMAN_DOC page 9 (Letter 612x792)
+        // "Distribution Unit Price Completion Form – Exhibit B" at (27.96, 737.04)
+        sectionType: 'unit_price_completion',
+        label: 'Unit Price Completion Form',
+        fields: [
+          {
+            fieldName: 'completionDate', label: 'Date', type: 'date', required: true,
+            autoFillFrom: 'today',
+            // "DATE:" at (27, 694.2), fill underline at (58.56, 694.2)
+            position: { pageOffset: 0, x: 58, y: 694, width: 75, fontSize: 10 },
+            zoomRegion: { x: 20, y: 680, width: 120, height: 30 },
+          },
+          {
+            fieldName: 'pmNumber', label: 'PM/Order #', type: 'text', required: true,
+            autoFillFrom: 'job.pmNumber',
+            // "PM/ORDER #:" at (138.96, 694.2), fill at (210.72, 694.2)
+            position: { pageOffset: 0, x: 211, y: 694, width: 75, fontSize: 10 },
+            zoomRegion: { x: 130, y: 680, width: 165, height: 30 },
+          },
+          {
+            fieldName: 'notificationNumber', label: 'Notification #', type: 'text', required: false,
+            autoFillFrom: 'job.notificationNumber',
+            // "NOTIFICATION #:" at (293.76, 694.2), fill at (379.92, 694.2)
+            position: { pageOffset: 0, x: 380, y: 694, width: 100, fontSize: 10 },
+            zoomRegion: { x: 285, y: 680, width: 200, height: 30 },
+          },
+          {
+            fieldName: 'locationNumber', label: 'Location #', type: 'text', required: false,
+            autoFillFrom: 'job.locationNumber',
+            // "LOCATION #:" at (486.96, 694.2), fill at (552.48, 694.2)
+            position: { pageOffset: 0, x: 553, y: 694, width: 35, fontSize: 10 },
+            zoomRegion: { x: 480, y: 680, width: 120, height: 30 },
+          },
+          {
+            fieldName: 'contractorSignature', label: 'Contractor Signature', type: 'signature', required: true,
+            // Signature line at (328.17, 104.63)
+            position: { pageOffset: 0, x: 328, y: 105, width: 200, height: 25, fontSize: 10 },
+            zoomRegion: { x: 320, y: 90, width: 260, height: 40 },
+          },
+          {
+            fieldName: 'contractorPrintedName', label: 'Contractor Name & LAN ID', type: 'text', required: true,
+            autoFillFrom: 'user.name',
+            // "Contractor Representative - Print Name, LAN ID" at (332.76, 82.32)
+            position: { pageOffset: 0, x: 335, y: 83, width: 230, fontSize: 9 },
+            zoomRegion: { x: 320, y: 70, width: 260, height: 30 },
+          },
+        ],
+      },
+      {
+        // CWC (Contractor Work Checklist) — calibrated against Contractor_Work_Checklist_GF.pdf (Letter 612x792)
+        // "Contractor Work Checklist" header at (41.4, 718.92)
+        sectionType: 'cwc',
+        label: 'Contractor Work Checklist',
+        fields: [
+          {
+            fieldName: 'pmNumber', label: 'PM #', type: 'text', required: true,
+            autoFillFrom: 'job.pmNumber',
+            // "PM #:" at (41.76, 693.96) → fill at ~70
+            position: { pageOffset: 0, x: 70, y: 694, width: 100, fontSize: 10 },
+            zoomRegion: { x: 35, y: 680, width: 140, height: 30 },
+          },
+          {
+            fieldName: 'notificationNumber', label: 'Notification #', type: 'text', required: false,
+            autoFillFrom: 'job.notificationNumber',
+            // "NOTIFICATION #:" at (176.52, 693.96) → fill at ~262
+            position: { pageOffset: 0, x: 262, y: 694, width: 100, fontSize: 10 },
+            zoomRegion: { x: 170, y: 680, width: 200, height: 30 },
+          },
+          {
+            fieldName: 'dueDate', label: 'Due Date', type: 'date', required: false,
+            autoFillFrom: 'job.dueDate',
+            // "DUE DATE:" at (387.6, 693.96) → fill at ~445
+            position: { pageOffset: 0, x: 445, y: 694, width: 100, fontSize: 10 },
+            zoomRegion: { x: 380, y: 680, width: 180, height: 30 },
           },
           {
             fieldName: 'contractorName', label: 'Contractor', type: 'text', required: true,
             autoFillFrom: 'company.name',
-            position: { pageOffset: 0, x: 120, y: 705, width: 200, fontSize: 10 },
-            zoomRegion: { x: 40, y: 685, width: 520, height: 50 },
+            // "CONTRACTOR:" at (41.89, 673.61) → fill at ~120
+            position: { pageOffset: 0, x: 120, y: 674, width: 200, fontSize: 10 },
+            zoomRegion: { x: 35, y: 659, width: 300, height: 30 },
           },
           {
-            fieldName: 'completionDate', label: 'Completion Date', type: 'date', required: true,
+            fieldName: 'completionDate', label: 'Date', type: 'date', required: true,
             autoFillFrom: 'today',
-            position: { pageOffset: 0, x: 390, y: 705, width: 100, fontSize: 10 },
-            zoomRegion: { x: 300, y: 685, width: 260, height: 50 },
+            // "DATE:" at (392.16, 673.8) → fill at ~425
+            position: { pageOffset: 0, x: 425, y: 674, width: 100, fontSize: 10 },
+            zoomRegion: { x: 385, y: 659, width: 180, height: 30 },
           },
           {
-            fieldName: 'percentComplete', label: '% Complete', type: 'number', required: true,
-            helpText: 'Percentage of work completed (100 if fully done)',
-            position: { pageOffset: 0, x: 350, y: 600, width: 60, fontSize: 12 },
-            zoomRegion: { x: 260, y: 580, width: 300, height: 50 },
-          },
-          {
-            fieldName: 'foremanSignature', label: 'Foreman Signature', type: 'signature', required: true,
-            position: { pageOffset: 0, x: 120, y: 150, width: 180, height: 40, fontSize: 10 },
-            zoomRegion: { x: 40, y: 120, width: 520, height: 70 },
+            fieldName: 'foremanName', label: 'Foreman', type: 'text', required: true,
+            autoFillFrom: 'user.name',
+            // "FOREMAN:" at (41.89, 640.49) → fill at ~100
+            position: { pageOffset: 0, x: 100, y: 640, width: 200, fontSize: 10 },
+            zoomRegion: { x: 35, y: 625, width: 300, height: 30 },
           },
         ],
       },
@@ -515,222 +680,171 @@ function getPGEConfig() {
     //
     // NOTE: Y positions and page assignments need calibration against a real PDF.
     // The category list below is COMPLETE — extracted from actual PG&E EC tag text.
+    // FDA Grid — calibrated against FOREMAN_DOC pages 4-6 (Letter 612x792)
+    // The FDA grid uses a 4-COLUMN layout per page. Each column has its own
+    // x positions for conditions, actions, and status checkboxes.
+    // Row data maps (category, condition) → (column, y, page).
+    // The stamp engine uses the column's actionX for the action checkmark,
+    // and the column's newX/priorityX/compX for status checkmarks.
     fdaGrid: {
       pageOffset: 3,     // FDA grid starts at page index 3 (4th page of EC tag section)
       checkboxSize: 8,
 
-      actionColumns: [
-        { columnName: 'Repair', x: 145 },
-        { columnName: 'Replace', x: 190 },
-        { columnName: 'Install', x: 235 },
-        { columnName: 'Adjust', x: 275 },
-        { columnName: 'Remove', x: 235 },
-        { columnName: 'Clean', x: 275 },
-        { columnName: 'Overhaul', x: 275 },
-        { columnName: 'Test', x: 275 },
-        { columnName: 'Trim', x: 275 },
-        { columnName: 'Inspect', x: 275 },
-        { columnName: 'Patrol', x: 275 },
-        { columnName: 'Paint', x: 275 },
-        { columnName: 'De-Energ', x: 275 },
-        { columnName: 'Transfer', x: 275 },
-        { columnName: 'Access', x: 275 },
-        { columnName: 'Appointment', x: 275 },
-        { columnName: 'Refusal', x: 275 },
-        { columnName: 'Re-Frame', x: 235 },
-        { columnName: 'Re-band', x: 235 },
-        { columnName: 'Reinforce', x: 235 },
-        { columnName: 'Pole Stub', x: 275 },
-        { columnName: 'Pole Top Repair', x: 275 },
-        { columnName: 'Relocate', x: 235 },
-        { columnName: 'RayChem', x: 235 },
-        { columnName: 'Install CL Pole', x: 235 },
-        { columnName: 'Create LC', x: 275 },
-        { columnName: 'Assessment', x: 275 },
-        { columnName: 'Re-Check', x: 275 },
+      // 4-column layout per page — x positions calibrated from real PDF text positions
+      columns: [
+        { index: 0, actionX: 94.39, newX: 139.1, priorityX: 148.45, compX: 157.8 },
+        { index: 1, actionX: 238.25, newX: 282.95, priorityX: 292.31, compX: 301.66 },
+        { index: 2, actionX: 382.11, newX: 426.81, priorityX: 436.17, compX: 445.52 },
+        { index: 3, actionX: 525.97, newX: 570.67, priorityX: 580.02, compX: 589.38 },
       ],
 
-      statusCheckboxes: [
-        { label: 'New', xOffset: 315 },
-        { label: 'Priority', xOffset: 340 },
-        { label: 'Comp', xOffset: 365 },
-      ],
-
-      // ========== PAGE 4 (pageOffset: 0 relative to FDA start) ==========
-      // Complete category list from real PG&E EC tag
+      // ========== PAGE 4 (pageOffset: 0) — calibrated from FOREMAN_DOC page 4 ==========
+      // Each row includes `column` (0-3) for the 4-column layout.
+      // Y positions from real pdfjs-dist text extraction.
       rows: [
-        // --- Page 4, Column 1 ---
-        { category: 'Anchor', condition: 'Broken/Damaged', y: 748, page: 0 },
-        { category: 'Anchor', condition: 'Corroded', y: 722, page: 0 },
-        { category: 'Anchor', condition: 'Missing', y: 697, page: 0 },
-        { category: 'Anchor', condition: 'Soil/Eroded/Graded', y: 672, page: 0 },
-        { category: 'Animal Mitigation', condition: 'Broken/Damaged', y: 635, page: 0 },
-        { category: 'Animal Mitigation', condition: 'Mitigation Missing', y: 622, page: 0 },
-        { category: 'Bird Protection', condition: 'Bird Protection', y: 600, page: 0 },
-        { category: 'Bonding', condition: 'Broken/Damaged', y: 575, page: 0 },
-        { category: 'Bonding', condition: 'Missing', y: 562, page: 0 },
-        { category: 'CB Pole', condition: 'Broken/Damaged', y: 540, page: 0 },
-        { category: 'CB Pole', condition: 'Burnt', y: 527, page: 0 },
-        { category: 'CB Pole', condition: 'Decayed/Rotten', y: 514, page: 0 },
-        { category: 'Buddy Pole', condition: 'Improperly Supported', y: 490, page: 0 },
-        { category: 'Booster/Regulator', condition: 'Broken/Damaged', y: 468, page: 0 },
-        { category: 'Booster/Regulator', condition: 'Burnt', y: 443, page: 0 },
-        { category: 'Booster/Regulator', condition: 'Excessive Operation', y: 430, page: 0 },
-        { category: 'Booster/Regulator', condition: 'Leaks/Seeps/Weeps', y: 417, page: 0 },
-        { category: 'Booster/Regulator', condition: 'Temp Differential', y: 392, page: 0 },
-        { category: 'Capacitor', condition: 'Broken/Damaged', y: 370, page: 0 },
-        { category: 'Capacitor', condition: 'Burnt', y: 345, page: 0 },
-        { category: 'Capacitor', condition: 'Leaks/Seeps/Weeps', y: 320, page: 0 },
-        { category: 'Capacitor', condition: 'Temp Differential', y: 295, page: 0 },
-        { category: 'Climbing Space', condition: 'Obstructed', y: 270, page: 0 },
+        // --- Page 4, Column 0: Anchor → Climbing Space ---
+        { category: 'Anchor', condition: 'Broken/Damaged', y: 732.98, page: 0, column: 0 },
+        { category: 'Anchor', condition: 'Corroded', y: 708.64, page: 0, column: 0 },
+        { category: 'Anchor', condition: 'Missing', y: 684.30, page: 0, column: 0 },
+        { category: 'Anchor', condition: 'Soil/Eroded/Graded', y: 671.63, page: 0, column: 0 },
+        { category: 'Animal Mitigation', condition: 'Broken/Damaged', y: 637.09, page: 0, column: 0 },
+        { category: 'Animal Mitigation', condition: 'Mitigation Missing', y: 624.42, page: 0, column: 0 },
+        { category: 'Bird Protection', condition: 'Bird Protection', y: 601.54, page: 0, column: 0 },
+        { category: 'Bonding', condition: 'Broken/Damaged', y: 567.00, page: 0, column: 0 },
+        { category: 'Bonding', condition: 'Missing', y: 554.32, page: 0, column: 0 },
+        { category: 'CB Pole', condition: 'Broken/Damaged', y: 531.45, page: 0, column: 0 },
+        { category: 'CB Pole', condition: 'Burnt', y: 518.78, page: 0, column: 0 },
+        { category: 'CB Pole', condition: 'Decayed/Rotten', y: 506.11, page: 0, column: 0 },
+        { category: 'Buddy Pole', condition: 'Improperly Supported', y: 483.23, page: 0, column: 0 },
+        { category: 'Booster/Regulator', condition: 'Broken/Damaged', y: 460.35, page: 0, column: 0 },
+        { category: 'Booster/Regulator', condition: 'Burnt', y: 436.01, page: 0, column: 0 },
+        { category: 'Booster/Regulator', condition: 'Excessive Operation', y: 423.34, page: 0, column: 0 },
+        { category: 'Booster/Regulator', condition: 'Leaks/Seeps/Weeps', y: 410.67, page: 0, column: 0 },
+        { category: 'Booster/Regulator', condition: 'Temp Differential', y: 374.16, page: 0, column: 0 },
+        { category: 'Capacitor', condition: 'Broken/Damaged', y: 351.29, page: 0, column: 0 },
+        { category: 'Capacitor', condition: 'Burnt', y: 326.95, page: 0, column: 0 },
+        { category: 'Capacitor', condition: 'Leaks/Seeps/Weeps', y: 314.78, page: 0, column: 0 },
+        { category: 'Capacitor', condition: 'Temp Differential', y: 302.61, page: 0, column: 0 },
 
-        // --- Page 4, Column 2 ---
-        { category: 'Conductor', condition: 'Broken/Damaged', y: 748, page: 0 },
-        { category: 'Conductor', condition: 'Broken Splice', y: 722, page: 0 },
-        { category: 'Conductor', condition: 'Burnt', y: 710, page: 0 },
-        { category: 'Conductor', condition: 'Clearance Impaired', y: 685, page: 0 },
-        { category: 'Conductor', condition: 'Idle Facilities', y: 648, page: 0 },
-        { category: 'Conductor', condition: 'Improper Connection', y: 635, page: 0 },
-        { category: 'Conductor', condition: 'Loose Lashing', y: 622, page: 0 },
-        { category: 'Conductor', condition: 'Overloaded', y: 610, page: 0 },
-        { category: 'Conductor', condition: 'Sag/Clearance', y: 597, page: 0 },
-        { category: 'Conductor', condition: 'Splice Tied In', y: 572, page: 0 },
-        { category: 'Conductor', condition: 'Temp Differential', y: 560, page: 0 },
-        { category: 'Connector', condition: 'Burnt', y: 535, page: 0 },
-        { category: 'Connector', condition: 'Corroded', y: 522, page: 0 },
-        { category: 'Connector', condition: 'COPPER OVER ALUMINUM', y: 497, page: 0 },
-        { category: 'Connector', condition: 'Incorrectly Installed', y: 484, page: 0 },
-        { category: 'Connector', condition: 'Insulation Deteriorated', y: 472, page: 0 },
-        { category: 'Connector', condition: 'TAP CLAMP W/EQUIPM', y: 460, page: 0 },
-        { category: 'Connector', condition: 'Temp Differential', y: 447, page: 0 },
-        { category: 'Crossarm', condition: 'Broken/Damaged', y: 425, page: 0 },
-        { category: 'Crossarm', condition: 'Burnt', y: 400, page: 0 },
-        { category: 'Crossarm', condition: 'Decayed/Rotten', y: 375, page: 0 },
-        { category: 'Cutout', condition: 'Broken/Damaged', y: 350, page: 0 },
-        { category: 'Cutout', condition: 'Clearance Impaired', y: 337, page: 0 },
-        { category: 'Cutout', condition: 'Flashed', y: 325, page: 0 },
-        { category: 'Cutout', condition: 'Temp Differential', y: 312, page: 0 },
-        { category: 'Deadend Cover', condition: 'Broken/Damaged', y: 290, page: 0 },
-        { category: 'Decorative Streetlight', condition: 'Broken/Damaged', y: 265, page: 0 },
-        { category: 'Decorative Streetlight', condition: 'Missing', y: 252, page: 0 },
-        { category: 'Fault Indicators', condition: 'Broken/Damaged', y: 230, page: 0 },
-        { category: 'Fuse', condition: 'Broken/Damaged', y: 208, page: 0 },
-        { category: 'Fuse', condition: 'Clearance Impaired', y: 195, page: 0 },
-        { category: 'Fuse', condition: 'Flashed', y: 183, page: 0 },
-        { category: 'Fuse', condition: 'Temp Differential', y: 170, page: 0 },
+        // --- Page 4, Column 1: Conductor → Fuse ---
+        { category: 'Conductor', condition: 'Broken/Damaged', y: 732.98, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Broken Splice', y: 708.64, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Burnt', y: 695.97, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Clearance Impaired', y: 671.63, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Idle Facilities', y: 616.62, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Improper Connection', y: 603.95, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Loose Lashing', y: 591.28, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Overloaded', y: 578.61, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Sag/Clearance', y: 565.94, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Splice Tied In', y: 513.83, page: 0, column: 1 },
+        { category: 'Conductor', condition: 'Temp Differential', y: 501.16, page: 0, column: 1 },
+        { category: 'Connector', condition: 'Burnt', y: 478.28, page: 0, column: 1 },
+        { category: 'Connector', condition: 'Corroded', y: 465.61, page: 0, column: 1 },
+        { category: 'Connector', condition: 'COPPER OVER ALUMINUM', y: 441.27, page: 0, column: 1 },
+        { category: 'Connector', condition: 'Incorrectly Installed', y: 428.60, page: 0, column: 1 },
+        { category: 'Connector', condition: 'Insulation Deteriorated', y: 415.93, page: 0, column: 1 },
+        { category: 'Connector', condition: 'TAP CLAMP W/EQUIPM', y: 403.26, page: 0, column: 1 },
+        { category: 'Connector', condition: 'Temp Differential', y: 390.59, page: 0, column: 1 },
+        { category: 'Crossarm', condition: 'Broken/Damaged', y: 367.71, page: 0, column: 1 },
+        { category: 'Crossarm', condition: 'Burnt', y: 343.37, page: 0, column: 1 },
+        { category: 'Crossarm', condition: 'Decayed/Rotten', y: 319.03, page: 0, column: 1 },
 
-        // --- Page 4, Column 3 ---
-        { category: 'Ground', condition: 'Broken/Damaged', y: 748, page: 0 },
-        { category: 'Ground', condition: 'Exposed', y: 722, page: 0 },
-        { category: 'Ground', condition: 'Missing', y: 710, page: 0 },
-        { category: 'Ground', condition: 'Temp Differential', y: 697, page: 0 },
-        { category: 'Guy', condition: 'Broken/Damaged', y: 672, page: 0 },
-        { category: 'Guy', condition: 'Clearance Impaired', y: 647, page: 0 },
-        { category: 'Guy', condition: 'Corroded', y: 635, page: 0 },
-        { category: 'Guy', condition: 'Loose', y: 610, page: 0 },
-        { category: 'Guy', condition: 'Missing', y: 597, page: 0 },
-        { category: 'Guy', condition: 'Overgrown', y: 585, page: 0 },
-        { category: 'Guy', condition: 'Strain/Abrasion', y: 572, page: 0 },
-        { category: 'Guy Marker', condition: 'Missing', y: 547, page: 0 },
-        { category: 'Hardware/Framing', condition: 'Bird Prot Required', y: 522, page: 0 },
-        { category: 'Hardware/Framing', condition: 'Birdcage', y: 510, page: 0 },
-        { category: 'Hardware/Framing', condition: 'Broken/Damaged', y: 497, page: 0 },
-        { category: 'Hardware/Framing', condition: 'Loose', y: 472, page: 0 },
-        { category: 'Hardware/Framing', condition: 'Missing', y: 460, page: 0 },
-        { category: 'High Sign', condition: 'Broken/Damaged', y: 435, page: 0 },
-        { category: 'High Sign', condition: 'Missing', y: 422, page: 0 },
-        { category: 'Insulator', condition: 'Broken/Damaged', y: 397, page: 0 },
-        { category: 'Insulator', condition: 'Flashed', y: 385, page: 0 },
-        { category: 'Insulator', condition: 'Primary Squatter', y: 372, page: 0 },
-        { category: 'Insulator', condition: 'Secondary Squatter', y: 360, page: 0 },
-        { category: 'Insulator', condition: 'Temp Differential', y: 347, page: 0 },
-        { category: 'Jumper', condition: 'Burnt', y: 322, page: 0 },
-        { category: 'Jumper', condition: 'Clearance Impaired', y: 310, page: 0 },
-        { category: 'Jumper', condition: 'Temp Differential', y: 285, page: 0 },
-        { category: 'LAPP Insulator', condition: 'Broken/Damaged', y: 260, page: 0 },
-        { category: 'Lightning Arrester', condition: 'Broken/Damaged', y: 235, page: 0 },
-        { category: 'Lightning Arrester', condition: 'Flashed', y: 210, page: 0 },
-        { category: 'Lightning Arrester', condition: 'Temp Differential', y: 185, page: 0 },
-        { category: 'Marking', condition: 'Broken/Damaged', y: 160, page: 0 },
-        { category: 'Marking', condition: 'Missing', y: 147, page: 0 },
-        { category: 'Molding', condition: 'Broken/Damaged', y: 125, page: 0 },
-        { category: 'Molding', condition: 'Loose', y: 100, page: 0 },
-        { category: 'Molding', condition: 'Missing', y: 87, page: 0 },
+        // --- Page 4, Column 2: Ground → Molding ---
+        { category: 'Ground', condition: 'Broken/Damaged', y: 732.98, page: 0, column: 2 },
+        { category: 'Ground', condition: 'Exposed', y: 708.64, page: 0, column: 2 },
+        { category: 'Ground', condition: 'Missing', y: 695.97, page: 0, column: 2 },
+        { category: 'Ground', condition: 'Temp Differential', y: 683.30, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Broken/Damaged', y: 660.43, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Clearance Impaired', y: 636.09, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Corroded', y: 623.41, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Loose', y: 599.07, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Missing', y: 586.40, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Overgrown', y: 573.73, page: 0, column: 2 },
+        { category: 'Guy', condition: 'Strain/Abrasion', y: 561.06, page: 0, column: 2 },
+        { category: 'Guy Marker', condition: 'Missing', y: 548.89, page: 0, column: 2 },
+        { category: 'Hardware/Framing', condition: 'Bird Prot Required', y: 491.97, page: 0, column: 2 },
+        { category: 'Hardware/Framing', condition: 'Birdcage', y: 479.30, page: 0, column: 2 },
+        { category: 'Hardware/Framing', condition: 'Broken/Damaged', y: 466.63, page: 0, column: 2 },
+        { category: 'Hardware/Framing', condition: 'Loose', y: 430.12, page: 0, column: 2 },
+        { category: 'Hardware/Framing', condition: 'Missing', y: 417.45, page: 0, column: 2 },
+        { category: 'High Sign', condition: 'Broken/Damaged', y: 394.57, page: 0, column: 2 },
+        { category: 'High Sign', condition: 'Missing', y: 381.90, page: 0, column: 2 },
+        { category: 'Insulator', condition: 'Broken/Damaged', y: 359.03, page: 0, column: 2 },
+        { category: 'Insulator', condition: 'Flashed', y: 346.35, page: 0, column: 2 },
+        { category: 'Insulator', condition: 'Primary Squatter', y: 333.68, page: 0, column: 2 },
+        { category: 'Insulator', condition: 'Secondary Squatter', y: 321.51, page: 0, column: 2 },
+        { category: 'Insulator', condition: 'Temp Differential', y: 308.84, page: 0, column: 2 },
 
-        // --- Page 4, Column 4 ---
-        { category: 'OH Facility', condition: 'Bird Prot Required', y: 748, page: 0 },
-        { category: 'OH Facility', condition: 'Customer Related', y: 723, page: 0 },
-        { category: 'OH Facility', condition: 'Graffiti', y: 685, page: 0 },
-        { category: 'OH Facility', condition: 'Idle Facilities', y: 672, page: 0 },
-        { category: 'OH Facility', condition: 'Limited Access', y: 647, page: 0 },
-        { category: 'OH Facility', condition: 'Bird Nest', y: 622, page: 0 },
-        { category: 'OH Facility', condition: 'Obstructed', y: 610, page: 0 },
-        { category: 'OH Facility', condition: 'Transmission Issue', y: 585, page: 0 },
-        { category: 'Operating Number', condition: 'Broken/Damaged', y: 560, page: 0 },
-        { category: 'Operating Number', condition: 'Missing', y: 547, page: 0 },
-        { category: 'Pole', condition: 'Broken/Damaged', y: 522, page: 0 },
-        { category: 'Pole', condition: 'Burnt', y: 485, page: 0 },
-        { category: 'Pole', condition: 'Clearance Impaired', y: 460, page: 0 },
-        { category: 'Pole', condition: 'Decayed/Rotten', y: 435, page: 0 },
-        { category: 'Pole', condition: 'Idle Facilities', y: 385, page: 0 },
-        { category: 'Pole', condition: 'Leaning', y: 372, page: 0 },
-        { category: 'Pole', condition: 'Overloaded', y: 347, page: 0 },
-        { category: 'Pole', condition: 'No Safe Access to Pole', y: 322, page: 0 },
-        { category: 'Pole', condition: 'Soil/Eroded/Graded', y: 310, page: 0 },
-        { category: 'Pole', condition: 'Woodpecker Damage', y: 297, page: 0 },
-        { category: 'Recloser/Sectionalizer', condition: 'Broken/Damaged', y: 272, page: 0 },
-        { category: 'Recloser/Sectionalizer', condition: 'Excessive Operation', y: 260, page: 0 },
-        { category: 'Recloser/Sectionalizer', condition: 'Flashed', y: 247, page: 0 },
-        { category: 'Recloser/Sectionalizer', condition: 'Leaks/Seeps/Weeps', y: 222, page: 0 },
-        { category: 'Recloser/Sectionalizer', condition: 'Temp Differential', y: 197, page: 0 },
+        // --- Page 4, Column 3: OH Facility → Recloser/Sectionalizer ---
+        { category: 'OH Facility', condition: 'Bird Prot Required', y: 732.98, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Customer Related', y: 720.31, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Graffiti', y: 683.80, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Idle Facilities', y: 671.13, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Limited Access', y: 634.62, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Bird Nest', y: 598.11, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Obstructed', y: 585.44, page: 0, column: 3 },
+        { category: 'OH Facility', condition: 'Transmission Issue', y: 548.93, page: 0, column: 3 },
+        { category: 'Operating Number', condition: 'Broken/Damaged', y: 526.05, page: 0, column: 3 },
+        { category: 'Operating Number', condition: 'Missing', y: 513.38, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Broken/Damaged', y: 490.51, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Burnt', y: 441.83, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Clearance Impaired', y: 405.32, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Decayed/Rotten', y: 380.98, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Leaning', y: 368.81, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Overloaded', y: 348.84, page: 0, column: 3 },
+        { category: 'Pole', condition: 'No Safe Access to Pole', y: 336.67, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Soil/Eroded/Graded', y: 324.50, page: 0, column: 3 },
+        { category: 'Pole', condition: 'Woodpecker Damage', y: 312.33, page: 0, column: 3 },
 
-        // ========== PAGE 5 (pageOffset: 1 relative to FDA start) ==========
-        { category: 'Riser/Pothead', condition: 'Broken/Damaged', y: 700, page: 1 },
-        { category: 'Riser/Pothead', condition: 'Installed in Error', y: 685, page: 1 },
-        { category: 'Riser/Pothead', condition: 'Flashed', y: 672, page: 1 },
-        { category: 'Riser/Pothead', condition: 'Temp Differential', y: 660, page: 1 },
-        { category: 'ROAD', condition: 'No Safe Access to Pole', y: 635, page: 1 },
-        { category: 'Relinquished Pole', condition: 'Decayed/Rotten', y: 610, page: 1 },
-        { category: 'RTVI', condition: 'Interference', y: 585, page: 1 },
-        { category: 'SCADA/PDAC', condition: 'Broken/Damaged', y: 560, page: 1 },
-        { category: 'SCADA/PDAC', condition: 'Leaks/Seeps/Weeps', y: 535, page: 1 },
-        { category: 'Steel Lattice Pole', condition: 'Guarding Missing', y: 510, page: 1 },
-        { category: 'Sec_Svc Conductor', condition: 'Splice Installed', y: 485, page: 1 },
-        { category: 'Pole Step', condition: 'Clearance Impaired', y: 460, page: 1 },
-        { category: 'Streetlight', condition: 'Broken/Damaged', y: 435, page: 1 },
-        { category: 'Streetlight', condition: 'Missing', y: 410, page: 1 },
-        { category: 'Steel Lattice Tower', condition: 'Broken/Damaged', y: 385, page: 1 },
-        { category: 'Switch', condition: 'Broken/Damaged', y: 360, page: 1 },
-        { category: 'Switch', condition: 'Temp Differential', y: 335, page: 1 },
-        { category: 'Tap Clamp', condition: 'Overloaded', y: 310, page: 1 },
-        { category: 'Trans_Dist Pole', condition: 'Bridging Broken', y: 285, page: 1 },
-        { category: 'Trans_Dist Pole', condition: 'Bridging Missing', y: 272, page: 1 },
-        { category: 'Trans_Dist Pole', condition: 'Bonding Missing', y: 260, page: 1 },
-        { category: 'Trans_Dist Pole', condition: 'Bonding Broken', y: 247, page: 1 },
-        { category: 'Tie Wire', condition: 'Broken/Damaged', y: 222, page: 1 },
-        { category: 'Tie Wire', condition: 'Corroded', y: 210, page: 1 },
-        { category: 'Tie Wire', condition: 'Improperly Installed', y: 197, page: 1 },
-        { category: 'Tie Wire', condition: 'Loose', y: 185, page: 1 },
-        { category: 'Tie Wire', condition: 'Temp Differential', y: 172, page: 1 },
+        // ========== PAGE 5 (pageOffset: 1) — calibrated from FOREMAN_DOC page 5 ==========
+        // Page 5 is single-column (column 0) for remaining categories
+        { category: 'Riser/Pothead', condition: 'Broken/Damaged', y: 661.41, page: 1, column: 0 },
+        { category: 'Riser/Pothead', condition: 'Installed in Error', y: 637.07, page: 1, column: 0 },
+        { category: 'Riser/Pothead', condition: 'Flashed', y: 624.40, page: 1, column: 0 },
+        { category: 'Riser/Pothead', condition: 'Temp Differential', y: 600.06, page: 1, column: 0 },
+        { category: 'ROAD', condition: 'No Safe Access to Pole', y: 577.18, page: 1, column: 0 },
+        { category: 'Relinquished Pole', condition: 'Decayed/Rotten', y: 554.30, page: 1, column: 0 },
+        { category: 'RTVI', condition: 'Interference', y: 531.43, page: 1, column: 0 },
+        { category: 'SCADA/PDAC', condition: 'Broken/Damaged', y: 496.88, page: 1, column: 0 },
+        { category: 'SCADA/PDAC', condition: 'Leaks/Seeps/Weeps', y: 472.54, page: 1, column: 0 },
+        { category: 'Steel Lattice Pole', condition: 'Guarding Missing', y: 425.83, page: 1, column: 0 },
+        { category: 'Sec_Svc Conductor', condition: 'Splice Installed', y: 402.95, page: 1, column: 0 },
+        { category: 'Pole Step', condition: 'Clearance Impaired', y: 380.08, page: 1, column: 0 },
+        { category: 'Streetlight', condition: 'Broken/Damaged', y: 357.20, page: 1, column: 0 },
+        { category: 'Streetlight', condition: 'Missing', y: 332.86, page: 1, column: 0 },
+        { category: 'Steel Lattice Tower', condition: 'Broken/Damaged', y: 309.99, page: 1, column: 0 },
+        { category: 'Switch', condition: 'Broken/Damaged', y: 287.11, page: 1, column: 0 },
+        { category: 'Switch', condition: 'Temp Differential', y: 262.77, page: 1, column: 0 },
+        { category: 'Tap Clamp', condition: 'Overloaded', y: 239.89, page: 1, column: 0 },
+        { category: 'Trans_Dist Pole', condition: 'Bridging Broken', y: 217.02, page: 1, column: 0 },
+        { category: 'Trans_Dist Pole', condition: 'Bridging Missing', y: 204.35, page: 1, column: 0 },
+        { category: 'Trans_Dist Pole', condition: 'Bonding Missing', y: 191.68, page: 1, column: 0 },
+        { category: 'Trans_Dist Pole', condition: 'Bonding Broken', y: 179.00, page: 1, column: 0 },
+        { category: 'Tie Wire', condition: 'Broken/Damaged', y: 156.13, page: 1, column: 0 },
+        { category: 'Tie Wire', condition: 'Corroded', y: 143.46, page: 1, column: 0 },
+        { category: 'Tie Wire', condition: 'Improperly Installed', y: 130.79, page: 1, column: 0 },
+        { category: 'Tie Wire', condition: 'Loose', y: 118.12, page: 1, column: 0 },
+        { category: 'Tie Wire', condition: 'Temp Differential', y: 105.44, page: 1, column: 0 },
 
-        // ========== PAGE 6 (pageOffset: 2 relative to FDA start) ==========
-        { category: 'Transformer', condition: 'Broken/Damaged', y: 700, page: 2 },
-        { category: 'Transformer', condition: 'Corroded', y: 685, page: 2 },
-        { category: 'Transformer', condition: 'Flashed', y: 672, page: 2 },
-        { category: 'Transformer', condition: 'Idle Facilities', y: 647, page: 2 },
-        { category: 'Transformer', condition: 'No Common Neutral', y: 635, page: 2 },
-        { category: 'Transformer', condition: 'Overloaded', y: 622, page: 2 },
-        { category: 'Transformer', condition: 'Parallel', y: 610, page: 2 },
-        { category: 'Transformer', condition: 'Leaks/Seeps/Weeps', y: 585, page: 2 },
-        { category: 'Transformer', condition: 'Temp Differential', y: 547, page: 2 },
-        { category: 'Tree/Vine', condition: 'Clearance Impaired', y: 522, page: 2 },
-        { category: 'Tree/Vine', condition: 'Decayed/Rotten', y: 497, page: 2 },
-        { category: 'Tree/Vine', condition: 'Overgrown', y: 472, page: 2 },
-        { category: 'Tree/Vine', condition: 'Tree Connect', y: 447, page: 2 },
-        { category: 'Trip Saver', condition: 'Broken/Damaged', y: 422, page: 2 },
-        { category: 'Tree Wire', condition: 'Exposed', y: 397, page: 2 },
-        { category: 'Under-Arm Bus', condition: 'Broken/Damaged', y: 372, page: 2 },
-        { category: 'Visibility Strip', condition: 'Broken/Damaged', y: 347, page: 2 },
+        // ========== PAGE 6 (pageOffset: 2) — calibrated from FOREMAN_DOC page 6 ==========
+        // Page 6 is single-column (column 0) for final categories
+        { category: 'Transformer', condition: 'Broken/Damaged', y: 661.41, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Corroded', y: 637.07, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Flashed', y: 624.40, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Idle Facilities', y: 600.06, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'No Common Neutral', y: 587.39, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Overloaded', y: 574.72, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Parallel', y: 562.04, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Leaks/Seeps/Weeps', y: 549.37, page: 2, column: 0 },
+        { category: 'Transformer', condition: 'Temp Differential', y: 500.69, page: 2, column: 0 },
+        { category: 'Tree/Vine', condition: 'Clearance Impaired', y: 477.82, page: 2, column: 0 },
+        { category: 'Tree/Vine', condition: 'Decayed/Rotten', y: 453.48, page: 2, column: 0 },
+        { category: 'Tree/Vine', condition: 'Overgrown', y: 435.48, page: 2, column: 0 },
+        { category: 'Tree/Vine', condition: 'Tree Connect', y: 411.14, page: 2, column: 0 },
+        { category: 'Trip Saver', condition: 'Broken/Damaged', y: 370.76, page: 2, column: 0 },
+        { category: 'Tree Wire', condition: 'Exposed', y: 336.22, page: 2, column: 0 },
+        { category: 'Under-Arm Bus', condition: 'Broken/Damaged', y: 313.34, page: 2, column: 0 },
+        { category: 'Visibility Strip', condition: 'Broken/Damaged', y: 290.46, page: 2, column: 0 },
       ],
 
       emergencyCauses: [
@@ -791,8 +905,10 @@ function getPGEConfig() {
       'permits',
       'tcp',
       'job_checklist',
+      'unit_price_completion',
       'billing_form',
       'paving_form',
+      'cwc',
       'ccsc',
       'photos',
     ],
