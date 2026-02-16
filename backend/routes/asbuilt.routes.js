@@ -1567,7 +1567,96 @@ router.post('/wizard/submit', async (req, res) => {
 
     await asBuiltSubmission.save();
 
-    // ---- Step 4: Save as-built summary to Close Out Documents folder ----
+    // ---- Step 4: Stamp wizard data onto original job package PDF ----
+    let stampedPdfKey = null;
+    try {
+      // Only stamp if the job package has been classified and we have the PDF in R2
+      if (job.packagePdfKey && job.packageClassification?.length && r2Storage.isR2Configured() && config?.documentCompletions?.length) {
+        // Load the original job package PDF
+        const fileData = await r2Storage.getFileStream(job.packagePdfKey);
+        if (fileData?.stream) {
+          const chunks = [];
+          for await (const chunk of fileData.stream) {
+            chunks.push(chunk);
+          }
+          const pdfBuffer = Buffer.concat(chunks);
+
+          // Load user for auto-fill context
+          const stampUser = await User.findById(req.userId).select('name email lanId').lean();
+          const Company = require('../models/Company');
+          const stampCompany = await Company.findById(job.companyId).select('name').lean();
+
+          const { PDFDocument: StampPDFDoc } = require('pdf-lib');
+          const fullDoc = await StampPDFDoc.load(pdfBuffer, { ignoreEncryption: true });
+
+          // For each section that has completion fields, stamp the values
+          for (const sectionConfig of config.documentCompletions) {
+            const sectionPages = job.packageClassification
+              .filter(c => c.sectionType === sectionConfig.sectionType)
+              .map(c => c.pageIndex)
+              .sort((a, b) => a - b);
+
+            if (sectionPages.length === 0) continue;
+
+            // Extract section pages, stamp them, then copy back
+            const sectionPdf = await extractPages(pdfBuffer, sectionPages);
+            const context = {
+              job,
+              user: stampUser || {},
+              company: stampCompany || {},
+              timesheet: { totalHours: submission.stepData?.ec_tag?.actualHours },
+              manualValues: submission.stepData?.[sectionConfig.sectionType]?.values || {},
+            };
+            const stampedSection = await stampSection(sectionPdf, sectionConfig.fields, context);
+
+            // Replace original pages with stamped versions
+            const stampedDoc = await StampPDFDoc.load(stampedSection, { ignoreEncryption: true });
+            for (let i = 0; i < sectionPages.length && i < stampedDoc.getPageCount(); i++) {
+              const [copiedPage] = await fullDoc.copyPages(stampedDoc, [i]);
+              // Remove old page and insert stamped version at same position
+              fullDoc.removePage(sectionPages[i]);
+              fullDoc.insertPage(sectionPages[i], copiedPage);
+            }
+          }
+
+          // Stamp FDA grid if EC tag data exists
+          if (config.fdaGrid && submission.stepData?.fda?.fdaSelections?.length) {
+            const fdaStartPage = config.fdaGrid.pageOffset || 3;
+            const fdaPages = job.packageClassification
+              .filter(c => c.sectionType === 'ec_tag')
+              .map(c => c.pageIndex)
+              .sort((a, b) => a - b)
+              .filter((_p, i) => i >= fdaStartPage);
+
+            if (fdaPages.length > 0) {
+              const fdaPdf = await extractPages(pdfBuffer, fdaPages);
+              const stampedFda = await stampFdaGrid(fdaPdf, config.fdaGrid, submission.stepData.fda.fdaSelections);
+              const stampedFdaDoc = await StampPDFDoc.load(stampedFda, { ignoreEncryption: true });
+              for (let i = 0; i < fdaPages.length && i < stampedFdaDoc.getPageCount(); i++) {
+                const [copiedPage] = await fullDoc.copyPages(stampedFdaDoc, [i]);
+                fullDoc.removePage(fdaPages[i]);
+                fullDoc.insertPage(fdaPages[i], copiedPage);
+              }
+            }
+          }
+
+          // Save the stamped full PDF
+          const stampedPdfBytes = await fullDoc.save();
+          const dateStr = new Date().toISOString().split('T')[0];
+          const stampedFileName = `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_Completed_${dateStr}.pdf`;
+          const stampedR2Key = `asbuilt/completed/${job.companyId}/${stampedFileName}`;
+
+          await r2Storage.uploadBuffer(Buffer.from(stampedPdfBytes), stampedR2Key, 'application/pdf');
+          stampedPdfKey = stampedR2Key;
+          console.log(`[AsBuilt:Submit] Stamped PDF uploaded to R2: ${stampedR2Key} (${stampedPdfBytes.length} bytes)`);
+        }
+      }
+    } catch (stampErr) {
+      console.error('[AsBuilt:Submit] Failed to stamp PDF (non-fatal):', stampErr.message);
+      // Non-fatal — submission record is saved, HTML summary will be used as fallback
+    }
+
+    // ---- Step 4b: Save document reference to Close Out folder ----
     try {
       const aciFolder = job.folders?.find(f => f.name === 'ACI');
       if (aciFolder) {
@@ -1580,32 +1669,48 @@ router.post('/wizard/submit', async (req, res) => {
         if (!closeOutFolder.documents) closeOutFolder.documents = [];
 
         const dateStr = new Date().toISOString().split('T')[0];
-        const docName = `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_${dateStr}.json`;
 
         // Remove old version if exists
         const existingIdx = closeOutFolder.documents.findIndex(d =>
-          d.name?.includes('AsBuilt') && d.type === 'filled_pdf'
+          d.name?.includes('AsBuilt') && (d.type === 'filled_pdf' || d.type === 'other')
         );
         if (existingIdx !== -1) {
           closeOutFolder.documents.splice(existingIdx, 1);
         }
 
-        // Save reference document pointing to the AsBuiltSubmission
-        closeOutFolder.documents.push({
-          name: docName.replace('.json', '.html'),
-          type: 'other',
-          uploadDate: new Date(),
-          uploadedBy: req.userId,
-          isCompleted: true,
-          completedDate: new Date(),
-          completedBy: req.userId,
-          extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
-          // URL for viewable HTML summary
-          url: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
-          path: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
-        });
-
-        console.log(`As-built saved to Close Out Documents: ${docName}`);
+        if (stampedPdfKey) {
+          // Stamped PDF available — save reference to the actual completed job package
+          const stampedUrl = r2Storage.getPublicUrl(stampedPdfKey);
+          closeOutFolder.documents.push({
+            name: `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_${dateStr}.pdf`,
+            type: 'filled_pdf',
+            url: stampedUrl,
+            r2Key: stampedPdfKey,
+            uploadDate: new Date(),
+            uploadedBy: req.userId,
+            isCompleted: true,
+            completedDate: new Date(),
+            completedBy: req.userId,
+            extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
+          });
+          console.log('[AsBuilt:Submit] Stamped PDF saved to Close Out Documents');
+        } else {
+          // Fallback: HTML summary (when no classified PDF or stamp failed)
+          const docName = `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_${dateStr}`;
+          closeOutFolder.documents.push({
+            name: `${docName}.html`,
+            type: 'other',
+            uploadDate: new Date(),
+            uploadedBy: req.userId,
+            isCompleted: true,
+            completedDate: new Date(),
+            completedBy: req.userId,
+            extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
+            url: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
+            path: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
+          });
+          console.log('[AsBuilt:Submit] HTML summary saved to Close Out Documents (no classified PDF available)');
+        }
       }
     } catch (folderErr) {
       console.warn('Failed to save as-built to Close Out folder:', folderErr.message);
