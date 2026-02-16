@@ -34,9 +34,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import PersonIcon from '@mui/icons-material/Person';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAppColors } from '../shared/themeUtils';
+import api from '../../api';
 
-// Worker role options
-const WORKER_ROLES = [
+// Fallback worker roles (used only if no contract rates loaded)
+const DEFAULT_WORKER_ROLES = [
   { value: 'foreman', label: 'Foreman', rate: 95 },
   { value: 'journeyman', label: 'Journeyman', rate: 85 },
   { value: 'apprentice', label: 'Apprentice', rate: 55 },
@@ -44,6 +45,43 @@ const WORKER_ROLES = [
   { value: 'operator', label: 'Operator', rate: 90 },
   { value: 'other', label: 'Other', rate: 65 },
 ];
+
+// Load contract rates once and cache
+let cachedWorkerRoles = null;
+let ratesFetched = false;
+
+async function getWorkerRoles() {
+  if (cachedWorkerRoles) return cachedWorkerRoles;
+  if (ratesFetched) return DEFAULT_WORKER_ROLES;
+
+  try {
+    ratesFetched = true;
+    const res = await api.get('/api/onboarding/rates/me?active=true');
+    const rates = Array.isArray(res.data) ? res.data[0] : res.data;
+
+    if (rates?.laborRates?.length) {
+      cachedWorkerRoles = rates.laborRates.map(r => ({
+        value: r.classification.toLowerCase().replace(/\s+/g, '_'),
+        label: r.classification,
+        rate: r.totalBurdenedRate,
+      }));
+      // Add 'other' fallback
+      cachedWorkerRoles.push({ value: 'other', label: 'Other', rate: 65 });
+      return cachedWorkerRoles;
+    }
+  } catch {
+    // Contract rates not available — use defaults
+  }
+  return DEFAULT_WORKER_ROLES;
+}
+
+// Sync accessor — returns cached or defaults (non-blocking)
+function getWorkerRolesSync() {
+  return cachedWorkerRoles || DEFAULT_WORKER_ROLES;
+}
+
+// Trigger async load on module import
+getWorkerRoles();
 
 /**
  * Individual Labor Entry Row Component
@@ -85,7 +123,8 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
               value={entry.role}
               label="Role"
               onChange={(e) => {
-                const newRole = WORKER_ROLES.find(r => r.value === e.target.value);
+                const roles = getWorkerRolesSync();
+                const newRole = roles.find(r => r.value === e.target.value);
                 onChange({
                   ...entry,
                   role: e.target.value,
@@ -94,7 +133,7 @@ const LaborEntry = ({ entry, onChange, onRemove }) => {
               }}
               sx={{ bgcolor: COLORS.surfaceLight, color: COLORS.text }}
             >
-              {WORKER_ROLES.map(r => (
+              {getWorkerRolesSync().map(r => (
                 <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
               ))}
             </Select>
@@ -169,14 +208,16 @@ const FieldTicketLaborSection = ({ entries, onChange, expanded, onToggle, total 
   const COLORS = useAppColors();
 
   const addEntry = () => {
+    const roles = getWorkerRolesSync();
+    const defaultRole = roles.find(r => r.value === 'journeyman' || r.label === 'Journeyman Lineman') || roles[0];
     onChange([...entries, {
       id: `labor-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       workerName: '',
-      role: 'journeyman',
+      role: defaultRole?.value || 'journeyman',
       regularHours: 0,
       overtimeHours: 0,
       doubleTimeHours: 0,
-      regularRate: 85,
+      regularRate: defaultRole?.rate || 85,
     }]);
   };
 

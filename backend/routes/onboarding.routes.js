@@ -241,6 +241,33 @@ router.put('/rates/:id', async (req, res) => {
 });
 
 /**
+ * GET /rates/me
+ * Get active contract rates for the current user's company.
+ * Used by frontend components to auto-fill labor/equipment rates.
+ */
+router.get('/rates/me', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+
+    const activeOnly = req.query.active === 'true';
+    const query = { companyId: user.companyId };
+    if (activeOnly) {
+      query.isActive = true;
+      query.status = 'active';
+    }
+
+    const rates = await ContractRates.find(query).sort({ createdAt: -1 }).lean();
+    res.json(rates);
+  } catch (err) {
+    console.error('[Onboarding] Get my rates error:', err);
+    res.status(500).json({ error: 'Failed to get rates' });
+  }
+});
+
+/**
  * GET /rates/:companyId
  * Get all contract rates for a company (or just active).
  */
