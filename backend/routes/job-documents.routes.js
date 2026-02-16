@@ -415,8 +415,9 @@ router.post('/:id/upload', upload.single('file'), async (req, res) => {
       }
     }
     
-    // Add document to folder
+    // Add document to folder (generate _id so the response includes it for delete/edit)
     const newDoc = {
+      _id: new mongoose.Types.ObjectId(),
       name: newFilename,
       url: docUrl,
       r2Key: r2Key,
