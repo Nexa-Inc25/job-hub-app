@@ -20,6 +20,7 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
 const notificationService = require('../services/notification.service');
+const ContractRates = require('../models/ContractRates');
 const { withOptionalTransaction } = require('../utils/transaction');
 
 // ============================================================================
@@ -602,6 +603,43 @@ router.post('/', async (req, res) => {
       syncStatus: offlineId ? 'pending' : 'synced',
       syncedAt: offlineId ? undefined : new Date()
     });
+
+    // Auto-apply contract rates to labor and equipment entries
+    try {
+      const activeRates = await ContractRates.getActiveRates(user.companyId);
+      if (activeRates) {
+        // Apply labor rates
+        if (activeRates.laborRates?.length && ticket.laborEntries?.length) {
+          for (const entry of ticket.laborEntries) {
+            const craft = entry.craft || entry.workerClassification || 'Journeyman Lineman';
+            const rate = activeRates.laborRates.find(
+              r => r.classification.toLowerCase().includes(craft.toLowerCase()) ||
+                   craft.toLowerCase().includes(r.classification.toLowerCase())
+            );
+            if (rate) {
+              if (!entry.regularRate) entry.regularRate = rate.totalBurdenedRate;
+              if (!entry.overtimeRate) entry.overtimeRate = Math.round(rate.totalBurdenedRate * 1.5 * 100) / 100;
+              if (!entry.doubleTimeRate) entry.doubleTimeRate = Math.round(rate.totalBurdenedRate * 2 * 100) / 100;
+            }
+          }
+        }
+        // Apply equipment rates
+        if (activeRates.equipmentRates?.length && ticket.equipmentEntries?.length) {
+          for (const entry of ticket.equipmentEntries) {
+            const desc = entry.description || entry.equipmentType || '';
+            const rate = activeRates.equipmentRates.find(
+              r => r.equipmentType.toLowerCase().includes(desc.toLowerCase()) ||
+                   desc.toLowerCase().includes(r.equipmentType.toLowerCase())
+            );
+            if (rate && !entry.hourlyRate) {
+              entry.hourlyRate = rate.hourlyRate;
+            }
+          }
+        }
+      }
+    } catch (rateErr) {
+      console.warn('[FieldTicket:Rates] Failed to apply contract rates (non-fatal):', rateErr.message);
+    }
 
     await ticket.save();
 

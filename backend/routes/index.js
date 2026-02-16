@@ -51,6 +51,7 @@ const jobLifecycleRoutes = require('./job-lifecycle.routes');
 const jobMiscRoutes = require('./job-misc.routes');
 const jobDocumentsRoutes = require('./job-documents.routes');
 const jobCoreRoutes = require('./job-core.routes');
+const onboardingRoutes = require('./onboarding.routes');
 
 // ---------------------------------------------------------------------------
 // Inline helpers (previously embedded in server.js)
@@ -308,6 +309,7 @@ function registerRoutes(app, { uploadsDir } = {}) {
   app.use('/api/feedback', authenticateUser, feedbackRoutes);
   app.use('/api/superadmin', authenticateUser, superadminRoutes);
   app.use('/api/admin', authenticateUser, adminPlatformRoutes);
+  app.use('/api/onboarding', authenticateUser, onboardingRoutes);
 
   // ---- Job routes (multiple routers share /api/jobs prefix) ----
   app.use('/api/jobs', authenticateUser, jobCoreRoutes);

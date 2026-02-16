@@ -47,6 +47,7 @@ const BillingDashboard = lazy(() => import('./components/billing/BillingDashboar
 const UnitEntryForm = lazy(() => import('./components/billing/UnitEntryForm'));
 const ForemanCapturePage = lazy(() => import('./components/billing/ForemanCapturePage'));
 const PriceBookAdmin = lazy(() => import('./components/billing/PriceBookAdmin'));
+const MSAUpload = lazy(() => import('./components/admin/MSAUpload'));
 const PricingPage = lazy(() => import('./components/billing/PricingPage'));
 const BillingSettings = lazy(() => import('./components/billing/BillingSettings'));
 const AsBuiltRouter = lazy(() => import('./components/asbuilt/AsBuiltRouter'));
@@ -171,6 +172,7 @@ function App() {
               <Route path="/admin/users" element={<ProtectedRoute><AdminUsersList /></ProtectedRoute>} />
               <Route path="/admin/jobs-overview" element={<ProtectedRoute><AdminJobsOverview /></ProtectedRoute>} />
               <Route path="/admin/ai-costs" element={<ProtectedRoute><AdminAICosts /></ProtectedRoute>} />
+              <Route path="/admin/msa-rates" element={<ProtectedRoute><MSAUpload /></ProtectedRoute>} />
               <Route path="/qa/dashboard" element={<ProtectedRoute><QADashboard /></ProtectedRoute>} />
               <Route path="/qa/spec-library" element={<ProtectedRoute><SpecLibrary /></ProtectedRoute>} />
               <Route path="/admin/procedures" element={<DemoRestrictedRoute><ProcedureManager /></DemoRestrictedRoute>} />

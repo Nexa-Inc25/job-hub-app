@@ -20,6 +20,7 @@ const LME = require('../models/LME');
 const Job = require('../models/Job');
 const User = require('../models/User');
 const FieldTicket = require('../models/FieldTicket');
+const ContractRates = require('../models/ContractRates');
 const { PDFDocument, StandardFonts } = require('pdf-lib');
 const { sanitizeObjectId, sanitizeString, sanitizeDate } = require('../utils/sanitize');
 const r2Storage = require('../utils/storage');
@@ -835,6 +836,41 @@ router.post('/', authenticateUser, async (req, res) => {
       },
       { upsert: true, new: true }
     );
+
+    // Auto-apply contract rates to labor entries if available
+    try {
+      const activeRates = await ContractRates.getActiveRates(user.companyId);
+      if (activeRates?.laborRates?.length && lme.labor?.length) {
+        let laborTotal = 0;
+        let ratesApplied = 0;
+        for (const entry of lme.labor) {
+          // Match labor entry craft/classification to contract rate
+          const craft = entry.craft || entry.classification || 'Journeyman Lineman';
+          const rate = activeRates.laborRates.find(
+            r => r.classification.toLowerCase().includes(craft.toLowerCase()) ||
+                 craft.toLowerCase().includes(r.classification.toLowerCase())
+          );
+          if (rate) {
+            const st = (entry.stHours || 0) * rate.totalBurdenedRate;
+            const ot = (entry.otHours || 0) * rate.totalBurdenedRate * 1.5;
+            const dt = (entry.dtHours || 0) * rate.totalBurdenedRate * 2;
+            entry.totalAmount = Math.round((st + ot + dt) * 100) / 100;
+            entry.appliedRate = rate.totalBurdenedRate;
+            laborTotal += entry.totalAmount;
+            ratesApplied++;
+          }
+        }
+        if (ratesApplied > 0) {
+          lme.totals = lme.totals || {};
+          lme.totals.labor = Math.round(laborTotal * 100) / 100;
+          lme.totals.grand = Math.round(((lme.totals.labor || 0) + (lme.totals.material || 0) + (lme.totals.equipment || 0)) * 100) / 100;
+          await lme.save();
+          console.log(`[LME:Rates] Applied contract rates to ${ratesApplied} labor entries, total: $${laborTotal.toFixed(2)}`);
+        }
+      }
+    } catch (rateErr) {
+      console.warn('[LME:Rates] Failed to apply contract rates (non-fatal):', rateErr.message);
+    }
 
     // Save LME reference to Close Out Documents
     try {
