@@ -34,9 +34,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import BuildIcon from '@mui/icons-material/Build';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { useAppColors } from '../shared/themeUtils';
+import api from '../../api';
 
-// Equipment type options
-const EQUIPMENT_TYPES = [
+// Fallback equipment types (used only if no contract rates loaded)
+const DEFAULT_EQUIPMENT_TYPES = [
   { value: 'bucket_truck', label: 'Bucket Truck', rate: 125 },
   { value: 'digger_derrick', label: 'Digger Derrick', rate: 175 },
   { value: 'crane', label: 'Crane', rate: 250 },
@@ -54,6 +55,36 @@ const EQUIPMENT_TYPES = [
   { value: 'puller', label: 'Puller', rate: 175 },
   { value: 'other', label: 'Other', rate: 50 },
 ];
+
+// Load contract equipment rates once and cache
+let cachedEquipmentTypes = null;
+let equipRatesFetched = false;
+
+async function loadEquipmentRates() {
+  if (cachedEquipmentTypes || equipRatesFetched) return;
+  equipRatesFetched = true;
+  try {
+    const res = await api.get('/api/onboarding/rates/me?active=true');
+    const rates = Array.isArray(res.data) ? res.data[0] : res.data;
+    if (rates?.equipmentRates?.length) {
+      cachedEquipmentTypes = rates.equipmentRates.map(r => ({
+        value: r.equipmentType.toLowerCase().replace(/[^a-z0-9]+/g, '_'),
+        label: r.equipmentType,
+        rate: r.hourlyRate,
+      }));
+      cachedEquipmentTypes.push({ value: 'other', label: 'Other', rate: 50 });
+    }
+  } catch {
+    // Contract rates not available
+  }
+}
+
+function getEquipmentTypesSync() {
+  return cachedEquipmentTypes || DEFAULT_EQUIPMENT_TYPES;
+}
+
+// Trigger async load
+loadEquipmentRates();
 
 /**
  * Individual Equipment Entry Row Component
@@ -85,7 +116,7 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
               value={entry.equipmentType}
               label="Type"
               onChange={(e) => {
-                const newType = EQUIPMENT_TYPES.find(t => t.value === e.target.value);
+                const newType = getEquipmentTypesSync().find(t => t.value === e.target.value);
                 onChange({
                   ...entry,
                   equipmentType: e.target.value,
@@ -95,7 +126,7 @@ const EquipmentEntry = ({ entry, onChange, onRemove }) => {
               }}
               sx={{ bgcolor: COLORS.surfaceLight, color: COLORS.text }}
             >
-              {EQUIPMENT_TYPES.map(t => (
+              {getEquipmentTypesSync().map(t => (
                 <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>
               ))}
             </Select>
@@ -181,7 +212,7 @@ const FieldTicketEquipmentSection = ({ entries, onChange, expanded, onToggle, to
       description: 'Bucket Truck',
       hours: 0,
       standbyHours: 0,
-      hourlyRate: 125,
+      hourlyRate: getEquipmentTypesSync().find(t => t.label?.includes('Bucket'))?.rate || 125,
     }]);
   };
 
