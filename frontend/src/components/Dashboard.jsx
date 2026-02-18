@@ -480,6 +480,7 @@ const Dashboard = () => {
             onScheduleJob={(jobId) => { setSelectedJobId(jobId); handleOpenAssignDialog(); }}
             onStartPreField={handleStartPreField}
             onUnstickJob={handleUnstickJob}
+            onJobMenuOpen={handleJobMenuOpen}
           />
         )}
 
@@ -509,7 +510,7 @@ const Dashboard = () => {
 
         {/* Job Card Menu */}
         <Menu anchorEl={jobMenuAnchor} open={Boolean(jobMenuAnchor)} onClose={handleJobMenuClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} disableRestoreFocus>
-          <MenuItem onClick={() => { if (selectedJobId) navigate(`/jobs/${selectedJobId}`); handleJobMenuClose(); }}><EditIcon fontSize="small" sx={{ mr: 1 }} />View Details</MenuItem>
+          <MenuItem onClick={() => { if (selectedJobId) navigate(`/jobs/${selectedJobId}/details`); handleJobMenuClose(); }}><EditIcon fontSize="small" sx={{ mr: 1 }} />View Details</MenuItem>
           <MenuItem onClick={() => { if (selectedJobId) navigate((userRole === 'foreman' || userRole === 'crew') ? `/jobs/${selectedJobId}/closeout` : `/jobs/${selectedJobId}/files`); handleJobMenuClose(); }}><FolderIcon fontSize="small" sx={{ mr: 1 }} />Open Files</MenuItem>
           {canManageJobs(userRole, isAdmin, isSuperAdmin) && <MenuItem onClick={handleOpenAssignDialog}><AssignIcon fontSize="small" sx={{ mr: 1 }} />Assign to Foreman</MenuItem>}
           {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && canMarkAsStuck(jobs.find((j) => j._id === selectedJobId)) && (

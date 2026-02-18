@@ -121,6 +121,7 @@ const DashboardSchedule = ({
   onScheduleJob,
   onStartPreField,
   onUnstickJob,
+  onJobMenuOpen,
 }) => {
   const isFieldRole = userRole === 'foreman' || userRole === 'crew';
 
@@ -143,10 +144,10 @@ const DashboardSchedule = ({
                 job={job}
                 actions={
                   <>
-                    <Button size="small" component={Link} to={`/jobs/${job._id}/files`} variant="outlined" color="primary">
+                    <Button size="small" component={Link} to={`/jobs/${job._id}/details`} variant="outlined" color="primary">
                       Pre-Field
                     </Button>
-                    <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                    <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
                   </>
@@ -183,7 +184,7 @@ const DashboardSchedule = ({
                         Files
                       </Button>
                     )}
-                    <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                    <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
                   </>
@@ -213,7 +214,7 @@ const DashboardSchedule = ({
                     <Button size="small" color="success" onClick={(e) => onUnstickJob(job._id, e)}>
                       Resume
                     </Button>
-                    <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                    <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
                       <MoreVertIcon fontSize="small" />
                     </IconButton>
                   </>
@@ -279,7 +280,7 @@ const DashboardSchedule = ({
                   <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>
                     Files
                   </Button>
-                  <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                  <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
                 </Box>
@@ -328,7 +329,7 @@ const DashboardSchedule = ({
                   <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>
                     Files
                   </Button>
-                  <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                  <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
                 </Box>
@@ -375,7 +376,7 @@ const DashboardSchedule = ({
                   <Button size="small" component={Link} to={`/jobs/${job._id}/files`}>
                     Files
                   </Button>
-                  <IconButton size="small" component={Link} to={`/jobs/${job._id}/details`} aria-label="View job details">
+                  <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
                     <MoreVertIcon fontSize="small" />
                   </IconButton>
                 </Box>
@@ -399,6 +400,7 @@ DashboardSchedule.propTypes = {
   }).isRequired,
   expandedSections: PropTypes.object.isRequired,
   onToggleSection: PropTypes.func.isRequired,
+  onJobMenuOpen: PropTypes.func.isRequired,
   userRole: PropTypes.string,
   onScheduleJob: PropTypes.func.isRequired,
   onStartPreField: PropTypes.func.isRequired,
