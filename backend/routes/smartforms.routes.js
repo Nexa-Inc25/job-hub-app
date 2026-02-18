@@ -621,6 +621,39 @@ router.delete('/templates/:id', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/smartforms/templates/:id/activate
+ * Activate a template (set status to 'active')
+ */
+router.post('/templates/:id/activate', async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user?.companyId) {
+      return res.status(400).json({ error: 'User not associated with a company' });
+    }
+    const templateId = sanitizeObjectId(req.params.id);
+
+    const template = await FormTemplate.findOne({
+      _id: templateId,
+      companyId: user.companyId,
+    });
+
+    if (!template) {
+      return res.status(404).json({ error: 'Template not found' });
+    }
+
+    template.status = 'active';
+    template.updatedBy = user._id;
+    await template.save();
+
+    console.log('[SmartForms] Template activated:', template._id.toString());
+    res.json(template);
+  } catch (error) {
+    console.error('Error activating template:', error);
+    res.status(500).json({ error: 'Failed to activate template' });
+  }
+});
+
 // ============================================================================
 // FIELD MANAGEMENT ROUTES
 // ============================================================================
