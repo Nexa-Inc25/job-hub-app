@@ -45,6 +45,7 @@
     "qrcode": "^1.5.3",
     "redis": "^4.6.13",
     "resend": "^6.9.2",
+    "sharp": "^0.34.5",
     "socket.io": "^4.7.2",
     "stripe": "^20.3.1",
     "swagger-jsdoc": "^6.2.8",
@@ -52,9 +53,11 @@
   },
   "optionalDependencies": {
     "canvas": "^3.2.1",
-    "pdf2pic": "^3.2.0",
-    "pdfjs-dist": "^4.10.38",
-    "sharp": "^0.34.5"
+    "pdfjs-dist": "^4.10.38"
+  },
+  "overrides": {
+    "fast-xml-parser": "^5.3.6",
+    "glob": "^10.5.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.18.0",
