@@ -16,6 +16,12 @@ const isLocalhost = Boolean(
   globalThis.location.hostname === '[::1]' ||
   localhostRegex.exec(globalThis.location.hostname)
 );
+const verboseClientLogs = (import.meta.env.VITE_VERBOSE_CLIENT_LOGS || '').toLowerCase() === 'true';
+const logServiceWorker = (...args) => {
+  if (verboseClientLogs) {
+    console.warn(...args);
+  }
+};
 
 /**
  * Clear all caches and reload the page
@@ -37,7 +43,7 @@ function clearCachesAndReload() {
  */
 function handleServiceWorkerMessage(event) {
   if (event.data?.type === 'STALE_CHUNK_DETECTED') {
-    console.warn('[SW] Stale chunk detected - reloading to get new version');
+    logServiceWorker('[SW] Stale chunk detected - reloading to get new version');
     clearCachesAndReload();
   }
 }
@@ -51,10 +57,10 @@ function createStateChangeHandler(registration, config) {
     const installingWorker = registration.installing;
     if (installingWorker?.state === 'installed') {
       if (navigator.serviceWorker.controller) {
-        console.warn('[SW] New content available; please refresh.');
+        logServiceWorker('[SW] New content available; please refresh.');
         config?.onUpdate?.(registration);
       } else {
-        console.warn('[SW] Content is cached for offline use.');
+        logServiceWorker('[SW] Content is cached for offline use.');
         config?.onSuccess?.(registration);
       }
     }
@@ -79,7 +85,7 @@ export function register(config) {
         // Running on localhost - check if service worker exists
         checkValidServiceWorker(swUrl, config);
         navigator.serviceWorker.ready.then(() => {
-          console.warn('[SW] Service worker is ready (localhost)');
+          logServiceWorker('[SW] Service worker is ready (localhost)');
         });
       } else {
         // Production - register service worker
@@ -93,7 +99,7 @@ function registerValidSW(swUrl, config) {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
-      console.warn('[SW] Service worker registered successfully');
+      logServiceWorker('[SW] Service worker registered successfully');
       
       // Listen for messages from service worker
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
@@ -128,7 +134,7 @@ function checkValidServiceWorker(swUrl, config) {
       }
     })
     .catch(() => {
-      console.warn('[SW] No internet connection. App running in offline mode.');
+      logServiceWorker('[SW] No internet connection. App running in offline mode.');
     });
 }
 

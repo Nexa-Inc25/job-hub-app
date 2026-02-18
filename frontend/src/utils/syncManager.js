@@ -14,6 +14,12 @@ import offlineStorage from './offlineStorage';
 
 let isSyncing = false;
 let syncListeners = [];
+const verboseClientLogs = (import.meta.env.VITE_VERBOSE_CLIENT_LOGS || '').toLowerCase() === 'true';
+const logSync = (...args) => {
+  if (verboseClientLogs) {
+    console.warn(...args);
+  }
+};
 
 /**
  * Register a listener for sync events
@@ -114,12 +120,12 @@ async function uploadPendingPhoto(photo) {
  */
 export async function syncPendingOperations() {
   if (isSyncing) {
-    console.warn('Sync already in progress...');
+    logSync('Sync already in progress...');
     return { synced: 0, failed: 0 };
   }
 
   if (!isOnline()) {
-    console.warn('Offline - skipping sync');
+    logSync('Offline - skipping sync');
     return { synced: 0, failed: 0, offline: true };
   }
 
@@ -132,12 +138,12 @@ export async function syncPendingOperations() {
   try {
     // Sync pending operations
     const operations = await offlineStorage.getPendingOperations();
-    console.warn(`Syncing ${operations.length} pending operations...`);
+    logSync(`Syncing ${operations.length} pending operations...`);
 
     for (const op of operations) {
       // Skip operations that have failed too many times
       if (op.retries >= 3) {
-        console.warn(`Skipping operation ${op.id} after ${op.retries} retries`);
+        logSync(`Skipping operation ${op.id} after ${op.retries} retries`);
         continue;
       }
 
@@ -160,7 +166,7 @@ export async function syncPendingOperations() {
 
     // Sync pending photos
     const photos = await offlineStorage.getPendingPhotos();
-    console.warn(`Syncing ${photos.length} pending photos...`);
+    logSync(`Syncing ${photos.length} pending photos...`);
 
     for (const photo of photos) {
       try {
@@ -178,7 +184,7 @@ export async function syncPendingOperations() {
       }
     }
 
-    console.warn(`Sync complete: ${synced} synced, ${failed} failed`);
+    logSync(`Sync complete: ${synced} synced, ${failed} failed`);
     emitSyncEvent('sync_complete', { synced, failed });
 
     return { synced, failed };
@@ -197,14 +203,14 @@ export function initSyncManager() {
 
   // Sync when coming back online
   globalThis.addEventListener('online', () => {
-    console.warn('Connection restored - starting sync...');
+    logSync('Connection restored - starting sync...');
     emitSyncEvent('online', {});
     // Delay slightly to ensure connection is stable
     setTimeout(() => syncPendingOperations(), 2000);
   });
 
   globalThis.addEventListener('offline', () => {
-    console.warn('Connection lost - entering offline mode');
+    logSync('Connection lost - entering offline mode');
     emitSyncEvent('offline', {});
   });
 
@@ -212,7 +218,7 @@ export function initSyncManager() {
   if (isOnline()) {
     offlineStorage.getPendingCounts().then(counts => {
       if (counts.total > 0) {
-        console.warn(`Found ${counts.total} pending items - syncing...`);
+        logSync(`Found ${counts.total} pending items - syncing...`);
         syncPendingOperations();
       }
     });
@@ -232,7 +238,7 @@ export function initSyncManager() {
   // Clean old cache periodically
   offlineStorage.clearOldCache().then(deleted => {
     if (deleted > 0) {
-      console.warn(`Cleared ${deleted} old cached items`);
+      logSync(`Cleared ${deleted} old cached items`);
     }
   });
 }

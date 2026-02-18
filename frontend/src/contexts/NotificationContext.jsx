@@ -21,6 +21,12 @@ import CloseIcon from '@mui/icons-material/Close';
 import api from '../api';
 
 const NotificationContext = createContext(null);
+const verboseClientLogs = (import.meta.env.VITE_VERBOSE_CLIENT_LOGS || '').toLowerCase() === 'true';
+const logNotifications = (...args) => {
+  if (verboseClientLogs) {
+    console.warn(...args);
+  }
+};
 
 export function NotificationProvider({ children }) {
   const { socket, isConnected } = useSocket();
@@ -133,7 +139,7 @@ export function NotificationProvider({ children }) {
     if (!socket || !isConnected) return;
 
     const handleNotification = (notification) => {
-      console.warn('[Notifications] Real-time:', notification);
+      logNotifications('[Notifications] Real-time:', notification);
       
       // Send delivery receipt
       acknowledgeNotification(notification.id);
@@ -164,7 +170,7 @@ export function NotificationProvider({ children }) {
   useEffect(() => {
     if (isConnected && wasConnectedRef.current === false && socket) {
       // We just reconnected - request any pending notifications
-      console.warn('[Notifications] Reconnected - requesting pending notifications');
+      logNotifications('[Notifications] Reconnected - requesting pending notifications');
       socket.emit('notification:request_pending');
     }
     wasConnectedRef.current = isConnected;

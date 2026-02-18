@@ -12,6 +12,12 @@ import PropTypes from 'prop-types';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
+const verboseClientLogs = (import.meta.env.VITE_VERBOSE_CLIENT_LOGS || '').toLowerCase() === 'true';
+const logSocket = (...args) => {
+  if (verboseClientLogs) {
+    console.warn(...args);
+  }
+};
 
 // Get API base URL from environment or use same origin
 const getSocketUrl = () => {
@@ -43,12 +49,12 @@ export function SocketProvider({ children }) {
     const token = getToken();
     
     if (!token) {
-      console.warn('[Socket] No auth token, skipping connection');
+      logSocket('[Socket] No auth token, skipping connection');
       return;
     }
 
     const socketUrl = getSocketUrl();
-    console.warn('[Socket] Connecting to:', socketUrl);
+    logSocket('[Socket] Connecting to:', socketUrl);
 
     const newSocket = io(socketUrl, {
       auth: { token },
@@ -61,18 +67,18 @@ export function SocketProvider({ children }) {
     });
 
     newSocket.on('connect', () => {
-      console.warn('[Socket] Connected:', newSocket.id);
+      logSocket('[Socket] Connected:', newSocket.id);
       setIsConnected(true);
       setConnectionError(null);
       reconnectAttempts.current = 0;
     });
 
     newSocket.on('connected', (data) => {
-      console.warn('[Socket] Server confirmed:', data.userName);
+      logSocket('[Socket] Server confirmed:', data.userName);
     });
 
     newSocket.on('disconnect', (reason) => {
-      console.warn('[Socket] Disconnected:', reason);
+      logSocket('[Socket] Disconnected:', reason);
       setIsConnected(false);
       
       // If server disconnected us, try to reconnect
@@ -100,7 +106,7 @@ export function SocketProvider({ children }) {
   // Disconnect from socket server
   const disconnect = useCallback(() => {
     if (socket) {
-      console.warn('[Socket] Disconnecting...');
+      logSocket('[Socket] Disconnecting...');
       socket.disconnect();
       setSocket(null);
       socketRef.current = null; // Clear ref on disconnect
@@ -119,7 +125,7 @@ export function SocketProvider({ children }) {
     // State-based cleanup would always see initial null value due to empty deps
     return () => {
       if (socketRef.current) {
-        console.warn('[Socket] Cleanup: disconnecting on unmount');
+        logSocket('[Socket] Cleanup: disconnecting on unmount');
         socketRef.current.disconnect();
         socketRef.current = null;
       }
