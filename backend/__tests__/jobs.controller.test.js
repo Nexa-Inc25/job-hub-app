@@ -83,6 +83,7 @@ describe('Jobs Controller', () => {
         .get('/api/jobs?status=in_progress')
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(200);
       
       expect(res.body.every(job => job.status === 'in_progress')).toBe(true);
@@ -93,6 +94,7 @@ describe('Jobs Controller', () => {
         .get('/api/jobs?limit=5&skip=0')
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(200);
       
       expect(res.body.length).toBeLessThanOrEqual(5);
@@ -120,6 +122,7 @@ describe('Jobs Controller', () => {
         .get(`/api/jobs/${testJob._id}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(200);
       
       expect(res.body.pmNumber).toBe(testJob.pmNumber);
@@ -133,6 +136,7 @@ describe('Jobs Controller', () => {
         .get(`/api/jobs/${fakeId}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(404);
       
       expect(res.body.error).toBe('Job not found');
@@ -177,6 +181,7 @@ describe('Jobs Controller', () => {
         .post('/api/jobs')
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({
           address: '789 No Title Street'
         })
@@ -190,6 +195,7 @@ describe('Jobs Controller', () => {
         .post('/api/jobs')
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({
           pmNumber: testJob.pmNumber // Duplicate
         })
@@ -205,6 +211,7 @@ describe('Jobs Controller', () => {
         .post('/api/jobs')
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({
           pmNumber: pmNum
         })
@@ -221,6 +228,7 @@ describe('Jobs Controller', () => {
         .put(`/api/jobs/${testJob._id}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({
           address: 'Updated Address',
           description: 'Updated description'
@@ -238,6 +246,7 @@ describe('Jobs Controller', () => {
         .put(`/api/jobs/${fakeId}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({ address: 'New Address' })
         .expect(404);
       
@@ -249,6 +258,7 @@ describe('Jobs Controller', () => {
         .put(`/api/jobs/${testJob._id}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({
           status: 'in_progress'
         })
@@ -265,6 +275,7 @@ describe('Jobs Controller', () => {
         .delete(`/api/jobs/${testJob._id}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(200);
       
       expect(res.body.message).toBe('Job deleted successfully');
@@ -279,6 +290,7 @@ describe('Jobs Controller', () => {
         .delete(`/api/jobs/${testJob._id}`)
         .set('X-Test-User-Id', gfUser._id.toString())
         .set('X-Test-Is-Admin', 'false')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(403);
       
       expect(res.body.error).toBe('Only admins can delete jobs');
@@ -291,6 +303,7 @@ describe('Jobs Controller', () => {
         .delete(`/api/jobs/${fakeId}`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .expect(404);
       
       expect(res.body.error).toBe('Job not found');
@@ -304,6 +317,7 @@ describe('Jobs Controller', () => {
         .patch(`/api/jobs/${testJob._id}/status`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({ status: 'pre_fielding' })
         .expect(200);
       
@@ -315,6 +329,7 @@ describe('Jobs Controller', () => {
         .patch(`/api/jobs/${testJob._id}/status`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({})
         .expect(400);
       
@@ -328,6 +343,7 @@ describe('Jobs Controller', () => {
         .patch(`/api/jobs/${fakeId}/status`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({ status: 'in_progress' })
         .expect(404);
       
@@ -342,6 +358,7 @@ describe('Jobs Controller', () => {
         .patch(`/api/jobs/${testJob._id}/assign`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({
           userId: gfUser._id.toString(),
           userName: gfUser.name
@@ -356,6 +373,7 @@ describe('Jobs Controller', () => {
         .patch(`/api/jobs/${testJob._id}/assign`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({})
         .expect(400);
       
@@ -369,6 +387,7 @@ describe('Jobs Controller', () => {
         .patch(`/api/jobs/${fakeId}/assign`)
         .set('X-Test-User-Id', adminUser._id.toString())
         .set('X-Test-Is-Admin', 'true')
+        .set('X-Test-Company-Id', companyId.toString())
         .send({ userId: gfUser._id.toString() })
         .expect(404);
       
