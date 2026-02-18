@@ -5,6 +5,9 @@
   "author": "FieldLedger <legal@fieldledger.io>",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "main": "server.js",
   "scripts": {
     "start": "node --max-old-space-size=450 --expose-gc server.js",
@@ -57,9 +60,6 @@
   },
   "overrides": {
     "fast-xml-parser": "^5.3.6",
-    "swagger-jsdoc": {
-      "glob": "^10.5.0"
-    },
     "module-lookup-amd": {
       "glob": "^10.5.0"
     }

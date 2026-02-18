@@ -5,6 +5,9 @@
   "author": "FieldLedger <legal@fieldledger.io>",
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "type": "module",
   "dependencies": {
     "@capacitor/camera": "^8.0.0",
