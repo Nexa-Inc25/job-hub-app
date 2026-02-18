@@ -1,0 +1,70 @@
+name: SonarQube Analysis
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  build:
+    name: Build and Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Critical for SonarQube to track 'New Code'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run Backend Tests with Coverage
+        # This generates the lcov.info files SonarQube needs for the 'Immune System'
+        working-directory: backend
+        run: |
+          npm run test:ci
+        env:
+          NODE_ENV: test
+
+      - name: Run Frontend Tests with Coverage
+        # Frontend coverage report is included in one unified Sonar scan
+        working-directory: frontend
+        run: |
+          npm run test:ci
+        env:
+          CI: true
+
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=fieldledger-core
+            -Dsonar.sources=backend,frontend/src
+            -Dsonar.tests=backend/__tests__,frontend/src/__tests__
+            -Dsonar.javascript.lcov.reportPaths=backend/coverage/lcov.info,frontend/coverage/lcov.info
+            -Dsonar.exclusions=node_modules/**,dist/**,build/**,**/*.pdf,backend/seeds/**
+            -Dsonar.cpd.exclusions=backend/__tests__/**,frontend/src/__tests__/**
+            -Dsonar.qualitygate.wait=true
+
+      - name: SonarQube Quality Gate Check
+        # This blocks the PR if it fails your standards
+        uses: SonarSource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
