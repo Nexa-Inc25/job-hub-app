@@ -112,16 +112,18 @@ describe('Authentication', () => {
     it('should show error or redirect when accessing job files without auth', () => {
       // Visit without setting any localStorage token
       cy.visit('/jobs/123/files');
-      // JobFileSystem either redirects (on 401) or shows error (no token)
-      // We accept either behavior - user can't access the protected content
-      cy.get('body').then(($body) => {
-        if ($body.find('.MuiAlert-root').length > 0) {
-          // Shows auth error - acceptable
-          cy.contains(/auth|login|token|error/i).should('exist');
-        } else {
-          // Redirects to login - also acceptable
+      // JobFileSystem either redirects (on 401) or renders an auth error.
+      // Assert in a retry-safe way to avoid race conditions during initial mount.
+      cy.url({ timeout: 10000 }).then((url) => {
+        if (url.includes('/login')) {
           cy.url().should('include', '/login');
+          return;
         }
+
+        cy.contains(
+          /no authentication token found|please log in|auth|login|token|error/i,
+          { timeout: 10000 }
+        ).should('be.visible');
       });
     });
   });
