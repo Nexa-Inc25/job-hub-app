@@ -59,6 +59,7 @@
     "pdfjs-dist": "^4.10.38"
   },
   "overrides": {
+    "@opentelemetry/api": "^1.9.0",
     "fast-xml-parser": "^5.3.6",
     "module-lookup-amd": {
       "glob": "^10.5.0"
