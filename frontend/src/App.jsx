@@ -141,7 +141,15 @@ const NotFound = () => (
   </div>
 );
 
+const shouldEnableVercelAnalytics = () => {
+  const analyticsFlag = (import.meta.env.VITE_ENABLE_VERCEL_ANALYTICS || '').toLowerCase() === 'true';
+  const isCypress = typeof window !== 'undefined' && Boolean(window.Cypress);
+  return analyticsFlag && !isCypress;
+};
+
 function App() {
+  const enableVercelAnalytics = shouldEnableVercelAnalytics();
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
@@ -211,7 +219,7 @@ function App() {
             </Routes>
           </Suspense>
         </BrowserRouter>
-        <Analytics />
+        {enableVercelAnalytics ? <Analytics /> : null}
           </NotificationProvider>
         </SocketProvider>
       </ThemeProvider>
