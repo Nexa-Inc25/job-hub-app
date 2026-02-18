@@ -31,6 +31,7 @@ import CalendarIcon from '@mui/icons-material/CalendarMonth';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import DescriptionIcon from '@mui/icons-material/Description';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 
 const renderEmptySection = (message) => (
   <Typography variant="body2" color="text.secondary" sx={{ py: 2, px: 2 }}>
@@ -192,6 +193,43 @@ const DashboardSchedule = ({
               />
             ))}
       </Collapse>
+
+      {/* PENDING REVIEW / IN PROGRESS */}
+      {categories.pendingReview?.length > 0 && (
+        <>
+          <SectionHeader
+            title="In Progress / Pending Review"
+            icon={<AssignmentIcon fontSize="small" />}
+            count={categories.pendingReview.length}
+            expanded={expandedSections.pendingReview !== false}
+            onToggle={() => onToggleSection('pendingReview')}
+          />
+          <Collapse in={expandedSections.pendingReview !== false}>
+            {categories.pendingReview.map((job) => (
+              <JobRow
+                key={job._id}
+                job={job}
+                actions={
+                  <>
+                    {isFieldRole ? (
+                      <Button size="small" component={Link} to={`/jobs/${job._id}/closeout`} color="success">
+                        Close Out
+                      </Button>
+                    ) : (
+                      <Button size="small" component={Link} to={`/jobs/${job._id}/details`} variant="outlined" color="primary">
+                        Review
+                      </Button>
+                    )}
+                    <IconButton size="small" onClick={(e) => onJobMenuOpen(e, job._id)} aria-label="Job options">
+                      <MoreVertIcon fontSize="small" />
+                    </IconButton>
+                  </>
+                }
+              />
+            ))}
+          </Collapse>
+        </>
+      )}
 
       {/* STUCK JOBS */}
       {categories.stuck.length > 0 && (
@@ -397,6 +435,7 @@ DashboardSchedule.propTypes = {
     stuck: PropTypes.array.isRequired,
     todaysWork: PropTypes.array.isRequired,
     scheduled: PropTypes.array.isRequired,
+    pendingReview: PropTypes.array,
   }).isRequired,
   expandedSections: PropTypes.object.isRequired,
   onToggleSection: PropTypes.func.isRequired,

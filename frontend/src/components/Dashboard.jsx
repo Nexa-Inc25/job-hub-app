@@ -104,7 +104,7 @@ const Dashboard = () => {
   const [cancelType, setCancelType] = useState('rescheduled');
   const [cancelJobId, setCancelJobId] = useState(null);
   const [expandedSections, setExpandedSections] = useState({
-    pendingPreField: true, needsScheduling: true, stuck: true, todaysWork: true, scheduled: false,
+    pendingPreField: true, needsScheduling: true, stuck: true, todaysWork: true, scheduled: false, pendingReview: true,
   });
   const navigate = useNavigate();
 
@@ -180,6 +180,7 @@ const Dashboard = () => {
       stuck: jobs.filter(isStuck),
       todaysWork: jobs.filter((j) => isScheduledForDate(j, todayStr)),
       scheduled: jobs.filter((j) => isScheduledAfterDate(j, todayStr)),
+      pendingReview: jobs.filter((j) => ['in_progress', 'pending_gf_review', 'pending_qa_review', 'pending_pm_approval'].includes(j.status) && !isScheduledForDate(j, todayStr)),
     };
   }, [jobs]);
 
