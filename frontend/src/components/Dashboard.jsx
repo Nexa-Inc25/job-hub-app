@@ -53,8 +53,6 @@ import {
   extractUserPermissions,
   getWelcomeMessage,
   getJobDisplayTitle,
-  canManageJobs,
-  canMarkAsStuck,
   shouldShowGFView,
   createInitialChecklist,
   getLocalDateString,
@@ -87,7 +85,7 @@ const Dashboard = () => {
   const [foremen, setForemen] = useState([]);
   const [assignmentData, setAssignmentData] = useState(EMPTY_ASSIGNMENT_DATA);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [_isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [userRole, setUserRole] = useState(null);
   const [userName, setUserName] = useState('');
   const [canApprove, setCanApprove] = useState(false);
@@ -512,14 +510,14 @@ const Dashboard = () => {
         <Menu anchorEl={jobMenuAnchor} open={Boolean(jobMenuAnchor)} onClose={handleJobMenuClose} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }} transformOrigin={{ vertical: 'top', horizontal: 'right' }} disableRestoreFocus>
           <MenuItem onClick={() => { if (selectedJobId) navigate(`/jobs/${selectedJobId}/details`); handleJobMenuClose(); }}><EditIcon fontSize="small" sx={{ mr: 1 }} />View Details</MenuItem>
           <MenuItem onClick={() => { if (selectedJobId) navigate((userRole === 'foreman' || userRole === 'crew') ? `/jobs/${selectedJobId}/closeout` : `/jobs/${selectedJobId}/files`); handleJobMenuClose(); }}><FolderIcon fontSize="small" sx={{ mr: 1 }} />Open Files</MenuItem>
-          {canManageJobs(userRole, isAdmin, isSuperAdmin) && <MenuItem onClick={handleOpenAssignDialog}><AssignIcon fontSize="small" sx={{ mr: 1 }} />Assign to Foreman</MenuItem>}
-          {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && canMarkAsStuck(jobs.find((j) => j._id === selectedJobId)) && (
+          <MenuItem onClick={handleOpenAssignDialog}><AssignIcon fontSize="small" sx={{ mr: 1 }} />Schedule Crew</MenuItem>
+          {selectedJobId && jobs.find((j) => j._id === selectedJobId)?.status !== 'stuck' && (
             <MenuItem onClick={() => { setStuckJobId(selectedJobId); setStuckReason(''); setStuckDialogOpen(true); handleJobMenuClose(); }} sx={{ color: 'error.main' }}><BlockIcon fontSize="small" sx={{ mr: 1 }} />Mark as Stuck</MenuItem>
           )}
-          {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && ['scheduled', 'in_progress', 'assigned_to_gf'].includes(jobs.find((j) => j._id === selectedJobId)?.status) && (
+          {selectedJobId && ['scheduled', 'in_progress', 'assigned_to_gf'].includes(jobs.find((j) => j._id === selectedJobId)?.status) && (
             <MenuItem onClick={() => { setCancelJobId(selectedJobId); setCancelReason(''); setCancelType('rescheduled'); setCancelDialogOpen(true); handleJobMenuClose(); }} sx={{ color: 'warning.main' }}><EventBusyIcon fontSize="small" sx={{ mr: 1 }} />Cancel / Reschedule</MenuItem>
           )}
-          {canManageJobs(userRole, isAdmin, isSuperAdmin) && selectedJobId && jobs.find((j) => j._id === selectedJobId)?.status === 'stuck' && (
+          {selectedJobId && jobs.find((j) => j._id === selectedJobId)?.status === 'stuck' && (
             <MenuItem onClick={(e) => handleUnstickJob(selectedJobId, e)} sx={{ color: 'success.main' }}><CheckCircleIcon fontSize="small" sx={{ mr: 1 }} />Resume Job</MenuItem>
           )}
           {selectedJobId && (() => {
