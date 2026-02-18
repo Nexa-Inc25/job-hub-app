@@ -14,6 +14,8 @@
 const AuditLog = require('../models/AuditLog');
 const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizeDate } = require('../utils/sanitize');
+const { logAudit } = require('../middleware/auditLogger');
+const log = require('../utils/logger');
 
 /**
  * Build query filters for audit log search
@@ -297,10 +299,13 @@ const updateUserRole = async (req, res) => {
       }
     }
     
+    // Capture old values for audit trail
+    const oldRole = user.role;
+    const oldIsAdmin = user.isAdmin;
+
     // Update fields
     if (role) user.role = role;
     if (typeof isAdmin === 'boolean') {
-      // Only super admins can make other admins
       if (isAdmin && !req.isSuperAdmin) {
         return res.status(403).json({ error: 'Only super admins can grant admin access' });
       }
@@ -308,6 +313,27 @@ const updateUserRole = async (req, res) => {
     }
     
     await user.save();
+
+    // NERC CIP: log every permission change — MUST await for compliance
+    await logAudit(req, 'USER_ROLE_CHANGE', {
+      resourceType: 'user',
+      resourceId: user._id.toString(),
+      resourceName: user.email,
+      details: {
+        targetUserId: user._id.toString(),
+        oldRole,
+        newRole: user.role,
+        oldIsAdmin,
+        newIsAdmin: user.isAdmin,
+        performedBy: req.userId
+      },
+      severity: 'critical'
+    });
+
+    log.info({
+      targetUserId: user._id, targetEmail: user.email,
+      oldRole, newRole: user.role, performedBy: req.userId
+    }, 'User role changed');
     
     res.json({ 
       message: 'User updated successfully',
@@ -320,7 +346,7 @@ const updateUserRole = async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Error updating user:', err);
+    log.error({ err }, 'Error updating user role');
     res.status(500).json({ error: 'Failed to update user' });
   }
 };
@@ -356,10 +382,29 @@ const deactivateUser = async (req, res) => {
     user.isDeleted = true;
     user.deletedAt = new Date();
     await user.save();
+
+    // NERC CIP: log every account deactivation — MUST await for compliance
+    await logAudit(req, 'USER_DEACTIVATED', {
+      resourceType: 'user',
+      resourceId: user._id.toString(),
+      resourceName: user.email,
+      details: {
+        targetUserId: user._id.toString(),
+        targetEmail: user.email,
+        targetRole: user.role,
+        performedBy: req.userId
+      },
+      severity: 'critical'
+    });
+
+    log.info({
+      targetUserId: user._id, targetEmail: user.email,
+      performedBy: req.userId
+    }, 'User deactivated');
     
     res.json({ message: 'User deactivated successfully' });
   } catch (err) {
-    console.error('Error deactivating user:', err);
+    log.error({ err }, 'Error deactivating user');
     res.status(500).json({ error: 'Failed to deactivate user' });
   }
 };

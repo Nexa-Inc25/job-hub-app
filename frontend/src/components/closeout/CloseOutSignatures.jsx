@@ -39,13 +39,17 @@ import PDFFormEditor from '../PDFFormEditor';
 import { useAppColors } from '../shared/themeUtils';
 
 /**
- * Helper to resolve a document URL from its stored representation.
+ * Resolve a document URL via signed URL (async).
  */
-const getDocumentUrl = (doc) => {
-  if (doc.url) return doc.url;
+const getDocumentUrl = async (doc) => {
+  if (!doc) return '';
+  if (doc.url?.startsWith('http')) return doc.url;
   if (doc.r2Key) {
-    const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
-    return `${apiBase}/api/files/stream/${encodeURIComponent(doc.r2Key)}`;
+    try { return await api.getSignedFileUrl(doc.r2Key); } catch { return ''; }
+  }
+  if (doc.url) {
+    // url may be a bare r2Key after migration
+    try { return await api.getSignedFileUrl(doc.url); } catch { return doc.url; }
   }
   return '';
 };
@@ -62,6 +66,7 @@ const CloseOutSignatures = ({
   // PDF editor state
   const [pdfEditorOpen, setPdfEditorOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [selectedDocResolvedUrl, setSelectedDocResolvedUrl] = useState('');
   const [filledPdfUrl, setFilledPdfUrl] = useState(null);
   const [pdfLoading, setPdfLoading] = useState(false);
 
@@ -70,7 +75,9 @@ const CloseOutSignatures = ({
 
   const editableDocs = documents.filter((d) => d.name?.endsWith('.pdf') || d.type === 'template');
 
-  const handleNavigatePDF = (doc) => {
+  const handleNavigatePDF = async (doc) => {
+    const resolved = await getDocumentUrl(doc);
+    setSelectedDocResolvedUrl(resolved);
     if (smartFormTemplates.length > 0) {
       setSelectedDocument(doc);
       setTemplatePickerOpen(true);
@@ -138,6 +145,7 @@ const CloseOutSignatures = ({
   const handleClosePdfEditor = () => {
     setPdfEditorOpen(false);
     setSelectedDocument(null);
+    setSelectedDocResolvedUrl('');
     if (filledPdfUrl) {
       URL.revokeObjectURL(filledPdfUrl);
       setFilledPdfUrl(null);
@@ -286,7 +294,7 @@ const CloseOutSignatures = ({
           (selectedDocument.name?.match(/\.html?$/i) ? (
             <Box sx={{ flex: 1, p: 2, height: '100%' }}>
               <iframe
-                src={getDocumentUrl(selectedDocument)}
+                src={selectedDocResolvedUrl || ''}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -300,7 +308,7 @@ const CloseOutSignatures = ({
             </Box>
           ) : (
             <PDFFormEditor
-              pdfUrl={filledPdfUrl || getDocumentUrl(selectedDocument)}
+              pdfUrl={filledPdfUrl || selectedDocResolvedUrl || ''}
               jobInfo={{
                 pmNumber: job?.pmNumber,
                 woNumber: job?.woNumber,

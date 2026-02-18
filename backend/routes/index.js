@@ -12,10 +12,12 @@
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const r2Storage = require('../utils/storage');
 const { authenticateUser } = require('../middleware/auth');
+const log = require('../utils/logger');
 
 // ---------------------------------------------------------------------------
 // Route modules
@@ -69,6 +71,164 @@ const requireAdmin = (req, res, next) => {
   }
   next();
 };
+
+// ---------------------------------------------------------------------------
+// R2 key sanitization (path traversal hardening)
+// ---------------------------------------------------------------------------
+
+/**
+ * Sanitize an R2 key to prevent path traversal and injection.
+ *
+ * Uses path.normalize to resolve `.` and `..` segments, then verifies the
+ * result doesn't escape the expected prefix structure. Null-bytes, double
+ * slashes, and backslashes are stripped.
+ *
+ * Valid keys look like: `jobs/abc123/photos/img.jpg`, `templates/form.pdf`
+ * Invalid keys: `../etc/passwd`, `jobs/../../secret`, empty, or < 3 chars.
+ *
+ * @param {string} rawKey - Untrusted key from request params
+ * @returns {string|null} Sanitized key, or null if invalid
+ */
+function sanitizeR2Key(rawKey) {
+  if (!rawKey || typeof rawKey !== 'string') return null;
+
+  // Strip null bytes (bypass technique)
+  let key = rawKey.replace(/\0/g, '');
+
+  // Normalize: resolve `.` and `..` segments, collapse separators
+  key = path.normalize(key);
+
+  // path.normalize on Unix leaves leading `/` and converts backslashes.
+  // Strip leading slashes/backslashes so the key is always relative.
+  key = key.replace(/^[/\\]+/, '');
+
+  // Collapse any remaining double slashes
+  key = key.replace(/\/\//g, '/');
+
+  // After normalization, if the key still contains `..` it's an escape attempt
+  if (key.includes('..')) return null;
+
+  // Must have a valid prefix (first segment) from our known set
+  const validPrefixes = ['jobs', 'templates', 'asbuilt', 'fieldtickets', 'uploads', 'smartforms'];
+  const prefix = key.split('/')[0];
+  if (!validPrefixes.includes(prefix)) return null;
+
+  // Minimum length sanity check (prefix + / + something)
+  if (key.length < 3) return null;
+
+  return key;
+}
+
+// ---------------------------------------------------------------------------
+// File ownership verification (AuthZ - company-scoped)
+// ---------------------------------------------------------------------------
+
+/**
+ * Verify that the requesting user's company owns the file referenced by the R2 key.
+ *
+ * Key structure conventions:
+ *   jobs/{jobId}/...          → Job.companyId must match req.companyId
+ *   templates/...             → Master templates, any authenticated user OK
+ *   asbuilt/{submissionId}/.. → AsBuiltSubmission.companyId must match
+ *   fieldtickets/...          → Allow if authenticated (tickets have their own AuthZ)
+ *   uploads/...               → Legacy local files, allow if authenticated
+ *
+ * SuperAdmins bypass all ownership checks.
+ *
+ * @param {string} fileKey - R2 object key
+ * @param {import('express').Request} req - Express request (must have userId, companyId, isSuperAdmin)
+ * @returns {Promise<{authorized: boolean, reason?: string}>}
+ */
+async function verifyFileOwnership(fileKey, req) {
+  // SuperAdmins can access any file
+  if (req.isSuperAdmin) {
+    return { authorized: true };
+  }
+
+  // Must have a companyId to access company-scoped files
+  if (!req.companyId) {
+    return { authorized: false, reason: 'User has no company association' };
+  }
+
+  // ---- Parse key to determine ownership scope ----
+  const segments = fileKey.split('/');
+  const keyPrefix = segments[0];
+
+  switch (keyPrefix) {
+    case 'jobs': {
+      // Key format: jobs/{jobId}/folderPath/filename
+      const jobId = segments[1];
+      if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+        return { authorized: false, reason: 'Invalid job ID in file key' };
+      }
+
+      const job = await Job.findById(jobId).select('companyId').lean();
+      if (!job) {
+        return { authorized: false, reason: 'Job not found for file' };
+      }
+
+      const jobCompanyId = job.companyId?.toString();
+      const userCompanyId = req.companyId?.toString();
+
+      if (!jobCompanyId || !userCompanyId || jobCompanyId !== userCompanyId) {
+        return { authorized: false, reason: 'File belongs to a different company' };
+      }
+
+      return { authorized: true };
+    }
+
+    case 'templates': {
+      // Master templates are accessible to any authenticated user
+      return { authorized: true };
+    }
+
+    case 'asbuilt': {
+      // Key format: asbuilt/{submissionId}/sectionType.pdf
+      // Allow if user is authenticated with a company — the submission routes
+      // already enforce per-submission AuthZ. Doing a full DB lookup here for
+      // every image load would be an N+1 on the wizard page. The key contains
+      // a submissionId (ObjectId), not a guessable pattern.
+      const submissionId = segments[1];
+      if (!submissionId || !mongoose.Types.ObjectId.isValid(submissionId)) {
+        return { authorized: false, reason: 'Invalid submission ID in file key' };
+      }
+
+      // Lazy-load to avoid circular dependency at module level
+      let AsBuiltSubmission;
+      try { AsBuiltSubmission = require('../models/AsBuiltSubmission'); } catch { /* model may not exist yet */ }
+
+      if (AsBuiltSubmission) {
+        const submission = await AsBuiltSubmission.findById(submissionId).select('companyId').lean();
+        if (submission) {
+          const subCompanyId = submission.companyId?.toString();
+          const userCompanyId = req.companyId?.toString();
+          if (!subCompanyId || !userCompanyId || subCompanyId !== userCompanyId) {
+            return { authorized: false, reason: 'As-built submission belongs to a different company' };
+          }
+        }
+        // If submission not found, it may have been created with a placeholder key
+        // during the wizard flow before the submission is persisted. Allow access
+        // since the user is authenticated with a valid company.
+      }
+
+      return { authorized: true };
+    }
+
+    case 'fieldtickets':
+    case 'uploads':
+    case 'smartforms': {
+      // These prefixes are used for various file types.
+      // The user is authenticated and has a companyId — fine.
+      // Per-resource AuthZ is enforced by the feature routes themselves.
+      return { authorized: true };
+    }
+
+    default: {
+      // Unknown key prefix — deny by default (fail-closed)
+      return { authorized: false, reason: `Unknown file key prefix: ${keyPrefix}` };
+    }
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Inline route handlers extracted from server.js
@@ -151,51 +311,100 @@ function registerInlineRoutes(app, uploadsDir) {
     }
   });
 
-  // ---- Get signed URL for a file ----
+  // ---- Get signed URL for a file (AuthZ: company-scoped ownership check) ----
+  // SECURITY: This is the ONLY file access endpoint. The old unauthenticated
+  // streaming route has been permanently removed (Ghost Ship Audit Fix #1).
+  // All file access requires: (1) valid JWT, (2) company ownership verification.
   app.get('/api/files/signed/*key', authenticateUser, async (req, res) => {
     try {
       const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
+      const safeKey = sanitizeR2Key(fileKey);
 
-      if (r2Storage.isR2Configured()) {
-        const signedUrl = await r2Storage.getSignedDownloadUrl(fileKey);
-        if (signedUrl) return res.json({ url: signedUrl });
+      if (!safeKey) {
+        return res.status(400).json({ error: 'Invalid file key', code: 'INVALID_KEY' });
       }
 
-      const localPath = path.join(__dirname, '..', 'uploads', fileKey);
-      if (fs.existsSync(localPath)) return res.json({ url: `/uploads/${fileKey}` });
+      // ---- AuthZ: Verify company ownership based on R2 key structure ----
+      const authzResult = await verifyFileOwnership(safeKey, req);
+      if (!authzResult.authorized) {
+        log.warn({
+          requestId: req.requestId,
+          userId: req.userId,
+          companyId: req.companyId,
+          fileKey: safeKey,
+          reason: authzResult.reason
+        }, 'File access denied');
+        return res.status(403).json({
+          error: 'Access denied',
+          code: 'FILE_ACCESS_DENIED',
+          message: authzResult.reason
+        });
+      }
+
+      // ---- Generate signed URL (15-minute expiry) ----
+      const SIGNED_URL_TTL_SECONDS = 900; // 15 minutes
+      const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
+
+      if (r2Storage.isR2Configured()) {
+        const signedUrl = await r2Storage.getSignedDownloadUrl(safeKey, SIGNED_URL_TTL_SECONDS);
+        if (signedUrl) {
+          return res.json({ url: signedUrl, expiresAt, ttlSeconds: SIGNED_URL_TTL_SECONDS });
+        }
+      }
+
+      // Local file fallback (development without R2)
+      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      const localPath = path.join(uploadsDir, safeKey);
+      // Ensure resolved path is within uploads directory (prevent traversal)
+      if (!path.resolve(localPath).startsWith(path.resolve(uploadsDir))) {
+        return res.status(403).json({ error: 'Invalid file path', code: 'PATH_TRAVERSAL' });
+      }
+      if (fs.existsSync(localPath)) {
+        return res.json({ url: `/uploads/${safeKey}`, expiresAt: null, ttlSeconds: null, local: true });
+      }
 
       res.status(404).json({ error: 'File not found' });
     } catch (err) {
-      console.error('Error getting signed URL:', err);
+      log.error({ err, requestId: req.requestId }, 'Signed URL generation failed');
       res.status(500).json({ error: 'Failed to get signed URL' });
     }
   });
 
-  // ---- Stream file from R2 (no auth - for direct <img> loading) ----
-  app.get('/api/files/*key', async (req, res) => {
+  // ---- Authenticated file streaming (local dev fallback only) ----
+  // When R2 is NOT configured, the signed URL endpoint returns /uploads/... paths.
+  // This route serves those local files with authentication.
+  // In production with R2, signed URLs go direct to R2 — this route is never hit.
+  app.get('/api/files/local/*key', authenticateUser, async (req, res) => {
     try {
       const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
-
-      if (r2Storage.isR2Configured()) {
-        const fileData = await r2Storage.getFileStream(fileKey);
-        if (fileData && fileData.stream) {
-          res.setHeader('Content-Type', fileData.contentType || 'application/octet-stream');
-          if (fileData.contentLength) res.setHeader('Content-Length', fileData.contentLength);
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          res.setHeader('Content-Disposition', 'inline');
-          res.setHeader('X-Content-Type-Options', 'nosniff');
-          res.setHeader('Access-Control-Allow-Origin', '*');
-          fileData.stream.pipe(res);
-          return;
-        }
+      const safeKey = sanitizeR2Key(fileKey);
+      if (!safeKey) {
+        return res.status(400).json({ error: 'Invalid file key', code: 'INVALID_KEY' });
       }
 
-      const localPath = path.join(__dirname, '..', 'uploads', fileKey);
-      if (fs.existsSync(localPath)) return res.sendFile(localPath);
+      // AuthZ check
+      const authzResult = await verifyFileOwnership(safeKey, req);
+      if (!authzResult.authorized) {
+        return res.status(403).json({ error: 'Access denied', code: 'FILE_ACCESS_DENIED' });
+      }
 
-      res.status(404).json({ error: 'File not found', key: fileKey });
+      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      const localPath = path.join(uploadsDir, safeKey);
+
+      // Path traversal prevention
+      if (!path.resolve(localPath).startsWith(path.resolve(uploadsDir))) {
+        return res.status(403).json({ error: 'Invalid file path', code: 'PATH_TRAVERSAL' });
+      }
+
+      if (fs.existsSync(localPath)) {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        return res.sendFile(path.resolve(localPath));
+      }
+
+      res.status(404).json({ error: 'File not found' });
     } catch (err) {
-      console.error('Error getting file:', err);
+      log.error({ err, requestId: req.requestId }, 'Local file streaming failed');
       res.status(500).json({ error: 'Failed to get file' });
     }
   });
@@ -282,8 +491,8 @@ function registerRoutes(app, { uploadsDir } = {}) {
     registerInlineRoutes(app, uploadsDir);
   }
 
-  // ---- Public / self-authenticating routes ----
-  app.use('/api', apiRoutes);
+  // ---- Authenticated API routes (Ghost Ship Fix: no unauthenticated DB writes) ----
+  app.use('/api', authenticateUser, apiRoutes);
   app.use('/api/demo', demoRoutes);
   app.use('/api/oracle', authenticateUser, oracleRoutes);
   app.use('/api/stripe', stripeRoutes);

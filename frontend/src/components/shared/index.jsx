@@ -28,7 +28,10 @@ export { default as SwipeableCard } from './SwipeableCard';
 export { getThemeColors, CHART_COLORS, STATUS_COLORS, STATUS_LABELS, ROLE_COLORS, ROLE_LABELS, PRIORITY_COLORS } from './themeUtils';
 export { 
   getPhotoUrl, 
-  getDocumentUrl, 
+  getDocumentUrl,
+  getPhotoUrlAsync,
+  getDocumentUrlAsync,
+  getFileKey,
   downloadBlob, 
   openMailto, 
   tryWebShare, 

@@ -102,8 +102,8 @@ const TailboardForm = () => {
         setWeatherConditions('');
         setWeatherError(res.data.error || 'Weather service error');
       } else {
-        setWeatherConditions(res.data.formatted || `${res.data.temperature}°F, ${res.data.conditions}`);
-        if (res.data.workStatus?.blocked) setWeatherError(`Warning: ${res.data.workStatus.reason}`);
+      setWeatherConditions(res.data.formatted || `${res.data.temperature}°F, ${res.data.conditions}`);
+      if (res.data.workStatus?.blocked) setWeatherError(`Warning: ${res.data.workStatus.reason}`);
       }
     } catch (err) {
       // Mark weather as unavailable so manual entry is enabled

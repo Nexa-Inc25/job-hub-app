@@ -84,9 +84,9 @@ describe('Storage Utility', () => {
       storage = require('../utils/storage');
     });
     
-    it('should return fallback API URL when R2_PUBLIC_URL not set', () => {
+    it('should return the raw r2Key unchanged (no URL prefix)', () => {
       const url = storage.getPublicUrl('jobs/123/doc.pdf');
-      expect(url).toBe('/api/files/jobs/123/doc.pdf');
+      expect(url).toBe('jobs/123/doc.pdf');
     });
   });
   

@@ -79,4 +79,88 @@ api.getToken = function() {
   return localStorage.getItem('token');
 };
 
+// ---------------------------------------------------------------------------
+// Signed File URL Resolution (Ghost Ship Audit Fix #1)
+//
+// All file access now requires authentication + company-scoped authorization.
+// The backend generates short-lived (15min) R2 signed URLs after verifying
+// the requesting user's company owns the file.
+//
+// In-memory cache prevents redundant API calls when the same file is
+// referenced multiple times on a page (e.g. thumbnails in a grid).
+// ---------------------------------------------------------------------------
+
+/** @type {Map<string, {url: string, expiresAt: number}>} */
+const signedUrlCache = new Map();
+
+/** Buffer before expiry to trigger refresh (2 minutes) */
+const REFRESH_BUFFER_MS = 2 * 60 * 1000;
+
+/** Maximum cache entries to prevent memory leaks on long sessions */
+const MAX_CACHE_ENTRIES = 500;
+
+/**
+ * Get a signed URL for an R2 file key.
+ * Returns a cached URL if still valid, otherwise fetches a new one.
+ *
+ * @param {string} r2Key - The R2 object key (e.g. "jobs/abc123/photos/img.jpg")
+ * @returns {Promise<string>} The signed URL ready for use in <img src> or fetch()
+ * @throws {Error} If the file is not found or access is denied
+ */
+api.getSignedFileUrl = async function(r2Key) {
+  if (!r2Key) return '';
+
+  // If URL is already absolute (legacy http URLs), return as-is
+  if (r2Key.startsWith('http://') || r2Key.startsWith('https://')) return r2Key;
+
+  // Strip leading /api/files/ prefix if passed (backward compat with old URLs)
+  const cleanKey = r2Key.replace(/^\/api\/files\//, '');
+
+  // Check cache
+  const cached = signedUrlCache.get(cleanKey);
+  if (cached && cached.expiresAt > Date.now() + REFRESH_BUFFER_MS) {
+    return cached.url;
+  }
+
+  // Fetch new signed URL from backend
+  const response = await api.get(`/api/files/signed/${cleanKey}`);
+  const { url, expiresAt, ttlSeconds } = response.data;
+
+  // Cache with actual expiry (or default 15 min if not provided)
+  const expiryMs = expiresAt
+    ? new Date(expiresAt).getTime()
+    : Date.now() + (ttlSeconds || 900) * 1000;
+
+  // Evict oldest entries if cache is full
+  if (signedUrlCache.size >= MAX_CACHE_ENTRIES) {
+    const oldestKey = signedUrlCache.keys().next().value;
+    signedUrlCache.delete(oldestKey);
+  }
+
+  signedUrlCache.set(cleanKey, { url, expiresAt: expiryMs });
+
+  return url;
+};
+
+/**
+ * Invalidate all cached signed URLs.
+ * Call on logout or company switch.
+ */
+api.clearSignedUrlCache = function() {
+  signedUrlCache.clear();
+};
+
+/**
+ * Check if a signed URL is still valid (not expired or close to expiry).
+ *
+ * @param {string} r2Key - The R2 object key
+ * @returns {boolean} True if cached URL is still usable
+ */
+api.isSignedUrlValid = function(r2Key) {
+  const cleanKey = r2Key?.replace(/^\/api\/files\//, '');
+  if (!cleanKey) return false;
+  const cached = signedUrlCache.get(cleanKey);
+  return cached ? cached.expiresAt > Date.now() + REFRESH_BUFFER_MS : false;
+};
+
 export default api;

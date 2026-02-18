@@ -21,6 +21,7 @@ const Company = require('../models/Company');
 const r2Storage = require('../utils/storage');
 const { logJob } = require('../middleware/auditLogger');
 const OpenAI = require('openai');
+const { requireAICredits, refundAICredits } = require('../middleware/subscriptionGate');
 
 // Lazy-load PDF utilities (heavy optional deps)
 let pdfImageExtractorModule = null;
@@ -543,7 +544,7 @@ router.post('/emergency', async (req, res) => {
 
 // ==================== AI METADATA EXTRACTION ====================
 // Extract job metadata from PDF before creating a job (for form auto-fill)
-router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
+router.post('/ai/extract', upload.single('pdf'), requireAICredits(3), async (req, res) => {
   const startTime = Date.now();
   const APIUsage = require('./models/APIUsage');
   let pdfPath = null;
@@ -740,6 +741,7 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
     
     res.json({ success: true, structured });
   } catch (err) {
+    await refundAICredits(req);
     console.warn('AI extraction failed:', err.message);
     
     // Clean up uploaded file
@@ -748,7 +750,6 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
     }
     
     // Return empty results - let user fill manually
-    // Don't try to re-parse PDF (could crash again)
     const emptyResults = {
       pmNumber: '', woNumber: '', notificationNumber: '', matCode: '',
       address: '', city: '', client: '', projectName: '', orderType: '',
@@ -763,7 +764,15 @@ Use empty string for missing fields. Return ONLY valid JSON, no markdown.`
   }
 });
 
-router.post('/', upload.single('pdf'), async (req, res) => {
+// Conditional AI credit gate: only charge when a PDF is uploaded (AI extraction will run)
+const conditionalAICredits = (req, res, next) => {
+  if (req.file && process.env.OPENAI_API_KEY) {
+    return requireAICredits(3)(req, res, next);
+  }
+  next();
+};
+
+router.post('/', upload.single('pdf'), conditionalAICredits, async (req, res) => {
   try {
     const { title, description, priority, dueDate, woNumber, address, client, pmNumber, notificationNumber, city, projectName, orderType, division, matCode, sapId, sapFuncLocation, jobScope, preFieldLabels, ecTag, crewMaterials } = req.body;
     const resolvedTitle = title || pmNumber || woNumber || 'Untitled Work Order';
@@ -1017,15 +1026,19 @@ router.post('/', upload.single('pdf'), async (req, res) => {
     await job.save();
     console.log('Job created with folder structure:', job._id);
     
-    // Audit log: Job created
-    logJob.create(req, job);
+    // Audit log: Job created — awaited for NERC CIP compliance
+    await logJob.create(req, job);
     
     // Send response immediately - don't wait for asset extraction
     res.status(201).json(job);
     
-    // Trigger AI asset extraction in the background if a PDF was uploaded
+    // Trigger AI asset extraction in the background if a PDF was uploaded.
+    // Credits were already reserved upfront by the conditionalAICredits middleware.
+    // Pass companyId + cost to the background function for refund on failure.
     if (req.file?.path && process.env.OPENAI_API_KEY) {
-      extractAssetsInBackground(job._id, req.file.path).catch(err => {
+      const creditCost = req.aiCreditsReserved || 0;
+      const companyId = req.aiCreditsCompanyId || req.companyId;
+      extractAssetsInBackground(job._id, req.file.path, companyId, creditCost).catch(err => {
         console.error('Background asset extraction error:', err.message);
       });
     }
@@ -1046,7 +1059,8 @@ router.post('/', upload.single('pdf'), async (req, res) => {
 });
 
 // Background function to extract assets from job package PDF
-async function extractAssetsInBackground(jobId, pdfPath) {
+// companyId + creditCost are passed so credits can be refunded on failure
+async function extractAssetsInBackground(jobId, pdfPath, companyId = null, creditCost = 0) {
   const startTime = Date.now();
   console.log('Starting background asset extraction for job:', jobId);
   console.log('PDF path:', pdfPath);
@@ -1412,6 +1426,19 @@ async function extractAssetsInBackground(jobId, pdfPath) {
     
   } catch (err) {
     console.error('Background asset extraction failed:', err);
+    
+    // Refund AI credits — background extraction failed
+    if (companyId && creditCost > 0) {
+      try {
+        await Company.findOneAndUpdate(
+          { _id: companyId },
+          { $inc: { 'subscription.aiCreditsUsed': -creditCost } }
+        );
+        console.log(`Refunded ${creditCost} AI credits to company ${companyId} after bg extraction failure`);
+      } catch (refundErr) {
+        console.error('CRITICAL: AI credit refund failed for background extraction:', refundErr.message);
+      }
+    }
     
     // Mark extraction as complete (with failure) so clients don't hang
     try {

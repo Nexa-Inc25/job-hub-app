@@ -148,7 +148,6 @@ const ForemanCloseOut = () => {
         } catch { /* non-fatal */ }
 
         // Extract PDF URLs for wizard
-        const apiBase = import.meta.env.VITE_API_URL || '';
         if (jobData.folders) {
           const flatDocs = [];
           for (const folder of jobData.folders) {
@@ -160,11 +159,16 @@ const ForemanCloseOut = () => {
               }
             }
           }
-          const getUrl = (doc) => (doc.r2Key ? `${apiBase}/api/files/${doc.r2Key}` : doc.url);
+          const getUrl = async (doc) => {
+            if (doc.r2Key) {
+              try { return await api.getSignedFileUrl(doc.r2Key); } catch { return ''; }
+            }
+            return doc.url || '';
+          };
           const sketch = flatDocs.find((d) => d.category === 'SKETCH' || d.type === 'drawing' || d.name?.toLowerCase().includes('sketch'));
-          if (sketch) setSketchPdfUrl(getUrl(sketch));
+          if (sketch) setSketchPdfUrl(await getUrl(sketch));
           const jobPkg = flatDocs.find((d) => d.type === 'pdf' && (d.name?.toLowerCase().includes('pack') || d.name?.toLowerCase().includes('job package'))) || flatDocs.find((d) => d.type === 'pdf' && !d.extractedFrom && !d.category);
-          if (jobPkg) setJobPackagePdfUrl(getUrl(jobPkg));
+          if (jobPkg) setJobPackagePdfUrl(await getUrl(jobPkg));
         }
       } catch (err) {
         console.error('Failed to load job:', err);

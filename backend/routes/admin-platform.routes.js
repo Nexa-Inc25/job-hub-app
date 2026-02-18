@@ -533,8 +533,8 @@ router.get('/audit-logs/export', async (req, res) => {
       .limit(10000) // Cap at 10k records for export
       .lean();
     
-    // Log the export action itself
-    logExport.bulkDownload(req, null, logs.length);
+    // Log the export action itself — awaited for NERC CIP
+    await logExport.bulkDownload(req, null, logs.length);
     
     if (format === 'csv') {
       const csvHeader = 'Timestamp,User,Email,Action,Category,Severity,Resource Type,Resource Name,IP Address,Success\n';

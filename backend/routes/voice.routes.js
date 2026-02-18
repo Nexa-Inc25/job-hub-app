@@ -21,6 +21,7 @@ const voiceAIService = require('../services/voiceAI.service');
 const PriceBook = require('../models/PriceBook');
 const User = require('../models/User');
 const { sanitizeString, sanitizeObjectId } = require('../utils/sanitize');
+const { requireAICredits, refundAICredits } = require('../middleware/subscriptionGate');
 
 // Configure multer for audio uploads
 const audioUpload = multer({
@@ -86,7 +87,7 @@ const audioUpload = multer({
  *                 duration:
  *                   type: number
  */
-router.post('/transcribe', audioUpload.single('audio'), async (req, res) => {
+router.post('/transcribe', audioUpload.single('audio'), requireAICredits(1), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No audio file provided' });
@@ -109,7 +110,8 @@ router.post('/transcribe', audioUpload.single('audio'), async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error('Error transcribing audio:', err);
+    await refundAICredits(req);
+    console.error('Error transcribing audio:', err.message);
     res.status(500).json({ error: err.message || 'Failed to transcribe audio' });
   }
 });
@@ -145,7 +147,7 @@ router.post('/transcribe', audioUpload.single('audio'), async (req, res) => {
  *       200:
  *         description: Parsed unit entry data
  */
-router.post('/parse-unit', async (req, res) => {
+router.post('/parse-unit', requireAICredits(2), async (req, res) => {
   try {
     const user = await User.findById(req.userId);
     if (!user?.companyId) {
@@ -178,7 +180,8 @@ router.post('/parse-unit', async (req, res) => {
 
     res.json(result);
   } catch (err) {
-    console.error('Error parsing unit entry:', err);
+    await refundAICredits(req);
+    console.error('Error parsing unit entry:', err.message);
     res.status(500).json({ error: err.message || 'Failed to parse unit entry' });
   }
 });

@@ -15,20 +15,8 @@ const Job = require('../models/Job');
 const User = require('../models/User');
 const { sanitizeObjectId, sanitizeDate } = require('../utils/sanitize');
 
-// Auth middleware
-const authenticateUser = async (req, res, next) => {
-  const jwt = require('jsonwebtoken');
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ error: 'Authentication required' });
-  
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-dev-secret');
-    req.userId = decoded.userId;
-    next();
-  } catch {
-    return res.status(401).json({ error: 'Invalid token' });
-  }
-};
+// Use the real auth middleware — no fallback-dev-secret (Ghost Ship Audit Fix #2)
+const { authenticateUser } = require('../middleware/auth');
 
 /**
  * GET /api/timesheets

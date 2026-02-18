@@ -719,6 +719,7 @@ const JobFileSystem = () => {
   const [editorMode, setEditorMode] = useState(false); // Toggle between view and edit mode
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [viewingImage, setViewingImage] = useState(null);
+  const [viewingImageUrl, setViewingImageUrl] = useState('');
 
   const handleDocDownload = () => {
     if (contextDoc) {
@@ -890,8 +891,8 @@ const JobFileSystem = () => {
     </TreeItem>
   );
 
-  // Get the correct URL for a document
-  const getDocUrl = (doc) => {
+  // Get the correct URL for a document (async — uses signed URLs for R2 keys)
+  const getDocUrl = async (doc) => {
     if (!doc) return '';
     // Use Railway backend URL directly for file access (Vercel proxy doesn't work for file streaming)
     const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
@@ -923,14 +924,14 @@ const JobFileSystem = () => {
         resultUrl = `${apiBase}/uploads/${filename}`;
       }
     }
-    // If it's an R2 key, use the files endpoint
+    // If it's an R2 key, resolve via signed URL
     else if (doc.r2Key) {
-      resultUrl = `${apiBase}/api/files/${doc.r2Key}`;
+      try { resultUrl = await api.getSignedFileUrl(doc.r2Key); } catch { resultUrl = ''; }
     }
-    // Handle legacy local file paths (e.g., /Users/mike/job-hub-app/backend/uploads/...)
+    // Handle legacy local file paths
     else if (doc.url?.includes('/uploads/') && doc.url?.includes('/Users/')) {
       const filename = doc.url.split('/').pop();
-      resultUrl = `${apiBase}/api/files/uploads/${filename}`;
+      resultUrl = `${apiBase}/uploads/${filename}`;
     }
     else {
       resultUrl = doc.url || '';
@@ -1018,6 +1019,7 @@ const JobFileSystem = () => {
     
     if (isImage) {
       setViewingImage(doc);
+      getDocUrl(doc).then(url => setViewingImageUrl(url));
       setImageViewerOpen(true);
       return;
     }
@@ -1027,8 +1029,8 @@ const JobFileSystem = () => {
       setViewingDoc(doc);
     setEditorMode(useEditor);
       
-      const docUrl = getDocUrl(doc);
-      if (docUrl.includes('/api/')) {
+      const docUrl = await getDocUrl(doc);
+      if (docUrl) {
         try {
         const blobUrl = await fetchAuthenticatedDoc(docUrl);
             setViewingDocBlobUrl(blobUrl);
@@ -1080,11 +1082,11 @@ const JobFileSystem = () => {
 
   // Handle download - fetch with auth for API endpoints
   const handleDownload = async (doc) => {
-    const url = getDocUrl(doc);
+    const url = await getDocUrl(doc);
     if (!url) return;
     
-    // For API endpoints, fetch with authentication and trigger download
-    if (url.includes('/api/')) {
+    // For signed R2 URLs or API endpoints, fetch and trigger download
+    if (url.startsWith('http')) {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(url, {
@@ -1585,7 +1587,7 @@ const JobFileSystem = () => {
                 minHeight: 0, // Important for flex children
               }}>
                 <PDFFormEditor
-                  pdfUrl={viewingDocBlobUrl || getDocUrl(viewingDoc)}
+                  pdfUrl={viewingDocBlobUrl || ''}
                   jobInfo={{
                     pmNumber: job?.pmNumber,
                     woNumber: job?.woNumber,
@@ -1618,7 +1620,7 @@ const JobFileSystem = () => {
                 <Box sx={{ flex: 1, p: 2 }}>
                   {viewingDoc && (
                     <iframe
-                      src={viewingDocBlobUrl || getDocUrl(viewingDoc)}
+                      src={viewingDocBlobUrl || ''}
                       style={{
                         width: '100%',
                         height: '100%',
@@ -1664,6 +1666,7 @@ const JobFileSystem = () => {
           onClose={() => {
             setImageViewerOpen(false);
             setViewingImage(null);
+            setViewingImageUrl('');
           }}
           maxWidth="lg"
           fullWidth
@@ -1690,7 +1693,7 @@ const JobFileSystem = () => {
           <DialogContent sx={{ p: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'black', minHeight: '60vh' }}>
             {viewingImage && (
               <img
-                src={getDocUrl(viewingImage)}
+                src={viewingImageUrl || ''}
                 alt={viewingImage.name}
                 style={{
                   maxWidth: '100%',
@@ -1698,7 +1701,7 @@ const JobFileSystem = () => {
                   objectFit: 'contain',
                 }}
                 onError={(e) => {
-                  console.error('Image failed to load:', getDocUrl(viewingImage));
+                  console.error('Image failed to load:', viewingImageUrl);
                   e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><text x="50%" y="50%" text-anchor="middle" fill="white">Failed to load image</text></svg>';
                 }}
               />

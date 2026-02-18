@@ -69,7 +69,6 @@ const AsBuiltWizardPage = () => {
         }
 
         // Find PDFs from job folders
-        const apiBase = import.meta.env.VITE_API_URL || '';
         if (jobData.folders) {
           const allDocs = [];
           for (const folder of jobData.folders) {
@@ -82,9 +81,12 @@ const AsBuiltWizardPage = () => {
             }
           }
 
-          const getUrl = (doc) => doc.r2Key
-            ? `${apiBase}/api/files/${doc.r2Key}`
-            : doc.url;
+          const getUrl = async (doc) => {
+            if (doc.r2Key) {
+              try { return await api.getSignedFileUrl(doc.r2Key); } catch { return ''; }
+            }
+            return doc.url || '';
+          };
 
           // Find construction sketch
           const sketch = allDocs.find(d =>
@@ -92,7 +94,7 @@ const AsBuiltWizardPage = () => {
             d.name?.toLowerCase().includes('sketch') ||
             d.name?.toLowerCase().includes('drawing')
           );
-          if (sketch) setSketchPdfUrl(getUrl(sketch));
+          if (sketch) setSketchPdfUrl(await getUrl(sketch));
 
           // Find the job package PDF (the main multi-page document)
           // It's typically the largest PDF, or named "FM Pack" / "Job Package"
@@ -104,7 +106,7 @@ const AsBuiltWizardPage = () => {
           ) || allDocs.find(d =>
             d.type === 'pdf' && !d.extractedFrom && !d.category
           );
-          if (jobPackage) setJobPackagePdfUrl(getUrl(jobPackage));
+          if (jobPackage) setJobPackagePdfUrl(await getUrl(jobPackage));
         }
       } catch (err) {
         console.error('Failed to load wizard data:', err);

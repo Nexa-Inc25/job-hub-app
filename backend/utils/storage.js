@@ -10,21 +10,23 @@ const { r2Breaker } = require('./circuitBreaker');
 const log = require('./logger');
 
 const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'fieldledger-uploads';
-// Cloudflare Worker URL for direct file serving (bypasses Railway for faster loads)
-const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || null; // e.g., 'https://founder-30a.workers.dev'
 
 // Check if R2 is configured - define this first
 function isR2Configured() {
   return !!(process.env.R2_ACCOUNT_ID && process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY);
 }
 
-// Get direct public URL for a file (uses Cloudflare Worker if configured)
+/**
+ * @deprecated REMOVED — Ghost Ship Audit Fix #1.
+ * Do NOT store URLs in MongoDB. Store the raw r2Key only.
+ * The frontend resolves keys to signed URLs via GET /api/files/signed/{key}.
+ *
+ * This function now returns the raw key unchanged so existing callers
+ * that haven't been migrated yet don't crash, but the value stored in
+ * the DB will be the bare key, not a URL.
+ */
 function getPublicUrl(r2Key) {
-  if (R2_PUBLIC_URL) {
-    return `${R2_PUBLIC_URL}/${r2Key}`;
-  }
-  // Fallback to Railway proxy
-  return `/api/files/${r2Key}`;
+  return r2Key;
 }
 
 // Only initialize S3 client if R2 is configured (prevents crash on undefined env vars)
@@ -61,12 +63,10 @@ async function uploadFile(localFilePath, r2Key, contentType = 'application/octet
     });
 
     await s3Client.send(command);
-    
-    // Return the public URL (if bucket is public) or the key for signed URLs
-    const url = `https://${BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${r2Key}`;
     log.info({ r2Key }, 'Uploaded to R2');
     
-    return { url, key: r2Key, local: false };
+    // Zero Public URL: return only the key. Frontend resolves via signed URLs.
+    return { key: r2Key, local: false };
   });
 }
 
@@ -293,5 +293,4 @@ module.exports = {
   getPublicUrl,
   pingStorage,
   BUCKET_NAME,
-  R2_PUBLIC_URL,
 };

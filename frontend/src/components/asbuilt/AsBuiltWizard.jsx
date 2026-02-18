@@ -42,9 +42,41 @@ import CCSCChecklist from './CCSCChecklist';
 import FDAAttributeForm from './FDAAttributeForm';
 import BillingCompletionForm from './BillingCompletionForm';
 import GuidedFill from './GuidedFill';
+import useSignedUrl from '../../hooks/useSignedUrl';
 
 // Lazy-load PDF editor — only needed when foreman opens a form page (sketch markup)
 const PDFFormEditor = React.lazy(() => import('../PDFFormEditor'));
+
+/** Renders a sketch thumbnail via signed URL (no public file endpoint). */
+function SignedSketchThumb({ sketch, idx }) {
+  const { url } = useSignedUrl(sketch.r2Key || sketch.url);
+  return (
+    <Box
+      sx={{
+        border: '2px solid', borderColor: 'primary.light', borderRadius: 2,
+        overflow: 'hidden', cursor: 'pointer',
+        '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
+      }}
+      onClick={() => { if (url) globalThis.open(url, '_blank'); }}
+    >
+      <img
+        src={url || ''}
+        alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
+        loading="lazy"
+        style={{ width: 180, height: 140, objectFit: 'contain', backgroundColor: '#f5f5f5' }}
+      />
+    </Box>
+  );
+}
+SignedSketchThumb.propTypes = {
+  sketch: PropTypes.shape({
+    r2Key: PropTypes.string,
+    url: PropTypes.string,
+    name: PropTypes.string,
+    pageNumber: PropTypes.number,
+  }).isRequired,
+  idx: PropTypes.number.isRequired,
+};
 
 /**
  * Detect which equipment types are in scope based on job/EC tag data.
@@ -612,25 +644,7 @@ const AsBuiltWizard = ({
             {hasPreExtractedSketches && (
                 <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
                   {job.constructionSketches.map((sketch, idx) => (
-                    <Box
-                      key={sketch._id || `sketch-${idx}`}
-                      sx={{
-                      border: '2px solid', borderColor: 'primary.light', borderRadius: 2,
-                      overflow: 'hidden', cursor: 'pointer',
-                        '&:hover': { borderColor: 'primary.main', boxShadow: 3 },
-                      }}
-                      onClick={() => {
-                      const url = sketch.url || (sketch.r2Key ? `${apiBase}/api/files/${sketch.r2Key}` : '');
-                        if (url) globalThis.open(url, '_blank');
-                      }}
-                    >
-                      <img
-                      src={sketch.url || (sketch.r2Key ? `${apiBase}/api/files/${sketch.r2Key}` : '')}
-                        alt={sketch.name || `Sketch Page ${sketch.pageNumber || idx + 1}`}
-                        loading="lazy"
-                      style={{ width: 180, height: 140, objectFit: 'contain', backgroundColor: '#f5f5f5' }}
-                      />
-                    </Box>
+                    <SignedSketchThumb key={sketch._id || `sketch-${idx}`} sketch={sketch} idx={idx} />
                   ))}
               </Box>
             )}

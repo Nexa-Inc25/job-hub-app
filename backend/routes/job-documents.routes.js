@@ -1094,8 +1094,8 @@ router.get('/:id/folders/:folderName/export', async (req, res) => {
     // Combine all chunks into final ZIP buffer
     const zipBuffer = Buffer.concat(zipChunks);
     
-    // Audit log: Bulk download/export
-    logExport.bulkDownload(req, id, filesToZip.length);
+    // Audit log: Bulk download/export — awaited for NERC CIP
+    await logExport.bulkDownload(req, id, filesToZip.length);
     
     // Send the complete, valid ZIP
     res.setHeader('Content-Type', 'application/zip');
@@ -1281,8 +1281,8 @@ router.delete('/:id/documents/:docId', async (req, res) => {
     
     await job.save();
     
-    // Audit log: Document deleted
-    logDocument.delete(req, { _id: docId, name: removedDoc?.name || docId }, id);
+    // Audit log: Document deleted — awaited for NERC CIP
+    await logDocument.delete(req, { _id: docId, name: removedDoc?.name || docId }, id);
     
     console.log('Document removed from job:', docId);
     res.json({ message: 'Document deleted successfully', documentId: docId });

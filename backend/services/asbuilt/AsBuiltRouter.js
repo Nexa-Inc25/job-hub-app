@@ -3,8 +3,12 @@
  * Proprietary and confidential. Unauthorized copying prohibited.
  */
 const crypto = require('crypto');
+const { PDFDocument } = require('pdf-lib');
 const AsBuiltSubmission = require('../../models/AsBuiltSubmission');
+const UtilityAsBuiltConfig = require('../../models/UtilityAsBuiltConfig');
 const RoutingRule = require('../../models/RoutingRule');
+const r2Storage = require('../../utils/storage');
+const log = require('../../utils/logger');
 
 /**
  * As-Built Router Service
@@ -17,25 +21,53 @@ const RoutingRule = require('../../models/RoutingRule');
  */
 class AsBuiltRouter {
   constructor() {
-    // PG&E default page ranges (from memory)
-    this.PGE_PAGE_RANGES = {
-      face_sheet: { start: 1, end: 3 },
-      crew_instructions: { start: 4, end: 6 },
-      crew_materials: { start: 7, end: 7 },
-      equipment_info: { start: 8, end: 9 },
-      feedback_form: { start: 10, end: 10 },
-      construction_sketch: { start: 11, end: 14 },
-      circuit_map: { start: 15, end: 15 },
-      permits: { start: 16, end: 21 },
-      tcp: { start: 22, end: 23 },
-      job_checklist: { start: 24, end: 24 },
-      billing_form: { start: 27, end: 27 },
-      paving_form: { start: 28, end: 29 },
-      ccsc: { start: 32, end: 33 }
-    };
-    
     // Destination adapters (will be lazy-loaded)
     this.adapters = {};
+    // Config cache: utilityId → { config, loadedAt }
+    this._configCache = new Map();
+    this._configCacheTTL = 10 * 60 * 1000; // 10 minutes
+  }
+
+  /**
+   * Load page ranges for a utility from UtilityAsBuiltConfig.
+   * Returns an array of { sectionType, start, end } objects.
+   * The splitting logic is utility-agnostic — it takes any config that
+   * matches this shape. PG&E (TD-2051P-10) is the first config;
+   * SCE, SDG&E, etc. plug in as new config documents with zero code changes.
+   *
+   * @param {string} utilityId - Utility ObjectId from submission
+   * @returns {Promise<Array<{sectionType: string, label: string, start: number, end: number}>>}
+   */
+  async getPageRanges(utilityId) {
+    // Check cache first
+    const cached = this._configCache.get(utilityId?.toString());
+    if (cached && Date.now() - cached.loadedAt < this._configCacheTTL) {
+      return cached.pageRanges;
+    }
+
+    let pageRanges = [];
+
+    if (utilityId) {
+      const config = await UtilityAsBuiltConfig.findOne({ utilityId, isActive: true })
+        .select('pageRanges')
+        .lean();
+
+      if (config?.pageRanges?.length) {
+        pageRanges = config.pageRanges;
+        log.info({ utilityId, rangeCount: pageRanges.length }, '[AsBuiltRouter] Loaded utility config');
+      }
+    }
+
+    // Fallback: if no config found, log a warning — do NOT hardcode PG&E ranges.
+    // The operator must seed a config via the admin panel or seed script.
+    if (pageRanges.length === 0) {
+      log.warn({ utilityId }, '[AsBuiltRouter] No UtilityAsBuiltConfig found — cannot split PDF');
+    }
+
+    // Cache
+    this._configCache.set(utilityId?.toString(), { pageRanges, loadedAt: Date.now() });
+
+    return pageRanges;
   }
   
   /**
@@ -92,21 +124,31 @@ class AsBuiltRouter {
   }
   
   /**
-   * Split PDF into sections based on page ranges
+   * Split PDF into sections based on utility-specific page ranges.
+   * The page range config is loaded from UtilityAsBuiltConfig — no
+   * hardcoded utility logic lives in the router.
    */
   async splitPdfIntoSections(submission) {
-    const pageCount = submission.originalFile.pageCount || 40;
+    const pageCount = submission.originalFile?.pageCount || 40;
+
+    // Load config-driven page ranges for this utility
+    const pageRanges = await this.getPageRanges(submission.utilityId);
+    if (pageRanges.length === 0) {
+      throw new Error(
+        'No as-built page range config found for this utility. ' +
+        'Seed a UtilityAsBuiltConfig before processing submissions.'
+      );
+    }
+
     const sections = [];
-    
-    // Use PG&E page ranges as default (can be customized per utility)
-    for (const [sectionType, range] of Object.entries(this.PGE_PAGE_RANGES)) {
-      // Skip if section is beyond document page count
+
+    for (const range of pageRanges) {
       if (range.start > pageCount) continue;
-      
+
       const effectiveEnd = Math.min(range.end, pageCount);
-      
+
       sections.push({
-        sectionType,
+        sectionType: range.sectionType,
         pageStart: range.start,
         pageEnd: effectiveEnd,
         pageCount: effectiveEnd - range.start + 1,
@@ -115,51 +157,209 @@ class AsBuiltRouter {
         deliveryStatus: 'pending',
         extractedAt: new Date()
       });
-      
-      submission.addAuditEntry('section_extracted', 
-        `Extracted ${sectionType} (pages ${range.start}-${effectiveEnd})`);
+
+      submission.addAuditEntry('section_extracted',
+        `Defined ${range.sectionType} (pages ${range.start}-${effectiveEnd})`);
     }
-    
+
     submission.sections = sections;
     await submission.save();
-    
-    // In production, we would actually split the PDF here using pdf-lib
-    // For now, we're just defining the sections
+
+    // Perform the actual PDF splitting + hashing + R2 upload
     await this.extractPdfSections(submission);
   }
   
   /**
-   * Actually extract PDF sections (placeholder for pdf-lib implementation)
-   * 
-   * WARNING: This is currently a placeholder implementation.
-   * Real PDF splitting is not yet implemented.
+   * Extract PDF sections using pdf-lib.
+   *
+   * Ghost Ship Audit Fix #4 — replaces the placeholder implementation.
+   *
+   * Flow:
+   *   1. Download the source PDF from R2 into a Uint8Array
+   *   2. Load it once with pdf-lib
+   *   3. For each section, copy the specified pages into a new PDFDocument
+   *   4. Serialize → SHA-256 hash → upload to R2
+   *   5. Update section.fileKey, section.fileHash, section.fileSize
+   *
+   * Memory: Each split document is serialized and discarded before the next
+   * section is processed. The source document stays in memory for the
+   * duration but is released when the method returns.
+   *
+   * Page indexing: Config uses 1-based page numbers. pdf-lib uses 0-based.
+   * We subtract 1 when calling copyPages.
+   *
+   * @param {import('../../models/AsBuiltSubmission')} submission
    */
   async extractPdfSections(submission) {
-    // Log warning that real PDF splitting is not yet implemented
-    console.warn('[AsBuiltRouter] PDF splitting is using PLACEHOLDER mode - actual extraction not yet implemented');
-    submission.addAuditEntry('warning', 'PDF section extraction using placeholder mode - actual file splitting not performed');
-    
-    // TODO: In production, this should:
-    // 1. Load the original PDF from R2/S3
-    // 2. Use pdf-lib to split into separate PDFs
-    // 3. Upload each section to R2/S3
-    // 4. Update section.fileKey and section.fileHash
-    
+    const sourceKey = submission.originalFile?.key;
+    if (!sourceKey) {
+      throw new Error('No source PDF key on submission — cannot split');
+    }
+
+    // ---- Step 1: Stream source PDF to temp file (no Buffer.concat) ----
+    const fs = require('fs');
+    const path = require('path');
+    const os = require('os');
+    const { pipeline } = require('stream/promises');
+
+    const tempDir = path.join(os.tmpdir(), 'fieldledger-asbuilt');
+    fs.mkdirSync(tempDir, { recursive: true });
+    const tempPath = path.join(tempDir, `${submission.submissionId}_source.pdf`);
+
+    if (r2Storage.isR2Configured()) {
+      const fileData = await r2Storage.getFileStream(sourceKey);
+      if (!fileData?.stream) {
+        throw new Error(`Source PDF not found in R2: ${sourceKey}`);
+      }
+      await pipeline(fileData.stream, fs.createWriteStream(tempPath));
+    } else {
+      const localPath = path.join(__dirname, '../../uploads', sourceKey);
+      if (!fs.existsSync(localPath)) {
+        throw new Error(`Source PDF not found locally: ${localPath}`);
+      }
+      fs.copyFileSync(localPath, tempPath);
+    }
+
+    const fileStat = fs.statSync(tempPath);
+    log.info({
+      submissionId: submission.submissionId,
+      sourceKey,
+      sourceSizeBytes: fileStat.size
+    }, '[AsBuiltRouter] Source PDF downloaded to temp file');
+
+    // ---- Step 2: Load source into pdf-lib (async, non-blocking) ----
+    // fs.promises.readFile is async — does not block the event loop during I/O.
+    // The resulting Buffer is wrapped in Uint8Array and nulled after pdf-lib parses it.
+    let sourcePdf;
+    try {
+      let sourceBytes = new Uint8Array(await fs.promises.readFile(tempPath));
+      sourcePdf = await PDFDocument.load(sourceBytes, { ignoreEncryption: true });
+      sourceBytes = null; // Release raw bytes — pdf-lib has its own internal copy
+    } catch (parseErr) {
+      try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+      throw new Error(`Failed to parse source PDF: ${parseErr.message}`);
+    }
+    const totalPages = sourcePdf.getPageCount();
+
+    log.info({
+      submissionId: submission.submissionId,
+      totalPages
+    }, '[AsBuiltRouter] Source PDF parsed');
+
+    // ---- Step 3: Split each section ----
+    let sectionsProcessed = 0;
+    let sectionsFailed = 0;
+
     for (let i = 0; i < submission.sections.length; i++) {
       const section = submission.sections[i];
-      
-      // Generate placeholder file key (not actual split file)
-      section.fileKey = `asbuilt/${submission.submissionId}/${section.sectionType}.pdf`;
-      section.placeholder = true; // Mark as placeholder
-      
-      // Generate hash (in production, hash actual file content)
-      section.fileHash = crypto
-        .createHash('sha256')
-        .update(`${submission.submissionId}-${section.sectionType}-${Date.now()}`)
-        .digest('hex');
+
+      try {
+        // Config uses 1-based pages; pdf-lib uses 0-based indices
+        const startIdx = section.pageStart - 1;
+        const endIdx = Math.min(section.pageEnd, totalPages) - 1;
+
+        // Skip if start page is beyond document
+        if (startIdx >= totalPages) {
+          section.fileKey = null;
+          section.fileHash = null;
+          section.deliveryStatus = 'skipped';
+          submission.addAuditEntry('section_skipped',
+            `${section.sectionType}: pages ${section.pageStart}-${section.pageEnd} beyond document (${totalPages} pages)`,
+            null, i);
+          continue;
+        }
+
+        // Build array of page indices to copy
+        const pageIndices = [];
+        for (let p = startIdx; p <= endIdx; p++) {
+          pageIndices.push(p);
+        }
+
+        // ---- Create new PDF with only these pages ----
+        const splitPdf = await PDFDocument.create();
+        const copiedPages = await splitPdf.copyPages(sourcePdf, pageIndices);
+        for (const page of copiedPages) {
+          splitPdf.addPage(page);
+        }
+
+        // ---- Serialize ----
+        const splitBytes = await splitPdf.save();
+        const splitBuffer = Buffer.from(splitBytes);
+
+        // ---- SHA-256 hash for NERC CIP compliance ----
+        const hash = crypto
+          .createHash('sha256')
+          .update(splitBuffer)
+          .digest('hex');
+
+        // ---- Upload to R2 ----
+        const r2Key = `asbuilt/${submission.submissionId}/${section.sectionType}.pdf`;
+
+        if (r2Storage.isR2Configured()) {
+          await r2Storage.uploadBuffer(splitBuffer, r2Key, 'application/pdf');
+        } else {
+          // Local dev fallback: write to disk
+          const fs = require('fs');
+          const path = require('path');
+          const localDir = path.join(__dirname, '../../uploads/asbuilt', submission.submissionId);
+          fs.mkdirSync(localDir, { recursive: true });
+          fs.writeFileSync(path.join(localDir, `${section.sectionType}.pdf`), splitBuffer);
+        }
+
+        // ---- Update section metadata ----
+        section.fileKey = r2Key;
+        section.fileHash = hash;
+        section.fileSize = splitBuffer.length;
+        section.placeholder = false;
+        sectionsProcessed++;
+
+        submission.addAuditEntry('section_extracted',
+          `Split ${section.sectionType}: pages ${section.pageStart}-${Math.min(section.pageEnd, totalPages)}, ` +
+          `${splitBuffer.length} bytes, SHA-256: ${hash.substring(0, 16)}...`,
+          null, i);
+
+        log.info({
+          submissionId: submission.submissionId,
+          section: section.sectionType,
+          pages: `${section.pageStart}-${Math.min(section.pageEnd, totalPages)}`,
+          sizeBytes: splitBuffer.length,
+          hash: hash.substring(0, 16)
+        }, '[AsBuiltRouter] Section split complete');
+
+      } catch (sectionErr) {
+        sectionsFailed++;
+        section.fileKey = null;
+        section.fileHash = null;
+        section.deliveryStatus = 'failed';
+        section.deliveryError = sectionErr.message;
+
+        log.error({
+          err: sectionErr,
+          submissionId: submission.submissionId,
+          section: section.sectionType
+        }, '[AsBuiltRouter] Section split failed');
+
+        submission.addAuditEntry('section_failed',
+          `Failed to split ${section.sectionType}: ${sectionErr.message}`,
+          null, i);
+      }
     }
-    
+
     await submission.save();
+
+    log.info({
+      submissionId: submission.submissionId,
+      processed: sectionsProcessed,
+      failed: sectionsFailed,
+      total: submission.sections.length
+    }, '[AsBuiltRouter] PDF splitting complete');
+
+    // Clean up temp source file
+    try { fs.unlinkSync(tempPath); } catch { /* ignore */ }
+
+    if (sectionsFailed > 0 && sectionsProcessed === 0) {
+      throw new Error(`All ${sectionsFailed} sections failed to split`);
+    }
   }
   
   /**

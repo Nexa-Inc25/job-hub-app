@@ -12,6 +12,18 @@ const User = require('../models/User');
 const Company = require('../models/Company');
 const { getClientIP } = require('./ipBlocker');
 
+// ---------------------------------------------------------------------------
+// FAIL-FAST: JWT_SECRET is non-negotiable. If it's missing at module load
+// time, the process must die immediately — not silently sign tokens with
+// undefined. (Ghost Ship Audit Fix #2)
+// ---------------------------------------------------------------------------
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Cannot start auth middleware.');
+  console.error('Set JWT_SECRET in your environment before starting the server.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
+
 /** Cache for company security settings (avoid DB lookup on every request) */
 const companySecurityCache = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -109,7 +121,7 @@ function issueRefreshedToken(user) {
       canApprove: user.canApprove || false,
       name: user.name
     },
-    process.env.JWT_SECRET,
+    JWT_SECRET,
     { algorithm: 'HS256', expiresIn: '24h' }
   );
 }
@@ -145,7 +157,7 @@ const authenticateToken = async (req, res, next) => {
 
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
+      decoded = jwt.verify(token, JWT_SECRET);
     } catch (error) {
       if (error.name === 'TokenExpiredError') {
         return res.status(401).json({
@@ -196,13 +208,14 @@ const authenticateToken = async (req, res, next) => {
       }
     }
 
-    // Populate request
+    // Populate request — companyId is explicitly null when absent, never undefined.
+    // This prevents undefined === undefined bypasses in downstream access checks.
     req.user = user;
     req.userId = user._id.toString();
     req.userEmail = user.email;
     req.userName = user.name;
     req.userRole = user.role;
-    req.companyId = user.companyId;
+    req.companyId = user.companyId ? user.companyId.toString() : null;
     req.isAdmin = user.isAdmin || false;
     req.isSuperAdmin = user.isSuperAdmin || false;
     req.canApprove = user.canApprove || false;
@@ -247,7 +260,7 @@ const optionalAuth = async (req, res, next) => {
 
     if (!token) return next();
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId || decoded.id)
       .select('-password')
       .lean();

@@ -1,8 +1,11 @@
 /**
  * FieldLedger - Tailboard Controller
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
- * 
+ *
  * Handles CRUD operations for daily tailboard/JHA meetings.
+ *
+ * SECURITY — Ghost Ship Audit: Fail-Closed Tenant Isolation
+ * Every query scopes by companyId. No findById without company filter.
  */
 
 const Tailboard = require('../models/Tailboard');
@@ -11,19 +14,47 @@ const User = require('../models/User');
 const crypto = require('node:crypto');
 const { generateTailboardPdf } = require('../services/pdf.service');
 const { sanitizeObjectId, sanitizeString } = require('../utils/sanitize');
+const log = require('../utils/logger');
+const { logAudit } = require('../middleware/auditLogger');
+
+// ---------------------------------------------------------------------------
+// Fail-Closed Guard (same pattern as jobs.controller)
+// ---------------------------------------------------------------------------
+
+function requireCompanyContext(req, res) {
+  if (req.isSuperAdmin) return null;
+  const companyId = req.companyId?.toString();
+  if (!companyId) {
+    log.error({ userId: req.userId, requestId: req.requestId }, 'Tailboard access denied: no company context');
+    res.status(403).json({ error: 'Unauthorized: Company context required.', code: 'NO_COMPANY' });
+    return false;
+  }
+  return companyId;
+}
+
+function scopedQuery(id, companyId) {
+  const query = { _id: id };
+  if (companyId !== null) query.companyId = companyId;
+  return query;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 /**
  * Save completed tailboard to job's Close Out Documents folder
- * Extracted to reduce complexity in completeTailboard
  */
-async function saveTailboardToCloseOut(tailboard) {
-  const job = await Job.findById(tailboard.jobId);
+async function saveTailboardToCloseOut(tailboard, companyId) {
+  const jobQuery = { _id: tailboard.jobId };
+  if (companyId) jobQuery.companyId = companyId;
+
+  const job = await Job.findOne(jobQuery);
   if (!job) return;
-  
+
   const aciFolder = job.folders?.find(f => f.name === 'ACI');
   if (!aciFolder) return;
-  
-  // Ensure subfolders structure exists
+
   if (!aciFolder.subfolders) aciFolder.subfolders = [];
   let closeOutFolder = aciFolder.subfolders.find(sf => sf.name === 'Close Out Documents');
   if (!closeOutFolder) {
@@ -31,20 +62,17 @@ async function saveTailboardToCloseOut(tailboard) {
     aciFolder.subfolders.push(closeOutFolder);
   }
   if (!closeOutFolder.documents) closeOutFolder.documents = [];
-  
-  // Build document entry
+
   const dateStr = new Date(tailboard.date || tailboard.createdAt).toISOString().split('T')[0];
   const tailboardFilename = `${job.pmNumber || job.woNumber}_Tailboard_${dateStr}.pdf`;
-  
-  // Remove old version if exists (same date tailboard)
-  const existingIdx = closeOutFolder.documents.findIndex(d => 
+
+  const existingIdx = closeOutFolder.documents.findIndex(d =>
     d.name?.includes('Tailboard') && d.name?.includes(dateStr)
   );
   if (existingIdx !== -1) {
     closeOutFolder.documents.splice(existingIdx, 1);
   }
-  
-  // Add tailboard reference
+
   closeOutFolder.documents.push({
     name: tailboardFilename,
     type: 'tailboard',
@@ -62,10 +90,13 @@ async function saveTailboardToCloseOut(tailboard) {
       sap: `/api/tailboards/${tailboard._id}/export?format=sap`,
     }
   });
-  
+
   await job.save();
-  console.log(`Tailboard saved to Close Out Documents: ${tailboardFilename}`);
 }
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
 
 /**
  * Create a new tailboard
@@ -73,123 +104,91 @@ async function saveTailboardToCloseOut(tailboard) {
  */
 const createTailboard = async (req, res) => {
   try {
-    const {
-      jobId,
-      date,
-      startTime,
-      taskDescription,
-      jobSteps,
-      hazards,
-      hazardsDescription,
-      mitigationDescription,
-      specialMitigations,
-      ppeRequired,
-      crewMembers,
-      weatherConditions,
-      siteConditions,
-      emergencyContact,
-      emergencyPhone,
-      nearestHospital,
-      nearMissReporting,
-      additionalNotes,
-      // New Alvah-specific fields
-      pmNumber,
-      circuit,
-      showUpYardLocation,
-      generalForemanId,
-      generalForemanName,
-      inspector,
-      inspectorName,
-      eicName,
-      eicPhone,
-      sourceSideDevices,
-      grounding,
-      nominalVoltages,
-      copperConditionInspected,
-      notTiedIntoCircuit,
-      ugChecklist
-    } = req.body;
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
 
-    // Validate job exists
-    const job = await Job.findById(jobId);
+    const { jobId } = req.body;
+
+    // Validate job exists AND belongs to this company
+    const jobQuery = { _id: jobId };
+    if (companyId !== null) jobQuery.companyId = companyId;
+    const job = await Job.findOne(jobQuery);
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    // Get current user info
     const user = await User.findById(req.userId).select('name companyId');
     if (!user) {
       return res.status(401).json({ error: 'User not found' });
     }
 
-    // Initialize special mitigations with defaults if not provided
     const defaultMitigations = Tailboard.SPECIAL_MITIGATIONS.map(m => ({
       item: m.id,
       value: null
     }));
 
-    // Initialize UG checklist with defaults if not provided
     const defaultUgChecklist = Tailboard.UG_CHECKLIST_ITEMS.map(item => ({
       item: item.id,
       value: null
     }));
 
-    // Create tailboard with job info pre-populated
     const tailboard = new Tailboard({
       jobId,
-      companyId: job.companyId || user.companyId,
-      date: date || new Date(),
-      startTime,
+      companyId: companyId || job.companyId || user.companyId,
+      date: req.body.date || new Date(),
+      startTime: req.body.startTime,
       jobLocation: job.address || `${job.city || ''}`,
       jobAddress: job.address,
       woNumber: job.woNumber,
-      pmNumber: pmNumber || job.pmNumber,
-      circuit,
-      showUpYardLocation,
+      pmNumber: req.body.pmNumber || job.pmNumber,
+      circuit: req.body.circuit,
+      showUpYardLocation: req.body.showUpYardLocation,
       foremanId: req.userId,
       foremanName: user.name,
-      generalForemanId,
-      generalForemanName,
-      inspector: inspector || null,
-      inspectorName,
-      eicName,
-      eicPhone,
-      taskDescription,
-      jobSteps,
-      hazardsDescription,
-      mitigationDescription,
-      hazards: hazards || [],
-      specialMitigations: specialMitigations || defaultMitigations,
-      ppeRequired: ppeRequired || Tailboard.STANDARD_PPE.map(ppe => ({
+      generalForemanId: req.body.generalForemanId,
+      generalForemanName: req.body.generalForemanName,
+      inspector: req.body.inspector || null,
+      inspectorName: req.body.inspectorName,
+      eicName: req.body.eicName,
+      eicPhone: req.body.eicPhone,
+      taskDescription: req.body.taskDescription,
+      jobSteps: req.body.jobSteps,
+      hazardsDescription: req.body.hazardsDescription,
+      mitigationDescription: req.body.mitigationDescription,
+      hazards: req.body.hazards || [],
+      specialMitigations: req.body.specialMitigations || defaultMitigations,
+      ppeRequired: req.body.ppeRequired || Tailboard.STANDARD_PPE.map(ppe => ({
         item: ppe.item,
         checked: false
       })),
-      sourceSideDevices: sourceSideDevices || [],
-      grounding: grounding || {
-        needed: null,
-        accountedFor: null,
-        locations: []
-      },
-      nominalVoltages,
-      copperConditionInspected,
-      notTiedIntoCircuit,
-      ugChecklist: ugChecklist || defaultUgChecklist,
-      crewMembers: crewMembers || [],
-      weatherConditions,
-      siteConditions,
-      emergencyContact,
-      emergencyPhone,
-      nearestHospital,
-      nearMissReporting,
-      additionalNotes,
+      sourceSideDevices: req.body.sourceSideDevices || [],
+      grounding: req.body.grounding || { needed: null, accountedFor: null, locations: [] },
+      nominalVoltages: req.body.nominalVoltages,
+      copperConditionInspected: req.body.copperConditionInspected,
+      notTiedIntoCircuit: req.body.notTiedIntoCircuit,
+      ugChecklist: req.body.ugChecklist || defaultUgChecklist,
+      crewMembers: req.body.crewMembers || [],
+      weatherConditions: req.body.weatherConditions,
+      siteConditions: req.body.siteConditions,
+      emergencyContact: req.body.emergencyContact,
+      emergencyPhone: req.body.emergencyPhone,
+      nearestHospital: req.body.nearestHospital,
+      nearMissReporting: req.body.nearMissReporting,
+      additionalNotes: req.body.additionalNotes,
       status: 'draft'
     });
 
     await tailboard.save();
 
+    await logAudit(req, 'DOCUMENT_CREATED', {
+      resourceType: 'tailboard', resourceId: tailboard._id.toString(),
+      resourceName: `Tailboard ${tailboard.woNumber || tailboard.pmNumber}`,
+      details: { jobId, status: 'draft' }
+    });
+
     res.status(201).json(tailboard);
   } catch (error) {
-    console.error('Error creating tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error creating tailboard');
     res.status(500).json({ error: 'Failed to create tailboard' });
   }
 };
@@ -200,22 +199,25 @@ const createTailboard = async (req, res) => {
  */
 const getTailboardsByJob = async (req, res) => {
   try {
-    const { jobId } = req.params;
-    
-    // Sanitize jobId to prevent NoSQL injection
-    const safeJobId = sanitizeObjectId(jobId);
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
+    const safeJobId = sanitizeObjectId(req.params.jobId);
     if (!safeJobId) {
       return res.status(400).json({ error: 'Invalid job ID' });
     }
 
-    const tailboards = await Tailboard.find({ jobId: safeJobId })
+    const query = { jobId: safeJobId };
+    if (companyId !== null) query.companyId = companyId;
+
+    const tailboards = await Tailboard.find(query)
       .sort({ date: -1 })
       .populate('foremanId', 'name email')
       .lean();
 
     res.json(tailboards);
   } catch (error) {
-    console.error('Error fetching tailboards:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error fetching tailboards');
     res.status(500).json({ error: 'Failed to fetch tailboards' });
   }
 };
@@ -226,7 +228,10 @@ const getTailboardsByJob = async (req, res) => {
  */
 const getTailboard = async (req, res) => {
   try {
-    const tailboard = await Tailboard.findById(req.params.id)
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
+    const tailboard = await Tailboard.findOne(scopedQuery(req.params.id, companyId))
       .populate('foremanId', 'name email')
       .populate('crewMembers.userId', 'name email')
       .lean();
@@ -237,7 +242,7 @@ const getTailboard = async (req, res) => {
 
     res.json(tailboard);
   } catch (error) {
-    console.error('Error fetching tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error fetching tailboard');
     res.status(500).json({ error: 'Failed to fetch tailboard' });
   }
 };
@@ -248,24 +253,24 @@ const getTailboard = async (req, res) => {
  */
 const updateTailboard = async (req, res) => {
   try {
-    const tailboard = await Tailboard.findById(req.params.id);
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
 
+    const tailboard = await Tailboard.findOne(scopedQuery(req.params.id, companyId));
     if (!tailboard) {
       return res.status(404).json({ error: 'Tailboard not found' });
     }
 
-    // Only allow updates if still in draft status
     if (tailboard.status === 'completed') {
       return res.status(400).json({ error: 'Cannot update completed tailboard' });
     }
 
     const allowedUpdates = [
-      'date', 'startTime', 'taskDescription', 'jobSteps', 'hazards', 
+      'date', 'startTime', 'taskDescription', 'jobSteps', 'hazards',
       'hazardsDescription', 'mitigationDescription', 'specialMitigations',
-      'ppeRequired', 'crewMembers', 'weatherConditions', 'siteConditions', 
+      'ppeRequired', 'crewMembers', 'weatherConditions', 'siteConditions',
       'emergencyContact', 'emergencyPhone', 'nearestHospital', 'nearMissReporting',
       'additionalNotes', 'foremanSignature',
-      // New Alvah-specific fields
       'pmNumber', 'circuit', 'showUpYardLocation', 'generalForemanId',
       'generalForemanName', 'inspector', 'inspectorName', 'eicName', 'eicPhone',
       'sourceSideDevices', 'grounding', 'nominalVoltages', 'copperConditionInspected',
@@ -274,16 +279,14 @@ const updateTailboard = async (req, res) => {
 
     allowedUpdates.forEach(field => {
       if (req.body[field] !== undefined) {
-        // Convert empty string to null for enum fields
         tailboard[field] = (field === 'inspector' && req.body[field] === '') ? null : req.body[field];
       }
     });
 
     await tailboard.save();
-
     res.json(tailboard);
   } catch (error) {
-    console.error('Error updating tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error updating tailboard');
     res.status(500).json({ error: 'Failed to update tailboard' });
   }
 };
@@ -294,30 +297,28 @@ const updateTailboard = async (req, res) => {
  */
 const addSignature = async (req, res) => {
   try {
-    const { name, role, signatureData, userId } = req.body;
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
 
+    const { name, role, signatureData, userId } = req.body;
     if (!name || !signatureData) {
       return res.status(400).json({ error: 'Name and signature are required' });
     }
 
-    const tailboard = await Tailboard.findById(req.params.id);
-
+    const tailboard = await Tailboard.findOne(scopedQuery(req.params.id, companyId));
     if (!tailboard) {
       return res.status(404).json({ error: 'Tailboard not found' });
     }
 
-    // Check if this person already signed
     const existingSignature = tailboard.crewMembers.find(
       member => member.name.toLowerCase() === name.toLowerCase()
     );
 
     if (existingSignature) {
-      // Update existing signature
       existingSignature.signatureData = signatureData;
       existingSignature.signedAt = new Date();
       if (role) existingSignature.role = role;
     } else {
-      // Add new signature
       tailboard.crewMembers.push({
         userId: userId || null,
         name,
@@ -328,10 +329,9 @@ const addSignature = async (req, res) => {
     }
 
     await tailboard.save();
-
     res.json(tailboard);
   } catch (error) {
-    console.error('Error adding signature:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error adding signature');
     res.status(500).json({ error: 'Failed to add signature' });
   }
 };
@@ -342,16 +342,17 @@ const addSignature = async (req, res) => {
  */
 const completeTailboard = async (req, res) => {
   try {
-    const tailboard = await Tailboard.findById(req.params.id);
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
 
+    const tailboard = await Tailboard.findOne(scopedQuery(req.params.id, companyId));
     if (!tailboard) {
       return res.status(404).json({ error: 'Tailboard not found' });
     }
 
-    // Validate minimum requirements - need either hazards array or hazards description
-    const hasHazards = (tailboard.hazards && tailboard.hazards.length > 0) || 
+    const hasHazards = (tailboard.hazards && tailboard.hazards.length > 0) ||
                        (tailboard.hazardsDescription && tailboard.hazardsDescription.trim().length > 0);
-    
+
     if (!hasHazards) {
       return res.status(400).json({ error: 'Hazards must be identified (either structured or description)' });
     }
@@ -360,10 +361,9 @@ const completeTailboard = async (req, res) => {
       return res.status(400).json({ error: 'At least one crew member must sign' });
     }
 
-    // Check all crew members have signed
     const unsignedMembers = tailboard.crewMembers.filter(m => !m.signatureData);
     if (unsignedMembers.length > 0) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'All crew members must sign before completing',
         unsignedMembers: unsignedMembers.map(m => m.name)
       });
@@ -371,40 +371,42 @@ const completeTailboard = async (req, res) => {
 
     tailboard.status = 'completed';
     tailboard.completedAt = new Date();
-
-    // Generate share token for Phase 2 QR functionality
     tailboard.shareToken = crypto.randomBytes(32).toString('hex');
-    tailboard.shareTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    tailboard.shareTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
     await tailboard.save();
 
-    // Save tailboard reference to Close Out Documents folder
+    await logAudit(req, 'STATUS_CHANGED', {
+      resourceType: 'tailboard', resourceId: tailboard._id.toString(),
+      resourceName: `Tailboard ${tailboard.woNumber || tailboard.pmNumber}`,
+      details: { oldStatus: 'draft', newStatus: 'completed', crewCount: tailboard.crewMembers?.length },
+      severity: 'info'
+    });
+
     try {
-      await saveTailboardToCloseOut(tailboard);
-    } catch (error_) {
-      console.warn('Failed to save tailboard to Close Out folder:', error_.message);
-      // Don't fail the request - tailboard was saved successfully
+      await saveTailboardToCloseOut(tailboard, companyId);
+    } catch (err) {
+      log.warn({ err, tailboardId: tailboard._id }, 'Failed to save tailboard to Close Out folder');
     }
 
     res.json(tailboard);
   } catch (error) {
-    console.error('Error completing tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error completing tailboard');
     res.status(500).json({ error: 'Failed to complete tailboard' });
   }
 };
 
 /**
- * Get tailboard by share token (for QR code access - Phase 2)
+ * Get tailboard by share token (public endpoint — no company scope needed)
  * GET /api/tailboards/shared/:token
  */
 const getTailboardByToken = async (req, res) => {
   try {
-    // Sanitize token to prevent NoSQL injection
     const safeToken = sanitizeString(req.params.token);
     if (!safeToken) {
       return res.status(400).json({ error: 'Invalid token' });
     }
-    
+
     const tailboard = await Tailboard.findOne({
       shareToken: safeToken,
       shareTokenExpiry: { $gt: new Date() }
@@ -414,7 +416,7 @@ const getTailboardByToken = async (req, res) => {
       return res.status(404).json({ error: 'Tailboard not found or link expired' });
     }
 
-    // Return limited view for external access
+    // Limited view for external access — no sensitive data
     res.json({
       woNumber: tailboard.woNumber,
       date: tailboard.date,
@@ -431,7 +433,7 @@ const getTailboardByToken = async (req, res) => {
       completedAt: tailboard.completedAt
     });
   } catch (error) {
-    console.error('Error fetching shared tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error fetching shared tailboard');
     res.status(500).json({ error: 'Failed to fetch tailboard' });
   }
 };
@@ -440,7 +442,7 @@ const getTailboardByToken = async (req, res) => {
  * Get hazard categories, PPE, mitigations, and checklist items
  * GET /api/tailboards/categories
  */
-const getCategories = async (req, res) => {
+const getCategories = async (_req, res) => {
   try {
     res.json({
       hazardCategories: Tailboard.HAZARD_CATEGORIES,
@@ -449,8 +451,7 @@ const getCategories = async (req, res) => {
       ugChecklistItems: Tailboard.UG_CHECKLIST_ITEMS,
       inspectorOptions: Tailboard.INSPECTOR_OPTIONS
     });
-  } catch (error) {
-    console.error('Error fetching categories:', error);
+  } catch (_err) {
     res.status(500).json({ error: 'Failed to fetch categories' });
   }
 };
@@ -461,35 +462,36 @@ const getCategories = async (req, res) => {
  */
 const getTodaysTailboard = async (req, res) => {
   try {
-    const { jobId } = req.params;
-    
-    // Sanitize jobId to prevent NoSQL injection
-    const safeJobId = sanitizeObjectId(jobId);
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
+    const safeJobId = sanitizeObjectId(req.params.jobId);
     if (!safeJobId) {
       return res.status(400).json({ error: 'Invalid job ID' });
     }
-    
-    // Get start of today in UTC, but also check yesterday to handle timezone differences
-    // This ensures we find tailboards created within the last 24-36 hours
+
     const now = new Date();
     const startOfYesterday = new Date(now);
     startOfYesterday.setDate(startOfYesterday.getDate() - 1);
     startOfYesterday.setHours(0, 0, 0, 0);
-    
+
     const endOfToday = new Date(now);
     endOfToday.setDate(endOfToday.getDate() + 1);
     endOfToday.setHours(23, 59, 59, 999);
 
-    // Find the most recent tailboard for this job within the date range
-    const tailboard = await Tailboard.findOne({
+    const query = {
       jobId: safeJobId,
       date: { $gte: startOfYesterday, $lte: endOfToday }
-    }).sort({ date: -1, createdAt: -1 }).lean();
+    };
+    if (companyId !== null) query.companyId = companyId;
 
-    // Return null instead of 404 to avoid console errors on expected "not found"
+    const tailboard = await Tailboard.findOne(query)
+      .sort({ date: -1, createdAt: -1 })
+      .lean();
+
     res.json(tailboard || null);
   } catch (error) {
-    console.error('Error fetching today\'s tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error fetching today\'s tailboard');
     res.status(500).json({ error: 'Failed to fetch tailboard' });
   }
 };
@@ -500,37 +502,39 @@ const getTodaysTailboard = async (req, res) => {
  */
 const generatePdf = async (req, res) => {
   try {
-    const tailboard = await Tailboard.findById(req.params.id).lean();
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
 
+    const tailboard = await Tailboard.findOne(scopedQuery(req.params.id, companyId)).lean();
     if (!tailboard) {
       return res.status(404).json({ error: 'Tailboard not found' });
     }
 
     const pdfBuffer = await generateTailboardPdf(tailboard);
-
-    // Set response headers for PDF download
     const filename = `Tailboard_${tailboard.woNumber || 'JHA'}_${new Date(tailboard.date).toISOString().split('T')[0]}.pdf`;
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', pdfBuffer.length);
-    
     res.send(pdfBuffer);
   } catch (error) {
-    console.error('Error generating tailboard PDF:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error generating tailboard PDF');
     res.status(500).json({ error: 'Failed to generate PDF' });
   }
 };
 
 /**
- * Export tailboard in Oracle/SAP format for utility submission
+ * Export tailboard in Oracle/SAP format
  * GET /api/tailboards/:id/export?format=oracle|sap
  */
 const exportTailboard = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { format = 'oracle' } = req.query;
-    
-    const tailboard = await Tailboard.findById(req.params.id)
+
+    const tailboard = await Tailboard.findOne(scopedQuery(req.params.id, companyId))
       .populate('jobId', 'woNumber pmNumber address city projectName')
       .lean();
 
@@ -539,7 +543,7 @@ const exportTailboard = async (req, res) => {
     }
 
     const { formatTailboardForOracle, formatTailboardForSAP } = require('../utils/jobPackageExport');
-    
+
     const job = tailboard.jobId || {};
     const exportData = format === 'sap'
       ? formatTailboardForSAP(tailboard, job)
@@ -547,7 +551,7 @@ const exportTailboard = async (req, res) => {
 
     res.json(exportData);
   } catch (error) {
-    console.error('Error exporting tailboard:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Error exporting tailboard');
     res.status(500).json({ error: 'Failed to export tailboard' });
   }
 };

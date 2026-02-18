@@ -10,6 +10,8 @@ const mongoose = require('mongoose');
 const router = express.Router();
 const Job = require('../models/Job');
 const r2Storage = require('../utils/storage');
+const { requireAICredits, refundAICredits } = require('../middleware/subscriptionGate');
+const { authenticateUser } = require('../middleware/auth');
 
 // Helper to validate MongoDB ObjectId
 function isValidObjectId(id) {
@@ -37,7 +39,7 @@ async function uploadExtractedImages(images, folder, jobId) {
         );
         uploaded.push({
           ...img,
-          url: `/api/files/${result.key}`,
+          url: result.key,
           r2Key: result.key
         });
         // Clean up local file after upload
@@ -253,8 +255,8 @@ const upload = multer({
   fileFilter
 });
 
-// POST AI extract
-router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
+// POST AI extract — gated: auth + 5 AI credits per extraction
+router.post('/ai/extract', upload.single('pdf'), authenticateUser, requireAICredits(5), async (req, res) => {
   try {
     console.log('=== AI Extract Request ===');
     console.log('Uploads directory:', uploadsDir);
@@ -263,7 +265,7 @@ router.post('/ai/extract', upload.single('pdf'), async (req, res) => {
     console.log('File path:', req.file?.path);
     console.log('User authenticated:', Boolean(req.userId));
     console.log('OpenAI key available:', Boolean(process.env.OPENAI_API_KEY));
-    console.log('OpenAI key prefix:', process.env.OPENAI_API_KEY?.substring(0, 10) + '...');
+    console.log('OpenAI key configured:', Boolean(process.env.OPENAI_API_KEY));
 
     if (!req.file) {
       console.log('No file uploaded');
@@ -386,9 +388,9 @@ EXAMPLE OUTPUT:
       model: result.model
     });
   } catch (err) {
-    console.error('AI extract error:', err);
-    console.error('Error stack:', err.stack);
-    console.error('Error message:', err.message);
+    // Refund credits — the AI call failed, user shouldn't be charged
+    await refundAICredits(req);
+    console.error('AI extract error:', err.message);
     res.status(500).json({
       error: 'AI extraction failed',
       details: err.message,
@@ -397,8 +399,8 @@ EXAMPLE OUTPUT:
   }
 });
 
-// GET query docs
-router.get('/jobs/:jobId/ask', async (req, res) => {
+// GET query docs — gated: auth + 2 AI credits per query
+router.get('/jobs/:jobId/ask', authenticateUser, requireAICredits(2), async (req, res) => {
   try {
     const { query } = req.query;
     const { jobId } = req.params;
@@ -429,13 +431,14 @@ router.get('/jobs/:jobId/ask', async (req, res) => {
     const answer = await chain.ask(query);
     res.json({ answer });
   } catch (error_) {
+    await refundAICredits(req);
     console.error('Query docs error:', error_.message);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// POST - Extract images, drawings, and maps from job package PDF
-router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res) => {
+// POST - Extract images, drawings, and maps from job package PDF — gated: auth + 5 credits
+router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), authenticateUser, requireAICredits(5), async (req, res) => {
   try {
     const { jobId } = req.params;
     
@@ -510,7 +513,8 @@ router.post('/jobs/:jobId/extract-assets', upload.single('pdf'), async (req, res
     });
     
   } catch (err) {
-    console.error('Asset extraction error:', err);
+    await refundAICredits(req);
+    console.error('Asset extraction error:', err.message);
     res.status(500).json({ error: 'Asset extraction failed', details: err.message });
   }
 });

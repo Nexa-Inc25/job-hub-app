@@ -6,7 +6,14 @@
  * Jobs Controller
  * 
  * Handles job CRUD operations and workflow management.
- * Extracted from server.js for modularity and testability.
+ *
+ * SECURITY — Ghost Ship Audit Fix #2: Fail-Closed Tenant Isolation
+ *
+ * Every handler enforces:
+ *   1. Explicit companyId requirement (no companyId + no superAdmin = 403)
+ *   2. All queries inject companyId filter (superAdmins excluded)
+ *   3. No isAdmin bypass — company admins are scoped to their company
+ *   4. No undefined === undefined — both sides must be truthy AND equal
  * 
  * @module controllers/jobs
  */
@@ -14,6 +21,47 @@
 const Job = require('../models/Job');
 const { logJob } = require('../middleware/auditLogger');
 const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizePmNumber } = require('../utils/sanitize');
+const log = require('../utils/logger');
+
+// ---------------------------------------------------------------------------
+// Fail-Closed Guard — used by every handler
+// ---------------------------------------------------------------------------
+
+/**
+ * Enforce company context. Returns the companyId string or sends 403.
+ * SuperAdmins bypass — they get null (meaning "no company filter").
+ *
+ * @param {import('express').Request} req
+ * @param {import('express').Response} res
+ * @returns {string|null|false} companyId string, null for superAdmin, false if denied (response already sent)
+ */
+function requireCompanyContext(req, res) {
+  if (req.isSuperAdmin) return null; // superAdmin: no company filter
+
+  const companyId = req.companyId?.toString();
+  if (!companyId) {
+    log.error({ userId: req.userId, requestId: req.requestId }, 'Access Denied: Missing Company Context');
+    res.status(403).json({ error: 'Unauthorized: Company context required.', code: 'NO_COMPANY' });
+    return false;
+  }
+  return companyId;
+}
+
+/**
+ * Build a company-scoped query for a single job by ID.
+ * SuperAdmins get { _id: id }. Everyone else gets { _id: id, companyId }.
+ */
+function scopedJobQuery(id, companyId) {
+  const query = { _id: id };
+  if (companyId !== null) {
+    query.companyId = companyId;
+  }
+  return query;
+}
+
+// ---------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------
 
 /**
  * List all jobs accessible to the user
@@ -21,33 +69,30 @@ const { sanitizeString, sanitizeObjectId, sanitizeInt, sanitizePmNumber } = requ
  */
 const listJobs = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { status, assignedTo, limit = 100, skip = 0 } = req.query;
-    
-    // Sanitize inputs to prevent NoSQL injection
     const safeStatus = sanitizeString(status);
     const safeAssignedTo = sanitizeObjectId(assignedTo);
     const safeLimit = sanitizeInt(limit, 100, 500);
     const safeSkip = sanitizeInt(skip, 0, 100000);
     
-    // Build query based on user role
     const query = {};
-    
-    // Filter by status if provided
+
+    // SuperAdmins see all; everyone else is scoped to their company
+    if (companyId !== null) {
+      query.$or = [
+        { assignedTo: req.userId },
+        { companyId }
+      ];
+    }
+
     if (safeStatus && safeStatus !== 'all') {
       query.status = safeStatus;
     }
-    
-    // Filter by assigned user if provided
     if (safeAssignedTo) {
       query.assignedTo = safeAssignedTo;
-    }
-    
-    // Non-admins can only see jobs assigned to them or in their company
-    if (!req.isAdmin && !req.isSuperAdmin) {
-      query.$or = [
-        { assignedTo: req.userId },
-        { companyId: req.companyId }
-      ];
     }
     
     const jobs = await Job.find(query)
@@ -58,9 +103,8 @@ const listJobs = async (req, res) => {
       .lean();
     
     res.json(jobs);
-    
   } catch (error) {
-    console.error('List jobs error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'List jobs error');
     res.status(500).json({ error: 'Failed to list jobs' });
   }
 };
@@ -71,9 +115,12 @@ const listJobs = async (req, res) => {
  */
 const getJob = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { id } = req.params;
     
-    const job = await Job.findById(id)
+    const job = await Job.findOne(scopedJobQuery(id, companyId))
       .populate('assignedTo', 'name email role')
       .lean();
     
@@ -81,25 +128,9 @@ const getJob = async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Check access permissions for non-admins
-    if (!req.isAdmin && !req.isSuperAdmin) {
-      // Handle both populated and non-populated cases
-      const assignedToId = job.assignedTo?._id?.toString() || job.assignedTo?.toString();
-      const jobCompanyId = job.companyId?.toString();
-      
-      const hasAccess = 
-        assignedToId === req.userId ||
-        jobCompanyId === req.companyId;
-      
-      if (!hasAccess) {
-        return res.status(403).json({ error: 'Access denied' });
-      }
-    }
-    
     res.json(job);
-    
   } catch (error) {
-    console.error('Get job error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Get job error');
     res.status(500).json({ error: 'Failed to get job' });
   }
 };
@@ -110,18 +141,18 @@ const getJob = async (req, res) => {
  */
 const createJob = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+    // SuperAdmins must provide a companyId in the body to create jobs
+    if (companyId === null && !req.body.companyId) {
+      return res.status(400).json({ error: 'companyId is required for superAdmin job creation' });
+    }
+
     const {
-      title,
-      pmNumber,
-      woNumber,
-      address,
-      description,
-      client,
-      assignedTo,
-      scheduledDate
+      title, pmNumber, woNumber, address, description, client,
+      assignedTo, scheduledDate
     } = req.body;
     
-    // Sanitize inputs
     const safeTitle = sanitizeString(title);
     const safePmNumber = sanitizePmNumber(pmNumber);
     const safeWoNumber = sanitizePmNumber(woNumber);
@@ -131,15 +162,16 @@ const createJob = async (req, res) => {
       return res.status(400).json({ error: 'Title or PM Number is required' });
     }
     
-    // Check for duplicate PM number
+    // Duplicate PM check scoped to company
     if (safePmNumber) {
-      const existing = await Job.findOne({ pmNumber: safePmNumber });
+      const dupQuery = { pmNumber: safePmNumber };
+      if (companyId !== null) dupQuery.companyId = companyId;
+      const existing = await Job.findOne(dupQuery);
       if (existing) {
         return res.status(400).json({ error: 'PM Number already exists' });
       }
     }
     
-    // Sanitize date input
     const safeScheduledDate = scheduledDate ? new Date(scheduledDate) : undefined;
     
     const job = await Job.create({
@@ -152,15 +184,13 @@ const createJob = async (req, res) => {
       assignedTo: safeAssignedTo,
       scheduledDate: safeScheduledDate,
       status: 'new',
-      companyId: req.companyId
+      companyId: companyId || sanitizeObjectId(req.body.companyId)
     });
     
     await logJob.create(req, job);
-    
     res.status(201).json(job);
-    
   } catch (error) {
-    console.error('Create job error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Create job error');
     res.status(500).json({ error: 'Failed to create job' });
   }
 };
@@ -171,30 +201,28 @@ const createJob = async (req, res) => {
  */
 const updateJob = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { id } = req.params;
     const updates = req.body;
     
-    // Prevent updating certain fields directly
+    // Prevent updating protected fields
     delete updates._id;
     delete updates.createdBy;
     delete updates.createdAt;
+    delete updates.companyId; // Cannot reassign tenant ownership
     
-    const job = await Job.findById(id);
-    
+    const job = await Job.findOne(scopedJobQuery(id, companyId));
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Track status change for audit
     const oldStatus = job.status;
-    
-    // Apply updates
     Object.assign(job, updates);
     job.updatedAt = new Date();
-    
     await job.save();
     
-    // Log status change if applicable
     if (updates.status && updates.status !== oldStatus) {
       await logJob.statusChange(req, job, oldStatus, updates.status);
     } else {
@@ -202,9 +230,8 @@ const updateJob = async (req, res) => {
     }
     
     res.json(job);
-    
   } catch (error) {
-    console.error('Update job error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Update job error');
     res.status(500).json({ error: 'Failed to update job' });
   }
 };
@@ -215,27 +242,25 @@ const updateJob = async (req, res) => {
  */
 const deleteJob = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
+    // Only company admins or superAdmins can delete
+    if (!req.isAdmin && !req.isSuperAdmin) {
+      return res.status(403).json({ error: 'Only admins can delete jobs' });
+    }
+
     const { id } = req.params;
-    
-    const job = await Job.findById(id);
-    
+    const job = await Job.findOne(scopedJobQuery(id, companyId));
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Only admins can delete jobs
-    if (!req.isAdmin && !req.isSuperAdmin) {
-      return res.status(403).json({ error: 'Only admins can delete jobs' });
-    }
-    
     await job.deleteOne();
-    
     await logJob.delete(req, id, job.pmNumber);
-    
     res.json({ message: 'Job deleted successfully' });
-    
   } catch (error) {
-    console.error('Delete job error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Delete job error');
     res.status(500).json({ error: 'Failed to delete job' });
   }
 };
@@ -246,6 +271,9 @@ const deleteJob = async (req, res) => {
  */
 const updateStatus = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { id } = req.params;
     const { status } = req.body;
     
@@ -253,8 +281,7 @@ const updateStatus = async (req, res) => {
       return res.status(400).json({ error: 'Status is required' });
     }
     
-    const job = await Job.findById(id);
-    
+    const job = await Job.findOne(scopedJobQuery(id, companyId));
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
@@ -262,15 +289,12 @@ const updateStatus = async (req, res) => {
     const oldStatus = job.status;
     job.status = status;
     job.updatedAt = new Date();
-    
     await job.save();
     
     await logJob.statusChange(req, job, oldStatus, status);
-    
     res.json(job);
-    
   } catch (error) {
-    console.error('Update status error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Update status error');
     res.status(500).json({ error: 'Failed to update status' });
   }
 };
@@ -281,6 +305,9 @@ const updateStatus = async (req, res) => {
  */
 const assignJob = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { id } = req.params;
     const { userId, userName } = req.body;
     
@@ -288,23 +315,19 @@ const assignJob = async (req, res) => {
       return res.status(400).json({ error: 'User ID is required' });
     }
     
-    const job = await Job.findById(id);
-    
+    const job = await Job.findOne(scopedJobQuery(id, companyId));
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
     job.assignedTo = userId;
     job.updatedAt = new Date();
-    
     await job.save();
     
     await logJob.assign(req, job, userId, userName);
-    
     res.json(job);
-    
   } catch (error) {
-    console.error('Assign job error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Assign job error');
     res.status(500).json({ error: 'Failed to assign job' });
   }
 };
@@ -312,34 +335,29 @@ const assignJob = async (req, res) => {
 /**
  * Cancel or reschedule job
  * POST /api/jobs/:id/cancel
- * 
- * Moves job back to pre_fielding status with reason tracking.
- * Used when a scheduled job needs to be unscheduled.
  */
 const cancelJob = async (req, res) => {
   try {
+    const companyId = requireCompanyContext(req, res);
+    if (companyId === false) return;
+
     const { id } = req.params;
     const { reason, cancelType = 'canceled' } = req.body;
     
-    // Validate inputs - explicit type check to handle non-string values properly
     if (typeof reason !== 'string' || !reason.trim()) {
       return res.status(400).json({ error: 'Cancellation reason is required' });
     }
-    
     const validTypes = ['canceled', 'rescheduled'];
     if (!validTypes.includes(cancelType)) {
       return res.status(400).json({ error: 'Invalid cancel type. Must be "canceled" or "rescheduled"' });
     }
     
     const safeReason = sanitizeString(reason);
-    
-    const job = await Job.findById(id);
-    
+    const job = await Job.findOne(scopedJobQuery(id, companyId));
     if (!job) {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    // Only allow canceling jobs that are scheduled or in_progress
     const cancelableStatuses = ['scheduled', 'in_progress', 'assigned_to_gf'];
     if (!cancelableStatuses.includes(job.status)) {
       return res.status(400).json({ 
@@ -347,7 +365,6 @@ const cancelJob = async (req, res) => {
       });
     }
     
-    // Store the previous state in history
     job.cancelHistory = job.cancelHistory || [];
     job.cancelHistory.push({
       type: cancelType,
@@ -358,25 +375,19 @@ const cancelJob = async (req, res) => {
       canceledBy: req.userId
     });
     
-    // Update current cancel fields
     job.cancelReason = safeReason;
     job.canceledAt = new Date();
     job.canceledBy = req.userId;
     job.cancelType = cancelType;
     
-    // Move to pre_fielding (unscheduled) - GF needs to reschedule
     const oldStatus = job.status;
     job.status = 'pre_fielding';
-    
-    // Clear scheduling fields
     job.crewScheduledDate = null;
     job.crewScheduledEndDate = null;
-    
     job.updatedAt = new Date();
     
     await job.save();
     
-    // Log the action
     await logJob.statusChange(req, job, oldStatus, 'pre_fielding', 
       `${cancelType === 'rescheduled' ? 'Rescheduled' : 'Canceled'}: ${safeReason}`);
     
@@ -385,9 +396,8 @@ const cancelJob = async (req, res) => {
       message: `Job ${cancelType === 'rescheduled' ? 'rescheduled' : 'canceled'} successfully`,
       job
     });
-    
   } catch (error) {
-    console.error('Cancel job error:', error);
+    log.error({ err: error, requestId: req.requestId }, 'Cancel job error');
     res.status(500).json({ error: 'Failed to cancel job' });
   }
 };
@@ -402,4 +412,3 @@ module.exports = {
   assignJob,
   cancelJob
 };
-

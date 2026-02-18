@@ -41,12 +41,11 @@ const validatePassword = (password) => {
  * Check if account is locked and return appropriate response
  * Returns null if not locked, or a response object if locked
  */
-function checkAccountLockout(user, email, req) {
+async function checkAccountLockout(user, email, req) {
   if (!user?.isLocked()) return null;
   
   const remainingMins = Math.ceil((user.lockoutUntil - Date.now()) / 60000);
-  console.log('Account locked for:', email ? email.substring(0, 3) + '***' : 'unknown');
-  logAuth.loginFailed(req, email, 'Account locked');
+  await logAuth.loginFailed(req, email, 'Account locked');
   
   return {
     status: 423,
@@ -64,10 +63,10 @@ async function handleFailedLogin(user, email, req) {
       'Attempts:', user.failedLoginAttempts + 1);
     
     if (user.failedLoginAttempts + 1 >= 5) {
-      logAuth.accountLocked(req, email, user.failedLoginAttempts + 1);
+      await logAuth.accountLocked(req, email, user.failedLoginAttempts + 1);
     }
   }
-  logAuth.loginFailed(req, email, 'Invalid credentials');
+  await logAuth.loginFailed(req, email, 'Invalid credentials');
   performSecurityCheck(req, 'LOGIN_FAILED', { email });
 }
 
@@ -182,7 +181,7 @@ const login = async (req, res) => {
     const user = await User.findOne({ email: safeEmail });
     
     // Check if account is locked
-    const lockoutResponse = checkAccountLockout(user, email, req);
+    const lockoutResponse = await checkAccountLockout(user, email, req);
     if (lockoutResponse) {
       return res.status(lockoutResponse.status).json(lockoutResponse.body);
     }
@@ -206,12 +205,12 @@ const login = async (req, res) => {
         mfaPending: true 
       }, process.env.JWT_SECRET, { algorithm: 'HS256', expiresIn: '5m' });
       
-      logAuth.loginSuccess(req, user);
+      await logAuth.loginSuccess(req, user);
       return res.json({ mfaRequired: true, mfaToken, userId: user._id });
     }
     
     // Log successful login and generate token
-    logAuth.loginSuccess(req, user);
+    await logAuth.loginSuccess(req, user);
     const token = generateAuthToken(user);
     
     res.json({ 

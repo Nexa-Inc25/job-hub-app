@@ -18,7 +18,7 @@ const router = express.Router();
 const authRoutes = require('../auth.routes');
 const jobsRoutes = require('../jobs.routes');
 const adminRoutes = require('../admin.routes');
-const filesRoutes = require('../files.routes');
+// files.routes deleted — Ghost Ship Audit Fix #1 (Zero Public URL architecture)
 
 /**
  * @swagger
@@ -38,8 +38,7 @@ router.get('/', (req, res) => {
     endpoints: {
       auth: '/api/v1/auth',
       jobs: '/api/v1/jobs',
-      admin: '/api/v1/admin',
-      files: '/api/v1/files'
+      admin: '/api/v1/admin'
     },
     deprecation: null
   });
@@ -60,8 +59,7 @@ router.use('/jobs', jobsRoutes);
 // Admin routes: /api/v1/admin/*
 router.use('/admin', adminRoutes);
 
-// Files routes: /api/v1/files/*
-router.use('/files', filesRoutes);
+// Files routes removed — all file access via /api/files/signed/* with AuthZ
 
 module.exports = router;
 

@@ -18,6 +18,9 @@ const { getIO } = require('../utils/socketAdapter');
 const OpenAI = require('openai');
 const APIUsage = require('../models/APIUsage');
 const { sanitizeObjectId } = require('../utils/sanitize');
+const { requireAICredits, refundAICredits } = require('../middleware/subscriptionGate');
+const log = require('../utils/logger');
+const { logAudit } = require('../middleware/auditLogger');
 
 // Reuse uploads directory
 const uploadsDir = path.join(__dirname, '..', 'uploads');
@@ -376,38 +379,66 @@ router.put('/:id/audit/:auditId/resolve', async (req, res) => {
       query.companyId = user.companyId;
     }
     
-    const job = await Job.findOne(query);
-    if (!job) {
-      return res.status(404).json({ error: 'Job not found' });
+    // Atomic update: resolve the specific audit entry via positional arrayFilter
+    const resolvedAt = new Date();
+    const notes = resolutionNotes || 'Correction approved';
+
+    const updatedJob = await Job.findOneAndUpdate(
+      { ...query, 'auditHistory._id': auditId },
+      {
+        $set: {
+          'auditHistory.$[target].status': 'resolved',
+          'auditHistory.$[target].resolvedDate': resolvedAt,
+          'auditHistory.$[target].resolvedBy': req.userId,
+          'auditHistory.$[target].resolutionNotes': notes
+        }
+      },
+      {
+        arrayFilters: [{ 'target._id': auditId }],
+        new: true
+      }
+    );
+
+    if (!updatedJob) {
+      return res.status(404).json({ error: 'Job or audit not found' });
     }
-    
-    const audit = job.auditHistory.id(auditId);
-    if (!audit) {
-      return res.status(404).json({ error: 'Audit not found' });
-    }
-    
-    audit.status = 'resolved';
-    audit.resolvedDate = new Date();
-    audit.resolvedBy = req.userId;
-    audit.resolutionNotes = resolutionNotes || 'Correction approved';
-    
-    // Check remaining active failed audits
-    const activeAudits = job.auditHistory.filter(a => 
+
+    // Check if all failed audits are now resolved
+    const activeAudits = updatedJob.auditHistory.filter(a =>
       a.result === 'fail' && !['resolved', 'closed', 'disputed'].includes(a.status)
     );
-    job.hasFailedAudit = activeAudits.length > 0;
-    
-    // If all audits resolved, job can be resubmitted to utility
-    if (!job.hasFailedAudit) {
-      job.status = 'ready_to_submit';
+    const allClear = activeAudits.length === 0;
+
+    // Atomic status update if all audits resolved
+    if (allClear) {
+      await Job.findOneAndUpdate(
+        { _id: jobId },
+        { $set: { hasFailedAudit: false, status: 'ready_to_submit' } }
+      );
+    } else {
+      await Job.findOneAndUpdate(
+        { _id: jobId },
+        { $set: { hasFailedAudit: true } }
+      );
     }
-    
-    await job.save();
-    
-    console.log(`Audit ${auditId} resolved by ${user.email}`);
-    res.json({ message: 'Audit resolved - correction approved', audit, job });
+
+    await logAudit(req, 'STATUS_CHANGED', {
+      resourceType: 'job', resourceId: jobId,
+      resourceName: `Job ${updatedJob.pmNumber || updatedJob.woNumber}`,
+      details: {
+        auditId, action: 'resolved',
+        newJobStatus: allClear ? 'ready_to_submit' : updatedJob.status,
+        allAuditsResolved: allClear,
+        resolvedBy: req.userId
+      },
+      severity: 'info'
+    });
+
+    log.info({ jobId, auditId, resolvedBy: user.email, allClear }, 'Audit resolved');
+    const resolvedAudit = updatedJob.auditHistory.id(auditId);
+    res.json({ message: 'Audit resolved - correction approved', audit: resolvedAudit, job: updatedJob });
   } catch (err) {
-    console.error('Resolve audit error:', err);
+    log.error({ err }, 'Resolve audit error');
     res.status(500).json({ error: 'Failed to resolve audit' });
   }
 });
@@ -539,7 +570,7 @@ function cleanupTempFile(filePath) {
 
 // Upload and extract failed audit PDF from utility (e.g., PG&E)
 // Finds the original job by PM number and creates the audit record
-router.post('/qa/extract-audit', upload.single('pdf'), async (req, res) => {
+router.post('/qa/extract-audit', upload.single('pdf'), requireAICredits(2), async (req, res) => {
   const startTime = Date.now();
   let pdfPath = null;
   
@@ -650,7 +681,8 @@ Use empty string "" for any missing fields. Return ONLY valid JSON, no markdown 
     });
     
   } catch (err) {
-    console.error('Audit extraction error:', err);
+    await refundAICredits(req);
+    console.error('Audit extraction error:', err.message);
     cleanupTempFile(pdfPath);
     res.status(500).json({ error: 'Failed to extract audit', details: err.message });
   }
