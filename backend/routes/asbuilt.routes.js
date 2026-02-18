@@ -1570,7 +1570,55 @@ router.post('/wizard/submit', async (req, res) => {
     // ---- Step 4: Stamp wizard data onto original job package PDF ----
     let stampedPdfKey = null;
     try {
-      // Only stamp if the job package has been classified and we have the PDF in R2
+      // Auto-classify if not done yet — find the job package PDF and run PageClassifier
+      if (!job.packageClassification?.length && r2Storage.isR2Configured() && config?.pageRanges?.length) {
+        let classifyPdfBuffer = null;
+        let classifyPdfKey = job.packagePdfKey || null;
+
+        // Search job folders for the largest PDF (the job package)
+        if (!classifyPdfKey) {
+          const allPdfs = [];
+          for (const folder of job.folders || []) {
+            for (const doc of folder.documents || []) {
+              if (doc.name?.toLowerCase().endsWith('.pdf') && doc.r2Key) allPdfs.push(doc);
+            }
+            for (const sf of folder.subfolders || []) {
+              for (const doc of sf.documents || []) {
+                if (doc.name?.toLowerCase().endsWith('.pdf') && doc.r2Key) allPdfs.push(doc);
+              }
+            }
+          }
+          if (allPdfs.length > 0) {
+            classifyPdfKey = allPdfs.sort((a, b) => (b.size || 0) - (a.size || 0))[0].r2Key;
+          }
+        }
+
+        if (classifyPdfKey) {
+          try {
+            const classifyData = await r2Storage.getFileStream(classifyPdfKey);
+            if (classifyData?.stream) {
+              const chunks = [];
+              for await (const chunk of classifyData.stream) chunks.push(chunk);
+              classifyPdfBuffer = Buffer.concat(chunks);
+            }
+          } catch (r2Err) {
+            console.warn('[AsBuilt:Submit] Failed to load PDF for auto-classify:', r2Err.message);
+          }
+        }
+
+        if (classifyPdfBuffer) {
+          console.log('[AsBuilt:Submit] Auto-classifying job package before stamping');
+          const classification = await classifyPages(classifyPdfBuffer, config.pageRanges);
+          job.packageClassification = classification;
+          job.packageClassifiedAt = new Date();
+          job.packagePdfKey = classifyPdfKey;
+          await job.save();
+          const classifiedCount = classification.filter(c => c.sectionType !== 'other').length;
+          console.log(`[AsBuilt:Submit] Auto-classification complete: ${classifiedCount}/${classification.length} pages classified`);
+        }
+      }
+
+      // Now stamp if we have the classified PDF
       if (job.packagePdfKey && job.packageClassification?.length && r2Storage.isR2Configured() && config?.documentCompletions?.length) {
         // Load the original job package PDF
         const fileData = await r2Storage.getFileStream(job.packagePdfKey);
@@ -1681,7 +1729,7 @@ router.post('/wizard/submit', async (req, res) => {
         if (stampedPdfKey) {
           // Stamped PDF available — save reference to the actual completed job package
           const stampedUrl = r2Storage.getPublicUrl(stampedPdfKey);
-          closeOutFolder.documents.push({
+        closeOutFolder.documents.push({
             name: `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_${dateStr}.pdf`,
             type: 'filled_pdf',
             url: stampedUrl,
@@ -1699,16 +1747,16 @@ router.post('/wizard/submit', async (req, res) => {
           const docName = `${job.pmNumber || job.woNumber || 'job'}_AsBuilt_${dateStr}`;
           closeOutFolder.documents.push({
             name: `${docName}.html`,
-            type: 'other',
-            uploadDate: new Date(),
-            uploadedBy: req.userId,
-            isCompleted: true,
-            completedDate: new Date(),
-            completedBy: req.userId,
-            extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
-            url: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
-            path: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
-          });
+          type: 'other',
+          uploadDate: new Date(),
+          uploadedBy: req.userId,
+          isCompleted: true,
+          completedDate: new Date(),
+          completedBy: req.userId,
+          extractedFrom: `AsBuiltSubmission:${asBuiltSubmission._id}`,
+          url: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
+          path: `/api/asbuilt/wizard/view/${asBuiltSubmission._id}`,
+        });
           console.log('[AsBuilt:Submit] HTML summary saved to Close Out Documents (no classified PDF available)');
         }
       }
