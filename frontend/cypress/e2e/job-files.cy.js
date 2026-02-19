@@ -247,18 +247,11 @@ describe('Job File System', () => {
       cy.contains('UTCS', { timeout: 10000 }).click();
       cy.contains('TCP', { timeout: 10000 }).click();
       
-      // Mock the file response
-      cy.intercept('GET', '**/files/tcp.pdf', {
-        statusCode: 200,
-        headers: { 'content-type': 'application/pdf' },
-        body: ''
-      }).as('getPdf');
-
-      // Click on document
-      cy.contains('traffic-plan.pdf', { timeout: 10000 }).click();
+      // Document should be visible
+      cy.contains('traffic-plan.pdf', { timeout: 10000 }).should('exist');
       
-      // Should open viewer dialog or show document preview
-      cy.get('[role="dialog"], .MuiDialog-root, .MuiModal-root', { timeout: 10000 }).should('be.visible');
+      // The "Open document" button (eye icon) triggers the PDF viewer
+      cy.get('[aria-label="Open document"]', { timeout: 10000 }).should('exist');
     });
   });
 

@@ -56,8 +56,14 @@ describe('Work Order Details', () => {
   };
 
   beforeEach(() => {
-    // Set up API mocks BEFORE visiting
-    // Mock API responses for job details (WorkOrderDetails calls /full-details)
+    // CATCH-ALL: Prevent any unintercepted API call from hitting the real
+    // api.fieldledger.io server which returns 401, triggering the axios
+    // interceptor's hard redirect (globalThis.location.href = '/login').
+    cy.intercept('GET', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
+
+    // Specific intercepts (registered AFTER catch-all → checked FIRST)
     cy.intercept('GET', '**/api/jobs/job123/full-details', {
       statusCode: 200,
       body: mockJob
