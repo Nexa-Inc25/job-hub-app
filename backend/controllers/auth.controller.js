@@ -95,12 +95,8 @@ function generateAuthToken(user, { mfaVerified = false } = {}) {
     role: user.role,
     canApprove: user.canApprove || false,
     name: user.name,
-<<<<<<< Current (Your changes)
     mfaVerified,
     pwv: user.passwordVersion || 0
-=======
-    mfaVerified
->>>>>>> Incoming (Background Agent changes)
   }, process.env.JWT_SECRET, JWT_OPTIONS);
 }
 

@@ -124,7 +124,8 @@ function issueRefreshedToken(user, decoded) {
       role: user.role,
       canApprove: user.canApprove || false,
       name: user.name,
-      mfaVerified: decoded.mfaVerified || false
+      mfaVerified: decoded.mfaVerified || false,
+      pwv: user.passwordVersion || 0
     },
     JWT_SECRET,
     { algorithm: 'HS256', expiresIn: '24h' }
@@ -193,6 +194,16 @@ const authenticateToken = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ error: 'User account not found or deactivated', code: 'USER_NOT_FOUND' });
+    }
+
+    // ── Password version gate ────────────────────────────────────────────
+    // Reject tokens minted before a password change. Pre-feature tokens
+    // (no pwv claim) are allowed through until they naturally expire.
+    if (decoded.pwv !== undefined && decoded.pwv !== (user.passwordVersion || 0)) {
+      return res.status(401).json({
+        error: 'Password has been changed. Please log in again.',
+        code: 'PASSWORD_CHANGED'
+      });
     }
 
     // ── Company security policy enforcement ─────────────────────────────
