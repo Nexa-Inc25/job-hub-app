@@ -137,11 +137,21 @@ describe('Dashboard', () => {
     it('should filter jobs when searching', () => {
       visitDashboard();
       
+      // Search triggers server-side refetch — intercept the search query too
+      cy.intercept('GET', '**/api/jobs?search=*', {
+        statusCode: 200,
+        body: [mockJobs[0]] // Return only the matching job
+      }).as('searchJobs');
+
       cy.get('input[placeholder*="search" i], input[aria-label*="search" i]')
+        .clear()
         .type('PM-001');
       
-      // Should filter to show only matching job
-      cy.contains('PM-001').should('be.visible');
+      // Wait for search results to load (server-side search)
+      cy.wait('@searchJobs', { timeout: 15000 });
+
+      // Should show matching job after server response
+      cy.contains('PM-001', { timeout: 10000 }).should('be.visible');
     });
   });
 
@@ -164,11 +174,11 @@ describe('Dashboard', () => {
         body: mockJobs[0]
       }).as('getJobDetails');
 
-      // Click on first job
-      cy.contains('PM-001').click();
+      // Job cards link to /jobs/:id/details — click on the PM number
+      cy.contains('PM-001', { timeout: 10000 }).click();
       
-      // Should navigate to job details or files
-      cy.url().should('match', /jobs\/1/);
+      // Should navigate to job details page
+      cy.url({ timeout: 10000 }).should('match', /\/jobs\/1\/(details|files)/);
     });
   });
 
