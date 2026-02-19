@@ -107,7 +107,14 @@ describe('Billing Dashboard', () => {
   ];
 
   beforeEach(() => {
-    // Set up API intercepts
+    // CATCH-ALL: Prevent any unintercepted API call from hitting the real
+    // api.fieldledger.io server which returns 401, triggering the axios
+    // interceptor's hard redirect (globalThis.location.href = '/login').
+    cy.intercept('GET', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
+
+    // Specific intercepts (registered AFTER catch-all → checked FIRST)
     cy.intercept('GET', '**/api/billing/units*', {
       statusCode: 200,
       body: { units: mockUnits, total: mockUnits.length }
@@ -414,6 +421,11 @@ describe('Foreman Unit Capture', () => {
   };
 
   beforeEach(() => {
+    // CATCH-ALL: Prevent 401 redirect from unintercepted API calls
+    cy.intercept('GET', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
+
     cy.intercept('GET', '**/api/jobs/*', {
       statusCode: 200,
       body: mockJob

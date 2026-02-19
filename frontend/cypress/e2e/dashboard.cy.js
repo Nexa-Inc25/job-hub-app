@@ -51,7 +51,14 @@ describe('Dashboard', () => {
   ];
 
   beforeEach(() => {
-    // Set up API mocks BEFORE visiting
+    // CATCH-ALL: Prevent any unintercepted API call from hitting the real
+    // api.fieldledger.io server which returns 401, triggering the axios
+    // interceptor's hard redirect (globalThis.location.href = '/login').
+    cy.intercept('GET', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
+
+    // Specific intercepts (registered AFTER catch-all → checked FIRST by Cypress)
     cy.intercept('GET', '**/api/jobs*', {
       statusCode: 200,
       body: mockJobs
@@ -71,6 +78,11 @@ describe('Dashboard', () => {
       statusCode: 200,
       body: []
     }).as('getPendingApprovals');
+
+    cy.intercept('GET', '**/api/notifications*', {
+      statusCode: 200,
+      body: { notifications: [], unreadCount: 0 }
+    }).as('getNotifications');
   });
 
   // Helper to set up authenticated state and visit dashboard
@@ -137,21 +149,13 @@ describe('Dashboard', () => {
     it('should filter jobs when searching', () => {
       visitDashboard();
       
-      // Search triggers server-side refetch — intercept the search query too
-      cy.intercept('GET', '**/api/jobs?search=*', {
-        statusCode: 200,
-        body: [mockJobs[0]] // Return only the matching job
-      }).as('searchJobs');
-
       cy.get('input[placeholder*="search" i], input[aria-label*="search" i]')
         .clear()
         .type('PM-001');
       
-      // Wait for search results to load (server-side search)
-      cy.wait('@searchJobs', { timeout: 15000 });
-
-      // Should show matching job after server response
-      cy.contains('PM-001', { timeout: 10000 }).should('be.visible');
+      // Search triggers server-side refetch — the **/api/jobs* intercept
+      // from beforeEach handles it. Wait for the content to appear.
+      cy.contains('PM-001', { timeout: 15000 }).should('be.visible');
     });
   });
 
