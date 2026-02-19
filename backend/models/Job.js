@@ -109,7 +109,7 @@ const jobSchema = new mongoose.Schema({
     },
     poleWork: {
       type: String,
-      enum: ['set', 'change-out', 'removal', 'transfer', 'replace', 'install', 'relocate', null],
+      enum: ['set', 'change-out', 'removal', 'remove', 'transfer', 'replace', 'install', 'relocate', 'repair', 'upgrade', 'inspect', null],
       default: null
     },
   },

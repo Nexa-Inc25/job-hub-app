@@ -346,8 +346,10 @@ function registerInlineRoutes(app, uploadsDir) {
       const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
 
       if (r2Storage.isR2Configured()) {
+        log.info({ requestId: req.requestId, fileKey: safeKey }, 'Generating R2 signed URL');
         const signedUrl = await r2Storage.getSignedDownloadUrl(safeKey, SIGNED_URL_TTL_SECONDS);
         if (signedUrl) {
+          log.info({ requestId: req.requestId, fileKey: safeKey, urlHost: new URL(signedUrl).host }, 'R2 signed URL served');
           return res.json({ url: signedUrl, expiresAt, ttlSeconds: SIGNED_URL_TTL_SECONDS });
         }
       }

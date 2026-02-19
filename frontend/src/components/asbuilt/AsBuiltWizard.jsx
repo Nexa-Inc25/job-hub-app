@@ -248,8 +248,14 @@ const AsBuiltWizard = ({
         'set': 'estimated',
         'change-out': 'estimated',
         'removal': 'ec_corrective',
+        'remove': 'ec_corrective',
         'transfer': 'estimated',
         'replace': 'estimated',
+        'install': 'estimated',
+        'relocate': 'estimated',
+        'repair': 'ec_corrective',
+        'upgrade': 'estimated',
+        'inspect': 'ec_corrective',
       };
       const mappedCode = poleWorkMap[job.preFieldLabels.poleWork];
       if (mappedCode) {

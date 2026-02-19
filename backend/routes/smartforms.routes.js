@@ -928,7 +928,7 @@ router.post('/templates/:id/batch-fill', async (req, res) => {
         await r2Storage.uploadBuffer(Buffer.from(filledPdfBytes), filledR2Key, 'application/pdf');
         
         // Generate signed URL
-        const signedUrl = await r2Storage.getSignedUrl(filledR2Key, 3600); // 1 hour
+        const signedUrl = await r2Storage.getSignedDownloadUrl(filledR2Key, 3600); // 1 hour
         
         results.push({
           jobId,

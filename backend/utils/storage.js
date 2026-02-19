@@ -39,8 +39,14 @@ if (isR2Configured()) {
       accessKeyId: process.env.R2_ACCESS_KEY_ID,
       secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
     },
+    // CRITICAL: Cloudflare R2 requires path-style URLs.
+    // Without this, the SDK generates virtual-hosted-style signed URLs
+    // (e.g. https://BUCKET.ACCOUNT.r2.cloudflarestorage.com/KEY) which
+    // resolve to a non-existent host and return 503.
+    // Path-style: https://ACCOUNT.r2.cloudflarestorage.com/BUCKET/KEY ← correct
+    forcePathStyle: true,
   });
-  log.info('R2 S3Client initialized successfully');
+  log.info({ bucket: BUCKET_NAME, endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` }, 'R2 S3Client initialized (path-style)');
 } else {
   log.info('R2 not configured - using local storage fallback');
 }
@@ -95,6 +101,7 @@ async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stre
 // Get a signed URL for private file access
 async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
   if (!isR2Configured()) {
+    log.warn({ r2Key }, 'getSignedDownloadUrl called but R2 not configured');
     return null;
   }
 
@@ -105,9 +112,32 @@ async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
     });
 
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
+
+    // Debug: log the signed URL structure (redact signature for security)
+    const urlObj = new URL(signedUrl);
+    log.info({
+      r2Key,
+      expiresIn,
+      host: urlObj.host,
+      pathname: urlObj.pathname,
+      hasSignature: urlObj.searchParams.has('X-Amz-Signature'),
+      hasCredential: urlObj.searchParams.has('X-Amz-Credential'),
+      expires: urlObj.searchParams.get('X-Amz-Expires'),
+    }, 'R2 signed URL generated');
+
+    // Sanity check: URL must use path-style (bucket in path, not subdomain)
+    // If the bucket name appears as a subdomain, forcePathStyle is not working
+    if (urlObj.host.startsWith(`${BUCKET_NAME}.`)) {
+      log.error({
+        r2Key,
+        host: urlObj.host,
+        bucket: BUCKET_NAME,
+      }, 'CRITICAL: Signed URL uses virtual-hosted style — forcePathStyle not active. R2 will return 503.');
+    }
+
     return signedUrl;
   } catch (error) {
-    log.error({ err: error }, 'R2 signed URL error');
+    log.error({ err: error, r2Key, bucket: BUCKET_NAME }, 'R2 signed URL generation failed');
     throw error;
   }
 }

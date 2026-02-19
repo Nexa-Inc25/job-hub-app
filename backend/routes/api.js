@@ -316,7 +316,7 @@ PRE-FIELD LABELS (for crew planning):
 - preFieldLabels.craneRequired: true if pole set/change in backyard, limited access, or crane mentioned
 - preFieldLabels.craneType: Type needed if applicable (e.g., "Digger Derrick", "Crane Truck")
 - preFieldLabels.constructionType: "overhead", "underground", or "both" based on work described
-- preFieldLabels.poleWork: "set" (new pole), "change-out" (replace), "removal", "transfer", or null
+- preFieldLabels.poleWork: "set" (new pole), "change-out" (replace), "removal", "remove", "transfer", "replace", "install", "relocate", "repair", "upgrade", "inspect", or null
 
 EC TAG / PROGRAM INFO (from "Electric Overhead Tag" or similar tag documents):
 - ecTag.tagType: PG&E tag classification - "A", "B", "C", "D", "E", or "emergency" (look for "Priority:" field)
