@@ -311,10 +311,16 @@ function registerInlineRoutes(app, uploadsDir) {
     }
   });
 
-  // ---- Get signed URL for a file (AuthZ: company-scoped ownership check) ----
+  // ---- Get file URL (AuthZ: company-scoped ownership check) ----
   // SECURITY: This is the ONLY file access endpoint. The old unauthenticated
   // streaming route has been permanently removed (Ghost Ship Audit Fix #1).
   // All file access requires: (1) valid JWT, (2) company ownership verification.
+  //
+  // Returns a backend proxy URL (/api/files/proxy/KEY) instead of a direct R2
+  // signed URL. This avoids two R2 browser-fetch issues:
+  //   1. R2 has no CORS headers → browser blocks cross-origin fetch
+  //   2. SDK adds x-amz-checksum-mode=ENABLED which R2 doesn't support → 503
+  // The proxy streams the file through the backend with proper CORS from our own origin.
   app.get('/api/files/signed/*key', authenticateUser, async (req, res) => {
     try {
       const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
@@ -341,17 +347,13 @@ function registerInlineRoutes(app, uploadsDir) {
         });
       }
 
-      // ---- Generate signed URL (15-minute expiry) ----
-      const SIGNED_URL_TTL_SECONDS = 900; // 15 minutes
-      const expiresAt = new Date(Date.now() + SIGNED_URL_TTL_SECONDS * 1000).toISOString();
-
+      // Return a backend proxy URL so the browser never fetches from R2 directly.
+      // The proxy endpoint handles streaming from R2 with auth + company ownership.
       if (r2Storage.isR2Configured()) {
-        log.info({ requestId: req.requestId, fileKey: safeKey }, 'Generating R2 signed URL');
-        const signedUrl = await r2Storage.getSignedDownloadUrl(safeKey, SIGNED_URL_TTL_SECONDS);
-        if (signedUrl) {
-          log.info({ requestId: req.requestId, fileKey: safeKey, urlHost: new URL(signedUrl).host }, 'R2 signed URL served');
-          return res.json({ url: signedUrl, expiresAt, ttlSeconds: SIGNED_URL_TTL_SECONDS });
-        }
+        const proxyUrl = `/api/files/proxy/${safeKey}`;
+        log.info({ requestId: req.requestId, fileKey: safeKey }, 'Returning proxy URL for R2 file');
+        // ttlSeconds=null because the proxy re-fetches from R2 each time (no URL expiry)
+        return res.json({ url: proxyUrl, expiresAt: null, ttlSeconds: null, proxy: true });
       }
 
       // Local file fallback (development without R2)
@@ -362,20 +364,76 @@ function registerInlineRoutes(app, uploadsDir) {
         return res.status(403).json({ error: 'Invalid file path', code: 'PATH_TRAVERSAL' });
       }
       if (fs.existsSync(localPath)) {
-        return res.json({ url: `/uploads/${safeKey}`, expiresAt: null, ttlSeconds: null, local: true });
+        return res.json({ url: `/api/files/local/${safeKey}`, expiresAt: null, ttlSeconds: null, local: true });
       }
 
       res.status(404).json({ error: 'File not found' });
     } catch (err) {
-      log.error({ err, requestId: req.requestId }, 'Signed URL generation failed');
-      res.status(500).json({ error: 'Failed to get signed URL' });
+      log.error({ err, requestId: req.requestId }, 'File URL generation failed');
+      res.status(500).json({ error: 'Failed to get file URL' });
+    }
+  });
+
+  // ---- Backend file proxy: streams R2 files through our server ----
+  // Avoids CORS and R2 checksum issues by keeping all file fetches server-side.
+  // AuthZ: JWT required + company ownership verified before streaming.
+  // Caching: 5-minute private cache so repeated loads (page navigation) are fast.
+  app.get('/api/files/proxy/*key', authenticateUser, async (req, res) => {
+    try {
+      const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;
+      const safeKey = sanitizeR2Key(fileKey);
+      if (!safeKey) {
+        return res.status(400).json({ error: 'Invalid file key', code: 'INVALID_KEY' });
+      }
+
+      // AuthZ check
+      const authzResult = await verifyFileOwnership(safeKey, req);
+      if (!authzResult.authorized) {
+        log.warn({ requestId: req.requestId, fileKey: safeKey, reason: authzResult.reason }, 'Proxy file access denied');
+        return res.status(403).json({ error: 'Access denied', code: 'FILE_ACCESS_DENIED' });
+      }
+
+      // Stream from R2
+      if (r2Storage.isR2Configured()) {
+        const fileData = await r2Storage.getFileStream(safeKey);
+        if (!fileData) {
+          return res.status(404).json({ error: 'File not found in storage' });
+        }
+
+        res.setHeader('Content-Type', fileData.contentType || 'application/octet-stream');
+        if (fileData.contentLength) {
+          res.setHeader('Content-Length', fileData.contentLength);
+        }
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'private, max-age=300'); // 5 min browser cache
+        log.info({ requestId: req.requestId, fileKey: safeKey, contentType: fileData.contentType }, 'Proxying R2 file');
+        return fileData.stream.pipe(res);
+      }
+
+      // Local fallback
+      const uploadsDir = path.join(__dirname, '..', 'uploads');
+      const localPath = path.join(uploadsDir, safeKey);
+      if (!path.resolve(localPath).startsWith(path.resolve(uploadsDir))) {
+        return res.status(403).json({ error: 'Invalid file path', code: 'PATH_TRAVERSAL' });
+      }
+      if (fs.existsSync(localPath)) {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'private, max-age=300');
+        return res.sendFile(path.resolve(localPath));
+      }
+
+      res.status(404).json({ error: 'File not found' });
+    } catch (err) {
+      log.error({ err, requestId: req.requestId }, 'File proxy streaming failed');
+      if (!res.headersSent) {
+        res.status(500).json({ error: 'Failed to stream file' });
+      }
     }
   });
 
   // ---- Authenticated file streaming (local dev fallback only) ----
-  // When R2 is NOT configured, the signed URL endpoint returns /uploads/... paths.
+  // When R2 is NOT configured, the signed URL endpoint returns /api/files/local/... paths.
   // This route serves those local files with authentication.
-  // In production with R2, signed URLs go direct to R2 — this route is never hit.
   app.get('/api/files/local/*key', authenticateUser, async (req, res) => {
     try {
       const fileKey = Array.isArray(req.params.key) ? req.params.key.join('/') : req.params.key;

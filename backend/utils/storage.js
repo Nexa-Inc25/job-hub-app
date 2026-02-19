@@ -45,6 +45,10 @@ if (isR2Configured()) {
     // resolve to a non-existent host and return 503.
     // Path-style: https://ACCOUNT.r2.cloudflarestorage.com/BUCKET/KEY ← correct
     forcePathStyle: true,
+    // R2 does not support AWS S3 checksums (x-amz-checksum-mode=ENABLED).
+    // The SDK v3.600+ adds this by default, causing 503 from R2.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   });
   log.info({ bucket: BUCKET_NAME, endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` }, 'R2 S3Client initialized (path-style)');
 } else {

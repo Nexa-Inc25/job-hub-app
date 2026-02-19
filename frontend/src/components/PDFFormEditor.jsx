@@ -817,7 +817,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
             </Box>
           ) : (
             <Document
-              file={pdfUrl}
+              file={pdfBytes ? { data: new Uint8Array(pdfBytes) } : pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: 300, bgcolor: 'white' }}>

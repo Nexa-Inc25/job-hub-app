@@ -133,10 +133,16 @@ api.getSignedFileUrl = async function(r2Key) {
   const response = await api.get(`/api/files/signed/${cleanKey}`);
   const { url, expiresAt, ttlSeconds } = response.data;
 
-  // Cache with actual expiry (or default 15 min if not provided)
+  // If the backend returned a relative proxy URL (e.g. /api/files/proxy/KEY),
+  // resolve it to a full URL using the API base so fetch() and <img src> work
+  // from the frontend origin (which differs from the API origin).
+  const apiBase = (import.meta.env.VITE_API_URL || 'https://api.fieldledger.io').replace(/\/+$/, '');
+  const resolvedUrl = url.startsWith('/') ? `${apiBase}${url}` : url;
+
+  // Cache with actual expiry, or 30 min for proxy URLs (no URL expiry, re-auth needed)
   const expiryMs = expiresAt
     ? new Date(expiresAt).getTime()
-    : Date.now() + (ttlSeconds || 900) * 1000;
+    : Date.now() + (ttlSeconds || 1800) * 1000;
 
   // Evict oldest entries if cache is full
   if (signedUrlCache.size >= MAX_CACHE_ENTRIES) {
@@ -144,9 +150,9 @@ api.getSignedFileUrl = async function(r2Key) {
     signedUrlCache.delete(oldestKey);
   }
 
-  signedUrlCache.set(cleanKey, { url, expiresAt: expiryMs });
+  signedUrlCache.set(cleanKey, { url: resolvedUrl, expiresAt: expiryMs });
 
-  return url;
+  return resolvedUrl;
 };
 
 /**
