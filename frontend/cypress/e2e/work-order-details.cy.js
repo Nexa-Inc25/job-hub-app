@@ -95,6 +95,18 @@ describe('Work Order Details', () => {
       body: []
     }).as('getForemen');
 
+    // Mock pending approvals
+    cy.intercept('GET', '**/api/admin/pending-approvals', {
+      statusCode: 200,
+      body: []
+    }).as('getPendingApprovals');
+
+    // Mock notifications (NotificationContext fetches on mount)
+    cy.intercept('GET', '**/api/notifications*', {
+      statusCode: 200,
+      body: { notifications: [], unreadCount: 0 }
+    }).as('getNotifications');
+
     // Mock jobs list
     cy.intercept('GET', '**/api/jobs', {
       statusCode: 200,
