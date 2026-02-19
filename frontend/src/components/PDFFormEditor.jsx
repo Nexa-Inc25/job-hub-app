@@ -175,11 +175,15 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
           throw new Error(`Failed to load PDF (${response.status})`);
         }
         const arrayBuffer = await response.arrayBuffer();
-        setPdfBytes(arrayBuffer);
+        // Copy bytes immediately — PDFDocument.load() may detach the ArrayBuffer,
+        // which would cause "Cannot perform Construct on a detached ArrayBuffer"
+        // when React re-renders and react-pdf tries to read the data.
+        const pdfData = new Uint8Array(arrayBuffer).slice();
+        setPdfBytes(pdfData);
         
         // Extract actual PDF page dimensions and rotation for coordinate conversion
         try {
-          const pdfDoc = await PDFDocument.load(arrayBuffer);
+          const pdfDoc = await PDFDocument.load(pdfData);
           const pages = pdfDoc.getPages();
           if (pages.length > 0) {
             const firstPage = pages[0];
@@ -817,7 +821,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
             </Box>
           ) : (
             <Document
-              file={pdfBytes ? { data: new Uint8Array(pdfBytes) } : pdfUrl}
+              file={pdfBytes ? { data: pdfBytes } : pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: 300, bgcolor: 'white' }}>
