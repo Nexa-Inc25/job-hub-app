@@ -175,15 +175,15 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
           throw new Error(`Failed to load PDF (${response.status})`);
         }
         const arrayBuffer = await response.arrayBuffer();
-        // Copy bytes immediately — PDFDocument.load() may detach the ArrayBuffer,
-        // which would cause "Cannot perform Construct on a detached ArrayBuffer"
-        // when React re-renders and react-pdf tries to read the data.
-        const pdfData = new Uint8Array(arrayBuffer).slice();
-        setPdfBytes(pdfData);
+        // Create an independent copy for react-pdf rendering (stored in state).
+        // PDFDocument.load() below may detach whichever buffer it receives,
+        // so we give it the original arrayBuffer and keep our copy separate.
+        setPdfBytes(new Uint8Array(arrayBuffer).slice());
         
         // Extract actual PDF page dimensions and rotation for coordinate conversion
+        // pdf-lib gets the original arrayBuffer — if it detaches, we don't care
         try {
-          const pdfDoc = await PDFDocument.load(pdfData);
+          const pdfDoc = await PDFDocument.load(arrayBuffer);
           const pages = pdfDoc.getPages();
           if (pages.length > 0) {
             const firstPage = pages[0];
