@@ -280,9 +280,12 @@ describe('Jobs Controller', () => {
       
       expect(res.body.message).toBe('Job deleted successfully');
       
-      // Verify deletion
+      // Verify soft deletion
       const deleted = await Job.findById(testJob._id);
-      expect(deleted).toBeNull();
+      expect(deleted).not.toBeNull();
+      expect(deleted.isDeleted).toBe(true);
+      expect(deleted.deletedAt).toBeInstanceOf(Date);
+      expect(deleted.deletedBy.toString()).toBe(adminUser._id.toString());
     });
     
     it('should deny delete for non-admins', async () => {
