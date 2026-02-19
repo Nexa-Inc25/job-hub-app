@@ -81,16 +81,22 @@ const JWT_OPTIONS = {
 };
 
 /**
- * Generate JWT token with user claims
+ * Generate JWT token with user claims.
+ *
+ * @param {Object} user - User document
+ * @param {Object} [opts]
+ * @param {boolean} [opts.mfaVerified=false] - Whether the session completed MFA
  */
-function generateAuthToken(user) {
+function generateAuthToken(user, { mfaVerified = false } = {}) {
   return jwt.sign({ 
     userId: user._id, 
     isAdmin: user.isAdmin,
     isSuperAdmin: user.isSuperAdmin || false,
     role: user.role,
     canApprove: user.canApprove || false,
-    name: user.name
+    name: user.name,
+    mfaVerified,
+    pwv: user.passwordVersion || 0
   }, process.env.JWT_SECRET, JWT_OPTIONS);
 }
 
@@ -264,8 +270,8 @@ const verifyMfa = async (req, res) => {
       return res.status(401).json({ error: 'Invalid MFA code' });
     }
     
-    // Generate full session token using centralized function
-    const token = generateAuthToken(user);
+    // Generate full session token — MFA verification is complete
+    const token = generateAuthToken(user, { mfaVerified: true });
     
     res.json({ 
       token, 

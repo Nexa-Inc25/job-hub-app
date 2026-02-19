@@ -246,19 +246,81 @@ GET /api/admin/audit-logs/export?format=csv
 
 ---
 
+## US-Only Data Residency (PG&E Exhibit DATA-1 §VI)
+
+### Policy Statement
+
+All Customer Data processed and stored by FieldLedger resides exclusively within the
+continental United States. No Customer Data is transmitted to, processed in, or
+replicated to data centers outside US borders at any point in the data lifecycle —
+at rest, in transit, or during processing.
+
+### Infrastructure Regions
+
+| Service | Role | Region | Verification |
+|---|---|---|---|
+| **MongoDB Atlas** | Primary database (all structured data) | `US-EAST-1` (N. Virginia), replicas within US | Atlas cluster configuration; region locked in project settings |
+| **Cloudflare R2** | Object storage (PDFs, photos, drawings) | `us` jurisdiction hint | R2 bucket jurisdiction setting; Cloudflare guarantees data-at-rest location per [Data Localization Suite](https://www.cloudflare.com/data-localization/) |
+| **OpenAI API** | AI extraction, voice transcription | US-routed API endpoint | OpenAI API processes requests in US data centers by default for API-tier customers; confirmed via OpenAI DPA |
+| **Railway** | Backend API compute | `US-West` | Railway project region setting; container networking isolated within region |
+| **Vercel** | Frontend CDN (static assets only) | US-primary edge | No Customer Data stored; static HTML/CSS/JS bundles only |
+| **Resend** | Transactional email | `US-EAST-1` (AWS) | Resend infrastructure runs on AWS US-East-1 |
+| **Redis / Upstash** | WebSocket scaling (optional) | US region | Instance provisioned in US; ephemeral routing metadata only |
+
+### Exceptions and Mitigations
+
+| Exception | Handling |
+|---|---|
+| **OpenWeatherMap API** | Only GPS coordinates (latitude/longitude) are transmitted. No job identifiers, PM numbers, company names, or PG&E-regulated data is included in the API call. Weather data flows inbound only. |
+| **Stripe** | Processes billing data (company name, billing email, payment tokens) — no PG&E job data or utility-regulated content. Stripe is PCI DSS Level 1 certified and processes within US infrastructure. |
+| **CDN edge caching (Vercel)** | Vercel edge nodes may cache static assets (JS/CSS bundles) at international PoPs for performance. These assets contain zero Customer Data — they are compiled React application code. API requests are never served from edge; they route directly to the Railway backend in `US-West`. |
+
+### Operational Controls
+
+1. **Infrastructure-as-config** — Region settings for MongoDB Atlas, R2, Railway, and Redis
+   are locked in each provider's project configuration. Changing a region requires
+   administrative access and triggers an audit log entry at the provider level.
+
+2. **No cross-region replication** — MongoDB Atlas replication is configured within US regions
+   only. R2 jurisdiction hint prevents Cloudflare from storing object data outside the US.
+
+3. **Subprocessor DPA enforcement** — All subprocessors handling Customer Data are bound by
+   Data Processing Agreements that contractually restrict processing to US data centers.
+   See [`docs/SUBPROCESSORS.md`](docs/SUBPROCESSORS.md) for the full registry.
+
+4. **Review cadence** — Data residency configuration is reviewed quarterly alongside the
+   subprocessor registry. Any region change requires Security Team approval and 30-day
+   advance customer notification.
+
+**Last Reviewed:** February 19, 2026
+**Next Review:** May 2026
+
+---
+
 ## Incident Response
 
 ### Critical Event Handling
 
 When severity is `critical`, the system:
-1. Logs the event with full context
-2. Outputs to server console (for monitoring integration)
-3. Future: Email alerts, PagerDuty integration
+1. Persists the event to the audit log with full context (authoritative record)
+2. Sends email alerts to company security contacts (`Company.securitySettings.securityAlertEmails`) and the platform security team (`SECURITY_ALERT_EMAIL`)
+3. Applies per-alert-type cooldown (1 hour) to prevent inbox flooding during sustained attacks
+4. Logs delivery success/failure for each recipient
+
+Implementation: `backend/utils/securityAlerts.js` → `sendAlertEmail()` → `services/email.service.js`
+
+### Breach Notification SLA
+
+Per PG&E Exhibit DATA-1, FieldLedger will notify affected parties within **8 hours** of
+a suspected breach involving Customer Data. The automated alert pipeline delivers email
+notifications within seconds of detection. Manual escalation procedures supplement
+automated alerts for confirmed incidents.
 
 ### Monitored Critical Events
-- `ACCOUNT_LOCKED` - Brute force detection
-- `UNAUTHORIZED_ACCESS_ATTEMPT` - Access violation
-- `SUSPICIOUS_ACTIVITY` - Anomaly detection
+- `BRUTE_FORCE_DETECTED` - 10+ failed logins from same IP in 1 hour
+- `MASS_DELETION_WARNING` - 10+ document deletions by one user in 1 hour
+- `REPEATED_UNAUTHORIZED_ACCESS` - 3+ permission-denied events for same user/IP
+- `ACCOUNT_LOCKED` - Account locked after 5 failed login attempts
 
 ---
 
@@ -284,15 +346,29 @@ When severity is `critical`, the system:
 
 ---
 
+## Subprocessor Registry
+
+A complete list of all third-party subprocessors that receive, store, or process
+Customer Data — including data types handled, US-only attestations, DPA status,
+and flow-down clause confirmation — is maintained at:
+
+**[`docs/SUBPROCESSORS.md`](docs/SUBPROCESSORS.md)**
+
+This registry is reviewed quarterly and updated within 5 business days of any
+subprocessor change, per PG&E Exhibit DATA-1 requirements.
+
+---
+
 ## Contact
 
 For compliance inquiries:
 - Technical: Review `backend/middleware/auditLogger.js`
 - Architecture: Review `TECHNICAL_DUE_DILIGENCE.md`
 - Security: Review `backend/middleware/security.js`
+- Subprocessors / DPA: Review `docs/SUBPROCESSORS.md`
 
 ---
 
-*Last Updated: January 2026*
-*Version: 1.0*
+*Last Updated: February 2026*
+*Version: 1.1*
 

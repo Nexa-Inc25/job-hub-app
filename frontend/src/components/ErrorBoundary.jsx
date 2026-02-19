@@ -4,34 +4,34 @@
  */
 import React from 'react';
 import PropTypes from 'prop-types';
+import * as Sentry from '@sentry/react';
 import { Box, Typography, Button, Paper } from '@mui/material';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import RefreshIcon from '@mui/icons-material/Refresh';
 
 /**
  * Error Boundary - Catches JavaScript errors in child components
- * Prevents entire app from crashing, shows friendly error message
+ * Prevents entire app from crashing, shows friendly error message.
+ * Reports to Sentry when configured (production).
  */
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
+    this.state = { hasError: false, error: null, errorInfo: null, sentryEventId: null };
   }
 
   static getDerivedStateFromError(error) {
-    // Update state so next render shows fallback UI
     return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
-    // Log error details for debugging
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     this.setState({ errorInfo });
-    
-    // Error monitoring integration point - configure Sentry or similar service
-    // if (globalThis.Sentry) {
-    //   globalThis.Sentry.captureException(error, { extra: errorInfo });
-    // }
+
+    const eventId = Sentry.captureException(error, {
+      extra: { componentStack: errorInfo?.componentStack },
+    });
+    this.setState({ sentryEventId: eventId });
   }
 
   handleReload = () => {

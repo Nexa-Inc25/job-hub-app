@@ -108,10 +108,14 @@ function clearCompanySecurityCache(companyId) {
  * Issue a refreshed JWT when the current token is within
  * {@link TOKEN_REFRESH_WINDOW_S} of expiry.
  *
+ * The `mfaVerified` claim from the original token is carried forward so
+ * that a token refresh does not silently downgrade an MFA-verified session.
+ *
  * @param {Object} user - Lean user document (minus password)
+ * @param {Object} decoded - Original decoded JWT payload
  * @returns {string} New JWT
  */
-function issueRefreshedToken(user) {
+function issueRefreshedToken(user, decoded) {
   return jwt.sign(
     {
       userId: user._id,
@@ -119,7 +123,9 @@ function issueRefreshedToken(user) {
       isSuperAdmin: user.isSuperAdmin || false,
       role: user.role,
       canApprove: user.canApprove || false,
-      name: user.name
+      name: user.name,
+      mfaVerified: decoded.mfaVerified || false,
+      pwv: user.passwordVersion || 0
     },
     JWT_SECRET,
     { algorithm: 'HS256', expiresIn: '24h' }
@@ -190,10 +196,23 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ error: 'User account not found or deactivated', code: 'USER_NOT_FOUND' });
     }
 
-    // Check company IP whitelist (Enterprise security feature)
+    // Password version check — reject tokens issued before a password change.
+    // Tokens without pwv (issued before this feature) are treated as version 0.
+    const tokenPwv = decoded.pwv ?? 0;
+    const currentPwv = user.passwordVersion ?? 0;
+    if (tokenPwv < currentPwv) {
+      return res.status(401).json({
+        error: 'Password has been changed. Please log in again.',
+        code: 'PASSWORD_CHANGED'
+      });
+    }
+
+    // ── Company security policy enforcement ─────────────────────────────
+    // Single DB lookup (cached 5 min) drives both IP whitelist and MFA checks.
     if (user.companyId) {
       const securitySettings = await getCompanySecuritySettings(user.companyId);
 
+      // IP whitelist (Enterprise security feature)
       if (securitySettings?.ipWhitelist?.length > 0) {
         const clientIP = getClientIP(req);
 
@@ -203,6 +222,30 @@ const authenticateToken = async (req, res, next) => {
             error: 'Access denied',
             code: 'IP_NOT_WHITELISTED',
             message: 'Your IP address is not authorized for this organization. Contact your administrator.'
+          });
+        }
+      }
+
+      // Company-enforced MFA (PG&E Exhibit DATA-1 compliance).
+      // Deny access when the company requires MFA but this session was not
+      // established via the MFA verification flow. Two trigger paths:
+      //   1. mfaRequired === true        → all users must complete MFA
+      //   2. mfaRequiredForRoles includes this user's role → role-specific
+      if (securitySettings && !decoded.mfaVerified) {
+        const allUsersRequired = securitySettings.mfaRequired === true;
+        const roleRequired =
+          Array.isArray(securitySettings.mfaRequiredForRoles) &&
+          securitySettings.mfaRequiredForRoles.length > 0 &&
+          securitySettings.mfaRequiredForRoles.includes(user.role);
+
+        if (allUsersRequired || roleRequired) {
+          return res.status(403).json({
+            error: 'MFA verification required',
+            code: 'MFA_REQUIRED',
+            message: user.mfaEnabled
+              ? 'Your organization requires multi-factor authentication. Please log in again and complete MFA verification.'
+              : 'Your organization requires multi-factor authentication. Please enable MFA in your account settings, then log in again.',
+            mfaEnabled: user.mfaEnabled || false
           });
         }
       }
@@ -224,10 +267,10 @@ const authenticateToken = async (req, res, next) => {
     if (decoded.exp) {
       req.tokenExpiresAt = new Date(decoded.exp * 1000);
 
-      // Token refresh: issue a new token if within the refresh window
+      // Token refresh: carry mfaVerified forward so refreshes don't downgrade
       const secondsRemaining = decoded.exp - Math.floor(Date.now() / 1000);
       if (secondsRemaining > 0 && secondsRemaining <= TOKEN_REFRESH_WINDOW_S) {
-        const refreshedToken = issueRefreshedToken(user);
+        const refreshedToken = issueRefreshedToken(user, decoded);
         res.setHeader('X-Refreshed-Token', refreshedToken);
       }
     }

@@ -3,6 +3,7 @@
  * Copyright (c) 2024-2026 FieldLedger. All Rights Reserved.
  */
 
+import * as Sentry from '@sentry/react';
 import axios from 'axios';
 
 // Create axios instance with base URL
@@ -39,6 +40,12 @@ api.interceptors.response.use(
       if (!publicPaths.includes(globalThis.location.pathname)) {
         globalThis.location.href = '/login';
       }
+    }
+    if (error.response?.status >= 500) {
+      Sentry.captureException(error, {
+        tags: { apiStatus: error.response.status },
+        extra: { url: error.config?.url, method: error.config?.method },
+      });
     }
     return Promise.reject(error);
   }

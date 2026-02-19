@@ -7,6 +7,29 @@
 require('dotenv').config();
 
 // ============================================
+// SENTRY — must be initialized before all other imports
+// Captures unhandled exceptions, unhandled rejections, and Express errors.
+// Only active when SENTRY_DSN is set (production). Silent no-op otherwise.
+// ============================================
+const Sentry = require('@sentry/node');
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'development',
+    release: process.env.npm_package_version || '1.0.0',
+    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.2 : 1.0,
+    attachStacktrace: true,
+    beforeSend(event) {
+      if (event.request?.headers) {
+        delete event.request.headers.authorization;
+        delete event.request.headers.cookie;
+      }
+      return event;
+    },
+  });
+}
+
+// ============================================
 // STRUCTURED LOGGING — must be first after dotenv
 // Redirects all console.log/warn/error through pino for JSON output in production
 // ============================================
@@ -243,11 +266,12 @@ app.use('/api/', apiLimiter);
 // CORS
 // ============================================
 const envCorsOrigins = process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(o => o.trim()).filter(Boolean) : [];
-const uniqueOrigins = [...new Set([
+const productionOrigins = [
   'https://fieldledger.io', 'https://www.fieldledger.io', 'https://app.fieldledger.io',
   'https://fieldledger.vercel.app', ...envCorsOrigins, process.env.FRONTEND_URL,
-  'http://localhost:3000', 'http://localhost:5173'
-].filter(Boolean))];
+];
+const devOrigins = process.env.NODE_ENV === 'production' ? [] : ['http://localhost:3000', 'http://localhost:5173'];
+const uniqueOrigins = [...new Set([...productionOrigins, ...devOrigins].filter(Boolean))];
 
 console.log('Allowed CORS origins:', uniqueOrigins);
 
@@ -282,8 +306,8 @@ app.get('/', (_req, res) => {
 
 // Stripe webhook needs raw body — must be BEFORE express.json()
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json({ limit: '150mb' }));
-app.use(express.urlencoded({ limit: '150mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Uploads directory
 let uploadsDir = path.join(__dirname, 'uploads');
@@ -319,6 +343,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // ============================================
 const { runMigration } = require('./utils/migration');
 const { scheduleCleanup: scheduleDemoCleanup } = require('./utils/demoCleanup');
+const Company = require('./models/Company');
 
 const MONGO_OPTIONS = { maxPoolSize: 10, serverSelectionTimeoutMS: 5000, socketTimeoutMS: 45000, retryWrites: true, w: 'majority' };
 
@@ -367,6 +392,21 @@ connectWithRetry()
 
     scheduleDemoCleanup();
 
+    // Security review cadence enforcement — log warnings for overdue companies
+    try {
+      const overdue = await Company.find({
+        isActive: true,
+        'securitySettings.nextSecurityReview': { $lt: new Date() }
+      }).select('name securitySettings.nextSecurityReview').lean();
+
+      for (const c of overdue) {
+        log.warn({ company: c.name, overdueDate: c.securitySettings?.nextSecurityReview }, '[COMPLIANCE] Security review overdue');
+      }
+      if (overdue.length > 0) {
+        log.warn({ count: overdue.length }, `[COMPLIANCE] ${overdue.length} company(ies) have overdue security reviews`);
+      }
+    } catch (err) { log.error({ err }, '[COMPLIANCE] Failed to check security review cadence'); }
+
     server.listen(PORT, '0.0.0.0', () => {
       log.info({ port: PORT, env: process.env.NODE_ENV || 'development', health: '/api/health', deepHealth: '/api/health/deep', docs: '/api-docs', demo: '/api/demo/start-session' }, 'Server listening');
       const { oracleService } = require('./services/oracle');
@@ -400,26 +440,74 @@ io.on('connection', (socket) => {
   console.log(`[Socket.IO] User connected: ${user.name} (${userId})`);
   socket.join(`user:${userId}`);
   if (companyId) socket.join(`company:${companyId}`);
-  socket.on('join:job', (jobId) => { socket.join(`job:${jobId}`); });
+
+  // Tenant-scoped job room join — prevents cross-company real-time data leaks.
+  // Before subscribing to a job's events, verify the job belongs to the user's
+  // company (fail-closed: no companyId or no matching job = denied).
+  socket.on('join:job', async (jobId) => {
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      return socket.emit('error', { code: 'INVALID_JOB_ID', message: 'Invalid job ID' });
+    }
+
+    if (!companyId) {
+      return socket.emit('error', { code: 'NO_COMPANY', message: 'Company context required' });
+    }
+
+    try {
+      const job = await Job.findOne({ _id: jobId, companyId }).select('_id').lean();
+      if (!job) {
+        log.warn({ userId, companyId, jobId }, '[Socket.IO] join:job denied — tenant mismatch');
+        return socket.emit('error', { code: 'JOB_ACCESS_DENIED', message: 'Access denied' });
+      }
+
+      socket.join(`job:${jobId}`);
+    } catch (err) {
+      log.error({ err, userId, jobId }, '[Socket.IO] join:job ownership check failed');
+      socket.emit('error', { code: 'JOIN_ERROR', message: 'Failed to join job room' });
+    }
+  });
+
   socket.on('leave:job', (jobId) => { socket.leave(`job:${jobId}`); });
   socket.on('disconnect', (reason) => { console.log(`[Socket.IO] User disconnected: ${user.name} (${reason})`); });
   socket.emit('connected', { userId, userName: user.name });
 });
 
 // ============================================
-// ERROR HANDLING
+// ERROR HANDLING — single handler, never leaks stack traces in production
 // ============================================
 app.use((err, req, res, _next) => {
   const rid = req.requestId || req.headers['x-request-id'] || 'unknown';
-  console.error(`[${rid}] Express error:`, { message: err.message, stack: process.env.NODE_ENV === 'development' ? err.stack : undefined, path: req.path, method: req.method });
   const statusCode = err.statusCode || err.status || 500;
-  res.status(statusCode).json({ error: statusCode === 500 ? 'Internal server error' : err.message, requestId: rid, ...(process.env.NODE_ENV === 'development' && { stack: err.stack }) });
+
+  if (statusCode >= 500) {
+    Sentry.captureException(err, {
+      tags: { requestId: rid },
+      extra: { path: req.path, method: req.method, userId: req.userId, companyId: req.companyId },
+    });
+  }
+
+  log.error({ err, method: req.method, path: req.path, requestId: rid }, 'Express error');
+
+  let message = 'An error occurred';
+  if (statusCode === 400) message = err.message || 'Bad request';
+  else if (statusCode === 401) message = 'Authentication required';
+  else if (statusCode === 403) message = 'Access denied';
+  else if (statusCode === 404) message = 'Resource not found';
+  else if (statusCode === 429) message = 'Too many requests';
+
+  res.status(statusCode).json({ error: message, requestId: rid });
 });
 
-process.on('uncaughtException', (err) => { log.fatal({ err }, 'Uncaught Exception'); setTimeout(() => process.exit(1), 1000); });
-process.on('unhandledRejection', (reason) => { log.error({ err: reason instanceof Error ? reason : new Error(String(reason)) }, 'Unhandled Rejection'); });
-
-app.use(secureErrorHandler);
+process.on('uncaughtException', (err) => {
+  Sentry.captureException(err, { tags: { fatal: true } });
+  log.fatal({ err }, 'Uncaught Exception');
+  setTimeout(() => process.exit(1), 1000);
+});
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+  Sentry.captureException(err, { tags: { unhandledRejection: true } });
+  log.error({ err }, 'Unhandled Rejection');
+});
 
 // ============================================
 // GRACEFUL SHUTDOWN
@@ -431,7 +519,12 @@ async function gracefulShutdown(signal) {
   log.info({ signal }, 'Graceful shutdown starting');
   server.close(async () => {
     log.info('HTTP server closed');
-    try { await mongoose.connection.close(); log.info('MongoDB connection closed'); io.close(); log.info('Socket.io closed'); log.info('Graceful shutdown complete'); process.exit(0); }
+    try {
+      await Sentry.flush(2000);
+      await mongoose.connection.close(); log.info('MongoDB connection closed');
+      io.close(); log.info('Socket.io closed');
+      log.info('Graceful shutdown complete'); process.exit(0);
+    }
     catch (err) { log.error({ err }, 'Error during shutdown'); process.exit(1); }
   });
   setTimeout(() => { log.error('Forced shutdown after 30s timeout'); process.exit(1); }, 30000);

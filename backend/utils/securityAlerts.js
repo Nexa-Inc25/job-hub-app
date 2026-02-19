@@ -10,6 +10,9 @@
  */
 
 const AuditLog = require('../models/AuditLog');
+const Company = require('../models/Company');
+const emailService = require('../services/email.service');
+const log = require('./logger');
 
 // Thresholds for triggering alerts
 const THRESHOLDS = {
@@ -177,14 +180,194 @@ async function checkUnauthorizedAccess(userId, ip, resource) {
   return [];
 }
 
+// ---------------------------------------------------------------------------
+// Breach Notification Pipeline (PG&E Exhibit DATA-1 — 8-hour SLA)
+// ---------------------------------------------------------------------------
+
 /**
- * Process and store security alerts
+ * Tracks the last time an email was sent for a given alert type + company
+ * to prevent flooding inboxes during sustained attacks. One email per
+ * alert-type per company per hour is sufficient — the audit log has the
+ * full timeline.
+ */
+const emailCooldownCache = new Map();
+const EMAIL_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Check whether we've already emailed for this alert type + company recently.
+ * Returns true if the email should be suppressed.
+ *
+ * @param {string} alertType
+ * @param {string|null} companyId
+ * @returns {boolean}
+ */
+function isEmailOnCooldown(alertType, companyId) {
+  const key = `${alertType}:${companyId || 'global'}`;
+  const lastSent = emailCooldownCache.get(key);
+  if (lastSent && Date.now() - lastSent < EMAIL_COOLDOWN_MS) return true;
+  emailCooldownCache.set(key, Date.now());
+  return false;
+}
+
+/**
+ * Resolve the set of email addresses that should receive a security alert.
+ *
+ * Sources (deduplicated):
+ *   1. Company.securitySettings.securityAlertEmails (company-specific contacts)
+ *   2. process.env.SECURITY_ALERT_EMAIL (platform security team)
+ *
+ * @param {string|null} companyId
+ * @returns {Promise<string[]>} Unique recipient list (may be empty)
+ */
+async function resolveAlertRecipients(companyId) {
+  const recipients = new Set();
+
+  if (process.env.SECURITY_ALERT_EMAIL) {
+    recipients.add(process.env.SECURITY_ALERT_EMAIL.trim().toLowerCase());
+  }
+
+  if (companyId) {
+    try {
+      const company = await Company.findById(companyId)
+        .select('securitySettings.securityAlertEmails name')
+        .lean();
+
+      if (company?.securitySettings?.securityAlertEmails) {
+        for (const addr of company.securitySettings.securityAlertEmails) {
+          if (addr && typeof addr === 'string' && addr.includes('@')) {
+            recipients.add(addr.trim().toLowerCase());
+          }
+        }
+      }
+    } catch (err) {
+      log.error({ err, companyId }, '[SecurityAlerts] Failed to load company alert emails');
+    }
+  }
+
+  return [...recipients];
+}
+
+/**
+ * Build the HTML and plain-text bodies for a security alert email.
+ *
+ * @param {Object} alert
+ * @param {Object|null} req - Express request (may be null for system-generated alerts)
+ * @returns {{ subject: string, html: string, text: string }}
+ */
+function buildAlertEmail(alert, req) {
+  const ts = new Date().toISOString();
+  const companyId = req?.companyId || 'N/A';
+  const userId = req?.userId || 'N/A';
+  const userEmail = req?.userEmail || 'N/A';
+  const ip = req?.ip || req?.headers?.['x-forwarded-for'] || 'unknown';
+  const detailsJson = JSON.stringify(alert.details || {}, null, 2);
+
+  const subject = `[FieldLedger ${alert.severity.toUpperCase()}] ${alert.type}`;
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 700px; margin: 0 auto;">
+      <div style="background-color: ${alert.severity === 'critical' ? '#d32f2f' : '#ed6c02'}; color: white; padding: 16px 24px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">Security Alert — ${alert.severity.toUpperCase()}</h2>
+      </div>
+      <div style="border: 1px solid #e0e0e0; border-top: none; padding: 24px; border-radius: 0 0 8px 8px;">
+        <p style="font-size: 16px; font-weight: bold; color: #333;">${alert.type}</p>
+        <p>${alert.message}</p>
+
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <tr><td style="padding: 6px 12px; font-weight: bold; color: #555; width: 140px;">Timestamp</td><td style="padding: 6px 12px;">${ts}</td></tr>
+          <tr style="background: #f9f9f9;"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Company ID</td><td style="padding: 6px 12px;">${companyId}</td></tr>
+          <tr><td style="padding: 6px 12px; font-weight: bold; color: #555;">User</td><td style="padding: 6px 12px;">${userEmail} (${userId})</td></tr>
+          <tr style="background: #f9f9f9;"><td style="padding: 6px 12px; font-weight: bold; color: #555;">Source IP</td><td style="padding: 6px 12px;">${ip}</td></tr>
+        </table>
+
+        <details style="margin-top: 12px;">
+          <summary style="cursor: pointer; font-weight: bold; color: #555;">Raw Details</summary>
+          <pre style="background: #f5f5f5; padding: 12px; border-radius: 4px; overflow-x: auto; font-size: 12px;">${detailsJson}</pre>
+        </details>
+
+        <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 24px 0;">
+        <p style="color: #999; font-size: 12px;">
+          PG&amp;E Exhibit DATA-1 requires notification within 8 hours of a suspected breach.
+          This alert was generated automatically by FieldLedger at ${ts}.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const text = [
+    `SECURITY ALERT — ${alert.severity.toUpperCase()}`,
+    `Type: ${alert.type}`,
+    `Message: ${alert.message}`,
+    `Timestamp: ${ts}`,
+    `Company ID: ${companyId}`,
+    `User: ${userEmail} (${userId})`,
+    `Source IP: ${ip}`,
+    `Details: ${detailsJson}`,
+    '',
+    'PG&E Exhibit DATA-1 requires notification within 8 hours of a suspected breach.',
+    `This alert was generated automatically by FieldLedger at ${ts}.`
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
+/**
+ * Send a security alert email to all resolved recipients.
+ * Failures are logged but never propagated — the audit log is the
+ * authoritative record, and a broken SMTP relay must not suppress alerts
+ * or crash the request.
+ *
+ * @param {Object} alert
+ * @param {Object|null} req
+ * @returns {Promise<void>}
+ */
+async function sendAlertEmail(alert, req) {
+  const companyId = req?.companyId || null;
+
+  if (isEmailOnCooldown(alert.type, companyId)) {
+    log.info({ alertType: alert.type, companyId }, '[SecurityAlerts] Email suppressed (cooldown)');
+    return;
+  }
+
+  const recipients = await resolveAlertRecipients(companyId);
+  if (recipients.length === 0) {
+    log.warn({ alertType: alert.type, companyId }, '[SecurityAlerts] No alert recipients configured');
+    return;
+  }
+
+  const { subject, html, text } = buildAlertEmail(alert, req);
+
+  const results = await Promise.allSettled(
+    recipients.map(to =>
+      emailService.sendEmail({ to, subject, html, text })
+    )
+  );
+
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'fulfilled') {
+      log.info({ to: recipients[i], alertType: alert.type }, '[SecurityAlerts] Alert email sent');
+    } else {
+      log.error(
+        { err: results[i].reason, to: recipients[i], alertType: alert.type },
+        '[SecurityAlerts] Alert email delivery failed'
+      );
+    }
+  }
+}
+
+/**
+ * Process and store security alerts.
+ *
+ * Every alert is persisted to the audit log (authoritative record).
+ * Critical-severity alerts also trigger email notification to the
+ * company's security contacts and the platform security team, satisfying
+ * the PG&E Exhibit DATA-1 8-hour breach notification SLA.
  */
 async function processAlerts(alerts, req) {
   for (const alert of alerts) {
-    console.error(`[SECURITY ALERT] ${alert.type}: ${alert.message}`);
-    
-    // Log to audit trail
+    log.error({ alertType: alert.type, severity: alert.severity }, `[SECURITY ALERT] ${alert.message}`);
+
+    // 1. Persist to audit trail (authoritative — must succeed)
     await AuditLog.log({
       timestamp: new Date(),
       userId: req?.userId,
@@ -202,9 +385,15 @@ async function processAlerts(alerts, req) {
       userAgent: req?.headers?.['user-agent'],
       success: false
     });
-    
-    // Future: Send email/SMS alerts to security team
-    // await sendSecurityAlert(alert);
+
+    // 2. Email notification for critical alerts (best-effort — never crashes)
+    if (alert.severity === 'critical') {
+      try {
+        await sendAlertEmail(alert, req);
+      } catch (err) {
+        log.error({ err, alertType: alert.type }, '[SecurityAlerts] Unhandled error in email pipeline');
+      }
+    }
   }
 }
 

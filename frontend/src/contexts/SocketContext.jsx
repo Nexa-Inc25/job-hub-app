@@ -9,6 +9,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
+import * as Sentry from '@sentry/react';
 import { io } from 'socket.io-client';
 
 const SocketContext = createContext(null);
@@ -94,6 +95,10 @@ export function SocketProvider({ children }) {
       
       if (reconnectAttempts.current >= maxReconnectAttempts) {
         console.error('[Socket] Max reconnection attempts reached');
+        Sentry.captureException(error, {
+          tags: { socketFailure: true },
+          extra: { attempts: reconnectAttempts.current },
+        });
       }
     });
 

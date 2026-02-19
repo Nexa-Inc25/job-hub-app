@@ -92,6 +92,7 @@ const userSchema = new mongoose.Schema({
     changedAt: Date
   }],
   passwordChangedAt: Date,
+  passwordVersion: { type: Number, default: 0 },
   mustChangePassword: { type: Boolean, default: false },
   
   // Demo sandbox flags
@@ -155,6 +156,10 @@ const BCRYPT_SALT_ROUNDS = 12;
 userSchema.pre('save', async function(next) {
   if (this.isModified('password')) {
     this.password = await bcrypt.hash(this.password, BCRYPT_SALT_ROUNDS);
+    if (!this.isNew) {
+      this.passwordChangedAt = new Date();
+      this.passwordVersion = (this.passwordVersion || 0) + 1;
+    }
   }
   next();
 });

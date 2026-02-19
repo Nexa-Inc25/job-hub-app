@@ -50,9 +50,10 @@ function requireCompanyContext(req, res) {
 /**
  * Build a company-scoped query for a single job by ID.
  * SuperAdmins get { _id: id }. Everyone else gets { _id: id, companyId }.
+ * Soft-deleted jobs are always excluded.
  */
 function scopedJobQuery(id, companyId) {
-  const query = { _id: id };
+  const query = { _id: id, isDeleted: { $ne: true } };
   if (companyId !== null) {
     query.companyId = companyId;
   }
@@ -78,7 +79,7 @@ const listJobs = async (req, res) => {
     const safeLimit = sanitizeInt(limit, 100, 500);
     const safeSkip = sanitizeInt(skip, 0, 100000);
     
-    const query = {};
+    const query = { isDeleted: { $ne: true } };
 
     // SuperAdmins see all; everyone else is scoped to their company
     if (companyId !== null) {
@@ -256,7 +257,11 @@ const deleteJob = async (req, res) => {
       return res.status(404).json({ error: 'Job not found' });
     }
     
-    await job.deleteOne();
+    job.isDeleted = true;
+    job.deletedAt = new Date();
+    job.deletedBy = req.userId;
+    await job.save();
+
     await logJob.delete(req, id, job.pmNumber);
     res.json({ message: 'Job deleted successfully' });
   } catch (error) {

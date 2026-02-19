@@ -62,12 +62,14 @@ Authorization: Bearer <your-jwt-token>
 
 ### Security & Compliance
 
-- TLS 1.3 encryption in transit
-- AES-256 encryption at rest  
-- SOC 2 Type II (in progress)
+- TLS 1.3 encryption in transit (Railway/Vercel edge termination)
+- AES-256 encryption at rest (MongoDB Atlas WiredTiger + Cloudflare R2 server-side encryption)
+- US-only data residency (all storage and processing in continental US)
+- SOC 2 Type II aligned architecture
 - NIST SP 800-53 aligned
-- MFA support (TOTP)
-- Complete audit logging
+- MFA support (TOTP) with company-level enforcement
+- Comprehensive audit logging (7-year retention per PG&E Exhibit DATA-1)
+- Automated breach notification pipeline (8-hour SLA)
       `,
       contact: {
         name: 'FieldLedger Support',

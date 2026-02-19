@@ -4,6 +4,7 @@
  * Proprietary and Confidential. Unauthorized copying or distribution prohibited.
  */
 
+import './sentry';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import './index.css';
@@ -26,12 +27,12 @@ root.render(
 serviceWorkerRegistration.register({
   onSuccess: () => {
     if (verboseClientLogs) {
-      console.warn('App is ready for offline use!');
+    console.warn('App is ready for offline use!');
     }
   },
   onUpdate: (registration) => {
     if (verboseClientLogs) {
-      console.warn('New version available! Refresh to update.');
+    console.warn('New version available! Refresh to update.');
     }
     // Optionally show a prompt to the user
     if (registration.waiting) {
