@@ -21,7 +21,7 @@ describe('Dashboard', () => {
     _id: 'user1',
     name: 'Test User',
     email: 'test@example.com',
-    role: 'gf',
+    role: 'foreman',
     isAdmin: false
   };
 
