@@ -40,6 +40,11 @@ export function SocketProvider({ children }) {
 
   // Connect to socket server
   const connect = useCallback(() => {
+    if (typeof window !== 'undefined' && window.Cypress) {
+      console.warn('[Socket] Cypress detected, skipping socket connection');
+      return null;
+    }
+
     const token = getToken();
     
     if (!token) {

@@ -163,7 +163,10 @@ jobs:
         working-directory: frontend
         run: npm run e2e:ci
         env:
-          REACT_APP_API_URL: http://localhost:5000
+          VITE_API_URL: http://localhost:5000
+          VITE_ENABLE_SERVICE_WORKER: 'false'
+          VITE_ENABLE_VERCEL_ANALYTICS: 'false'
+          VITE_VERBOSE_CLIENT_LOGS: 'false'
           CYPRESS_baseUrl: http://localhost:3000
           CYPRESS_apiUrl: http://localhost:5000
           CI: false

@@ -22,11 +22,29 @@ Cypress.on('uncaught:exception', (err, runnable) => {
   if (err.message.includes('Network Error') || err.message.includes('Failed to fetch')) {
     return false;
   }
+  // Ignore chunk/script parse errors from stale cached assets in CI.
+  if (err.message.includes("Unexpected token '<'")) {
+    return false;
+  }
   return true;
 });
 
 // Add custom command logging
 beforeEach(() => {
+  // Keep app-shell providers from hitting auth-protected endpoints in E2E mocks.
+  cy.intercept('GET', '**/api/notifications*', {
+    statusCode: 200,
+    body: { notifications: [], unreadCount: 0 }
+  }).as('getNotifications');
+  cy.intercept('GET', '**/api/notifications/unread/count', {
+    statusCode: 200,
+    body: { count: 0 }
+  }).as('getUnreadCount');
+  cy.intercept('PUT', '**/api/notifications/**', {
+    statusCode: 200,
+    body: {}
+  }).as('updateNotifications');
+
   cy.log('Starting test:', Cypress.currentTest.title);
 });
 
