@@ -265,7 +265,48 @@ async function fixLmeIndex() {
 }
 
 /**
- * Step 6: Fix LME documents in Close Out folders that are missing the url field
+ * Step 6: Drop redundant single-field indexes that are prefixes of compound indexes.
+ * Atlas Performance Advisor flagged these 8 indexes as redundant.
+ * They waste storage and add write latency for no read benefit.
+ *
+ * Idempotent — silently skips indexes that are already dropped.
+ */
+async function dropRedundantIndexes() {
+  const mongoose = require('mongoose');
+  const db = mongoose.connection.db;
+
+  const redundantIndexes = [
+    { collection: 'notifications', index: 'userId_1' },
+    { collection: 'fieldtickets', index: 'companyId_1_status_1' },
+    { collection: 'specdocuments', index: 'division_1' },
+    { collection: 'specdocuments', index: 'utilityId_1_category_1' },
+    { collection: 'audit_logs', index: 'action_1' },
+    { collection: 'audit_logs', index: 'companyId_1' },
+    { collection: 'audit_logs', index: 'userId_1' },
+    { collection: 'formtemplates', index: 'companyId_1' },
+  ];
+
+  let dropped = 0;
+  for (const { collection, index } of redundantIndexes) {
+    try {
+      await db.collection(collection).dropIndex(index);
+      console.log(`Dropped redundant index ${collection}.${index}`);
+      dropped++;
+    } catch (err) {
+      if (err.codeName === 'IndexNotFound' || err.message.includes('index not found')) {
+        // Already dropped — idempotent
+      } else {
+        console.warn(`Could not drop ${collection}.${index}:`, err.message);
+      }
+    }
+  }
+  if (dropped > 0) {
+    console.log(`Dropped ${dropped} redundant indexes`);
+  }
+}
+
+/**
+ * Step 7: Fix LME documents in Close Out folders that are missing the url field
  * This is needed for the frontend to display them correctly
  */
 async function migrateLmeUrls(Job) {
@@ -334,7 +375,10 @@ async function runMigration() {
     // Step 5: Fix LME unique index for multi-tenancy
     await fixLmeIndex();
     
-    // Step 6: Fix LME documents missing url field
+    // Step 6: Drop redundant indexes (Atlas Performance Advisor)
+    await dropRedundantIndexes();
+    
+    // Step 7: Fix LME documents missing url field
     await migrateLmeUrls(Job);
     
     console.log('=== Migration complete ===');

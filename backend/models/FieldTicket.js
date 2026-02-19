@@ -262,7 +262,7 @@ const fieldTicketSchema = new mongoose.Schema({
 // Indexes
 fieldTicketSchema.index({ jobId: 1, workDate: -1 });
 fieldTicketSchema.index({ companyId: 1, status: 1, workDate: -1 });
-fieldTicketSchema.index({ companyId: 1, status: 1 });
+// Note: standalone { companyId: 1, status: 1 } removed — it's a prefix of the compound above
 fieldTicketSchema.index({ claimId: 1 });
 // ticketNumber already indexed via unique: true on schema field
 fieldTicketSchema.index({ offlineId: 1 }, { sparse: true });

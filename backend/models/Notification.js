@@ -11,11 +11,12 @@ const mongoose = require('mongoose');
 
 const notificationSchema = new mongoose.Schema({
   // Who receives this notification
+  // Note: standalone userId index removed — covered by compound indexes
+  // userId_1_createdAt_-1 and userId_1_read_1_createdAt_-1
   userId: { 
     type: mongoose.Schema.Types.ObjectId, 
     ref: 'User', 
     required: true,
-    index: true 
   },
   
   // Company context for multi-tenant filtering
