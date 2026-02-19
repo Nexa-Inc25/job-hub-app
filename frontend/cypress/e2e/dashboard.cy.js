@@ -157,18 +157,11 @@ describe('Dashboard', () => {
   describe('Job Actions', () => {
     it('should navigate to job details on click', () => {
       visitDashboard();
-      
-      // Mock job details response
-      cy.intercept('GET', '**/api/jobs/1**', {
-        statusCode: 200,
-        body: mockJobs[0]
-      }).as('getJobDetails');
 
-      // Click on first job
-      cy.contains('PM-001').click();
-      
-      // Should navigate to job details or files
-      cy.url().should('match', /jobs\/1/);
+      // "Details" CTA is explicit and stable on the current dashboard cards.
+      cy.contains('PM-001').should('be.visible');
+      cy.contains('button, a', /details/i).first().click({ force: true });
+      cy.url({ timeout: 10000 }).should('match', /jobs\/.+\/details/);
     });
   });
 

@@ -133,8 +133,8 @@ describe('Work Order Details', () => {
 
     it('should have files link', () => {
       visitJobDetails();
-      
-      cy.contains(/files|document/i).should('exist');
+
+      cy.contains(/open file system|files|document/i).should('exist');
     });
   });
 
@@ -175,12 +175,9 @@ describe('Work Order Details', () => {
       }).as('addNote');
 
       visitJobDetails();
-      
-      // Find and fill note input
-      cy.get('textarea, input[type="text"]').first().type('New test note');
-      
-      // Submit note
-      cy.get('button').contains(/send|add|submit/i).click();
+
+      cy.get('input[placeholder*="Add a note"]').type('New test note');
+      cy.get('button[aria-label="Add note"]').click();
       
       cy.wait('@addNote');
     });
