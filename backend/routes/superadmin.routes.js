@@ -71,14 +71,18 @@ router.post('/companies', async (req, res) => {
   }
 });
 
-// Get users for a specific company
+// Get users for a specific company (?includeDeactivated=true to show all)
 router.get('/companies/:companyId/users', async (req, res) => {
   try {
     const companyId = sanitizeObjectId(req.params.companyId);
     if (!companyId) return res.status(400).json({ error: 'Invalid company ID' });
-    const users = await User.find({ companyId })
+    const query = { companyId };
+    if (req.query.includeDeactivated !== 'true') {
+      query.isActive = { $ne: false };
+    }
+    const users = await User.find(query)
       .select('-password')
-      .sort({ createdAt: -1 });
+      .sort({ isActive: -1, createdAt: -1 });
     res.json(users);
   } catch (err) {
     console.error('Error fetching company users:', err);

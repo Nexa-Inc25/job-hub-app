@@ -96,7 +96,14 @@ const JobRow = ({ job, actions, sx }) => (
     }}
   >
     <Box sx={{ flex: 1, minWidth: 0 }}>
-      <Typography variant="body2" fontWeight="medium" noWrap>
+      <Typography
+        variant="body2"
+        fontWeight="medium"
+        noWrap
+        component={Link}
+        to={`/jobs/${job._id}/details`}
+        sx={{ textDecoration: 'none', color: 'inherit', '&:hover': { textDecoration: 'underline' } }}
+      >
         {job.pmNumber || job.woNumber || job.title}
       </Typography>
       <Typography variant="caption" color="text.secondary" noWrap>
@@ -290,7 +297,14 @@ const DashboardSchedule = ({
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" fontWeight="medium" noWrap>
+                    <Typography
+                      variant="body2"
+                      fontWeight="medium"
+                      noWrap
+                      component={Link}
+                      to={`/jobs/${job._id}/details`}
+                      sx={{ textDecoration: 'none', color: 'inherit', '&:hover': { textDecoration: 'underline' } }}
+                    >
                       {job.pmNumber || job.woNumber || job.title}
                     </Typography>
                     {job.cancelType && (
@@ -352,7 +366,14 @@ const DashboardSchedule = ({
                 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" fontWeight="medium" noWrap>
+                  <Typography
+                    variant="body2"
+                    fontWeight="medium"
+                    noWrap
+                    component={Link}
+                    to={`/jobs/${job._id}/details`}
+                    sx={{ textDecoration: 'none', color: 'inherit', '&:hover': { textDecoration: 'underline' } }}
+                  >
                     {job.pmNumber || job.woNumber || job.title}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" noWrap>
@@ -401,7 +422,14 @@ const DashboardSchedule = ({
                 }}
               >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" fontWeight="medium" noWrap>
+                  <Typography
+                    variant="body2"
+                    fontWeight="medium"
+                    noWrap
+                    component={Link}
+                    to={`/jobs/${job._id}/details`}
+                    sx={{ textDecoration: 'none', color: 'inherit', '&:hover': { textDecoration: 'underline' } }}
+                  >
                     {job.pmNumber || job.woNumber || job.title}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" noWrap>

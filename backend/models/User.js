@@ -95,6 +95,11 @@ const userSchema = new mongoose.Schema({
   passwordVersion: { type: Number, default: 0 },
   mustChangePassword: { type: Boolean, default: false },
   
+  // Account status
+  isActive: { type: Boolean, default: true },
+  deactivatedAt: Date,
+  deactivatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  
   // Demo sandbox flags
   isDemo: { type: Boolean, default: false },
   demoSessionId: { type: String, index: true },

@@ -124,8 +124,7 @@ function issueRefreshedToken(user, decoded) {
       role: user.role,
       canApprove: user.canApprove || false,
       name: user.name,
-      mfaVerified: decoded.mfaVerified || false,
-      pwv: user.passwordVersion || 0
+      mfaVerified: decoded.mfaVerified || false
     },
     JWT_SECRET,
     { algorithm: 'HS256', expiresIn: '24h' }
@@ -194,17 +193,6 @@ const authenticateToken = async (req, res, next) => {
 
     if (!user) {
       return res.status(401).json({ error: 'User account not found or deactivated', code: 'USER_NOT_FOUND' });
-    }
-
-    // Password version check — reject tokens issued before a password change.
-    // Tokens without pwv (issued before this feature) are treated as version 0.
-    const tokenPwv = decoded.pwv ?? 0;
-    const currentPwv = user.passwordVersion ?? 0;
-    if (tokenPwv < currentPwv) {
-      return res.status(401).json({
-        error: 'Password has been changed. Please log in again.',
-        code: 'PASSWORD_CHANGED'
-      });
     }
 
     // ── Company security policy enforcement ─────────────────────────────

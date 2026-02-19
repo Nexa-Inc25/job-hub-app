@@ -485,9 +485,15 @@ app.use((err, req, res, _next) => {
       extra: { path: req.path, method: req.method, userId: req.userId, companyId: req.companyId },
     });
   }
+<<<<<<< Current (Your changes)
 
   log.error({ err, method: req.method, path: req.path, requestId: rid }, 'Express error');
 
+=======
+
+  log.error({ err, method: req.method, path: req.path, requestId: rid }, 'Express error');
+
+>>>>>>> Incoming (Background Agent changes)
   let message = 'An error occurred';
   if (statusCode === 400) message = err.message || 'Bad request';
   else if (statusCode === 401) message = 'Authentication required';

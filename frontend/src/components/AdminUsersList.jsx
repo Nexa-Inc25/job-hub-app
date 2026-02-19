@@ -56,9 +56,10 @@ const AdminUsersList = () => {
   const mode = darkMode ? 'dark' : 'light';
   const { cardBg, textPrimary, textSecondary, borderColor, pageBg, rowHoverBg, tableHeaderBg, sectionHeaderBg, sectionHeaderHoverBg } = getThemeColors(mode);
   
-  // Delete state
+  // Delete state (users and companies)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [companyToDelete, setCompanyToDelete] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
@@ -134,34 +135,37 @@ const AdminUsersList = () => {
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!userToDelete) return;
-    
     setDeleteLoading(true);
     try {
-      await api.delete(`/api/admin/users/${userToDelete._id}`);
-      setSnackbar({ 
-        open: true, 
-        message: `User ${userToDelete.name} has been deactivated`, 
-        severity: 'success' 
-      });
+      if (companyToDelete) {
+        await api.delete(`/api/superadmin/companies/${companyToDelete._id}`);
+        setSnackbar({ open: true, message: `Company "${companyToDelete.name}" has been deactivated`, severity: 'success' });
+        setCompanyToDelete(null);
+      } else if (userToDelete) {
+        await api.delete(`/api/admin/users/${userToDelete._id}`);
+        setSnackbar({ open: true, message: `${userToDelete.name} has been removed`, severity: 'success' });
+        setUserToDelete(null);
+      }
       setDeleteDialogOpen(false);
-      setUserToDelete(null);
-      fetchData(); // Refresh the list
+      fetchData();
     } catch (err) {
-      console.error('Error deactivating user:', err);
-      setSnackbar({ 
-        open: true, 
-        message: err.response?.data?.error || 'Failed to deactivate user', 
-        severity: 'error' 
-      });
+      console.error('Delete error:', err);
+      setSnackbar({ open: true, message: err.response?.data?.error || 'Operation failed', severity: 'error' });
     } finally {
       setDeleteLoading(false);
     }
-  }, [userToDelete, fetchData]);
+  }, [userToDelete, companyToDelete, fetchData]);
 
   const handleDeleteCancel = useCallback(() => {
     setDeleteDialogOpen(false);
     setUserToDelete(null);
+    setCompanyToDelete(null);
+  }, []);
+
+  const handleDeleteCompanyClick = useCallback((company, e) => {
+    e.stopPropagation();
+    setCompanyToDelete(company);
+    setDeleteDialogOpen(true);
   }, []);
 
   if (loading) {
@@ -236,7 +240,18 @@ const AdminUsersList = () => {
                     sx={{ bgcolor: '#22c55e20', color: '#22c55e' }}
                   />
                 </Box>
-                {expandedCompanies[company._id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Tooltip title="Delete Company">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleDeleteCompanyClick(company, e)}
+                      sx={{ color: '#ef4444', '&:hover': { bgcolor: '#ef444415' } }}
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  {expandedCompanies[company._id] ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                </Box>
               </Box>
 
               {/* Users Table */}
@@ -294,10 +309,10 @@ const AdminUsersList = () => {
                             <TableCell>
                               <Chip 
                                 size="small" 
-                                label={user.isAdmin ? 'Admin' : 'Active'}
+                                label={user.isActive === false ? 'Deactivated' : user.isAdmin ? 'Admin' : 'Active'}
                                 sx={{ 
-                                  bgcolor: user.isAdmin ? '#6366f120' : '#22c55e20',
-                                  color: user.isAdmin ? '#6366f1' : '#22c55e',
+                                  bgcolor: user.isActive === false ? '#ef444420' : user.isAdmin ? '#6366f120' : '#22c55e20',
+                                  color: user.isActive === false ? '#ef4444' : user.isAdmin ? '#6366f1' : '#22c55e',
                                   fontSize: '0.65rem'
                                 }}
                               />
@@ -306,8 +321,8 @@ const AdminUsersList = () => {
                                               {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
                                             </TableCell>
                                             <TableCell align="center">
-                                              {!user.isSuperAdmin && (
-                                                <Tooltip title="Deactivate User">
+                                              {!user.isSuperAdmin && user.isActive !== false && (
+                                                <Tooltip title="Remove User">
                                                   <IconButton
                                                     size="small"
                                                     onClick={(e) => handleDeleteClick(user, e)}
@@ -337,12 +352,15 @@ const AdminUsersList = () => {
         PaperProps={{ sx: { bgcolor: cardBg } }}
       >
         <DialogTitle sx={{ color: textPrimary }}>
-          Deactivate User?
+          {companyToDelete ? 'Delete Company?' : 'Remove User?'}
         </DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ color: textSecondary }}>
-            Are you sure you want to deactivate <strong>{userToDelete?.name}</strong> ({userToDelete?.email})?
-            They will no longer be able to log in. This action can be reversed by a Super Admin.
+            {companyToDelete ? (
+              <>Are you sure you want to delete <strong>{companyToDelete.name}</strong>? This will deactivate the company and all its users will lose access.</>
+            ) : (
+              <>Are you sure you want to remove <strong>{userToDelete?.name}</strong> ({userToDelete?.email})? They will no longer be able to log in.</>
+            )}
           </DialogContentText>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -360,7 +378,7 @@ const AdminUsersList = () => {
             disabled={deleteLoading}
             startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}
           >
-            {deleteLoading ? 'Deactivating...' : 'Deactivate'}
+            {deleteLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
