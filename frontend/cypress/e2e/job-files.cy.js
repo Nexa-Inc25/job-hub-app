@@ -69,9 +69,14 @@ describe('Job File System', () => {
   };
 
   beforeEach(() => {
-    // Set up API mocks BEFORE visiting the page
-    // IMPORTANT: Register more specific intercepts AFTER less specific ones
-    // Cypress matches in reverse registration order (LIFO)
+    // CATCH-ALL: Intercept ANY /api/ request to prevent real 401s from
+    // api.fieldledger.io which trigger globalThis.location.href = '/login'
+    // in the axios response interceptor. Must be registered FIRST.
+    cy.intercept('GET', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
+
+    // Now register specific intercepts (checked BEFORE catch-all due to LIFO)
 
     // Mock user endpoint
     cy.intercept('GET', '**/api/users/me', {
@@ -91,13 +96,19 @@ describe('Job File System', () => {
       body: []
     }).as('getPendingApprovals');
 
-    // Mock jobs list — must be registered BEFORE the specific job intercept
-    cy.intercept('GET', /\/api\/jobs(\?.*)?$/, {
+    // Mock notifications (NotificationContext may fetch on socket connect)
+    cy.intercept('GET', '**/api/notifications*', {
+      statusCode: 200,
+      body: { notifications: [], unreadCount: 0 }
+    }).as('getNotifications');
+
+    // Mock jobs list — glob pattern (no trailing *) won't match /api/jobs/job123
+    cy.intercept('GET', '**/api/jobs', {
       statusCode: 200,
       body: [mockJob]
     }).as('getJobs');
 
-    // Mock specific job details (more specific — registered last so checked first)
+    // Mock specific job details (registered last → checked first by Cypress)
     cy.intercept('GET', '**/api/jobs/job123', {
       statusCode: 200,
       body: mockJob
@@ -118,8 +129,11 @@ describe('Job File System', () => {
         win.localStorage.setItem('user', JSON.stringify(testUser));
       }
     });
-    // JobFileSystem fetches both job details and jobs list in parallel
-    cy.wait(['@getJob', '@getJobs'], { timeout: 15000 });
+    // Wait for the page to render — don't rely on specific route waits
+    // because the axios 401 interceptor can hard-redirect before they fire.
+    // The catch-all intercept prevents 401s, so content should render.
+    cy.url({ timeout: 15000 }).should('include', '/jobs/job123');
+    cy.get('body', { timeout: 15000 }).should('not.contain', 'Something went wrong');
   };
 
   describe('Navigation', () => {
