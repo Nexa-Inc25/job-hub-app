@@ -77,7 +77,8 @@ const STORAGE_KEYS = {
 
 const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotations = [] }) => {
   // Core state
-  const [pdfBytes, setPdfBytes] = useState(null);
+  const [pdfBytes, setPdfBytes] = useState(null);     // Uint8Array for pdf-lib (save)
+  const [pdfBlobUrl, setPdfBlobUrl] = useState(null);  // Blob URL for react-pdf (display)
   const [numPages, setNumPages] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [annotations, setAnnotations] = useState(initialAnnotations);
@@ -175,13 +176,15 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
           throw new Error(`Failed to load PDF (${response.status})`);
         }
         const arrayBuffer = await response.arrayBuffer();
-        // Create an independent copy for react-pdf rendering (stored in state).
-        // PDFDocument.load() below may detach whichever buffer it receives,
-        // so we give it the original arrayBuffer and keep our copy separate.
+        // Store raw bytes for pdf-lib save operations
         setPdfBytes(new Uint8Array(arrayBuffer).slice());
         
+        // Create a blob URL for react-pdf display — completely avoids
+        // ArrayBuffer detachment issues. react-pdf loads it like any URL.
+        const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+        setPdfBlobUrl(URL.createObjectURL(blob));
+        
         // Extract actual PDF page dimensions and rotation for coordinate conversion
-        // pdf-lib gets the original arrayBuffer — if it detaches, we don't care
         try {
           const pdfDoc = await PDFDocument.load(arrayBuffer);
           const pages = pdfDoc.getPages();
@@ -207,6 +210,14 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
     if (pdfUrl) {
       loadPdfBytes();
     }
+
+    // Cleanup blob URL on unmount or when pdfUrl changes
+    return () => {
+      setPdfBlobUrl(prev => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+    };
   }, [pdfUrl]);
 
   const onDocumentLoadSuccess = useCallback(({ numPages: pages }) => {
@@ -821,7 +832,7 @@ const PDFFormEditor = ({ pdfUrl, jobInfo, onSave, documentName, initialAnnotatio
             </Box>
           ) : (
             <Document
-              file={pdfBytes ? { data: pdfBytes } : pdfUrl}
+              file={pdfBlobUrl || pdfUrl}
               onLoadSuccess={onDocumentLoadSuccess}
               loading={
                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400, width: 300, bgcolor: 'white' }}>
