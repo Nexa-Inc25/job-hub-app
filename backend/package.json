@@ -6,7 +6,7 @@
   "license": "SEE LICENSE IN LICENSE",
   "private": true,
   "engines": {
-    "node": ">=22.0.0"
+    "node": "22.x"
   },
   "main": "server.js",
   "scripts": {
