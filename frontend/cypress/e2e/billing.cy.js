@@ -114,6 +114,17 @@ describe('Billing Dashboard', () => {
     cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
     cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
 
+    // Mock notifications (NotificationContext fetches on mount)
+    cy.intercept('GET', '**/api/notifications*', {
+      statusCode: 200,
+      body: { notifications: [], unreadCount: 0 }
+    }).as('getNotifications');
+
+    cy.intercept('GET', '**/api/admin/pending-approvals', {
+      statusCode: 200,
+      body: []
+    }).as('getPendingApprovals');
+
     // Specific intercepts (registered AFTER catch-all → checked FIRST)
     cy.intercept('GET', '**/api/billing/units*', {
       statusCode: 200,
@@ -426,6 +437,17 @@ describe('Foreman Unit Capture', () => {
     cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
     cy.intercept('PUT', '**/api/**', { statusCode: 200, body: {} });
 
+    // Mock notifications (NotificationContext fetches on mount)
+    cy.intercept('GET', '**/api/notifications*', {
+      statusCode: 200,
+      body: { notifications: [], unreadCount: 0 }
+    }).as('getNotifications');
+
+    cy.intercept('GET', '**/api/admin/pending-approvals', {
+      statusCode: 200,
+      body: []
+    }).as('getPendingApprovals');
+
     cy.intercept('GET', '**/api/jobs/*', {
       statusCode: 200,
       body: mockJob
@@ -621,6 +643,19 @@ describe('Billing Integration', () => {
       email: testUser.email,
       role: testUser.role
     });
+
+    cy.intercept('GET', '**/api/**', { statusCode: 200, body: {} });
+    cy.intercept('POST', '**/api/**', { statusCode: 200, body: {} });
+
+    cy.intercept('GET', '**/api/notifications*', {
+      statusCode: 200,
+      body: { notifications: [], unreadCount: 0 }
+    }).as('getNotifications');
+
+    cy.intercept('GET', '**/api/admin/pending-approvals', {
+      statusCode: 200,
+      body: []
+    }).as('getPendingApprovals');
 
     cy.intercept('GET', '**/api/jobs/*', {
       statusCode: 200,
