@@ -15,8 +15,9 @@ import { useMemo } from 'react';
  */
 export const getThemeColors = (mode) => ({
   cardBg: mode === 'dark' ? '#1e1e2e' : '#ffffff',
-  textPrimary: mode === 'dark' ? '#e2e8f0' : '#1e293b',
-  textSecondary: mode === 'dark' ? '#94a3b8' : '#64748b',
+  textPrimary: mode === 'dark' ? '#e8edf3' : '#1e293b',
+  // #b3bcc8 on #1e1e2e = 8.2:1 contrast (WCAG AAA). Old #94a3b8 was 5.6:1.
+  textSecondary: mode === 'dark' ? '#b3bcc8' : '#64748b',
   borderColor: mode === 'dark' ? '#334155' : '#e2e8f0',
   chartGridColor: mode === 'dark' ? '#334155' : '#e5e7eb',
   pageBg: mode === 'dark' ? '#0f0f1a' : '#f8fafc',
@@ -53,8 +54,9 @@ export const getAppColors = (mode) => ({
   info: '#448aff',
   
   // Text colors
-  text: mode === 'dark' ? '#ffffff' : '#1e293b',
-  textSecondary: mode === 'dark' ? '#9e9e9e' : '#64748b',
+  text: mode === 'dark' ? '#f1f5f9' : '#1e293b',
+  // #b3bcc8 on #1e1e2e = 8.2:1 (WCAG AAA). Old #9e9e9e was 6.1:1.
+  textSecondary: mode === 'dark' ? '#b3bcc8' : '#64748b',
   
   // Borders and dividers
   border: mode === 'dark' ? '#333344' : '#e2e8f0',
@@ -110,7 +112,7 @@ export const ROLE_COLORS = {
   pm: '#8b5cf6',
   gf: '#f59e0b',
   foreman: '#22c55e',
-  crew: '#64748b',
+  crew: '#94a3b8', // Bumped from #64748b (3.3:1) → #94a3b8 (5.6:1 on dark)
 };
 
 /**
@@ -142,7 +144,7 @@ export const STATUS_COLORS = {
   billed: '#8b5cf6',
   invoiced: '#22c55e',
   stuck: '#ef4444',
-  pending: '#64748b',
+  pending: '#94a3b8', // Bumped from #64748b (3.3:1) → #94a3b8 (5.6:1 on dark)
   // Audit statuses
   pending_qa: '#f59e0b',
   accepted: '#ef4444',

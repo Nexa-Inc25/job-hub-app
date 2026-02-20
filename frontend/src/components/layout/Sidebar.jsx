@@ -237,7 +237,7 @@ const Sidebar = ({
           <>
             <div className="my-4 border-t border-sidebar-border" />
             {!collapsed && (
-              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/50">
+              <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/70">
                 Admin
               </p>
             )}
