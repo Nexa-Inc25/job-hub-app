@@ -70,6 +70,7 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import DirectionsIcon from '@mui/icons-material/Directions';
 // Note: InstructionsIcon was duplicate of AssignmentIcon - use AssignmentIcon directly
 import { openDirections } from '../utils/navigation';
+import { useTheme } from '@mui/material/styles';
 
 // Helper to determine status color (avoids nested ternary) - uses high-contrast colors
 const getTimelineStatusColor = (status, defaultColor) => {
@@ -160,6 +161,8 @@ WorkflowProgressTimeline.propTypes = {
 const WorkOrderDetails = () => {
   const { id: jobId } = useParams();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -444,17 +447,28 @@ const WorkOrderDetails = () => {
     }
   };
 
-  // Get high-contrast chip styles for dependency status (accessibility fix)
+  // Get high-contrast chip styles for dependency status (dark/light mode aware)
   const getDependencyChipSx = (status) => {
     const base = { height: 20, fontSize: '0.65rem', fontWeight: 600 };
     if (status === 'required') {
-      return { ...base, bgcolor: '#fef3c7', color: '#92400e', border: '1px solid #b45309' };
+      return isDark
+        ? { ...base, bgcolor: 'rgba(180, 83, 9, 0.25)', color: '#fbbf24', border: '1px solid #b45309' }
+        : { ...base, bgcolor: '#fef3c7', color: '#92400e', border: '1px solid #b45309' };
     }
     if (status === 'scheduled') {
-      return { ...base, bgcolor: '#e0f2fe', color: '#0369a1', border: '1px solid #0369a1' };
+      return isDark
+        ? { ...base, bgcolor: 'rgba(3, 105, 161, 0.25)', color: '#38bdf8', border: '1px solid #0284c7' }
+        : { ...base, bgcolor: '#e0f2fe', color: '#0369a1', border: '1px solid #0369a1' };
     }
     if (status === 'check') {
-      return { ...base, bgcolor: '#f3f4f6', color: '#1f2937', border: '1px solid #374151' };
+      return isDark
+        ? { ...base, bgcolor: 'rgba(148, 163, 184, 0.15)', color: '#cbd5e1', border: '1px solid #475569' }
+        : { ...base, bgcolor: '#f3f4f6', color: '#1f2937', border: '1px solid #374151' };
+    }
+    if (status === 'not_required') {
+      return isDark
+        ? { ...base, bgcolor: 'rgba(34, 197, 94, 0.2)', color: '#4ade80', border: '1px solid #16a34a' }
+        : { ...base, bgcolor: '#dcfce7', color: '#166534', border: '1px solid #22c55e' };
     }
     return base;
   };
