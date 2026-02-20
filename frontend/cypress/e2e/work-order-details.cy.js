@@ -152,7 +152,7 @@ describe('Work Order Details', () => {
     it('should have files link', () => {
       visitJobDetails();
       
-      cy.contains(/files|document/i).should('exist');
+      cy.contains(/file|document/i).should('exist');
     });
   });
 
@@ -197,8 +197,9 @@ describe('Work Order Details', () => {
       // Find and fill note input
       cy.get('textarea, input[type="text"]').first().type('New test note');
       
-      // Submit note
-      cy.get('button').contains(/send|add|submit/i).click();
+      // Submit note — the add-note button is an IconButton with only a SendIcon (no text),
+      // so select it by its aria-label instead of visible text content.
+      cy.get('button[aria-label="Add note"]').click();
       
       cy.wait('@addNote');
     });
