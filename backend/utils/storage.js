@@ -9,7 +9,31 @@ const path = require('node:path');
 const { r2Breaker } = require('./circuitBreaker');
 const log = require('./logger');
 
-const BUCKET_NAME = process.env.R2_BUCKET_NAME || 'fieldledger-uploads';
+const DEFAULT_BUCKET = process.env.R2_BUCKET_NAME || 'fieldledger-uploads';
+
+// Per-utility bucket mapping for data segregation
+// Each utility's data is stored in a dedicated R2 bucket to satisfy
+// PG&E Exhibit DATA-1, Xcel Supplier Code of Conduct, and DTE Protection of Company Data Schedule.
+const UTILITY_BUCKETS = {
+  PGE: process.env.R2_BUCKET_PGE || 'fieldledger-pge',
+  Xcel: process.env.R2_BUCKET_XCEL || 'fieldledger-xcel',
+  DTE: process.env.R2_BUCKET_DTE || 'fieldledger-dte',
+};
+
+/**
+ * Get the R2 bucket name for a utility affiliation.
+ * @param {string|null} utilityAffiliation - 'PGE', 'Xcel', 'DTE', or null
+ * @returns {string} Bucket name
+ */
+function getBucketForUtility(utilityAffiliation) {
+  if (utilityAffiliation && UTILITY_BUCKETS[utilityAffiliation]) {
+    return UTILITY_BUCKETS[utilityAffiliation];
+  }
+  return DEFAULT_BUCKET;
+}
+
+// Backwards-compatible alias
+const BUCKET_NAME = DEFAULT_BUCKET;
 
 // Check if R2 is configured - define this first
 function isR2Configured() {
@@ -56,72 +80,76 @@ if (isR2Configured()) {
 }
 
 // Upload a file to R2 (protected by circuit breaker)
-async function uploadFile(localFilePath, r2Key, contentType = 'application/octet-stream') {
+// bucket param allows per-utility data segregation
+async function uploadFile(localFilePath, r2Key, contentType = 'application/octet-stream', bucket = null) {
   if (!isR2Configured()) {
     log.info('R2 not configured, using local storage');
     return { url: localFilePath, key: r2Key, local: true };
   }
 
+  const targetBucket = bucket || DEFAULT_BUCKET;
   return r2Breaker.execute(async () => {
     const fileBuffer = fs.readFileSync(localFilePath);
     
     const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: targetBucket,
       Key: r2Key,
       Body: fileBuffer,
       ContentType: contentType,
     });
 
     await s3Client.send(command);
-    log.info({ r2Key }, 'Uploaded to R2');
+    log.info({ r2Key, bucket: targetBucket }, 'Uploaded to R2');
     
     // Zero Public URL: return only the key. Frontend resolves via signed URLs.
-    return { key: r2Key, local: false };
+    return { key: r2Key, bucket: targetBucket, local: false };
   });
 }
 
 // Upload a buffer directly to R2 (protected by circuit breaker)
-async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stream') {
+async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stream', bucket = null) {
   if (!isR2Configured()) {
     log.info('R2 not configured, cannot upload buffer');
     return null;
   }
 
+  const targetBucket = bucket || DEFAULT_BUCKET;
   return r2Breaker.execute(async () => {
     const command = new PutObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: targetBucket,
       Key: r2Key,
       Body: buffer,
       ContentType: contentType,
     });
 
     await s3Client.send(command);
-    log.info({ r2Key }, 'Uploaded buffer to R2');
+    log.info({ r2Key, bucket: targetBucket }, 'Uploaded buffer to R2');
     
-    return { key: r2Key };
+    return { key: r2Key, bucket: targetBucket };
   });
 }
 
 // Get a signed URL for private file access
-async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
+async function getSignedDownloadUrl(r2Key, expiresIn = 3600, bucket = null) {
   if (!isR2Configured()) {
     log.warn({ r2Key }, 'getSignedDownloadUrl called but R2 not configured');
     return null;
   }
 
+  const targetBucket = bucket || DEFAULT_BUCKET;
   try {
     const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: targetBucket,
       Key: r2Key,
     });
 
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
 
-    // Debug: log the signed URL structure (redact signature for security)
     const urlObj = new URL(signedUrl);
     log.info({
       r2Key,
       expiresIn,
+      bucket: targetBucket,
       host: urlObj.host,
       pathname: urlObj.pathname,
       hasSignature: urlObj.searchParams.has('X-Amz-Signature'),
@@ -129,32 +157,31 @@ async function getSignedDownloadUrl(r2Key, expiresIn = 3600) {
       expires: urlObj.searchParams.get('X-Amz-Expires'),
     }, 'R2 signed URL generated');
 
-    // Sanity check: URL must use path-style (bucket in path, not subdomain)
-    // If the bucket name appears as a subdomain, forcePathStyle is not working
-    if (urlObj.host.startsWith(`${BUCKET_NAME}.`)) {
+    if (urlObj.host.startsWith(`${targetBucket}.`)) {
       log.error({
         r2Key,
         host: urlObj.host,
-        bucket: BUCKET_NAME,
+        bucket: targetBucket,
       }, 'CRITICAL: Signed URL uses virtual-hosted style — forcePathStyle not active. R2 will return 503.');
     }
 
     return signedUrl;
   } catch (error) {
-    log.error({ err: error, r2Key, bucket: BUCKET_NAME }, 'R2 signed URL generation failed');
+    log.error({ err: error, r2Key, bucket: targetBucket }, 'R2 signed URL generation failed');
     throw error;
   }
 }
 
 // Get file stream directly from R2 (for proxying through backend, protected by circuit breaker)
-async function getFileStream(r2Key) {
+async function getFileStream(r2Key, bucket = null) {
   if (!isR2Configured()) {
     return null;
   }
 
+  const targetBucket = bucket || DEFAULT_BUCKET;
   return r2Breaker.execute(async () => {
     const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: targetBucket,
       Key: r2Key,
     });
 
@@ -178,19 +205,20 @@ async function getFileStream(r2Key) {
 }
 
 // Delete a file from R2
-async function deleteFile(r2Key) {
+async function deleteFile(r2Key, bucket = null) {
   if (!isR2Configured()) {
     return false;
   }
 
+  const targetBucket = bucket || DEFAULT_BUCKET;
   try {
     const command = new DeleteObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: targetBucket,
       Key: r2Key,
     });
 
     await s3Client.send(command);
-    log.info({ r2Key }, 'Deleted from R2');
+    log.info({ r2Key, bucket: targetBucket }, 'Deleted from R2');
     return true;
   } catch (error) {
     log.error({ err: error }, 'R2 delete error');
@@ -199,14 +227,15 @@ async function deleteFile(r2Key) {
 }
 
 // List files in a prefix (folder)
-async function listFiles(prefix) {
+async function listFiles(prefix, bucket = null) {
   if (!isR2Configured()) {
     return [];
   }
 
+  const targetBucket = bucket || DEFAULT_BUCKET;
   try {
     const command = new ListObjectsV2Command({
-      Bucket: BUCKET_NAME,
+      Bucket: targetBucket,
       Prefix: prefix,
     });
 
@@ -236,11 +265,11 @@ function sanitizeFileName(fileName) {
 }
 
 // Upload job file (PDF, photo, drawing, etc.)
-async function uploadJobFile(localFilePath, jobId, folderPath, fileName) {
+// utilityAffiliation routes to the correct per-utility bucket
+async function uploadJobFile(localFilePath, jobId, folderPath, fileName, utilityAffiliation = null) {
   const sanitizedFileName = sanitizeFileName(fileName);
   const r2Key = `jobs/${jobId}/${folderPath}/${sanitizedFileName}`;
   
-  // Determine content type
   const ext = path.extname(fileName).toLowerCase();
   const contentTypes = {
     '.pdf': 'application/pdf',
@@ -250,34 +279,35 @@ async function uploadJobFile(localFilePath, jobId, folderPath, fileName) {
     '.gif': 'image/gif',
   };
   const contentType = contentTypes[ext] || 'application/octet-stream';
+  const bucket = getBucketForUtility(utilityAffiliation);
   
-  return uploadFile(localFilePath, r2Key, contentType);
+  return uploadFile(localFilePath, r2Key, contentType, bucket);
 }
 
 // Upload extracted image (photo, drawing, map)
-async function uploadExtractedImage(buffer, jobId, category, fileName) {
+async function uploadExtractedImage(buffer, jobId, category, fileName, utilityAffiliation = null) {
   const sanitizedFileName = sanitizeFileName(fileName);
   const r2Key = `jobs/${jobId}/extracted/${category}/${sanitizedFileName}`;
-  return uploadBuffer(buffer, r2Key, 'image/jpeg');
+  const bucket = getBucketForUtility(utilityAffiliation);
+  return uploadBuffer(buffer, r2Key, 'image/jpeg', bucket);
 }
 
 // Copy a file from one R2 key to another (for renaming)
-async function copyFile(sourceKey, destKey) {
+async function copyFile(sourceKey, destKey, bucket = null) {
   if (!isR2Configured()) {
     throw new Error('R2 storage not configured');
   }
   
-  // Get the source file
+  const targetBucket = bucket || DEFAULT_BUCKET;
   const getCommand = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
+    Bucket: targetBucket,
     Key: sourceKey
   });
   
   const sourceObject = await s3Client.send(getCommand);
   
-  // Upload to new key
   const putCommand = new PutObjectCommand({
-    Bucket: BUCKET_NAME,
+    Bucket: targetBucket,
     Key: destKey,
     Body: sourceObject.Body,
     ContentType: sourceObject.ContentType
@@ -285,7 +315,7 @@ async function copyFile(sourceKey, destKey) {
   
   await s3Client.send(putCommand);
   
-  log.info({ sourceKey, destKey }, 'Copied R2 file');
+  log.info({ sourceKey, destKey, bucket: targetBucket }, 'Copied R2 file');
   return { sourceKey, destKey };
 }
 
@@ -325,6 +355,9 @@ module.exports = {
   uploadJobFile,
   uploadExtractedImage,
   getPublicUrl,
+  getBucketForUtility,
   pingStorage,
   BUCKET_NAME,
+  DEFAULT_BUCKET,
+  UTILITY_BUCKETS,
 };

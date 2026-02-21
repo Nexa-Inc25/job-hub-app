@@ -138,6 +138,14 @@ const companySchema = new mongoose.Schema({
   utilities: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Utility' }],
   defaultUtility: { type: mongoose.Schema.Types.ObjectId, ref: 'Utility' },
   
+  // Utility affiliation for R2 bucket routing (data segregation)
+  // Determines which dedicated R2 bucket stores this company's files
+  utilityAffiliation: {
+    type: String,
+    enum: ['PGE', 'Xcel', 'DTE', null],
+    default: null,
+  },
+  
   // License/contractor info
   contractorLicense: String,
   insuranceExpiry: Date,
