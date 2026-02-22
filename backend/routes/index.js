@@ -15,6 +15,7 @@ const path = require('path');
 const mongoose = require('mongoose');
 const User = require('../models/User');
 const Job = require('../models/Job');
+const Company = require('../models/Company');
 const r2Storage = require('../utils/storage');
 const { authenticateUser } = require('../middleware/auth');
 const log = require('../utils/logger');
@@ -174,7 +175,8 @@ async function verifyFileOwnership(fileKey, req) {
         return { authorized: false, reason: 'File belongs to a different company' };
       }
 
-      return { authorized: true };
+      const company = await Company.findById(job.companyId).select('utilityAffiliation').lean();
+      return { authorized: true, utilityAffiliation: company?.utilityAffiliation || null };
     }
 
     case 'templates': {
@@ -393,9 +395,10 @@ function registerInlineRoutes(app, uploadsDir) {
         return res.status(403).json({ error: 'Access denied', code: 'FILE_ACCESS_DENIED' });
       }
 
-      // Stream from R2
+      // Stream from R2 — resolve the correct per-utility bucket
       if (r2Storage.isR2Configured()) {
-        const fileData = await r2Storage.getFileStream(safeKey);
+        const bucket = r2Storage.getBucketForUtility(authzResult.utilityAffiliation);
+        const fileData = await r2Storage.getFileStream(safeKey, bucket);
         if (!fileData) {
           return res.status(404).json({ error: 'File not found in storage' });
         }
@@ -406,7 +409,7 @@ function registerInlineRoutes(app, uploadsDir) {
         }
         res.setHeader('X-Content-Type-Options', 'nosniff');
         res.setHeader('Cache-Control', 'private, max-age=300'); // 5 min browser cache
-        log.info({ requestId: req.requestId, fileKey: safeKey, contentType: fileData.contentType }, 'Proxying R2 file');
+        log.info({ requestId: req.requestId, fileKey: safeKey, bucket, contentType: fileData.contentType }, 'Proxying R2 file');
         return fileData.stream.pipe(res);
       }
 
