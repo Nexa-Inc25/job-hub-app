@@ -129,6 +129,30 @@ async function uploadBuffer(buffer, r2Key, contentType = 'application/octet-stre
   });
 }
 
+// Resolve the correct R2 bucket for a given key.
+// For job-scoped keys (jobs/{jobId}/...), looks up the company's utilityAffiliation.
+async function resolveBucket(r2Key, explicitBucket) {
+  if (explicitBucket) return explicitBucket;
+  if (!r2Key.startsWith('jobs/')) return DEFAULT_BUCKET;
+
+  const jobId = r2Key.split('/')[1];
+  if (!jobId) return DEFAULT_BUCKET;
+  try {
+    const mongoose = require('mongoose');
+    if (!mongoose.Types.ObjectId.isValid(jobId)) return DEFAULT_BUCKET;
+    const Job = require('../models/Job');
+    const Company = require('../models/Company');
+    const job = await Job.findById(jobId).select('companyId').lean();
+    if (job?.companyId) {
+      const company = await Company.findById(job.companyId).select('utilityAffiliation').lean();
+      return getBucketForUtility(company?.utilityAffiliation);
+    }
+  } catch (err) {
+    log.warn({ r2Key, err: err.message }, 'Failed to auto-resolve bucket from job, using default');
+  }
+  return DEFAULT_BUCKET;
+}
+
 // Get a signed URL for private file access
 async function getSignedDownloadUrl(r2Key, expiresIn = 3600, bucket = null) {
   if (!isR2Configured()) {
@@ -136,7 +160,7 @@ async function getSignedDownloadUrl(r2Key, expiresIn = 3600, bucket = null) {
     return null;
   }
 
-  const targetBucket = bucket || DEFAULT_BUCKET;
+  const targetBucket = await resolveBucket(r2Key, bucket);
   try {
     const command = new GetObjectCommand({
       Bucket: targetBucket,
@@ -178,7 +202,7 @@ async function getFileStream(r2Key, bucket = null) {
     return null;
   }
 
-  const targetBucket = bucket || DEFAULT_BUCKET;
+  const targetBucket = await resolveBucket(r2Key, bucket);
   return r2Breaker.execute(async () => {
     const command = new GetObjectCommand({
       Bucket: targetBucket,
@@ -210,7 +234,7 @@ async function deleteFile(r2Key, bucket = null) {
     return false;
   }
 
-  const targetBucket = bucket || DEFAULT_BUCKET;
+  const targetBucket = await resolveBucket(r2Key, bucket);
   try {
     const command = new DeleteObjectCommand({
       Bucket: targetBucket,
