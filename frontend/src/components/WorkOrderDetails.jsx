@@ -8,7 +8,6 @@ import PropTypes from 'prop-types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
 import { exportFolderToEmail } from './shared';
-import useSignedUrl from '../hooks/useSignedUrl';
 import {
   Container,
   Typography,
@@ -73,17 +72,53 @@ import DirectionsIcon from '@mui/icons-material/Directions';
 import { openDirections } from '../utils/navigation';
 import { useTheme } from '@mui/material/styles';
 
-// Renders a photo thumbnail with authenticated signed URL
+// Renders a photo thumbnail fetched with JWT auth (blob URL pattern).
+// Direct <img src> to the proxy URL won't work because the browser
+// doesn't send the Authorization header on <img> requests.
 function SignedPhoto({ photo, alt, width = 100, height = 80, onClick }) {
   const r2Key = photo?.r2Key || photo?.url || '';
-  const { url } = useSignedUrl(r2Key);
+  const [blobUrl, setBlobUrl] = React.useState(null);
+
+  React.useEffect(() => {
+    if (!r2Key) return;
+    let revoked = false;
+    (async () => {
+      try {
+        const proxyUrl = await api.getSignedFileUrl(r2Key);
+        const resp = await fetch(proxyUrl, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!resp.ok || revoked) return;
+        const blob = await resp.blob();
+        if (revoked) return;
+        setBlobUrl(URL.createObjectURL(blob));
+      } catch { /* broken image is better than crash */ }
+    })();
+    return () => { revoked = true; if (blobUrl) URL.revokeObjectURL(blobUrl); };
+  }, [r2Key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleClick = async () => {
+    if (!onClick && r2Key) {
+      try {
+        const url = await api.getSignedFileUrl(r2Key);
+        const resp = await fetch(url, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        const blob = await resp.blob();
+        globalThis.open(URL.createObjectURL(blob), '_blank');
+      } catch { /* ignore */ }
+    } else if (onClick) {
+      onClick();
+    }
+  };
+
   return (
     <img
-      src={url || ''}
+      src={blobUrl || ''}
       alt={alt}
       loading="lazy"
-      onClick={onClick}
-      style={{ width, height, objectFit: 'cover', display: 'block', cursor: onClick ? 'pointer' : 'default' }}
+      onClick={handleClick}
+      style={{ width, height, objectFit: 'cover', display: 'block', cursor: 'pointer' }}
     />
   );
 }
