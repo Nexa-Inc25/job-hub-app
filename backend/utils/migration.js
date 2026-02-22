@@ -82,7 +82,7 @@ async function ensureDefaultCompany(Company, User, pgeUtility) {
       defaultUtility: pgeUtility._id,
       ownerId: adminUser?._id,
       subscription: {
-        plan: 'pro',
+        plan: 'professional',
         seats: 100,
         status: 'active'
       },
