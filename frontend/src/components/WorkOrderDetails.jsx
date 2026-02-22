@@ -1413,8 +1413,14 @@ const WorkOrderDetails = () => {
                                 const key = doc.r2Key || doc.url;
                                 if (key) {
                                   try {
-                                    const url = await api.getSignedFileUrl(key);
-                                    globalThis.open(url, '_blank');
+                                    const proxyUrl = await api.getSignedFileUrl(key);
+                                    const resp = await fetch(proxyUrl, {
+                                      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                                    });
+                                    if (resp.ok) {
+                                      const blob = await resp.blob();
+                                      globalThis.open(URL.createObjectURL(blob), '_blank');
+                                    }
                                   } catch { /* ignore */ }
                                 }
                               }}
@@ -1438,8 +1444,14 @@ const WorkOrderDetails = () => {
                                   const key = doc.r2Key || doc.url;
                                   if (key) {
                                     try {
-                                      const url = await api.getSignedFileUrl(key);
-                                      globalThis.open(url, '_blank');
+                                      const proxyUrl = await api.getSignedFileUrl(key);
+                                      const resp = await fetch(proxyUrl, {
+                                        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+                                      });
+                                      if (resp.ok) {
+                                        const blob = await resp.blob();
+                                        globalThis.open(URL.createObjectURL(blob), '_blank');
+                                      }
                                     } catch { /* ignore */ }
                                   }
                                 }}
