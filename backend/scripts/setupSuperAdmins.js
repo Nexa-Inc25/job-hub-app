@@ -7,7 +7,7 @@
  * 
  * Run: node scripts/setupSuperAdmins.js
  * 
- * This creates/updates the three FieldLedger owner accounts with Super Admin privileges.
+ * This creates/updates the two FieldLedger owner accounts with Super Admin privileges.
  */
 
 require('dotenv').config();
@@ -32,15 +32,7 @@ const SUPER_ADMINS = [
     role: 'admin',
     title: 'Founder'
   },
-  {
-    name: 'David Zeh',
-    email: 'davidz@alvah.com',
-    password: 'JobHub2024!David',
-    role: 'admin', 
-    title: 'COO'
-  }
 ];
-
 async function setupSuperAdmins() {
   try {
     console.log('Connecting to MongoDB...');
