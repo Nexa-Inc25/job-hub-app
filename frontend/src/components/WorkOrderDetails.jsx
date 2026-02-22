@@ -7,7 +7,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import api from '../api';
-import { getPhotoUrl, getDocumentUrl, exportFolderToEmail } from './shared';
+import { exportFolderToEmail } from './shared';
+import useSignedUrl from '../hooks/useSignedUrl';
 import {
   Container,
   Typography,
@@ -71,6 +72,21 @@ import DirectionsIcon from '@mui/icons-material/Directions';
 // Note: InstructionsIcon was duplicate of AssignmentIcon - use AssignmentIcon directly
 import { openDirections } from '../utils/navigation';
 import { useTheme } from '@mui/material/styles';
+
+// Renders a photo thumbnail with authenticated signed URL
+function SignedPhoto({ photo, alt, width = 100, height = 80, onClick }) {
+  const r2Key = photo?.r2Key || photo?.url || '';
+  const { url } = useSignedUrl(r2Key);
+  return (
+    <img
+      src={url || ''}
+      alt={alt}
+      loading="lazy"
+      onClick={onClick}
+      style={{ width, height, objectFit: 'cover', display: 'block', cursor: onClick ? 'pointer' : 'default' }}
+    />
+  );
+}
 
 // Helper to determine status color (avoids nested ternary) - uses high-contrast colors
 const getTimelineStatusColor = (status, defaultColor) => {
@@ -778,18 +794,12 @@ const WorkOrderDetails = () => {
                               transform: 'scale(1.03)'
                             }
                           }}
-                          onClick={() => globalThis.open(getDocumentUrl(sketch), '_blank')}
                         >
-                          <img
-                            src={getDocumentUrl(sketch)}
+                          <SignedPhoto
+                            photo={sketch}
                             alt={sketch.name || `Construction Sketch ${idx + 1}`}
-                            loading="lazy"
-                            style={{ 
-                              width: 260, 
-                              height: 200, 
-                              objectFit: 'contain',
-                              backgroundColor: '#f5f5f5'
-                            }}
+                            width={260}
+                            height={200}
                           />
                           <Box sx={{ 
                             position: 'absolute',
@@ -1289,18 +1299,10 @@ const WorkOrderDetails = () => {
                                 transform: 'scale(1.05)'
                               }
                             }}
-                            onClick={() => globalThis.open(getPhotoUrl(photo), '_blank')}
                           >
-                            <img
-                              src={getPhotoUrl(photo)}
+                            <SignedPhoto
+                              photo={photo}
                               alt={getPhotoDisplayName(photo, idx)}
-                              loading="lazy"
-                              style={{ 
-                                width: 100, 
-                                height: 80, 
-                                objectFit: 'cover',
-                                display: 'block'
-                              }}
                             />
                             <Box 
                               sx={{ 
@@ -1372,7 +1374,15 @@ const WorkOrderDetails = () => {
                                 cursor: 'pointer',
                                 '&:hover': { bgcolor: 'action.selected' }
                               }}
-                              onClick={() => globalThis.open(getDocumentUrl(doc), '_blank')}
+                              onClick={async () => {
+                                const key = doc.r2Key || doc.url;
+                                if (key) {
+                                  try {
+                                    const url = await api.getSignedFileUrl(key);
+                                    globalThis.open(url, '_blank');
+                                  } catch { /* ignore */ }
+                                }
+                              }}
                             >
                               <ListItemIcon sx={{ minWidth: 40 }}>
                                 <PdfIcon color="error" />
@@ -1388,9 +1398,15 @@ const WorkOrderDetails = () => {
                               <IconButton 
                                 size="small" 
                                 color="primary"
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   e.stopPropagation();
-                                  globalThis.open(getDocumentUrl(doc), '_blank');
+                                  const key = doc.r2Key || doc.url;
+                                  if (key) {
+                                    try {
+                                      const url = await api.getSignedFileUrl(key);
+                                      globalThis.open(url, '_blank');
+                                    } catch { /* ignore */ }
+                                  }
                                 }}
                                 aria-label={`Open ${doc.name || 'document'}`}
                               >
