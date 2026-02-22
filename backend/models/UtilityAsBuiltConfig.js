@@ -36,6 +36,8 @@ const pageRangeSchema = new mongoose.Schema({
   variableLength: { type: Boolean, default: false },
   // Keyword to detect section start if variableLength
   detectionKeyword: { type: String },
+  // Additional keywords to try if primary doesn't match (e.g., OH vs UG variants)
+  detectionKeywordsAlt: [{ type: String }],
 }, { _id: false });
 
 /** Work type definition — what documents are required for each type of work */

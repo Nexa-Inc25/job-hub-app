@@ -119,20 +119,24 @@ async function classifyPages(pdfBuffer, pageRanges) {
     let bestMatch = null;
 
     for (const range of pageRanges) {
-      if (!range.detectionKeyword) continue;
+      // Try primary keyword, then any alternates
+      const keywords = [range.detectionKeyword, ...(range.detectionKeywordsAlt || [])].filter(Boolean);
+      if (!keywords.length) continue;
 
-      const { matched, confidence } = matchKeyword(text, range.detectionKeyword);
-      if (!matched) continue;
+      for (const kw of keywords) {
+        const { matched, confidence } = matchKeyword(text, kw);
+        if (!matched) continue;
 
-      // Prefer higher confidence, or first match at equal confidence
-      if (!bestMatch || (confidence === 'high' && bestMatch.confidence !== 'high')) {
-        bestMatch = {
-          pageIndex: pageIdx,
-          sectionType: range.sectionType,
-          confidence,
-          detectedKeyword: range.detectionKeyword,
-          textSnippet: text.substring(0, 100),
-        };
+        if (!bestMatch || (confidence === 'high' && bestMatch.confidence !== 'high')) {
+          bestMatch = {
+            pageIndex: pageIdx,
+            sectionType: range.sectionType,
+            confidence,
+            detectedKeyword: kw,
+            textSnippet: text.substring(0, 100),
+          };
+        }
+        break; // first matching keyword for this range is enough
       }
     }
 

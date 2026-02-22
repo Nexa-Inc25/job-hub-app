@@ -1109,7 +1109,7 @@ router.post('/classify-pages', async (req, res) => {
 // ============================================================================
 
 const { classifyPages } = require('../services/asbuilt/PageClassifier');
-const { stampSection, stampFdaGrid, extractPages } = require('../services/asbuilt/PdfStamper');
+const { stampSection, stampFdaGrid, extractPages, generateCalibrationProof, generateFdaCalibrationProof } = require('../services/asbuilt/PdfStamper');
 const r2Storage = require('../utils/storage');
 
 /**
@@ -2008,6 +2008,219 @@ router.get('/wizard/view/:submissionId', async (req, res) => {
   } catch (err) {
     console.error('Error rendering as-built view:', err);
     res.status(500).send('Failed to load as-built summary');
+  }
+});
+
+// ============================================================================
+// CALIBRATION PROOF
+// ============================================================================
+
+/**
+ * GET /calibration-proof/:jobId
+ * Generate a calibration proof PDF for a job's package.
+ * Stamps colored rectangles + labels at every configured field position
+ * so a human can visually verify alignment.
+ *
+ * Query params:
+ *   section - optional sectionType filter (e.g. 'ec_tag', 'face_sheet')
+ *   fda     - if 'true', generate FDA grid proof instead of field proof
+ */
+router.get('/calibration-proof/:jobId', async (req, res) => {
+  try {
+    const jobId = sanitizeObjectId(req.params.jobId);
+    if (!jobId) return res.status(400).json({ error: 'Invalid jobId' });
+
+    const job = await Job.findById(jobId).lean();
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const utilityCode = job.utilityAffiliation || 'PGE';
+    const config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    if (!config) return res.status(404).json({ error: 'No config for utility: ' + utilityCode });
+
+    // Get the job package PDF from R2
+    const pdfKey = job.packagePdfKey;
+    if (!pdfKey) return res.status(404).json({ error: 'No package PDF uploaded for this job' });
+
+    const fileData = await r2Storage.getFileStream(pdfKey);
+    const chunks = [];
+    for await (const chunk of fileData.stream) { chunks.push(chunk); }
+    const fullPdfBuffer = Buffer.concat(chunks);
+
+    // Use classification to find section pages
+    let classification = job.packageClassification || [];
+    if (!classification.length) {
+      classification = await classifyPages(fullPdfBuffer, config.pageRanges);
+    }
+
+    const sectionFilter = req.query.section;
+    const fdaMode = req.query.fda === 'true';
+
+    if (fdaMode) {
+      // FDA grid proof — extract EC tag pages (pages 4-6 of EC tag)
+      const ecTagPages = classification
+        .filter(c => c.sectionType === 'ec_tag')
+        .map(c => c.pageIndex)
+        .sort((a, b) => a - b);
+
+      const fdaStartPage = config.fdaGrid?.pageOffset || 3;
+      const fdaPages = ecTagPages.slice(fdaStartPage);
+      if (fdaPages.length === 0) {
+        return res.status(404).json({ error: 'No FDA pages found in classification' });
+      }
+
+      let fdaPdf = await extractPages(fullPdfBuffer, fdaPages);
+      fdaPdf = await generateFdaCalibrationProof(fdaPdf, config.fdaGrid);
+
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', 'inline; filename="calibration_proof_fda.pdf"');
+      return res.send(fdaPdf);
+    }
+
+    // Field proof — one or all sections
+    const sectionsToProof = sectionFilter
+      ? config.documentCompletions.filter(dc => dc.sectionType === sectionFilter)
+      : config.documentCompletions;
+
+    if (!sectionsToProof.length) {
+      return res.status(404).json({ error: 'No document completions configured' + (sectionFilter ? ` for section: ${sectionFilter}` : '') });
+    }
+
+    // If a specific section is requested, extract just those pages
+    if (sectionFilter) {
+      const sectionPages = classification
+        .filter(c => c.sectionType === sectionFilter)
+        .map(c => c.pageIndex)
+        .sort((a, b) => a - b);
+
+      if (sectionPages.length === 0) {
+        return res.status(404).json({ error: `No pages classified as "${sectionFilter}"` });
+      }
+
+      let sectionPdf = await extractPages(fullPdfBuffer, sectionPages);
+      sectionPdf = await generateCalibrationProof(sectionPdf, sectionsToProof[0].fields, sectionsToProof[0].label);
+
+      res.set('Content-Type', 'application/pdf');
+      res.set('Content-Disposition', `inline; filename="calibration_proof_${sectionFilter}.pdf"`);
+      return res.send(sectionPdf);
+    }
+
+    // All sections: build a combined proof PDF
+    const { PDFDocument: ProofPDFDocument } = require('pdf-lib');
+    const combinedDoc = await ProofPDFDocument.create();
+
+    for (const dc of sectionsToProof) {
+      const sectionPages = classification
+        .filter(c => c.sectionType === dc.sectionType)
+        .map(c => c.pageIndex)
+        .sort((a, b) => a - b);
+
+      if (sectionPages.length === 0) continue;
+
+      let sectionPdf = await extractPages(fullPdfBuffer, sectionPages);
+      sectionPdf = await generateCalibrationProof(sectionPdf, dc.fields, dc.label);
+
+      const proofDoc = await ProofPDFDocument.load(sectionPdf, { ignoreEncryption: true });
+      const copiedPages = await combinedDoc.copyPages(proofDoc, proofDoc.getPageIndices());
+      for (const page of copiedPages) { combinedDoc.addPage(page); }
+    }
+
+    // Also add FDA grid proof if it exists
+    if (config.fdaGrid?.rows?.length) {
+      const ecTagPages = classification
+        .filter(c => c.sectionType === 'ec_tag')
+        .map(c => c.pageIndex)
+        .sort((a, b) => a - b);
+
+      const fdaStartPage = config.fdaGrid.pageOffset || 3;
+      const fdaPages = ecTagPages.slice(fdaStartPage);
+
+      if (fdaPages.length > 0) {
+        let fdaPdf = await extractPages(fullPdfBuffer, fdaPages);
+        fdaPdf = await generateFdaCalibrationProof(fdaPdf, config.fdaGrid);
+
+        const fdaDoc = await ProofPDFDocument.load(fdaPdf, { ignoreEncryption: true });
+        const copiedPages = await combinedDoc.copyPages(fdaDoc, fdaDoc.getPageIndices());
+        for (const page of copiedPages) { combinedDoc.addPage(page); }
+      }
+    }
+
+    const combinedPdf = Buffer.from(await combinedDoc.save());
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', 'inline; filename="calibration_proof_all.pdf"');
+    return res.send(combinedPdf);
+  } catch (err) {
+    console.error('Error generating calibration proof:', err);
+    res.status(500).json({ error: 'Failed to generate calibration proof', details: err.message });
+  }
+});
+
+/**
+ * GET /calibration-proof/:jobId/summary
+ * Returns a JSON summary of all field positions and page classification
+ * without generating a PDF — useful for debugging.
+ */
+router.get('/calibration-proof/:jobId/summary', async (req, res) => {
+  try {
+    const jobId = sanitizeObjectId(req.params.jobId);
+    if (!jobId) return res.status(400).json({ error: 'Invalid jobId' });
+
+    const job = await Job.findById(jobId).lean();
+    if (!job) return res.status(404).json({ error: 'Job not found' });
+
+    const utilityCode = job.utilityAffiliation || 'PGE';
+    const config = await UtilityAsBuiltConfig.findByUtilityCode(utilityCode);
+    if (!config) return res.status(404).json({ error: 'No config for utility' });
+
+    const pdfKey = job.packagePdfKey;
+    let classification = job.packageClassification || [];
+
+    if (pdfKey && !classification.length) {
+      const fileData = await r2Storage.getFileStream(pdfKey);
+      const chunks = [];
+      for await (const chunk of fileData.stream) { chunks.push(chunk); }
+      const pdfBuffer = Buffer.concat(chunks);
+      classification = await classifyPages(pdfBuffer, config.pageRanges);
+    }
+
+    const sections = (config.documentCompletions || []).map(dc => ({
+      sectionType: dc.sectionType,
+      label: dc.label,
+      fieldCount: dc.fields?.length || 0,
+      classifiedPages: classification
+        .filter(c => c.sectionType === dc.sectionType)
+        .map(c => ({ pageIndex: c.pageIndex, confidence: c.confidence })),
+      fields: dc.fields?.map(f => ({
+        fieldName: f.fieldName,
+        type: f.type,
+        position: f.position,
+        autoFillFrom: f.autoFillFrom,
+      })),
+    }));
+
+    const fdaSummary = config.fdaGrid ? {
+      rowCount: config.fdaGrid.rows?.length || 0,
+      columnCount: config.fdaGrid.columns?.length || 0,
+      emergencyCauseCount: config.fdaGrid.emergencyCauses?.length || 0,
+      pageOffset: config.fdaGrid.pageOffset,
+    } : null;
+
+    res.json({
+      jobId,
+      pmNumber: job.pmNumber,
+      utilityCode,
+      packagePdfKey: pdfKey || null,
+      classificationCount: classification.length,
+      classification: classification.map(c => ({
+        pageIndex: c.pageIndex,
+        sectionType: c.sectionType,
+        confidence: c.confidence,
+      })),
+      sections,
+      fdaGrid: fdaSummary,
+    });
+  } catch (err) {
+    console.error('Error generating calibration summary:', err);
+    res.status(500).json({ error: 'Failed to generate summary', details: err.message });
   }
 });
 

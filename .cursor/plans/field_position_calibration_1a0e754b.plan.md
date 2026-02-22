@@ -22,10 +22,11 @@ todos:
     status: pending
   - id: cal-detection
     content: Update page classifier detection keywords from real document text
-    status: pending
+    status: completed
   - id: cal-test
     content: Test stamp output against real PDFs to verify field alignment
-    status: pending
+    status: in_progress
+isProject: false
 ---
 
 # As-Built Field Position Calibration

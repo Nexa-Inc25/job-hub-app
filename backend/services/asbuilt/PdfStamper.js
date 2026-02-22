@@ -319,9 +319,191 @@ async function extractPages(pdfBuffer, pageIndexes) {
   return Buffer.from(await newDoc.save());
 }
 
+/**
+ * Generate a calibration proof PDF.
+ *
+ * Stamps every configured field position with a colored rectangle + label
+ * so a human can visually verify alignment against the real document.
+ *
+ * @param {Buffer} pdfBuffer - The section's extracted PDF pages
+ * @param {Array} fields - From documentCompletions[].fields
+ * @param {string} sectionLabel - For labeling (e.g. "EC Tag Completion")
+ * @returns {Promise<Buffer>} PDF with proof marks drawn
+ */
+async function generateCalibrationProof(pdfBuffer, fields, sectionLabel = '') {
+  if (!pdfBuffer || !fields?.length) return pdfBuffer;
+
+  const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+  const pages = pdfDoc.getPages();
+
+  const colors = [
+    rgb(1, 0, 0),       // red
+    rgb(0, 0, 1),       // blue
+    rgb(0, 0.6, 0),     // green
+    rgb(0.8, 0, 0.8),   // purple
+    rgb(1, 0.5, 0),     // orange
+    rgb(0, 0.7, 0.7),   // teal
+  ];
+
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i];
+    if (!field.position) continue;
+
+    const { pageOffset = 0, x, y, width = 200, height = 14, fontSize = 10 } = field.position;
+    if (pageOffset < 0 || pageOffset >= pages.length) continue;
+
+    const page = pages[pageOffset];
+    const color = colors[i % colors.length];
+    const h = field.type === 'signature' ? (height || 25) : Math.max(fontSize + 4, height || 14);
+    const w = width || 200;
+
+    // Draw translucent filled rectangle
+    page.drawRectangle({
+      x, y: y - 2, width: w, height: h,
+      color: rgb(color.red, color.green, color.blue),
+      opacity: 0.15,
+      borderColor: color,
+      borderWidth: 1.5,
+    });
+
+    // Label above the rectangle
+    const labelText = `[${i + 1}] ${field.fieldName}`;
+    const labelSize = 6;
+    page.drawText(labelText, {
+      x, y: y + h + 1,
+      size: labelSize, font: boldFont, color,
+    });
+
+    // Stamp test value inside
+    let testValue = '';
+    if (field.type === 'checkbox') testValue = '✓';
+    else if (field.type === 'signature') testValue = '[SIG]';
+    else if (field.type === 'date') testValue = '02/14/2026';
+    else if (field.type === 'number') testValue = '8.5';
+    else if (field.type === 'select') testValue = field.options?.[0] || 'SELECT';
+    else testValue = field.label || field.fieldName;
+
+    if (field.type !== 'checkbox') {
+      page.drawText(String(testValue), {
+        x: x + 2, y: y + 2,
+        size: Math.min(fontSize, 9), font, color,
+      });
+    }
+
+    // For select fields with optionPositions, mark each option
+    if (field.optionPositions) {
+      for (const [optLabel, optPos] of Object.entries(field.optionPositions)) {
+        page.drawRectangle({
+          x: optPos.x, y: optPos.y - 2, width: 10, height: 12,
+          borderColor: color, borderWidth: 1, opacity: 0,
+        });
+        page.drawText(optLabel.substring(0, 12), {
+          x: optPos.x, y: optPos.y + 11,
+          size: 5, font, color,
+        });
+      }
+    }
+  }
+
+  // Add legend on first page
+  if (pages.length > 0) {
+    const legendPage = pages[0];
+    const legendY = 20;
+    legendPage.drawRectangle({
+      x: 5, y: legendY - 5, width: 300, height: 16,
+      color: rgb(1, 1, 1), opacity: 0.85,
+    });
+    legendPage.drawText(
+      `CALIBRATION PROOF: ${sectionLabel} — ${fields.length} fields`,
+      { x: 8, y: legendY, size: 7, font: boldFont, color: rgb(0.8, 0, 0) }
+    );
+  }
+
+  return Buffer.from(await pdfDoc.save());
+}
+
+/**
+ * Generate an FDA grid calibration proof.
+ * Draws small marks at every row + column position in the grid.
+ *
+ * @param {Buffer} pdfBuffer - FDA section pages
+ * @param {Object} fdaGrid - From UtilityAsBuiltConfig.fdaGrid
+ * @returns {Promise<Buffer>} PDF with grid marks drawn
+ */
+async function generateFdaCalibrationProof(pdfBuffer, fdaGrid) {
+  if (!pdfBuffer || !fdaGrid) return pdfBuffer;
+
+  const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+  const pages = pdfDoc.getPages();
+  const checkSize = fdaGrid.checkboxSize || 8;
+
+  const actionColor = rgb(1, 0, 0);
+  const newColor = rgb(0, 0, 1);
+  const compColor = rgb(0, 0.6, 0);
+  const catColor = rgb(0.5, 0, 0.5);
+
+  for (const row of fdaGrid.rows || []) {
+    const pageIdx = row.page || 0;
+    if (pageIdx >= pages.length) continue;
+    const page = pages[pageIdx];
+
+    const colIdx = row.column || 0;
+    const col = fdaGrid.columns?.[colIdx];
+    if (!col) continue;
+
+    // Action position
+    page.drawRectangle({
+      x: col.actionX, y: row.y - 2, width: checkSize, height: checkSize,
+      borderColor: actionColor, borderWidth: 0.75, opacity: 0,
+    });
+
+    // New/Priority/Comp positions
+    if (col.newX) {
+      page.drawRectangle({
+        x: col.newX, y: row.y - 2, width: checkSize, height: checkSize,
+        borderColor: newColor, borderWidth: 0.5, opacity: 0,
+      });
+    }
+    if (col.compX) {
+      page.drawRectangle({
+        x: col.compX, y: row.y - 2, width: checkSize, height: checkSize,
+        borderColor: compColor, borderWidth: 0.5, opacity: 0,
+      });
+    }
+
+    // Category label (tiny, to the left)
+    const catLabel = `${row.category}/${row.condition}`.substring(0, 25);
+    page.drawText(catLabel, {
+      x: Math.max(2, col.actionX - 90), y: row.y,
+      size: 3.5, font, color: catColor,
+    });
+  }
+
+  // Emergency causes
+  if (fdaGrid.emergencyCauses?.length && pages.length > 0) {
+    const ePage = pages[0];
+    for (const cause of fdaGrid.emergencyCauses) {
+      ePage.drawRectangle({
+        x: cause.x, y: cause.y - 2, width: 8, height: 10,
+        borderColor: rgb(1, 0.5, 0), borderWidth: 0.75, opacity: 0,
+      });
+      ePage.drawText(cause.label, {
+        x: cause.x + 10, y: cause.y, size: 4, font, color: rgb(1, 0.5, 0),
+      });
+    }
+  }
+
+  return Buffer.from(await pdfDoc.save());
+}
+
 module.exports = {
   stampSection,
   stampFdaGrid,
   extractPages,
   resolveValue,
+  generateCalibrationProof,
+  generateFdaCalibrationProof,
 };
