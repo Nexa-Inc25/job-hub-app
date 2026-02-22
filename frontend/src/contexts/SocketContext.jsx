@@ -92,7 +92,23 @@ export function SocketProvider({ children }) {
       console.error('[Socket] Connection error:', error.message);
       setConnectionError(error.message);
       reconnectAttempts.current += 1;
-      
+
+      const msg = (error.message || '').toLowerCase();
+      const isAuthError = msg.includes('invalid token') ||
+        msg.includes('jwt expired') ||
+        msg.includes('authentication required') ||
+        msg.includes('unauthorized');
+
+      if (isAuthError) {
+        logSocket('[Socket] Auth error detected — stopping reconnection');
+        newSocket.disconnect();
+        setIsConnected(false);
+        globalThis.dispatchEvent(
+          new CustomEvent('auth-required', { detail: { source: 'socket_connect_error' } })
+        );
+        return;
+      }
+
       if (reconnectAttempts.current >= maxReconnectAttempts) {
         console.error('[Socket] Max reconnection attempts reached');
         Sentry.captureException(error, {

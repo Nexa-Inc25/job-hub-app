@@ -45,6 +45,7 @@ todos:
     status: pending
     dependencies:
       - pricebook-model
+isProject: false
 ---
 
 # Unit-Price Billing Module Implementation Plan
@@ -52,6 +53,7 @@ todos:
 ## Current State Analysis
 
 Your codebase has strong foundations to build upon:
+
 - **Job Model** ([backend/models/Job.js](backend/models/Job.js)) - Already has workflow states through `billed` and `invoiced`, plus document/photo storage
 - **Company Model** ([backend/models/Company.js](backend/models/Company.js)) - Multi-tenant structure with utility associations
 - **Utility Model** ([backend/models/Utility.js](backend/models/Utility.js)) - Has `sapIntegration` placeholder ready for Oracle
@@ -99,11 +101,14 @@ flowchart TB
     ClaimModel --> InvoiceGen
 ```
 
+
+
 ---
 
 ## Phase 1: Data Models and Price Book (Weeks 1-2)
 
 ### 1.1 PriceBook Model
+
 Create `backend/models/PriceBook.js` to store utility contract rates:
 
 ```javascript
@@ -131,6 +136,7 @@ Create `backend/models/PriceBook.js` to store utility contract rates:
 ```
 
 ### 1.2 UnitEntry Model (The "Digital Receipt")
+
 Create `backend/models/UnitEntry.js`:
 
 ```javascript
@@ -185,6 +191,7 @@ Create `backend/models/UnitEntry.js`:
 ```
 
 ### 1.3 Claim/Invoice Model
+
 Create `backend/models/Claim.js`:
 
 ```javascript
@@ -235,6 +242,7 @@ Create `backend/models/Claim.js`:
 ## Phase 2: GPS-Enhanced Photo Capture (Week 2-3)
 
 ### 2.1 Enhance OfflinePhotoCapture
+
 Modify [frontend/src/components/OfflinePhotoCapture.jsx](frontend/src/components/OfflinePhotoCapture.jsx) to capture GPS:
 
 ```javascript
@@ -250,7 +258,9 @@ deviceInfo: navigator.userAgent
 ```
 
 ### 2.2 Create UnitEntryCapture Component
+
 New component `frontend/src/components/UnitEntryCapture.jsx`:
+
 - Select unit type from price book dropdown
 - Enter quantity with unit display
 - Capture required photo(s) with GPS
@@ -262,7 +272,9 @@ New component `frontend/src/components/UnitEntryCapture.jsx`:
 ## Phase 3: Foreman Unit Entry UI (Weeks 3-4)
 
 ### 3.1 Unit Entry Form (Mobile-First)
+
 Create intuitive foreman interface:
+
 - Category filter (Civil, EC/TAG, Overhead, Underground)
 - Searchable unit picker from price book
 - Quantity input with automatic $ calculation
@@ -270,6 +282,7 @@ Create intuitive foreman interface:
 - Daily unit summary view
 
 ### 3.2 Unit Dashboard for GF/PM
+
 - View all units entered by crew
 - Approve/reject individual units
 - Flag units for re-photo
@@ -280,21 +293,27 @@ Create intuitive foreman interface:
 ## Phase 4: Invoice Generation (Weeks 4-5)
 
 ### 4.1 Claim Builder Service
+
 Backend service to aggregate units into claims:
+
 - Group units by job
 - Calculate totals with rate snapshots
 - Generate claim number sequence
 - Validate all units have photo/GPS
 
 ### 4.2 PDF Invoice Generator
+
 Extend [backend/utils/templateGenerator.js](backend/utils/templateGenerator.js):
+
 - Professional invoice PDF layout
 - Photo thumbnails for each line item
 - GPS coordinates per unit
 - QR code linking to digital verification
 
 ### 4.3 Oracle Payables Export
+
 Generate JSON matching Oracle REST API schema:
+
 ```javascript
 {
   "InvoiceNumber": "CLM-2026-00001",
@@ -317,12 +336,14 @@ Generate JSON matching Oracle REST API schema:
 ## Phase 5: Price Book Management (Week 5-6)
 
 ### 5.1 Admin Price Book Upload
+
 - CSV/Excel import wizard
 - Column mapping UI
 - Validation and preview
 - Version history
 
 ### 5.2 Rate Update Workflow
+
 - New version creates new records (preserves history)
 - Automatic notification to field when rates change
 - Locked rates on submitted units (audit trail)
@@ -331,13 +352,15 @@ Generate JSON matching Oracle REST API schema:
 
 ## Timeline Summary
 
-| Phase | Weeks | Deliverable | Pilot Milestone |
-|-------|-------|-------------|-----------------|
-| 1 | 1-2 | Data models + Price Book import | GC can upload their PG&E rates |
-| 2 | 2-3 | GPS-enhanced photo capture | "Digital Receipt" working |
-| 3 | 3-4 | Foreman unit entry UI | Field crews capturing units |
-| 4 | 4-5 | Invoice generation (PDF + Oracle JSON) | "One-Click Invoice" demo |
-| 5 | 5-6 | Price Book management | Full rate update workflow |
+
+| Phase | Weeks | Deliverable                            | Pilot Milestone                |
+| ----- | ----- | -------------------------------------- | ------------------------------ |
+| 1     | 1-2   | Data models + Price Book import        | GC can upload their PG&E rates |
+| 2     | 2-3   | GPS-enhanced photo capture             | "Digital Receipt" working      |
+| 3     | 3-4   | Foreman unit entry UI                  | Field crews capturing units    |
+| 4     | 4-5   | Invoice generation (PDF + Oracle JSON) | "One-Click Invoice" demo       |
+| 5     | 5-6   | Price Book management                  | Full rate update workflow      |
+
 
 **Total: 6 weeks to MVP with Oracle-compatible export**
 
@@ -364,21 +387,26 @@ Generate JSON matching Oracle REST API schema:
 ## Files to Create/Modify
 
 **New Backend Models:**
+
 - `backend/models/PriceBook.js`
 - `backend/models/UnitEntry.js`
 - `backend/models/Claim.js`
 
 **New Backend Routes:**
+
 - `backend/routes/billing.routes.js`
 - `backend/routes/pricebook.routes.js`
 
 **New Frontend Components:**
+
 - `frontend/src/components/UnitEntryCapture.jsx`
 - `frontend/src/components/UnitDashboard.jsx`
 - `frontend/src/components/PriceBookManager.jsx`
 - `frontend/src/components/ClaimBuilder.jsx`
 
 **Modified Files:**
+
 - `frontend/src/components/OfflinePhotoCapture.jsx` (add GPS)
 - `backend/utils/templateGenerator.js` (add invoice PDF)
 - `frontend/src/App.jsx` (add routes)
+

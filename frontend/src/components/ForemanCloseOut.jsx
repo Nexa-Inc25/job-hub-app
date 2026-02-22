@@ -243,7 +243,7 @@ const ForemanCloseOut = () => {
     photos: photos.length >= 3,
     tailboard: tailboard?.status === 'completed',
     units: units.length > 0,
-    documents: documents.some((d) => d.signedDate),
+    documents: documents.some((d) => d.signedDate || d.isCompleted || d.type === 'filled_pdf'),
   };
   const completionPercent = (Object.values(completionStatus).filter(Boolean).length / 4) * 100;
   const canSubmit = completionPercent >= 50;

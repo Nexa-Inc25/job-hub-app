@@ -127,5 +127,3 @@ Fields: Date, PM/Order #, Notification #, Location #, Division checkboxes, Tag T
 3. New document types added: `unit_price_completion`, `cwc` (Contractor Work Checklist)
 4. Add face sheet sign-off fields (Built as Designed/Redlined/Feedback checkboxes)
 5. Test stamp output against real PDFs to verify alignment
-
-## Important Notes

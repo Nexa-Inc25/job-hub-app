@@ -74,6 +74,8 @@ export function useSyncQueue(options = {}) {
   const abortControllerRef = useRef(null);
   const pollIntervalRef = useRef(null);
   const syncTimeoutRef = useRef(null);
+  const isSyncingRef = useRef(false);
+  const isLockedRef = useRef(false);
 
   /**
    * Refresh all counts from queue manager
@@ -101,7 +103,7 @@ export function useSyncQueue(options = {}) {
    * Trigger sync
    */
   const sync = useCallback(async () => {
-    if (isSyncing) {
+    if (isSyncingRef.current) {
       console.warn('[useSyncQueue] Sync already in progress');
       return { skipped: true };
     }
@@ -112,6 +114,7 @@ export function useSyncQueue(options = {}) {
     }
 
     setIsSyncing(true);
+    isSyncingRef.current = true;
     setCurrentItem(null);
     
     abortControllerRef.current = new AbortController();
@@ -149,11 +152,12 @@ export function useSyncQueue(options = {}) {
       return { error: err.message };
     } finally {
       setIsSyncing(false);
+      isSyncingRef.current = false;
       setCurrentItem(null);
       abortControllerRef.current = null;
       await refreshCounts();
     }
-  }, [isSyncing, onSyncComplete, onAuthRequired, onError, refreshCounts]);
+  }, [onSyncComplete, onAuthRequired, onError, refreshCounts]);
 
   /**
    * Cancel ongoing sync
@@ -172,8 +176,7 @@ export function useSyncQueue(options = {}) {
     const item = await queueManager.enqueue(type, payload, options);
     await refreshCounts();
     
-    // Auto-sync if online and not locked
-    if (autoSync && navigator.onLine && !isSyncing && !isLocked) {
+    if (autoSync && navigator.onLine && !isSyncingRef.current && !isLockedRef.current) {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
@@ -183,7 +186,7 @@ export function useSyncQueue(options = {}) {
     }
     
     return item;
-  }, [autoSync, isSyncing, isLocked, refreshCounts, sync]);
+  }, [autoSync, refreshCounts, sync]);
 
   /**
    * Unlock queue after re-authentication
@@ -206,12 +209,12 @@ export function useSyncQueue(options = {}) {
     const count = await queueManager.retryFailedItems();
     await refreshCounts();
     
-    if (count > 0 && navigator.onLine && !isLocked) {
+    if (count > 0 && navigator.onLine && !isLockedRef.current) {
       await sync();
     }
     
     return count;
-  }, [isLocked, refreshCounts, sync]);
+  }, [refreshCounts, sync]);
 
   /**
    * Get all queue items
@@ -241,16 +244,15 @@ export function useSyncQueue(options = {}) {
     console.warn('[useSyncQueue] Connection restored');
     setIsOnline(true);
     
-    if (autoSync && !isLocked) {
+    if (autoSync && !isLockedRef.current) {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
-      // Delay sync to ensure connection stability
       syncTimeoutRef.current = setTimeout(() => {
         sync();
       }, 2000);
     }
-  }, [autoSync, isLocked, sync]);
+  }, [autoSync, sync]);
 
   /**
    * Handle offline event
@@ -305,21 +307,25 @@ export function useSyncQueue(options = {}) {
           
         case 'processing_start':
           setIsSyncing(true);
+          isSyncingRef.current = true;
           break;
           
         case 'processing_complete':
           setIsSyncing(false);
+          isSyncingRef.current = false;
           setLastSyncResult(data);
           setLastSyncTime(new Date());
           break;
           
         case 'locked':
           setIsLocked(true);
+          isLockedRef.current = true;
           setLockReason(data.reason);
           break;
           
         case 'unlocked':
           setIsLocked(false);
+          isLockedRef.current = false;
           setLockReason(null);
           break;
           
@@ -334,8 +340,7 @@ export function useSyncQueue(options = {}) {
       pollIntervalRef.current = setInterval(async () => {
         await refreshCounts();
         
-        // Try to sync if conditions are met
-        if (navigator.onLine && !isSyncing && !isLocked) {
+        if (navigator.onLine && !isSyncingRef.current && !isLockedRef.current) {
           const health = await queueManager.getHealth();
           if (health.counts.pending > 0) {
             console.warn('[useSyncQueue] Polling: found pending items, syncing...');
@@ -376,8 +381,6 @@ export function useSyncQueue(options = {}) {
     pollInterval, 
     refreshCounts, 
     sync, 
-    isSyncing, 
-    isLocked
   ]);
 
   return {

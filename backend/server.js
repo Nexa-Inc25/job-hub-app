@@ -81,7 +81,6 @@ const {
   preventParamPollution,
   slowRequestLogger,
   blockSuspiciousAgents,
-  secureErrorHandler
 } = require('./middleware/security');
 const {
   loginValidation,
@@ -295,6 +294,7 @@ app.use((req, res, next) => {
   else if (!origin) { res.setHeader('Access-Control-Allow-Origin', '*'); }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.setHeader('Access-Control-Expose-Headers', 'X-Refreshed-Token, X-Request-ID');
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(204).end();
   next();

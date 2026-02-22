@@ -40,13 +40,13 @@ const FilePreview = ({
   editorMode,
   onToggleEditorMode,
   job,
-  getDocUrl,
   onDownload,
   onSaveEditedPdf,
   // Image viewer
   imageViewerOpen,
   onCloseImageViewer,
   viewingImage,
+  viewingImageBlobUrl,
 }) => (
   <>
     {/* PDF Viewer/Editor Dialog */}
@@ -101,7 +101,7 @@ const FilePreview = ({
         {editorMode ? (
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%', minHeight: 0 }}>
             <PDFFormEditor
-              pdfUrl={viewingDocBlobUrl || getDocUrl(viewingDoc)}
+              pdfUrl={viewingDocBlobUrl || ''}
               jobInfo={{
                 pmNumber: job?.pmNumber,
                 woNumber: job?.woNumber,
@@ -129,7 +129,7 @@ const FilePreview = ({
             <Box sx={{ flex: 1, p: 2 }}>
               {viewingDoc && (
                 <iframe
-                  src={viewingDocBlobUrl || getDocUrl(viewingDoc)}
+                  src={viewingDocBlobUrl || ''}
                   style={{ width: '100%', height: '100%', border: 'none', borderRadius: '8px', minHeight: '600px' }}
                   title={viewingDoc.name}
                   sandbox="allow-scripts allow-popups allow-forms"
@@ -178,7 +178,7 @@ const FilePreview = ({
       <DialogContent sx={{ p: 0, display: 'flex', justifyContent: 'center', alignItems: 'center', bgcolor: 'black', minHeight: '60vh' }}>
         {viewingImage && (
           <img
-            src={getDocUrl(viewingImage)}
+            src={viewingImageBlobUrl || ''}
             alt={viewingImage.name}
             style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
             onError={(e) => {
@@ -199,12 +199,12 @@ FilePreview.propTypes = {
   editorMode: PropTypes.bool.isRequired,
   onToggleEditorMode: PropTypes.func.isRequired,
   job: PropTypes.object,
-  getDocUrl: PropTypes.func.isRequired,
   onDownload: PropTypes.func.isRequired,
   onSaveEditedPdf: PropTypes.func.isRequired,
   imageViewerOpen: PropTypes.bool.isRequired,
   onCloseImageViewer: PropTypes.func.isRequired,
   viewingImage: PropTypes.object,
+  viewingImageBlobUrl: PropTypes.string,
 };
 
 export default FilePreview;

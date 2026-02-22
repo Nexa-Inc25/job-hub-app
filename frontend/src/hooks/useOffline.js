@@ -149,6 +149,7 @@ export function useOffline() {
 
   return {
     // Status
+    isOffline: !isOnline,
     isOnline,
     isSyncing,
     pendingCounts,

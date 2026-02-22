@@ -37,6 +37,7 @@ const notificationSchema = new mongoose.Schema({
       'job_assigned',
       'job_status_changed',
       'document_uploaded',
+      'field_ticket_signed',
       'mention',
       'system'
     ],
@@ -53,10 +54,11 @@ const notificationSchema = new mongoose.Schema({
     jobId: { type: mongoose.Schema.Types.ObjectId, ref: 'Job' },
     unitEntryId: { type: mongoose.Schema.Types.ObjectId, ref: 'UnitEntry' },
     claimId: { type: mongoose.Schema.Types.ObjectId, ref: 'Claim' },
+    fieldTicketId: { type: mongoose.Schema.Types.ObjectId, ref: 'FieldTicket' },
     documentId: String,
     woNumber: String,
     rejectionReason: String,
-    // Who triggered this notification
+    link: String,
     actorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     actorName: String
   },

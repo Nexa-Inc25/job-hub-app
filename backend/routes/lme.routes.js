@@ -880,6 +880,7 @@ router.post('/', authenticateUser, async (req, res) => {
 
         const pendingTickets = await FieldTicket.find({
           jobId: lme.jobId,
+          companyId: user.companyId,
           workDate: { $gte: dayStart, $lte: dayEnd },
           status: 'pending_signature',
           isDeleted: { $ne: true },

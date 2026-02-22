@@ -66,11 +66,13 @@ function validateRequiredFields(body) {
  */
 function sanitizeLaborEntries(entries) {
   if (!Array.isArray(entries)) return [];
+  // Accept any sanitized string for role — contract rate classifications produce
+  // dynamic roles (e.g., "journeyman_lineman", "general_foreman") that won't match
+  // a static whitelist. The role is a label stored alongside the rates, not a security boundary.
   return entries.map(entry => ({
     workerId: sanitizeObjectId(entry.workerId),
     workerName: sanitizeString(entry.workerName),
-    role: ['foreman', 'journeyman', 'apprentice', 'laborer', 'operator', 'other'].includes(entry.role) 
-      ? entry.role : 'journeyman',
+    role: sanitizeString(entry.role) || 'journeyman',
     regularHours: typeof entry.regularHours === 'number' ? entry.regularHours : 0,
     overtimeHours: typeof entry.overtimeHours === 'number' ? entry.overtimeHours : 0,
     doubleTimeHours: typeof entry.doubleTimeHours === 'number' ? entry.doubleTimeHours : 0,
@@ -87,14 +89,11 @@ function sanitizeLaborEntries(entries) {
  */
 function sanitizeEquipmentEntries(entries) {
   if (!Array.isArray(entries)) return [];
-  const validTypes = new Set([
-    'bucket_truck', 'digger_derrick', 'crane', 'excavator', 'backhoe',
-    'trencher', 'dump_truck', 'flatbed', 'trailer', 'generator',
-    'compressor', 'pump', 'welder', 'tensioner', 'puller', 'other'
-  ]);
+  // Accept any sanitized string for equipmentType — contract rate equipment types
+  // produce dynamic values (e.g., "bucket_truck_65_ft_2wd") that won't match a static whitelist.
   return entries.map(entry => ({
     equipmentId: sanitizeString(entry.equipmentId),
-    equipmentType: validTypes.has(entry.equipmentType) ? entry.equipmentType : 'other',
+    equipmentType: sanitizeString(entry.equipmentType) || 'other',
     description: sanitizeString(entry.description),
     hours: typeof entry.hours === 'number' ? entry.hours : 0,
     hourlyRate: typeof entry.hourlyRate === 'number' ? entry.hourlyRate : 0,

@@ -111,8 +111,8 @@ export default function TemplateFill() {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     return (
-      job.pm?.toLowerCase().includes(query) ||
-      job.wo?.toLowerCase().includes(query) ||
+      job.pmNumber?.toLowerCase().includes(query) ||
+      job.woNumber?.toLowerCase().includes(query) ||
       job.title?.toLowerCase().includes(query) ||
       job.address?.toLowerCase().includes(query)
     );
@@ -386,10 +386,10 @@ export default function TemplateFill() {
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <DescriptionIcon fontSize="small" color="action" />
                       <Box>
-                        <Typography fontWeight={600}>{job.pm || job.wo || '-'}</Typography>
-                        {job.wo && job.pm && (
+                        <Typography fontWeight={600}>{job.pmNumber || job.woNumber || '-'}</Typography>
+                        {job.woNumber && job.pmNumber && (
                           <Typography variant="caption" color="text.secondary">
-                            WO: {job.wo}
+                            WO: {job.woNumber}
                           </Typography>
                         )}
                       </Box>

@@ -100,7 +100,7 @@ ChecklistItem.propTypes = {
 /**
  * Checklist section (e.g., Overhead or Underground)
  */
-const ChecklistSection = ({ section, checkedItems, onToggle, onCheckAll, jobScope }) => {
+const ChecklistSection = ({ section, checkedItems, onToggle, onCheckAll, jobScope, disabled }) => {
   const [expanded, setExpanded] = useState(true);
 
   // Filter items by job scope if applicable
@@ -177,7 +177,7 @@ const ChecklistSection = ({ section, checkedItems, onToggle, onCheckAll, jobScop
       <Collapse in={expanded}>
         <Box sx={{ px: 1, py: 0.5 }}>
           {/* Check All button */}
-          {!allChecked && (
+          {!allChecked && !disabled && (
             <Box sx={{ px: 1, py: 0.5 }}>
               <Button
                 size="small"
@@ -196,6 +196,7 @@ const ChecklistSection = ({ section, checkedItems, onToggle, onCheckAll, jobScop
               item={item}
               checked={checkedItems.has(item.number)}
               onToggle={onToggle}
+              disabled={disabled}
             />
           ))}
         </Box>
@@ -214,6 +215,7 @@ ChecklistSection.propTypes = {
   onToggle: PropTypes.func.isRequired,
   onCheckAll: PropTypes.func.isRequired,
   jobScope: PropTypes.string,
+  disabled: PropTypes.bool,
 };
 
 /**
@@ -430,6 +432,7 @@ const CCSCChecklist = ({
           onToggle={(itemNum) => handleToggle(section.code, itemNum)}
           onCheckAll={handleCheckAll}
           jobScope={jobScope}
+          disabled={disabled}
         />
       ))}
 

@@ -222,16 +222,17 @@ function emitWithRetry(userId, notification, attempt = 0) {
  * @param {string} options.message - Notification message
  * @param {Object} options.data - Additional data (jobId, woNumber, etc.)
  */
-async function notifyUser({ userId, companyId, type, title, message, data = {} }) {
+async function notifyUser({ userId, companyId, type, title, message, data = {}, link }) {
   try {
-    // Create notification in database
+    const notificationData = link ? { ...data, link } : data;
+
     const notification = await Notification.create({
       userId,
       companyId,
       type,
       title,
       message,
-      data,
+      data: notificationData,
       deliveryStatus: 'pending',
     });
 

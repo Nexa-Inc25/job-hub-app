@@ -24,21 +24,54 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 responses (token expired)
+/**
+ * Transparently capture refreshed tokens from the backend.
+ * When a token is within 15 min of expiry the backend issues a fresh one
+ * via the X-Refreshed-Token response header. Store it so the next request
+ * uses the new token instead of the expiring one.
+ */
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const refreshedToken = response.headers['x-refreshed-token'];
+    if (refreshedToken) {
+      localStorage.setItem('token', refreshedToken);
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('isAdmin');
-      // Emit auth-required event for sync manager to catch
-      globalThis.dispatchEvent(new CustomEvent('auth-required', { 
-        detail: { reason: 'token_expired' } 
-      }));
-      // Optionally redirect to login (except for public pages)
-      const publicPaths = ['/login', '/signup', '/demo'];
-      if (!publicPaths.includes(globalThis.location.pathname)) {
-        globalThis.location.href = '/login';
+      const code = error.response?.data?.code;
+
+      // TOKEN_EXPIRED means the JWT has lapsed. The backend already tried
+      // the 15-min refresh window (via X-Refreshed-Token on earlier
+      // requests) but the client missed it or the gap was too large.
+      // Clear storage and redirect to login.
+      //
+      // TOKEN_INVALID / TOKEN_MISSING / PASSWORD_CHANGED also require
+      // re-authentication. All other 401 codes (USER_NOT_FOUND, etc.)
+      // are similarly non-recoverable.
+      const terminalCodes = [
+        'TOKEN_EXPIRED',
+        'TOKEN_INVALID',
+        'TOKEN_MISSING',
+        'PASSWORD_CHANGED',
+        'USER_NOT_FOUND',
+        'AUTH_FAILED',
+      ];
+
+      if (!code || terminalCodes.includes(code)) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('isAdmin');
+        signedUrlCache.clear();
+
+        globalThis.dispatchEvent(new CustomEvent('auth-required', {
+          detail: { reason: code || 'token_expired' }
+        }));
+
+        const publicPaths = ['/login', '/signup', '/demo'];
+        if (!publicPaths.includes(globalThis.location.pathname)) {
+          globalThis.location.href = '/login';
+        }
       }
     }
     if (error.response?.status >= 500) {
@@ -161,6 +194,60 @@ api.getSignedFileUrl = async function(r2Key) {
  */
 api.clearSignedUrlCache = function() {
   signedUrlCache.clear();
+};
+
+/**
+ * Fetch a protected file as a Blob and return an object URL.
+ *
+ * Use this instead of raw `fetch()` for authenticated binary content
+ * (PDFs, images, etc.). It reads the token from localStorage, validates
+ * it before sending, and produces a `blob:` URL safe for `<iframe src>`
+ * or `<img src>`.
+ *
+ * @param {string} url - Absolute URL to fetch (e.g. proxy URL)
+ * @returns {Promise<string>} Object URL (`blob:...`) — caller must revoke when done
+ * @throws {Error} If the token is missing/expired or the server returns non-2xx
+ */
+api.fetchAuthenticatedBlob = async function(url) {
+  if (!url) throw new Error('No URL provided');
+
+  const token = localStorage.getItem('token');
+  if (!token) {
+    globalThis.dispatchEvent(new CustomEvent('auth-required', {
+      detail: { reason: 'TOKEN_MISSING' }
+    }));
+    throw new Error('No authentication token. Please log in again.');
+  }
+
+  const response = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+
+  if (response.status === 401) {
+    const body = await response.json().catch(() => ({}));
+    const code = body.code || 'AUTH_FAILED';
+    const terminalCodes = ['TOKEN_EXPIRED', 'TOKEN_INVALID', 'TOKEN_MISSING', 'PASSWORD_CHANGED'];
+    if (terminalCodes.includes(code)) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('isAdmin');
+      signedUrlCache.clear();
+      globalThis.dispatchEvent(new CustomEvent('auth-required', { detail: { reason: code } }));
+    }
+    throw new Error(body.error || 'Authentication failed');
+  }
+
+  if (!response.ok) {
+    throw new Error(`File fetch failed: ${response.status} ${response.statusText}`);
+  }
+
+  // Capture refreshed token if the backend sent one
+  const refreshedToken = response.headers.get('x-refreshed-token');
+  if (refreshedToken) {
+    localStorage.setItem('token', refreshedToken);
+  }
+
+  const blob = await response.blob();
+  return URL.createObjectURL(blob);
 };
 
 /**

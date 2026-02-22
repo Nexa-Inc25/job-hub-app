@@ -224,6 +224,8 @@ const FieldTicketLaborSection = ({ entries, onChange, expanded, onToggle, total 
       overtimeHours: 0,
       doubleTimeHours: 0,
       regularRate: defaultRole?.rate || 85,
+      overtimeRate: defaultRole?.overtimeRate || 0,
+      doubleTimeRate: defaultRole?.doubleTimeRate || 0,
     }]);
   };
 

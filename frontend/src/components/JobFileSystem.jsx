@@ -894,51 +894,38 @@ const JobFileSystem = () => {
   // Get the correct URL for a document (async — uses signed URLs for R2 keys)
   const getDocUrl = async (doc) => {
     if (!doc) return '';
-    // Use Railway backend URL directly for file access (Vercel proxy doesn't work for file streaming)
     const apiBase = import.meta.env.VITE_API_URL || 'https://api.fieldledger.io';
-    
-    let resultUrl = '';
-    
-    // If URL is already a full URL (e.g., direct R2/Cloudflare worker URL), use as-is
-    if (doc.url?.startsWith('http://') || doc.url?.startsWith('https://')) {
-      resultUrl = doc.url;
+
+    // R2 key takes priority — routes through authenticated backend proxy.
+    // This handles both current uploads (where doc.url == raw r2Key) and
+    // legacy uploads (where doc.url was a public R2 URL that is no longer
+    // accessible from the browser due to CORS / auth changes).
+    if (doc.r2Key) {
+      try { return await api.getSignedFileUrl(doc.r2Key); } catch { /* fall through */ }
     }
-    // If it's a template, use the template URL
-    else if (doc.url?.startsWith('/templates/')) {
-      resultUrl = `${apiBase}${doc.url}`;
+
+    const url = doc.url || '';
+
+    if (url.startsWith('/templates/') || url.startsWith('/uploads/') || url.startsWith('/api/')) {
+      return `${apiBase}${url}`;
     }
-    // If it's an uploaded file
-    else if (doc.url?.startsWith('/uploads/')) {
-      resultUrl = `${apiBase}${doc.url}`;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
     }
-    // If URL starts with /api/, prepend API base
-    else if (doc.url?.startsWith('/api/')) {
-      resultUrl = `${apiBase}${doc.url}`;
-    }
-    // If it has a path but no proper URL
-    else if (doc.path) {
+    if (doc.path) {
       const filename = doc.path.split('/').pop();
       if (doc.path.includes('templates')) {
-        resultUrl = `${apiBase}/templates/master/${encodeURIComponent(doc.name)}`;
-      } else {
-        resultUrl = `${apiBase}/uploads/${filename}`;
+        return `${apiBase}/templates/master/${encodeURIComponent(doc.name)}`;
       }
+      return `${apiBase}/uploads/${filename}`;
     }
-    // If it's an R2 key, resolve via signed URL
-    else if (doc.r2Key) {
-      try { resultUrl = await api.getSignedFileUrl(doc.r2Key); } catch { resultUrl = ''; }
+    // Legacy absolute local paths (e.g., /Users/.../uploads/file.pdf)
+    if (url.includes('/uploads/') && url.includes('/Users/')) {
+      const filename = url.split('/').pop();
+      return `${apiBase}/uploads/${filename}`;
     }
-    // Handle legacy local file paths
-    else if (doc.url?.includes('/uploads/') && doc.url?.includes('/Users/')) {
-      const filename = doc.url.split('/').pop();
-      resultUrl = `${apiBase}/uploads/${filename}`;
-    }
-    else {
-      resultUrl = doc.url || '';
-    }
-    
-    
-    return resultUrl;
+
+    return url;
   };
 
   // Admin: Create new folder
@@ -1019,8 +1006,19 @@ const JobFileSystem = () => {
     
     if (isImage) {
       setViewingImage(doc);
-      getDocUrl(doc).then(url => setViewingImageUrl(url));
       setImageViewerOpen(true);
+      // Fetch image through authenticated proxy to avoid TOKEN_MISSING
+      // on <img> tags (browsers don't send Authorization headers for src).
+      try {
+        const imageUrl = await getDocUrl(doc);
+        if (imageUrl) {
+          const blobUrl = await fetchAuthenticatedDoc(imageUrl);
+          setViewingImageUrl(blobUrl);
+        }
+      } catch (err) {
+        console.error('Error fetching image:', err);
+        setViewingImageUrl('');
+      }
       return;
     }
 
@@ -1666,6 +1664,9 @@ const JobFileSystem = () => {
           onClose={() => {
             setImageViewerOpen(false);
             setViewingImage(null);
+            if (viewingImageUrl?.startsWith('blob:')) {
+              URL.revokeObjectURL(viewingImageUrl);
+            }
             setViewingImageUrl('');
           }}
           maxWidth="lg"
@@ -1684,6 +1685,10 @@ const JobFileSystem = () => {
                 <IconButton onClick={() => {
                   setImageViewerOpen(false);
                   setViewingImage(null);
+                  if (viewingImageUrl?.startsWith('blob:')) {
+                    URL.revokeObjectURL(viewingImageUrl);
+                  }
+                  setViewingImageUrl('');
                 }} sx={{ color: 'white' }} aria-label="Close">
                   <CloseIcon />
                 </IconButton>

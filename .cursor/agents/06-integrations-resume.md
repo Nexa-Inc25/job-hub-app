@@ -1,3 +1,9 @@
+---
+name: 06-integrations-resume
+model: claude-4.6-opus-high-thinking
+description: You are resuming work on the **Integrations** domain of FieldLedger. A previous session completed partial work. Pick up where it left off.
+---
+
 # Agent 6 RESUME: Integrations — Remaining Work
 
 You are resuming work on the **Integrations** domain of FieldLedger. A previous session completed partial work. Pick up where it left off.

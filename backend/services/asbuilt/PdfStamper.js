@@ -86,10 +86,13 @@ async function stampSection(pdfBuffer, fields, context = {}) {
 
     const { pageOffset = 0, x, y, width = 200, height = 14, fontSize = 10, align = 'left' } = field.position;
 
-    // Get the target page
-    const pageIdx = Math.min(pageOffset, pages.length - 1);
-    if (pageIdx < 0) continue;
-    const page = pages[pageIdx];
+    // Get the target page — skip if offset exceeds available pages
+    if (pageOffset < 0 || pageOffset >= pages.length) {
+      log.warn({ field: field.fieldName, pageOffset, pageCount: pages.length },
+        '[PdfStamper] pageOffset exceeds section page count, skipping field');
+      continue;
+    }
+    const page = pages[pageOffset];
 
     // Resolve the value: manual override → autoFill → null
     let value = manualValues[field.fieldName] ?? null;
@@ -121,12 +124,11 @@ async function stampSection(pdfBuffer, fields, context = {}) {
         // Embed signature image (base64 PNG)
         if (typeof value === 'string' && value.length > 100) {
           try {
-            // Strip data URL prefix if present
             const base64Data = value.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
-            const sigBytes = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+            const sigBytes = Buffer.from(base64Data, 'base64');
 
             let sigImage;
-            if (value.includes('image/png') || value.startsWith('iVBOR')) {
+            if (value.includes('image/png') || base64Data.startsWith('iVBOR')) {
               sigImage = await pdfDoc.embedPng(sigBytes);
             } else {
               sigImage = await pdfDoc.embedJpg(sigBytes);
@@ -194,9 +196,10 @@ async function stampSection(pdfBuffer, fields, context = {}) {
  * @param {Object} fdaGrid - From UtilityAsBuiltConfig.fdaGrid
  * @param {Array} fdaSelections - Foreman's selections from FDAAttributeForm:
  *   [{ category, condition, action, isNew, priority, complete }]
+ * @param {string} [emergencyCause] - Selected emergency cause label (if any)
  * @returns {Promise<Buffer>} The stamped PDF buffer
  */
-async function stampFdaGrid(pdfBuffer, fdaGrid, fdaSelections = []) {
+async function stampFdaGrid(pdfBuffer, fdaGrid, fdaSelections = [], emergencyCause = null) {
   if (!pdfBuffer || !fdaGrid || !fdaSelections.length) return pdfBuffer;
 
   const pdfDoc = await PDFDocument.load(pdfBuffer, { ignoreEncryption: true });
@@ -276,11 +279,11 @@ async function stampFdaGrid(pdfBuffer, fdaGrid, fdaSelections = []) {
     }
   }
 
-  // Emergency causes
-  if (fdaGrid.emergencyCauses?.length && fdaSelections.emergencyCause) {
-    const cause = fdaGrid.emergencyCauses.find(c => c.label === fdaSelections.emergencyCause);
+  // Emergency causes — passed as a separate parameter (not part of the selections array)
+  if (fdaGrid.emergencyCauses?.length && emergencyCause) {
+    const cause = fdaGrid.emergencyCauses.find(c => c.label === emergencyCause);
     if (cause) {
-      const emergencyPage = pages[0]; // Emergency checkboxes are on the first FDA page
+      const emergencyPage = pages[0];
       drawCheckmark(emergencyPage, cause.x, cause.y, checkSize);
       checked++;
     }

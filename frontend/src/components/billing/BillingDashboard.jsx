@@ -252,8 +252,8 @@ const BillingDashboard = ({ jobId }) => {
       return;
     }
 
-    // Store selected units and switch to claims tab
-    setSelectedUnits(approvedUnits.map(u => u._id));
+    // Store selected units as Set-based selection (DataGrid v8 format)
+    setSelectedUnits({ type: 'include', ids: new Set(approvedUnits.map(u => u._id)) });
     setActiveTab(1); // Switch to claims tab
   }, []);
 
@@ -262,7 +262,7 @@ const BillingDashboard = ({ jobId }) => {
     try {
       const response = await api.post('/api/billing/claims', claimData);
       showSnackbar(`Claim ${response.data.claimNumber} created successfully`);
-      setSelectedUnits([]);
+      setSelectedUnits({ type: 'include', ids: new Set() });
       fetchUnits();
       fetchClaims();
     } catch (err) {

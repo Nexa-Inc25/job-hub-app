@@ -164,11 +164,16 @@ export async function syncPendingOperations() {
       }
     }
 
-    // Sync pending photos
     const photos = await offlineStorage.getPendingPhotos();
     logSync(`Syncing ${photos.length} pending photos...`);
 
     for (const photo of photos) {
+      const retries = photo.retries || 0;
+      if (retries >= 3) {
+        logSync(`Skipping photo ${photo.id} after ${retries} retries`);
+        continue;
+      }
+
       try {
         emitSyncEvent('photo_syncing', { id: photo.id, jobId: photo.jobId });
 
@@ -181,6 +186,23 @@ export async function syncPendingOperations() {
         console.error(`Failed to sync photo ${photo.id}:`, err);
         failed++;
         emitSyncEvent('photo_failed', { id: photo.id, error: err.message });
+
+        try {
+          const store = await offlineStorage.initOfflineDB();
+          const tx = store.transaction('pendingPhotos', 'readwrite');
+          const objStore = tx.objectStore('pendingPhotos');
+          const getReq = objStore.get(photo.id);
+          getReq.onsuccess = () => {
+            const record = getReq.result;
+            if (record) {
+              record.retries = (record.retries || 0) + 1;
+              record.lastError = err.message;
+              objStore.put(record);
+            }
+          };
+        } catch (updateErr) {
+          console.error(`Failed to update photo retry count:`, updateErr);
+        }
       }
     }
 

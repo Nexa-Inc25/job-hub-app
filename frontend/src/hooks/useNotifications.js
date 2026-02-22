@@ -134,6 +134,7 @@ export function useNotifications() {
       job_assigned: '🔧',
       job_status_changed: '🔄',
       document_uploaded: '📄',
+      field_ticket_signed: '✍️',
       mention: '@',
       system: 'ℹ️'
     };
@@ -150,6 +151,7 @@ export function useNotifications() {
       job_assigned: 'primary',
       job_status_changed: 'info',
       document_uploaded: 'info',
+      field_ticket_signed: 'success',
       mention: 'secondary',
       system: 'default'
     };

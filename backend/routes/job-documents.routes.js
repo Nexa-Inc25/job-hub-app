@@ -161,7 +161,7 @@ router.post('/:id/folders/:folderName/upload', upload.array('files', 10), async 
                      file.mimetype === 'image/heic' || 
                      file.mimetype === 'image/heif';
       
-      if (isHeic) {
+      if (isHeic && heicConvert) {
         try {
           console.log('Converting HEIC to JPEG:', file.originalname);
           tempConvertedFile = file.path + '.jpg';
@@ -208,6 +208,7 @@ router.post('/:id/folders/:folderName/upload', upload.array('files', 10), async 
       }
       
       uploadedDocs.push({
+        _id: new mongoose.Types.ObjectId(),
         name: finalName,
         url: docUrl,
         r2Key: r2Key,
@@ -532,6 +533,7 @@ router.post('/:id/files', upload.single('file'), async (req, res) => {
     }
     
     const newDoc = {
+      _id: new mongoose.Types.ObjectId(),
       name: newFilename,
       url: docUrl,
       r2Key: r2Key,
@@ -674,6 +676,7 @@ router.post('/:id/documents', upload.single('document'), async (req, res) => {
     
     // Add document to folder
     const newDoc = {
+      _id: new mongoose.Types.ObjectId(),
       name: newFilename,
       url: docUrl,
       r2Key: r2Key,
@@ -792,7 +795,7 @@ router.post('/:id/photos', upload.array('photos', 20), async (req, res) => {
         // This handles HEIC, PNG, large JPEGs, etc. - much faster than heic-convert
         const isImage = ['.jpg', '.jpeg', '.png', '.heic', '.heif', '.webp', '.tiff'].includes(ext);
         
-        if (isImage) {
+        if (isImage && sharp) {
           tempProcessedFile = file.path + '_optimized.jpg';
           await sharp(file.path)
             .rotate() // Auto-rotate based on EXIF
@@ -812,7 +815,7 @@ router.post('/:id/photos', upload.array('photos', 20), async (req, res) => {
       } catch (sharpErr) {
         console.error('Sharp processing failed, trying heic-convert fallback:', sharpErr.message);
         // Fallback for HEIC if sharp fails (some edge cases)
-        if (ext === '.heic' || ext === '.heif') {
+        if ((ext === '.heic' || ext === '.heif') && heicConvert) {
           try {
             tempProcessedFile = file.path + '.jpg';
             const inputBuffer = fs.readFileSync(file.path);
@@ -868,6 +871,7 @@ router.post('/:id/photos', upload.array('photos', 20), async (req, res) => {
       }
       
       return {
+        _id: new mongoose.Types.ObjectId(),
         name: newFilename,
         url: docUrl,
         r2Key: r2Key,

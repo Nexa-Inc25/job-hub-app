@@ -53,6 +53,7 @@ export function useSync(options = {}) {
   const abortControllerRef = useRef(null);
   const pollIntervalRef = useRef(null);
   const syncTimeoutRef = useRef(null);
+  const isSyncingRef = useRef(false);
 
   /**
    * Update counts from queue manager
@@ -72,7 +73,7 @@ export function useSync(options = {}) {
    * Trigger sync
    */
   const sync = useCallback(async () => {
-    if (isSyncing) {
+    if (isSyncingRef.current) {
       console.warn('[useSync] Sync already in progress');
       return { skipped: true };
     }
@@ -83,6 +84,7 @@ export function useSync(options = {}) {
     }
 
     setIsSyncing(true);
+    isSyncingRef.current = true;
     setProgress({ processed: 0, failed: 0 });
     setCurrentItem(null);
     
@@ -120,11 +122,12 @@ export function useSync(options = {}) {
       return { error: err.message };
     } finally {
       setIsSyncing(false);
+      isSyncingRef.current = false;
       setCurrentItem(null);
       abortControllerRef.current = null;
       await refreshCounts();
     }
-  }, [isSyncing, onSyncComplete, onSyncError, onItemSynced, refreshCounts]);
+  }, [onSyncComplete, onSyncError, onItemSynced, refreshCounts]);
 
   /**
    * Cancel ongoing sync
@@ -143,9 +146,7 @@ export function useSync(options = {}) {
     const item = await queueManager.enqueue(type, payload, options);
     await refreshCounts();
     
-    // If online and auto-sync enabled, trigger sync
-    if (autoSync && navigator.onLine && !isSyncing) {
-      // Small delay to batch multiple enqueues
+    if (autoSync && navigator.onLine && !isSyncingRef.current) {
       if (syncTimeoutRef.current) {
         clearTimeout(syncTimeoutRef.current);
       }
@@ -155,7 +156,7 @@ export function useSync(options = {}) {
     }
     
     return item;
-  }, [autoSync, isSyncing, refreshCounts, sync]);
+  }, [autoSync, refreshCounts, sync]);
 
   /**
    * Retry failed items
@@ -244,11 +245,11 @@ export function useSync(options = {}) {
     
     if (type === 'BACKGROUND_SYNC_TRIGGERED') {
       console.warn('[useSync] Background sync triggered by service worker');
-      if (navigator.onLine && !isSyncing) {
+      if (navigator.onLine && !isSyncingRef.current) {
         sync();
       }
     }
-  }, [isSyncing, sync]);
+  }, [sync]);
 
   // Initialize and set up listeners
   useEffect(() => {
@@ -291,7 +292,7 @@ export function useSync(options = {}) {
     // Polling interval for backup sync
     if (autoSync) {
       pollIntervalRef.current = setInterval(async () => {
-        if (navigator.onLine && !isSyncing) {
+        if (navigator.onLine && !isSyncingRef.current) {
           const counts = await queueManager.getCount();
           if (counts.pending > 0) {
             console.warn('[useSync] Polling: found pending items, syncing...');
@@ -331,7 +332,7 @@ export function useSync(options = {}) {
         clearTimeout(syncTimeoutRef.current);
       }
     };
-  }, [autoSync, handleOnline, handleOffline, handleServiceWorkerMessage, pollInterval, refreshCounts, registerBackgroundSync, sync, isSyncing]);
+  }, [autoSync, handleOnline, handleOffline, handleServiceWorkerMessage, pollInterval, refreshCounts, registerBackgroundSync, sync]);
 
   return {
     // Status

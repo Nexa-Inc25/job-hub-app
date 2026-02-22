@@ -339,4 +339,3 @@ Each phase builds on the previous and is independently testable:| Phase | Delive
 4. Type the 3-5 values that need human input (old pole #, serial number)
 5. Swipe through CCSC checklist items
 6. Mark up the construction sketch (or tap "Built As Designed")
-7. Review → Submit

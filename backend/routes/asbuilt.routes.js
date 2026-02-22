@@ -1385,8 +1385,8 @@ router.post('/sections/:sectionType/fill', async (req, res) => {
 
     // If this is the EC tag section and there are FDA selections, stamp the grid too
     if (sectionType === 'ec_tag' && config.fdaGrid && req.body.fdaSelections?.length) {
-      // Extract the FDA pages (they're at the end of the EC tag section)
-      sectionPdf = await stampFdaGrid(sectionPdf, config.fdaGrid, req.body.fdaSelections);
+      const fillEmergencyCause = req.body.emergencyCause || null;
+      sectionPdf = await stampFdaGrid(sectionPdf, config.fdaGrid, req.body.fdaSelections, fillEmergencyCause);
     }
 
     // Return the stamped PDF
@@ -1667,8 +1667,10 @@ router.post('/wizard/submit', async (req, res) => {
             }
           }
 
-          // Stamp FDA grid if EC tag data exists
-          if (config.fdaGrid && submission.stepData?.fda?.fdaSelections?.length) {
+          // Stamp FDA grid if EC tag data with equipment selections exists
+          const fdaData = submission.stepData?.fda;
+          const fdaSelectionsArr = fdaData?.fdaSelections || [];
+          if (config.fdaGrid && fdaSelectionsArr.length > 0) {
             const fdaStartPage = config.fdaGrid.pageOffset || 3;
             const fdaPages = job.packageClassification
               .filter(c => c.sectionType === 'ec_tag')
@@ -1678,7 +1680,8 @@ router.post('/wizard/submit', async (req, res) => {
 
             if (fdaPages.length > 0) {
               const fdaPdf = await extractPages(pdfBuffer, fdaPages);
-              const stampedFda = await stampFdaGrid(fdaPdf, config.fdaGrid, submission.stepData.fda.fdaSelections);
+              const emergencyCause = fdaData?.emergencyCause || null;
+              const stampedFda = await stampFdaGrid(fdaPdf, config.fdaGrid, fdaSelectionsArr, emergencyCause);
               const stampedFdaDoc = await StampPDFDoc.load(stampedFda, { ignoreEncryption: true });
               for (let i = 0; i < fdaPages.length && i < stampedFdaDoc.getPageCount(); i++) {
                 const [copiedPage] = await fullDoc.copyPages(stampedFdaDoc, [i]);
