@@ -209,12 +209,17 @@ async function getFileStream(r2Key, bucket = null) {
       Key: r2Key,
     });
 
-    const response = await s3Client.send(command);
-    return {
-      stream: response.Body,
-      contentType: response.ContentType,
-      contentLength: response.ContentLength,
-    };
+    try {
+      const response = await s3Client.send(command);
+      return {
+        stream: response.Body,
+        contentType: response.ContentType,
+        contentLength: response.ContentLength,
+      };
+    } catch (err) {
+      if (err.name === 'NoSuchKey') return null;
+      throw err;
+    }
   }).catch(error => {
     if (error.name === 'NoSuchKey') {
       return null;
